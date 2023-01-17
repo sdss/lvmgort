@@ -3,5 +3,9 @@
 #
 # @Author: José Sánchez-Gallego (gallegoj@uw.edu)
 # @Date: 2023-01-17
-# @Filename: conftest.py
+# @Filename: test_main.py
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
+
+
+def test_placeholder():
+    assert True

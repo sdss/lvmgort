@@ -1,6 +1,6 @@
 
 lvmbrain's documentation
-=============================================
+========================
 
 This is the documentation for the SDSS Python product lvmbrain. The current version is |lvmbrain_version|. You can install the package by doing
 
@@ -15,8 +15,7 @@ Contents
 .. toctree::
   :maxdepth: 2
 
-  What's new in lvmbrain? <CHANGELOG>
-  Introduction to lvmbrain <intro>
+  What's new in lvmbrain? <changelog>
 
 
 Reference
