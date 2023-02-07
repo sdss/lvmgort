@@ -103,3 +103,32 @@ class LVMBrain(AMQPClient):
         """
 
         raise LVMBrainNotImplemented()
+
+    async def open_enclosure(self):
+        """Opens the LVM enclosure."""
+
+        raise LVMBrainNotImplemented()
+
+    async def close_enclosure(self, emergency=False):
+        """Closes the LVM enclosure.
+
+        Parameters
+        ----------
+        emergency
+            Performs an emergency shutdown of the enclosure.
+
+        """
+
+        raise LVMBrainNotImplemented()
+
+    async def check_system(self):
+        """Performs a full check of all the subsystems.
+
+        Raises
+        ------
+        LVMBrainError
+            If any of the subsystems fails.
+
+        """
+
+        raise LVMBrainNotImplemented()

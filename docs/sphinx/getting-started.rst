@@ -17,6 +17,7 @@ This code must be run in one of the LVM mountain servers with access to the Rabb
     >>> brain.connected()
     True
 
+    >>> await brain.check_system()
     >>> await brain.acquire_and_expose(10.0, -67.0, exposure_time=900)
 
 Reference
