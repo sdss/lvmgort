@@ -10,9 +10,9 @@ This code must be run in one of the LVM mountain servers with access to the Rabb
 
 .. code-block:: python
 
-    >>> from lvmbrain import LVMBrain
+    >>> from lvmbrain import LVMBrainClient
 
-    >>> brain = LVMBrain()
+    >>> brain = LVMBrainClient()
     >>> await brain.start()
     >>> brain.connected()
     True
@@ -24,6 +24,6 @@ Reference
 ---------
 
 .. automodule:: lvmbrain.core
-   :members: LVMBrain
+   :members: LVMBrainClient
    :show-inheritance:
    :noindex:

@@ -15,11 +15,11 @@ from clu.client import AMQPClient
 from lvmbrain.exceptions import LVMBrainNotImplemented
 
 
-__all__ = ["LVMBrain"]
+__all__ = ["LVMBrainClient"]
 
 
-class LVMBrain(AMQPClient):
-    """The main ``lvmbrain`` class, used to communicate with the actor system."""
+class LVMBrainClient(AMQPClient):
+    """The main ``lvmbrain`` client class, used to communicate with the actor system."""
 
     def __init__(self, host="lvm-hub.lco.cl", user: str = "guest", password="guest"):
         client_uuid = str(uuid.uuid4()).split("-")[1]
