@@ -60,7 +60,7 @@ release = __version__
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -126,7 +126,7 @@ rst_epilog = f"""
 # a list of builtin themes.
 html_theme = "furo"
 html_title = "lvmbrain"
-html_logo = "_static/lvmbrain_logo.png"
+html_logo = "_static/sdssv_logo.png"
 html_favicon = "./_static/favicon.ico"
 
 # Add any paths that contain custom static files (such as style sheets) here,

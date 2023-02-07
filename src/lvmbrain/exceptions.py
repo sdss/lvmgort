@@ -7,22 +7,25 @@
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
 
-class LVMBrainErrorError(Exception):
+class LVMBrainError(Exception):
     """A custom core LVMBrainError exception"""
 
-    def __init__(self, message=None):
-        message = "There has been an error" if not message else message
-
-        super(LVMBrainErrorError, self).__init__(message)
+    pass
 
 
-class LVMBrainErrorNotImplemented(LVMBrainErrorError):
+class LVMBrainTimeout(LVMBrainError):
+    """Raised if a timeout occurs."""
+
+    pass
+
+
+class LVMBrainNotImplemented(LVMBrainError):
     """A custom exception for not yet implemented features."""
 
     def __init__(self, message=None):
         message = "This feature is not implemented yet." if not message else message
 
-        super(LVMBrainErrorNotImplemented, self).__init__(message)
+        super(LVMBrainNotImplemented, self).__init__(message)
 
 
 class LVMBrainWarning(Warning):

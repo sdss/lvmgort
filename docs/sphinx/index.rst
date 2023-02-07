@@ -15,7 +15,8 @@ Contents
 .. toctree::
   :maxdepth: 2
 
-  What's new in lvmbrain? <changelog>
+  getting-started
+  Changelog <changelog>
 
 
 Reference
