@@ -15,6 +15,9 @@ from clu.client import AMQPClient
 from lvmbrain.exceptions import LVMBrainNotImplemented
 
 
+__all__ = ["LVMBrain"]
+
+
 class LVMBrain(AMQPClient):
     """The main ``lvmbrain`` class, used to communicate with the actor system."""
 
