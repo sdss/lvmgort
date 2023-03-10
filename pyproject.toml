@@ -33,7 +33,7 @@ lvmbrain = "lvmbrain.__main__:lvmbrain"
 [tool.poetry.dependencies]
 python = "^3.10,<4.0"
 sdsstools = "^1.0.0"
-sdss-clu = "^1.9.2"
+sdss-clu = "^2.0.0b2"
 
 [tool.poetry.dev-dependencies]
 ipython = ">=8.0.0"
