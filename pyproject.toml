@@ -24,16 +24,15 @@ packages = [
 ]
 include = ["src/lvmbrain/etc/*"]
 
-[tool.poetry.build]
-generate-setup-file = false
-
 [tool.poetry.scripts]
-lvmbrain = "lvmbrain.__main__:lvmbrain"
+lvmbrain = "lvmbrain.__main__:main"
 
 [tool.poetry.dependencies]
 python = "^3.10,<4.0"
 sdsstools = "^1.0.0"
 sdss-clu = "^2.0.0b2"
+click-default-group = "^1.2.2"
+setuptools = "^67.6.0"
 
 [tool.poetry.dev-dependencies]
 ipython = ">=8.0.0"
@@ -63,7 +62,7 @@ sphinx-autobuild = ">=2021.3.14"
 
 [tool.black]
 line-length = 88
-target-version = ['py310']
+target-version = ['py311']
 fast = true
 
 [tool.isort]
