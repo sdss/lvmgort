@@ -10,15 +10,15 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 
 from typing import TYPE_CHECKING
 
 import unclick
-from yaml import warnings
 
 from clu.client import AMQPClient
 
-from lvmbrain.exceptions import LVMBrainUserWarning
+from lvmbrain.exceptions import LVMBrainError
 
 from .tools import get_valid_variable_name
 
@@ -54,6 +54,9 @@ class LVMBrain:
                 password=password,
             )
 
+        self.actors: dict[str, RemoteActor] = {}
+
+        self.telescopes = TelescopeSet(self, telescopes or DEFAULT_TELESCOPES)
     async def init(self) -> Self:
         """Initialises the client."""
 
@@ -68,8 +71,13 @@ class LVMBrain:
 
         return self.client.connection and self.client.connection.connection is not None
 
+    async def add_actor(self, actor: str):
+        """Adds an actor to the programmatic API."""
 
-class RemoteActor:
+        self.actors[actor] = await RemoteActor(self, actor).init()
+
+
+class RemoteActor(SimpleNamespace):
     """A programmatic representation of a remote actor."""
 
     def __init__(self, brain: LVMBrain, name: str):
@@ -86,10 +94,7 @@ class RemoteActor:
 
         cmd = await self._brain.client.send_command(self._name, "get-command-model")
         if cmd.status.did_fail:
-            warnings.warn(
-                f"Cannot get model for actor {self._name}.",
-                LVMBrainUserWarning,
-            )
+            raise LVMBrainError(f"Cannot get model for actor {self._name}.")
 
         model = cmd.replies.get("command_model")
 
@@ -123,6 +128,8 @@ class RemoteCommand:
         self._model = model
         self._parent = parent
 
+        self._name = model["name"]
+
         self._is_group = "commands" in model and len(model["commands"]) > 0
         if self._is_group:
             for command_info in model["commands"].values():
@@ -149,10 +156,15 @@ class RemoteCommand:
             parent_string + self.get_command_string(*args, **kwargs),
         )
 
-        actor_reply = ActorReply(cmd, cmd.status.did_succeed)
+        actor_reply = ActorReply(cmd)
         for reply in cmd.replies:
             if len(reply.body) > 0:
                 actor_reply.replies.append(reply.body)
+
+        if not cmd.status.did_succeed:
+            error = actor_reply.get("error")
+            error = str(error) if error is not None else ""
+            raise LVMBrainError(f"Failed executing command {self._name}. {error}")
 
         return actor_reply
 
@@ -162,7 +174,6 @@ class ActorReply:
     """A reply to an actor command."""
 
     command: Command
-    success: bool
     replies: list[dict] = field(default_factory=list)
 
     def flatten(self):
