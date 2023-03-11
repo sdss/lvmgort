@@ -19,6 +19,7 @@ import unclick
 from clu.client import AMQPClient
 
 from lvmbrain.exceptions import LVMBrainError
+from lvmbrain.telescope import TelescopeSet
 
 from .tools import get_valid_variable_name
 
@@ -32,6 +33,9 @@ if TYPE_CHECKING:
 __all__ = ["LVMBrain", "RemoteActor"]
 
 
+DEFAULT_TELESCOPES = ["sci", "spec", "skyw", "skye"]
+
+
 class LVMBrain:
     """The main ``lvmbrain`` client class, used to communicate with the actor system."""
 
@@ -41,6 +45,7 @@ class LVMBrain:
         host="lvm-hub.lco.cl",
         user: str = "guest",
         password="guest",
+        telescopes: list[str] = DEFAULT_TELESCOPES,
     ):
         if client:
             self.client = client
@@ -57,11 +62,14 @@ class LVMBrain:
         self.actors: dict[str, RemoteActor] = {}
 
         self.telescopes = TelescopeSet(self, telescopes or DEFAULT_TELESCOPES)
+
     async def init(self) -> Self:
         """Initialises the client."""
 
         if not self.connected:
             await self.client.start()
+
+        await self.telescopes.prepare()
 
         return self
 
