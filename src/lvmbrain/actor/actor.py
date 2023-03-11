@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from clu.actor import AMQPActor
 
+from lvmbrain.core import LVMBrain
+
 
 __all__ = ["LVMBrainActor"]
 
@@ -17,4 +19,7 @@ __all__ = ["LVMBrainActor"]
 class LVMBrainActor(AMQPActor):
     """The ``lvmbrain`` actor."""
 
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.brain = LVMBrain(self)

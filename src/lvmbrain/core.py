@@ -9,126 +9,182 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass, field
+
+from typing import TYPE_CHECKING
+
+import unclick
+from yaml import warnings
 
 from clu.client import AMQPClient
 
-from lvmbrain.exceptions import LVMBrainNotImplemented
+from lvmbrain.exceptions import LVMBrainUserWarning
+
+from .tools import get_valid_variable_name
 
 
-__all__ = ["LVMBrainClient"]
+if TYPE_CHECKING:
+    from typing import Self
+
+    from clu.command import Command
 
 
-class LVMBrainClient(AMQPClient):
+__all__ = ["LVMBrain", "RemoteActor"]
+
+
+class LVMBrain:
     """The main ``lvmbrain`` client class, used to communicate with the actor system."""
 
-    def __init__(self, host="lvm-hub.lco.cl", user: str = "guest", password="guest"):
-        client_uuid = str(uuid.uuid4()).split("-")[1]
+    def __init__(
+        self,
+        client: AMQPClient | None = None,
+        host="lvm-hub.lco.cl",
+        user: str = "guest",
+        password="guest",
+    ):
+        if client:
+            self.client = client
+        else:
+            client_uuid = str(uuid.uuid4()).split("-")[1]
 
-        super().__init__(
-            f"lvmbrain-client-{client_uuid}",
-            host=host,
-            user=user,
-            password=password,
-        )
+            self.client = AMQPClient(
+                f"lvmbrain-client-{client_uuid}",
+                host=host,
+                user=user,
+                password=password,
+            )
 
+    async def init(self) -> Self:
+        """Initialises the client."""
+
+        if not self.connected:
+            await self.client.start()
+
+        return self
+
+    @property
     def connected(self):
         """Returns `True` if the client is connected."""
 
-        return self.connection and self.connection.connection is not None
+        return self.client.connection and self.client.connection.connection is not None
 
-    async def acquire_and_expose(
+
+class RemoteActor:
+    """A programmatic representation of a remote actor."""
+
+    def __init__(self, brain: LVMBrain, name: str):
+        self._brain = brain
+        self._name = name
+
+        self._commands: list[str] = []
+
+    async def init(self) -> Self:
+        """Initialises the representation of the actor."""
+
+        if not self._brain.connected:
+            raise RuntimeError("Brain is not connected.")
+
+        cmd = await self._brain.client.send_command(self._name, "get-command-model")
+        if cmd.status.did_fail:
+            warnings.warn(
+                f"Cannot get model for actor {self._name}.",
+                LVMBrainUserWarning,
+            )
+
+        model = cmd.replies.get("command_model")
+
+        for command_name in self._commands:
+            if hasattr(self, command_name):
+                delattr(self, command_name)
+
+        for command_info in model["commands"].values():
+            command_name = get_valid_variable_name(command_info["name"])
+            setattr(self, command_name, RemoteCommand(self, command_info))
+            self._commands.append(command_name)
+
+        return self
+
+    async def refresh(self):
+        """Refresesh the command list."""
+
+        await self.init()
+
+
+class RemoteCommand:
+    """Representation of a remote command."""
+
+    def __init__(
         self,
-        ra: float,
-        dec: float,
-        exposure_time=900.0,
-        n_exposures=1,
-        pa=0.0,
-        standards: list[tuple[float, float]] | None = None,
-        standards_exposure_time: float | list[float] | None = None,
-        sky_positions: list[tuple[float, float]] | None = None,
-        guide_exposure_time: float | None = None,
-        guide_rms=1.0,
-        acquisition_timeout=120,
+        remote_actor: RemoteActor,
+        model: dict,
+        parent: RemoteCommand | None = None,
     ):
-        """Commands the four LVM telescope to point and expose.
+        self._remote_actor = remote_actor
+        self._model = model
+        self._parent = parent
 
-        Parameters
-        ----------
-        ra
-            The right ascension of the science telescope / centre of the
-            science bundle.
-        dec
-            The declination of the science telescope.
-        exposure_time
-            The science exposure time, in seconds.
-        n_exposures
-            Number of science exposures to obtain.
-        pa
-            The position angle of the science bundle.
-        standards
-            A list of ``(ra, dec)`` tuples with the positions of the standards
-            to observe during the exposure. If `None`, the scheduler will be
-            queried to provide a list of appropriate standards for the science
-            field.
-        standards_exposure_time
-            The exposure time for each standard. If the value is less than 1, it
-            is understood as the fraction of ``exposure_time`` to spend on each
-            standard. If a list, it must have the same size as ``standards`` and
-            specify the exposure time for each standard. If `None`, an equal
-            amount of time will be spent on each standard position.
-        sky_positions
-            A list of ``(ra, dec)`` tuples with the positions of the two sky fields
-            to observe during the exposure. If `None`, the scheduler will be queried
-            to provide a list of appropriate sky positions.
-        guide_exposure_time
-            The exposure time for each guider frame. If `None`, the exposure time
-            will be selected dynamically.
-        guide_rms
-            The target guide RMS to reach before starting the science exposure.
-        acquisition_timeout
-            The maximum amount of time allowed for the acquisition.
+        self._is_group = "commands" in model and len(model["commands"]) > 0
+        if self._is_group:
+            for command_info in model["commands"].values():
+                command_name = get_valid_variable_name(command_info["name"])
+                child_command = RemoteCommand(remote_actor, command_info, parent=self)
+                setattr(self, command_name, child_command)
 
-        Returns
-        -------
-        result
-            `True` if the field has been successfully observed.
+    def get_command_string(self, *args, **kwargs):
+        """Gets the command string for a set of arguments."""
 
-        Raises
-        ------
-        LVMBrainError
-            If an error occurs during acquisition or exposure.
-        LVMBrainTimeout
-            If a timeout occurs.
+        return unclick.build_command_string(self._model, *args, **kwargs)
 
-        """
+    async def __call__(self, *args, **kwargs):
+        """Executes the remote command with some given arguments."""
 
-        raise LVMBrainNotImplemented()
+        parent_string = ""
+        if self._parent is not None:
+            # Call parent chain without arguments. This is not bullet-proof for all
+            # cases, but probably good enough for now.
+            parent_string = self._parent.get_command_string() + " "
 
-    async def open_enclosure(self):
-        """Opens the LVM enclosure."""
+        cmd = await self._remote_actor._brain.client.send_command(
+            self._remote_actor._name,
+            parent_string + self.get_command_string(*args, **kwargs),
+        )
 
-        raise LVMBrainNotImplemented()
+        actor_reply = ActorReply(cmd, cmd.status.did_succeed)
+        for reply in cmd.replies:
+            if len(reply.body) > 0:
+                actor_reply.replies.append(reply.body)
 
-    async def close_enclosure(self, emergency=False):
-        """Closes the LVM enclosure.
+        return actor_reply
 
-        Parameters
-        ----------
-        emergency
-            Performs an emergency shutdown of the enclosure.
+
+@dataclass
+class ActorReply:
+    """A reply to an actor command."""
+
+    command: Command
+    success: bool
+    replies: list[dict] = field(default_factory=list)
+
+    def flatten(self):
+        """Returns a flattened dictionary of replies.
+
+        Note that if a keyword has been output multiple times, only the
+        last value is retained.
 
         """
 
-        raise LVMBrainNotImplemented()
+        result = {}
+        for reply in self.replies:
+            for key in reply:
+                result[key] = reply[key]
 
-    async def check_system(self):
-        """Performs a full check of all the subsystems.
+        return result
 
-        Raises
-        ------
-        LVMBrainError
-            If any of the subsystems fails.
+    def get(self, key: str):
+        """Returns the first occurrence of a keyword in the reply list."""
 
-        """
+        for reply in self.replies:
+            if key in reply:
+                return reply[key]
 
-        raise LVMBrainNotImplemented()
+        return None
