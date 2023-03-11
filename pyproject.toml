@@ -1,13 +1,13 @@
 [tool.poetry]
-name = "lvmbrain"
+name = "lvmtrurl"
 version = "0.1.0a0"
 description = "The brains of LVM observing"
 authors = ["José Sánchez-Gallego <gallegoj@uw.edu>"]
 license = "BSD-3-Clause"
 readme = "README.md"
-homepage = "https://github.com/sdss/lvmbrain"
-repository = "https://github.com/sdss/lvmbrain"
-documentation = "https://lvmbrain.readthedocs.org"
+homepage = "https://github.com/sdss/lvmtrurl"
+repository = "https://github.com/sdss/lvmtrurl"
+documentation = "https://lvmtrurl.readthedocs.org"
 keywords = ["astronomy", "software"]
 classifiers = [
     "Intended Audience :: Science/Research",
@@ -20,12 +20,12 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 packages = [
-    { include = "lvmbrain", from = "src" }
+    { include = "trurl", from = "src" }
 ]
-include = ["src/lvmbrain/etc/*"]
+include = ["src/trurl/etc/*"]
 
 [tool.poetry.scripts]
-lvmbrain = "lvmbrain.__main__:main"
+trurl = "trurl.__main__:main"
 
 [tool.poetry.dependencies]
 python = "^3.10,<4.0"
@@ -70,22 +70,22 @@ fast = true
 profile = "black"
 sections = ["FUTURE", "STDLIB", "TYPING", "THIRDPARTY", "SDSS", "FIRSTPARTY", "LOCALFOLDER"]
 default_section = "THIRDPARTY"
-known_first_party = "lvmbrain"
+known_first_party = "trurl"
 known_typing = ["typing"]
 known_sdss = ["sdsstools", "clu"]
 lines_after_imports = 2
 
 [tool.pytest.ini_options]
-addopts = "--cov lvmbrain --cov-report xml --cov-report html --cov-report term -W ignore"
+addopts = "--cov trurl --cov-report xml --cov-report html --cov-report term -W ignore"
 asyncio_mode = "auto"
 
 [tool.coverage.run]
 branch = true
-include = ["src/lvmbrain/*"]
+include = ["src/trurl/*"]
 omit = [
     "*/__init__.py",
-    "src/lvmbrain/__main__.py",
-    "src/lvmbrain/exceptions.py"
+    "src/trurl/__main__.py",
+    "src/trurl/exceptions.py"
 ]
 
 [tool.coverage.report]

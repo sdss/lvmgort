@@ -10,16 +10,16 @@ from __future__ import annotations
 
 from clu.actor import AMQPActor
 
-from lvmbrain.core import LVMBrain
+from trurl.core import Trurl
 
 
-__all__ = ["LVMBrainActor"]
+__all__ = ["TrurlActor"]
 
 
-class LVMBrainActor(AMQPActor):
-    """The ``lvmbrain`` actor."""
+class TrurlActor(AMQPActor):
+    """The ``lvmtrurl`` actor."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.brain = LVMBrain(self)
+        self.trurl = Trurl(self)

@@ -4,10 +4,10 @@ from sdsstools import get_config, get_logger, get_package_version
 
 
 # pip package name
-NAME = "lvmbrain"
+NAME = "lvmtrurl"
 
 # Loads config. config name is the package name.
-config = get_config("lvmbrain")
+config = get_config("lvmtrurl")
 
 log = get_logger(NAME)
 

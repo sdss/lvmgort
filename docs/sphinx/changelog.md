@@ -1,4 +1,4 @@
-(lvmbrain-changelog)=
+(lvmtrurl-changelog)=
 
 ```{include} ../../CHANGELOG.md
 ```

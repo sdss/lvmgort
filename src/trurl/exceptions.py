@@ -7,32 +7,32 @@
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
 
-class LVMBrainError(Exception):
-    """A custom core LVMBrainError exception"""
+class TrurlError(Exception):
+    """A custom core TrurlError exception"""
 
     pass
 
 
-class LVMBrainTimeout(LVMBrainError):
+class TrurlTimeout(TrurlError):
     """Raised if a timeout occurs."""
 
     pass
 
 
-class LVMBrainNotImplemented(LVMBrainError):
+class TrurlNotImplemented(TrurlError):
     """A custom exception for not yet implemented features."""
 
     def __init__(self, message=None):
         message = "This feature is not implemented yet." if not message else message
 
-        super(LVMBrainNotImplemented, self).__init__(message)
+        super(TrurlNotImplemented, self).__init__(message)
 
 
-class LVMBrainWarning(Warning):
-    """Base warning for lvmbrain."""
+class TrurlWarning(Warning):
+    """Base warning for Trurl."""
 
 
-class LVMBrainUserWarning(UserWarning, LVMBrainWarning):
+class TrurlUserWarning(UserWarning, TrurlWarning):
     """The primary warning class."""
 
     pass

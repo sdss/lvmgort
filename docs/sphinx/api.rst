@@ -1,19 +1,19 @@
 
 .. _api:
 
-lvmbrain Reference
+lvmtrurl Reference
 ==================
 
-Client
-------
+Core classes
+------------
 
-.. automodule:: lvmbrain.core
+.. automodule:: lvmtrurl.core
    :members:
    :show-inheritance:
 
 Exceptions
 ----------
 
-.. automodule:: lvmbrain.exceptions
+.. automodule:: lvmtrurl.exceptions
    :members:
    :show-inheritance:

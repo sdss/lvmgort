@@ -16,8 +16,8 @@ from click_default_group import DefaultGroup
 
 from sdsstools.daemonizer import DaemonGroup, cli_coro
 
-from lvmbrain import __version__
-from lvmbrain.actor.actor import LVMBrainActor
+from trurl import __version__
+from trurl.actor.actor import TrurlActor
 
 
 @click.group(
@@ -38,19 +38,19 @@ from lvmbrain.actor.actor import LVMBrainActor
     help="Path to the configuration file to use.",
 )
 @click.pass_context
-def lvmbrain(ctx: click.Context, config_file: str | None = None, version: bool = False):
+def lvmtrurl(ctx: click.Context, config_file: str | None = None, version: bool = False):
     """HAL actor."""
 
     if version is True:
         click.echo(__version__)
         sys.exit(0)
 
-    default_config_file = os.path.join(os.path.dirname(__file__), "etc/lvmbrain.yml")
+    default_config_file = os.path.join(os.path.dirname(__file__), "etc/lvmtrurl.yml")
 
     ctx.obj = {"config_file": config_file or default_config_file}
 
 
-@lvmbrain.group(cls=DaemonGroup, prog="lvmbrain_actor", workdir=os.getcwd())
+@lvmtrurl.group(cls=DaemonGroup, prog="trurl_actor", workdir=os.getcwd())
 @click.pass_context
 @cli_coro()
 async def actor(ctx):
@@ -59,15 +59,15 @@ async def actor(ctx):
     config_file = ctx.obj["config_file"]
     print("Configuration file", config_file)
 
-    lvmbrain_actor = LVMBrainActor.from_config(config_file)
+    trurl_actor = TrurlActor.from_config(config_file)
 
-    await lvmbrain_actor.start()
-    await lvmbrain_actor.run_forever()
+    await trurl_actor.start()
+    await trurl_actor.run_forever()
 
 
 def main():
-    lvmbrain(auto_envvar_prefix="LVMBRAIN")
+    lvmtrurl(auto_envvar_prefix="lvmtrurl")
 
 
 if __name__ == "__main__":
-    lvmbrain()
+    lvmtrurl()

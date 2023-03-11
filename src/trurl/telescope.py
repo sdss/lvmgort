@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from lvmbrain.core import ActorReply, LVMBrain
+    from trurl.core import ActorReply, Trurl
 
 
 class Telescope:
@@ -23,8 +23,8 @@ class Telescope:
 
     Parameters
     ----------
-    brain
-        The `.LVMBrain` instance used to communicate with the actor system.
+    trurl
+        The `.Trurl` instance used to communicate with the actor system.
     name
         The name of the telescope.
     pwi_actor
@@ -38,15 +38,14 @@ class Telescope:
 
     def __init__(
         self,
-        brain: LVMBrain,
+        trurl: Trurl,
         name: str,
         pwi_actor: str | None = None,
         agcam_actor: str | None = None,
         agp_actor: str | None = None,
     ):
         self.name = name
-
-        self.brain = brain
+        self.trurl = trurl
 
         self.pwi_actor_name = pwi_actor or f"lvm.{name}.pwi"
         self.agcam_actor_name = agcam_actor or f"lvm.{name}.agcam"
@@ -57,11 +56,11 @@ class Telescope:
     async def prepare(self):
         """Prepares the telescope class for asynchronous access."""
 
-        await self.brain.add_actor(self.pwi_actor_name)
-        # await self.brain.add_actor(self.agcam_actor)
-        # await self.brain.add_actor(self.agp_actor)
+        await self.trurl.add_actor(self.pwi_actor_name)
+        # await self.trurl.add_actor(self.agcam_actor)
+        # await self.trurl.add_actor(self.agp_actor)
 
-        self.pwi = self.brain.actors[self.pwi_actor_name]
+        self.pwi = self.trurl.actors[self.pwi_actor_name]
 
     async def update_status(self):
         """Retrieves the status of the telescope."""
@@ -101,11 +100,11 @@ class Telescope:
 class TelescopeSet(SimpleNamespace):
     """A representation of a set of telescopes."""
 
-    def __init__(self, brain: LVMBrain, names: list):
+    def __init__(self, trurl: Trurl, names: list):
         self.names = names
 
         for name in names:
-            setattr(self, name, Telescope(brain, name))
+            setattr(self, name, Telescope(trurl, name))
 
     def __getitem__(self, key: str):
         return getattr(self, key)

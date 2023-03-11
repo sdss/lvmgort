@@ -18,8 +18,8 @@ import unclick
 
 from clu.client import AMQPClient
 
-from lvmbrain.exceptions import LVMBrainError
-from lvmbrain.telescope import TelescopeSet
+from trurl.exceptions import TrurlError
+from trurl.telescope import TelescopeSet
 
 from .tools import get_valid_variable_name
 
@@ -30,14 +30,14 @@ if TYPE_CHECKING:
     from clu.command import Command
 
 
-__all__ = ["LVMBrain", "RemoteActor"]
+__all__ = ["Trurl", "RemoteActor"]
 
 
 DEFAULT_TELESCOPES = ["sci", "spec", "skyw", "skye"]
 
 
-class LVMBrain:
-    """The main ``lvmbrain`` client class, used to communicate with the actor system."""
+class Trurl:
+    """The main ``lvmtrurl`` client class, used to communicate with the actor system."""
 
     def __init__(
         self,
@@ -53,7 +53,7 @@ class LVMBrain:
             client_uuid = str(uuid.uuid4()).split("-")[1]
 
             self.client = AMQPClient(
-                f"lvmbrain-client-{client_uuid}",
+                f"trurl-client-{client_uuid}",
                 host=host,
                 user=user,
                 password=password,
@@ -88,8 +88,8 @@ class LVMBrain:
 class RemoteActor(SimpleNamespace):
     """A programmatic representation of a remote actor."""
 
-    def __init__(self, brain: LVMBrain, name: str):
-        self._brain = brain
+    def __init__(self, trurl: Trurl, name: str):
+        self._trurl = trurl
         self._name = name
 
         self._commands: list[str] = []
@@ -97,12 +97,12 @@ class RemoteActor(SimpleNamespace):
     async def init(self) -> Self:
         """Initialises the representation of the actor."""
 
-        if not self._brain.connected:
-            raise RuntimeError("Brain is not connected.")
+        if not self._trurl.connected:
+            raise RuntimeError("Trurl is not connected.")
 
-        cmd = await self._brain.client.send_command(self._name, "get-command-model")
+        cmd = await self._trurl.client.send_command(self._name, "get-command-model")
         if cmd.status.did_fail:
-            raise LVMBrainError(f"Cannot get model for actor {self._name}.")
+            raise TrurlError(f"Cannot get model for actor {self._name}.")
 
         model = cmd.replies.get("command_model")
 
@@ -159,7 +159,7 @@ class RemoteCommand:
             # cases, but probably good enough for now.
             parent_string = self._parent.get_command_string() + " "
 
-        cmd = await self._remote_actor._brain.client.send_command(
+        cmd = await self._remote_actor._trurl.client.send_command(
             self._remote_actor._name,
             parent_string + self.get_command_string(*args, **kwargs),
         )
@@ -172,7 +172,7 @@ class RemoteCommand:
         if not cmd.status.did_succeed:
             error = actor_reply.get("error")
             error = str(error) if error is not None else ""
-            raise LVMBrainError(f"Failed executing command {self._name}. {error}")
+            raise TrurlError(f"Failed executing command {self._name}. {error}")
 
         return actor_reply
 
