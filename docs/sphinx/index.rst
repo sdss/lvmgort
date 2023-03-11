@@ -8,6 +8,11 @@ This is the documentation for the SDSS Python product ``lvmtrurl``. The current 
 
   $ pip install lvmtrurl
 
+``lvmtrurl`` provides the library ``trurl``::
+
+  >> from trurl import __version__
+  >> __version__
+  0.1.0a0
 
 Contents
 --------

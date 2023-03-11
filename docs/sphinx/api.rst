@@ -1,19 +1,19 @@
 
 .. _api:
 
-lvmtrurl Reference
-==================
+trurl Reference
+===============
 
 Core classes
 ------------
 
-.. automodule:: lvmtrurl.core
+.. automodule:: trurl.core
    :members:
    :show-inheritance:
 
 Exceptions
 ----------
 
-.. automodule:: lvmtrurl.exceptions
+.. automodule:: trurl.exceptions
    :members:
    :show-inheritance:
