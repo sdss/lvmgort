@@ -126,7 +126,7 @@ rst_epilog = f"""
 # a list of builtin themes.
 html_theme = "furo"
 html_title = "lvmtrurl"
-html_logo = "_static/sdssv_logo.png"
+html_logo = "_static/lvm_logo.png"
 html_favicon = "./_static/favicon.ico"
 
 # Add any paths that contain custom static files (such as style sheets) here,
