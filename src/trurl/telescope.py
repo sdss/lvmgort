@@ -13,6 +13,8 @@ from types import SimpleNamespace
 
 from typing import TYPE_CHECKING
 
+from trurl import config
+
 
 if TYPE_CHECKING:
     from trurl.core import ActorReply, Trurl
@@ -47,20 +49,20 @@ class Telescope:
         self.name = name
         self.trurl = trurl
 
-        self.pwi_actor_name = pwi_actor or f"lvm.{name}.pwi"
-        self.agcam_actor_name = agcam_actor or f"lvm.{name}.agcam"
-        self.agp_actor_name = agp_actor or f"lvm.{name}.agp"
+        self._pwi_actor_name = pwi_actor or f"lvm.{name}.pwi"
+        self._agcam_actor_name = agcam_actor or f"lvm.{name}.agcam"
+        self._agp_actor_name = agp_actor or f"lvm.{name}.agp"
 
         self.status = {}
 
     async def prepare(self):
         """Prepares the telescope class for asynchronous access."""
 
-        await self.trurl.add_actor(self.pwi_actor_name)
+        await self.trurl.add_actor(self._pwi_actor_name)
         # await self.trurl.add_actor(self.agcam_actor)
         # await self.trurl.add_actor(self.agp_actor)
 
-        self.pwi = self.trurl.actors[self.pwi_actor_name]
+        self.pwi = self.trurl.actors[self._pwi_actor_name]
 
     async def update_status(self):
         """Retrieves the status of the telescope."""
@@ -87,11 +89,28 @@ class Telescope:
             await self.pwi.setConnected(True)
             await self.pwi.setEnabled(True)
 
-    async def park(self, disable=False):
+    async def home(self):
+        """Initialises and homes the telescope."""
+
+        await self.initialise()
+        await self.pwi.findHome()
+
+    async def park(
+        self,
+        disable=True,
+        use_pw_park=False,
+        alt_az: tuple[float, float] | None = None,
+    ):
         """Parks the telescope."""
 
         await self.initialise()
-        await self.pwi.park()
+
+        if use_pw_park:
+            await self.pwi.park()
+        elif alt_az is not None:
+            await self.pwi.gotoAltAzJ2000(*alt_az)
+        else:
+            await self.pwi.gotoAltAzJ2000(config["park"]["alt"], config["park"]["az"])
 
         if disable:
             await self.pwi.setEnabled(False)
@@ -119,7 +138,26 @@ class TelescopeSet(SimpleNamespace):
 
         await asyncio.gather(*[self[tel].initialise() for tel in self.names])
 
-    async def park(self, disable=False):
+    async def home(self):
+        """Initialises and homes all telescopes."""
+
+        await asyncio.gather(*[self[tel].home() for tel in self.names])
+
+    async def park(
+        self,
+        use_pw_park=False,
+        alt_az: tuple[float, float] | None = None,
+        disable=True,
+    ):
         """Parks the telescopes."""
 
-        await asyncio.gather(*[self[tel].park(disable) for tel in self.names])
+        await asyncio.gather(
+            *[
+                self[tel].park(
+                    disable=disable,
+                    use_pw_park=use_pw_park,
+                    alt_az=alt_az,
+                )
+                for tel in self.names
+            ]
+        )

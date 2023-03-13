@@ -1,5 +1,7 @@
 # encoding: utf-8
 
+import logging
+
 from sdsstools import get_config, get_logger, get_package_version
 
 
@@ -10,6 +12,7 @@ NAME = "lvmtrurl"
 config = get_config("lvmtrurl")
 
 log = get_logger(NAME)
+log.sh.setLevel(logging.INFO)
 
 
 # package name should be pip package name

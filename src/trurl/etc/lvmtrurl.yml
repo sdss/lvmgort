@@ -4,3 +4,7 @@ actor:
   host: 10.8.38.21
   port: 5672
   log_dir: /data/logs/lvmtrurl
+
+park:
+  alt: -60
+  az: 90
