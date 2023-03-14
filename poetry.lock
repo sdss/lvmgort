@@ -2,14 +2,14 @@
 
 [[package]]
 name = "aio-pika"
-version = "9.0.4"
+version = "9.0.5"
 description = "Wrapper around the aiormq for asyncio and humans"
 category = "main"
 optional = false
 python-versions = ">=3.7,<4.0"
 files = [
-    {file = "aio_pika-9.0.4-py3-none-any.whl", hash = "sha256:002645768feaf5e27255824b7814f8b657f67bbcf24b381bc93cd88faaabf913"},
-    {file = "aio_pika-9.0.4.tar.gz", hash = "sha256:a7cf270de3f23dd550beca6e287e2a4707c99bd092a606619ff3b0df44deb6fa"},
+    {file = "aio_pika-9.0.5-py3-none-any.whl", hash = "sha256:48e90b6a901742e8078c306d3a28580a065b16b5178dd50b2399b27b1884b15d"},
+    {file = "aio_pika-9.0.5.tar.gz", hash = "sha256:096add8286019832008baa48e7463d7c0c609953011ec4c3e185f5249760e47b"},
 ]
 
 [package.dependencies]
@@ -617,14 +617,14 @@ files = [
 
 [[package]]
 name = "exceptiongroup"
-version = "1.1.0"
+version = "1.1.1"
 description = "Backport of PEP 654 (exception groups)"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "exceptiongroup-1.1.0-py3-none-any.whl", hash = "sha256:327cbda3da756e2de031a3107b81ab7b3770a602c4d16ca618298c526f4bec1e"},
-    {file = "exceptiongroup-1.1.0.tar.gz", hash = "sha256:bcb67d800a4497e1b404c2dd44fca47d3b7a5e5433dbab67f96c1a685cdfdf23"},
+    {file = "exceptiongroup-1.1.1-py3-none-any.whl", hash = "sha256:232c37c63e4f682982c8b6459f33a8981039e5fb8756b2074364e5055c498c9e"},
+    {file = "exceptiongroup-1.1.1.tar.gz", hash = "sha256:d484c3090ba2889ae2928419117447a14daf3c1231d5e30d0aae34f354f01785"},
 ]
 
 [package.extras]
@@ -1761,6 +1761,20 @@ dotenv = ["python-dotenv (>=0.10.4)"]
 email = ["email-validator (>=1.0.3)"]
 
 [[package]]
+name = "pyds9"
+version = "1.8.1"
+description = "Python/DS9 connection via XPA (with numpy and pyfits support)"
+category = "main"
+optional = false
+python-versions = "*"
+files = [
+    {file = "pyds9-1.8.1.tar.gz", hash = "sha256:b4f198f5d29b749f721c491f8384f6293e43ec417bd0492be36bffb5c3904b2a"},
+]
+
+[package.dependencies]
+six = "*"
+
+[[package]]
 name = "pyflakes"
 version = "3.0.1"
 description = "passive checker of Python programs"
@@ -2058,14 +2072,14 @@ jupyter = ["ipywidgets (>=7.5.1,<8.0.0)"]
 
 [[package]]
 name = "rstcheck"
-version = "6.1.1"
+version = "6.1.2"
 description = "Checks syntax of reStructuredText and code blocks nested within it"
 category = "dev"
 optional = false
 python-versions = ">=3.7,<4.0"
 files = [
-    {file = "rstcheck-6.1.1-py3-none-any.whl", hash = "sha256:edeff9ad0644d12bd250100b677887424193789254c90d95c13375062ee2cbac"},
-    {file = "rstcheck-6.1.1.tar.gz", hash = "sha256:8e43485a644e794b8127f8c4868ef62c14ec7919bdda6cb16642157055d32e47"},
+    {file = "rstcheck-6.1.2-py3-none-any.whl", hash = "sha256:4aaa46e0debc179f849807c453fa384fd2b75167faf5b1274115730805fab529"},
+    {file = "rstcheck-6.1.2.tar.gz", hash = "sha256:f9cb07a72ef9a81d1e32187eae29b00a89421ccba1bde0b1652a08ed0923f61b"},
 ]
 
 [package.dependencies]
@@ -2075,7 +2089,7 @@ typer = {version = ">=0.4.1,<0.8", extras = ["all"]}
 [package.extras]
 docs = ["m2r2 (>=0.3.2)", "sphinx", "sphinx-autobuild (==2021.3.14)", "sphinx-click (>=4.0.3,<5.0.0)", "sphinx-rtd-dark-mode (>=1.2.4,<2.0.0)", "sphinx-rtd-theme (<1)", "sphinxcontrib-spelling (>=7.3)"]
 sphinx = ["sphinx"]
-testing = ["coverage-conditional-plugin (>=0.5)", "coverage[toml] (>=6.0)", "pytest (>=6.0)", "pytest-cov (>=3.0)", "pytest-randomly (>=3.0)", "pytest-sugar (>=0.9.5)"]
+testing = ["coverage-conditional-plugin (>=0.5)", "coverage[toml] (>=6.0)", "pytest (>=7.2)", "pytest-cov (>=3.0)", "pytest-randomly (>=3.0)", "pytest-sugar (>=0.9.5)"]
 toml = ["tomli"]
 
 [[package]]
@@ -2103,14 +2117,14 @@ toml = ["tomli (>=2.0,<3.0)"]
 
 [[package]]
 name = "sdss-clu"
-version = "2.0.0"
+version = "2.0.1"
 description = "A new protocol for SDSS actors."
 category = "main"
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "sdss_clu-2.0.0-py3-none-any.whl", hash = "sha256:8fd8fbb50c420fb3a8cd0e455a4067adbbc649da7325bbe2b8cedd27384a4f48"},
-    {file = "sdss_clu-2.0.0.tar.gz", hash = "sha256:13c21925d77d4610a5db766bc9fa35a40533bb995385e4e21df06db897520abe"},
+    {file = "sdss_clu-2.0.1-py3-none-any.whl", hash = "sha256:123bf19c4717e0b3398d05019733abd81457bae99696b7f4688d378cc9bad62f"},
+    {file = "sdss_clu-2.0.1.tar.gz", hash = "sha256:89a93aa6d6c555bd4369dc22eb02b0930552d1b33ea19721c2ffe582a23d80a3"},
 ]
 
 [package.dependencies]
@@ -2175,7 +2189,7 @@ files = [
 name = "six"
 version = "1.16.0"
 description = "Python 2 and 3 compatibility utilities"
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 files = [
@@ -2610,14 +2624,14 @@ socks = ["PySocks (>=1.5.6,!=1.5.7,<2.0)"]
 
 [[package]]
 name = "virtualenv"
-version = "20.20.0"
+version = "20.21.0"
 description = "Virtual Python Environment builder"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "virtualenv-20.20.0-py3-none-any.whl", hash = "sha256:3c22fa5a7c7aa106ced59934d2c20a2ecb7f49b4130b8bf444178a16b880fa45"},
-    {file = "virtualenv-20.20.0.tar.gz", hash = "sha256:a8a4b8ca1e28f864b7514a253f98c1d62b64e31e77325ba279248c65fb4fcef4"},
+    {file = "virtualenv-20.21.0-py3-none-any.whl", hash = "sha256:31712f8f2a17bd06234fa97fdf19609e789dd4e3e4bf108c3da71d710651adbc"},
+    {file = "virtualenv-20.21.0.tar.gz", hash = "sha256:f50e3e60f990a0757c9b68333c9fdaa72d7188caa417f96af9e52407831a3b68"},
 ]
 
 [package.dependencies]
@@ -2732,4 +2746,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10,<4.0"
-content-hash = "c6aa0ee9136faf3f1352a95ffe382189c37e680d4637195d90b9336e9224d71d"
+content-hash = "4a4e60ca2522876e0fe9d37c82627d2c525660506c399af5cf8036fd215b35be"
