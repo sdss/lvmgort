@@ -115,6 +115,29 @@ class Telescope:
         if disable:
             await self.pwi.setEnabled(False)
 
+    async def goto(
+        self,
+        ra: float | None = None,
+        dec: float | None = None,
+        alt: float | None = None,
+        az: float | None = None,
+    ):
+        """Moves the telescope to a given RA/Dec or Alt/Az."""
+
+        if ra is not None or dec is not None:
+            is_radec = ra is not None and dec is not None and not alt and not az
+            assert is_radec, "Invalid input parameters"
+
+            await self.initialise()
+            await self.pwi.gotoRaDecJ2000(ra, dec)
+
+        if alt is not None or az is not None:
+            is_altaz = alt is not None and az is not None and not ra and not dec
+            assert is_altaz, "Invalid input parameters"
+
+            await self.initialise()
+            await self.pwi.gotoAltAzJ2000(alt, az)
+
 
 class TelescopeSet(SimpleNamespace):
     """A representation of a set of telescopes."""
@@ -160,4 +183,17 @@ class TelescopeSet(SimpleNamespace):
                 )
                 for tel in self.names
             ]
+        )
+
+    async def goto(
+        self,
+        ra: float | None = None,
+        dec: float | None = None,
+        alt: float | None = None,
+        az: float | None = None,
+    ):
+        """Moves all the telescopes to a given RA/Dec or Alt/Az."""
+
+        await asyncio.gather(
+            *[self[tel].goto(ra=ra, dec=dec, alt=alt, az=az) for tel in self.names]
         )
