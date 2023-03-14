@@ -23,3 +23,11 @@ class TrurlActor(AMQPActor):
         super().__init__(*args, **kwargs)
 
         self.trurl = Trurl(self)
+
+    async def start(self, **kwargs):
+        """Start the actor."""
+
+        actor = await super().start(**kwargs)
+        await self.trurl.init()
+
+        return actor
