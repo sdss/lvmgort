@@ -86,6 +86,7 @@ class Trurl:
         """Adds an actor to the programmatic API."""
 
         self.actors[actor] = await RemoteActor(self, actor).init()
+        return self.actors[actor]
 
 
 class RemoteActor(SimpleNamespace):

@@ -43,12 +43,14 @@ async def park(command: TrurlCommand, disable: bool = False):
     help="Telescope to command. Otherwise sends all the telescopes to "
     "the same location.",
 )
+@click.option("--kmirror/--no-kmirror", default=True, help="Start k-mirror tracking.")
 async def goto(
     command: TrurlCommand,
     ra_h: float,
     dec_d: float,
     altaz: bool = False,
     telescope: str | None = None,
+    kmirror: bool = True,
 ):
     """Sends the telescopes to a given location on the sky."""
 
@@ -57,8 +59,8 @@ async def goto(
         tel = command.actor.trurl.telescopes[telescope]
 
     if altaz:
-        await tel.goto(alt=ra_h, az=dec_d)
+        await tel.goto(alt=ra_h, az=dec_d, kmirror=kmirror)
     else:
-        await tel.goto(ra=ra_h, dec=dec_d)
+        await tel.goto(ra=ra_h, dec=dec_d, kmirror=kmirror)
 
     return command.finish()

@@ -53,16 +53,25 @@ class Telescope:
         self._agcam_actor_name = agcam_actor or f"lvm.{name}.agcam"
         self._agp_actor_name = agp_actor or f"lvm.{name}.agp"
 
+        if self.name != "spec":
+            self._km_actor_name = f"lvm.{name}.km"
+        else:
+            self._km_actor_name = None
+
         self.status = {}
 
     async def prepare(self):
         """Prepares the telescope class for asynchronous access."""
 
-        await self.trurl.add_actor(self._pwi_actor_name)
+        self.pwi = await self.trurl.add_actor(self._pwi_actor_name)
         # await self.trurl.add_actor(self.agcam_actor)
         # await self.trurl.add_actor(self.agp_actor)
 
-        self.pwi = self.trurl.actors[self._pwi_actor_name]
+        if self._km_actor_name:
+            await self.trurl.add_actor(self._km_actor_name)
+            self.km = self.trurl.actors[self._km_actor_name]
+        else:
+            self.km = None
 
     async def update_status(self):
         """Retrieves the status of the telescope."""
@@ -100,6 +109,7 @@ class Telescope:
         disable=True,
         use_pw_park=False,
         alt_az: tuple[float, float] | None = None,
+        kmirror: bool = True,
     ):
         """Parks the telescope."""
 
@@ -115,12 +125,17 @@ class Telescope:
         if disable:
             await self.pwi.setEnabled(False)
 
+        if kmirror and self.km:
+            await self.km.slewStop()
+            await self.km.moveAbsolute(90, "DEG")
+
     async def goto(
         self,
         ra: float | None = None,
         dec: float | None = None,
         alt: float | None = None,
         az: float | None = None,
+        kmirror: bool = True,
     ):
         """Moves the telescope to a given RA/Dec or Alt/Az."""
 
@@ -137,6 +152,9 @@ class Telescope:
 
             await self.initialise()
             await self.pwi.gotoAltAzJ2000(alt, az)
+
+        if kmirror and self.km and ra and dec:
+            await self.km.slewStart(ra, dec)
 
 
 class TelescopeSet(SimpleNamespace):
@@ -171,6 +189,7 @@ class TelescopeSet(SimpleNamespace):
         use_pw_park=False,
         alt_az: tuple[float, float] | None = None,
         disable=True,
+        kmirror=True,
     ):
         """Parks the telescopes."""
 
@@ -180,6 +199,7 @@ class TelescopeSet(SimpleNamespace):
                     disable=disable,
                     use_pw_park=use_pw_park,
                     alt_az=alt_az,
+                    kmirror=kmirror,
                 )
                 for tel in self.names
             ]
@@ -191,9 +211,19 @@ class TelescopeSet(SimpleNamespace):
         dec: float | None = None,
         alt: float | None = None,
         az: float | None = None,
+        kmirror: bool = True,
     ):
         """Moves all the telescopes to a given RA/Dec or Alt/Az."""
 
         await asyncio.gather(
-            *[self[tel].goto(ra=ra, dec=dec, alt=alt, az=az) for tel in self.names]
+            *[
+                self[tel].goto(
+                    ra=ra,
+                    dec=dec,
+                    alt=alt,
+                    az=az,
+                    kmirror=kmirror,
+                )
+                for tel in self.names
+            ]
         )
