@@ -1764,7 +1764,7 @@ email = ["email-validator (>=1.0.3)"]
 name = "pyds9"
 version = "1.8.1"
 description = "Python/DS9 connection via XPA (with numpy and pyfits support)"
-category = "main"
+category = "dev"
 optional = false
 python-versions = "*"
 files = [
@@ -2189,7 +2189,7 @@ files = [
 name = "six"
 version = "1.16.0"
 description = "Python 2 and 3 compatibility utilities"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 files = [
@@ -2746,4 +2746,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10,<4.0"
-content-hash = "4a4e60ca2522876e0fe9d37c82627d2c525660506c399af5cf8036fd215b35be"
+content-hash = "8932f7ddae019772cdf6ed32918611991265a0b6057a60b8d840a5e995b9cce9"

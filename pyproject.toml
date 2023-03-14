@@ -34,9 +34,8 @@ sdss-clu = "^2.0.1"
 click-default-group = "^1.2.2"
 setuptools = "^67.6.0"
 typing-extensions = "^4.5.0"
-pyds9 = "^1.8.1"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 ipython = ">=8.0.0"
 matplotlib = ">=3.1.1"
 flake8 = ">=3.7.9"
@@ -61,8 +60,6 @@ sphinx-jsonschema = ">=1.16.11"
 myst-parser = ">=0.15.2"
 nox = ">=2021.6.12"
 sphinx-autobuild = ">=2021.3.14"
-
-[tool.poetry.group.dev.dependencies]
 pyds9 = "^1.8.1"
 
 [tool.black]
