@@ -50,6 +50,7 @@ class Telescope:
         self.trurl = trurl
 
         self._pwi_actor_name = pwi_actor or f"lvm.{name}.pwi"
+        self._km_actor_name = pwi_actor or f"lvm.{name}.km"
         self._agcam_actor_name = agcam_actor or f"lvm.{name}.agcam"
         self._agp_actor_name = agp_actor or f"lvm.{name}.agp"
 
