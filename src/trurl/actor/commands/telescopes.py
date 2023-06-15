@@ -34,8 +34,9 @@ async def park(command: TrurlCommand, disable: bool = False):
 
 
 @telescope.command()
-@click.argument("RA_H", type=float)
-@click.argument("DEC_D", type=float)
+@click.argument("RA_H", type=float, required=False)
+@click.argument("DEC_D", type=float, required=False)
+@click.argument("--named-position", "-n", type=str, help="Go to named position.")
 @click.option("--altaz", is_flag=True, help="Coordinates are Alt/Az in de degrees.")
 @click.option(
     "--telescope",
@@ -46,21 +47,35 @@ async def park(command: TrurlCommand, disable: bool = False):
 @click.option("--kmirror/--no-kmirror", default=True, help="Start k-mirror tracking.")
 async def goto(
     command: TrurlCommand,
-    ra_h: float,
-    dec_d: float,
+    ra_h: float | None = None,
+    dec_d: float | None = None,
+    named_position: str | None = None,
     altaz: bool = False,
     telescope: str | None = None,
     kmirror: bool = True,
 ):
     """Sends the telescopes to a given location on the sky."""
 
-    tel = command.actor.trurl.telescopes
-    if telescope is not None:
-        tel = command.actor.trurl.telescopes[telescope]
+    if named_position is None and (ra_h is None or dec_d is None):
+        raise click.UsageError(
+            "RA_H DEC_H are required unless --named-position is used."
+        )
 
-    if altaz:
-        await tel.goto_coordinates(alt=ra_h, az=dec_d, kmirror=kmirror)
+    if named_position is None:
+        tel = command.actor.trurl.telescopes
+        if telescope is not None:
+            tel = command.actor.trurl.telescopes[telescope]
+
+        if altaz:
+            await tel.goto_coordinates(alt=ra_h, az=dec_d, kmirror=kmirror)
+        else:
+            await tel.goto_coordinates(ra=ra_h, dec=dec_d, kmirror=kmirror)
+
     else:
-        await tel.goto_coordinates(ra=ra_h, dec=dec_d, kmirror=kmirror)
+        if telescope is not None:
+            raise click.UsageError("--telescope and --named-position are incompatible.")
+
+        tels = command.actor.trurl.telescopes
+        await tels.goto_named_position(named_position)
 
     return command.finish()

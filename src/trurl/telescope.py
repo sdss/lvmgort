@@ -121,7 +121,8 @@ class Telescope:
         elif alt_az is not None:
             await self.pwi.gotoAltAzJ2000(*alt_az)
         else:
-            await self.pwi.gotoAltAzJ2000(config["park"]["alt"], config["park"]["az"])
+            coords = config["telescopes"]["named_positions"]["park"]
+            await self.pwi.gotoAltAzJ2000(coords["alt"], coords["az"])
 
         if disable:
             await self.pwi.setEnabled(False)
@@ -167,7 +168,7 @@ class TelescopeSet(SimpleNamespace):
         for name in names:
             setattr(self, name, Telescope(trurl, name))
 
-    def __getitem__(self, key: str):
+    def __getitem__(self, key: str) -> Telescope:
         return getattr(self, key)
 
     async def prepare(self):
@@ -228,3 +229,31 @@ class TelescopeSet(SimpleNamespace):
                 for tel in self.names
             ]
         )
+
+    async def goto_named_position(self, name: str):
+        """Sends the telescopes to a named position."""
+
+        if name not in config["telescopes"]["named_positions"]:
+            raise ValueError(f"Invalid named position {name!r}.")
+
+        position_data = config["telescopes"]["named_positions"][name]
+
+        coros = []
+        for tel in self.names:
+            if tel in position_data:
+                coords = position_data[tel]
+            elif "all" in position_data:
+                coords = position_data["all"]
+            else:
+                raise ValueError(f"Cannot find position data for {name:!r}.")
+
+            if "alt" in coords and "az" in coords:
+                coro = self[tel].goto_coordinates(alt=coords["alt"], az=coords["az"])
+            elif "ra" in coords and "dec" in coords:
+                coro = self[tel].goto_coordinates(ra=coords["ra"], dec=coords["dec"])
+            else:
+                raise ValueError(f"No ra/dec or alt/az coordinates found for {name!r}.")
+
+            coros.append(coro)
+
+        await asyncio.gather(*coros)

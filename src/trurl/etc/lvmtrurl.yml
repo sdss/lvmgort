@@ -5,6 +5,22 @@ actor:
   port: 5672
   log_dir: /data/logs/trurl
 
-park:
-  alt: -60
-  az: 90
+telescopes:
+  named_positions:
+    park:
+      all:
+        alt: -60
+        az: 90
+    calibration:
+      skyw:
+        az: 100
+        alt: 42
+      skye:
+        az: 265
+        alt: 35
+      sci:
+        az: 128
+        alt: 68
+      spec:
+        az: 254
+        alt: 58
