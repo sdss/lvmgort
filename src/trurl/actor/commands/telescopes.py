@@ -59,8 +59,8 @@ async def goto(
         tel = command.actor.trurl.telescopes[telescope]
 
     if altaz:
-        await tel.goto(alt=ra_h, az=dec_d, kmirror=kmirror)
+        await tel.goto_coordinates(alt=ra_h, az=dec_d, kmirror=kmirror)
     else:
-        await tel.goto(ra=ra_h, dec=dec_d, kmirror=kmirror)
+        await tel.goto_coordinates(ra=ra_h, dec=dec_d, kmirror=kmirror)
 
     return command.finish()

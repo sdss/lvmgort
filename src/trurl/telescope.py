@@ -130,7 +130,7 @@ class Telescope:
             await self.km.slewStop()
             await self.km.moveAbsolute(90, "DEG")
 
-    async def goto(
+    async def goto_coordinates(
         self,
         ra: float | None = None,
         dec: float | None = None,
@@ -206,7 +206,7 @@ class TelescopeSet(SimpleNamespace):
             ]
         )
 
-    async def goto(
+    async def goto_coordinates(
         self,
         ra: float | None = None,
         dec: float | None = None,
@@ -218,7 +218,7 @@ class TelescopeSet(SimpleNamespace):
 
         await asyncio.gather(
             *[
-                self[tel].goto(
+                self[tel].goto_coordinates(
                     ra=ra,
                     dec=dec,
                     alt=alt,
