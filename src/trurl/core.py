@@ -35,6 +35,7 @@ __all__ = ["Trurl", "RemoteActor"]
 
 
 DEFAULT_TELESCOPES = ["sci", "spec", "skyw", "skye"]
+DEFAULT_SPECTROGRAPHS = ["sp1", "sp2", "sp3"]
 
 
 class Trurl:
@@ -89,7 +90,7 @@ class Trurl:
         return self.actors[actor]
 
 
-class RemoteActor(SimpleNamespace):
+class RemoteActor:
     """A programmatic representation of a remote actor."""
 
     def __init__(self, trurl: Trurl, name: str):
@@ -97,6 +98,9 @@ class RemoteActor(SimpleNamespace):
         self._name = name
 
         self._commands: list[str] = []
+        self._model: dict = {}
+
+        self.commands = SimpleNamespace()
 
     async def init(self) -> Self:
         """Initialises the representation of the actor."""
@@ -108,15 +112,13 @@ class RemoteActor(SimpleNamespace):
         if cmd.status.did_fail:
             raise TrurlError(f"Cannot get model for actor {self._name}.")
 
-        model = cmd.replies.get("command_model")
+        self.model = cmd.replies.get("command_model")
 
-        for command_name in self._commands:
-            if hasattr(self, command_name):
-                delattr(self, command_name)
-
-        for command_info in model["commands"].values():
+        commands_dict = {}
+        for command_info in self.model["commands"].values():
             command_name = get_valid_variable_name(command_info["name"])
-            setattr(self, command_name, RemoteCommand(self, command_info))
+            commands_dict[command_name] = RemoteCommand(self, command_info)
+            self.commands = SimpleNamespace(**commands_dict)
             self._commands.append(command_name)
 
         return self

@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import asyncio
-from types import SimpleNamespace
 
 from typing import TYPE_CHECKING
 
@@ -77,7 +76,7 @@ class Telescope:
     async def update_status(self):
         """Retrieves the status of the telescope."""
 
-        reply: ActorReply = await self.pwi.status()
+        reply: ActorReply = await self.pwi.commands.status()
         self.status = reply.flatten()
 
         return self.status
@@ -96,14 +95,14 @@ class Telescope:
         """Connects to the telescope and initialises the axes."""
 
         if not (await self.is_ready()):
-            await self.pwi.setConnected(True)
-            await self.pwi.setEnabled(True)
+            await self.pwi.commands.setConnected(True)
+            await self.pwi.commands.setEnabled(True)
 
     async def home(self):
         """Initialises and homes the telescope."""
 
         await self.initialise()
-        await self.pwi.findHome()
+        await self.pwi.commands.findHome()
 
     async def park(
         self,
@@ -117,19 +116,19 @@ class Telescope:
         await self.initialise()
 
         if use_pw_park:
-            await self.pwi.park()
+            await self.pwi.commands.park()
         elif alt_az is not None:
-            await self.pwi.gotoAltAzJ2000(*alt_az)
+            await self.pwi.commands.gotoAltAzJ2000(*alt_az)
         else:
             coords = config["telescopes"]["named_positions"]["park"]
-            await self.pwi.gotoAltAzJ2000(coords["alt"], coords["az"])
+            await self.pwi.commands.gotoAltAzJ2000(coords["alt"], coords["az"])
 
         if disable:
-            await self.pwi.setEnabled(False)
+            await self.pwi.commands.setEnabled(False)
 
         if kmirror and self.km:
-            await self.km.slewStop()
-            await self.km.moveAbsolute(90, "DEG")
+            await self.km.commands.slewStop()
+            await self.km.commands.moveAbsolute(90, "DEG")
 
     async def goto_coordinates(
         self,
@@ -146,20 +145,20 @@ class Telescope:
             assert is_radec, "Invalid input parameters"
 
             await self.initialise()
-            await self.pwi.gotoRaDecJ2000(ra, dec)
+            await self.pwi.commands.gotoRaDecJ2000(ra, dec)
 
         if alt is not None or az is not None:
             is_altaz = alt is not None and az is not None and not ra and not dec
             assert is_altaz, "Invalid input parameters"
 
             await self.initialise()
-            await self.pwi.gotoAltAzJ2000(alt, az)
+            await self.pwi.commands.gotoAltAzJ2000(alt, az)
 
         if kmirror and self.km and ra and dec:
-            await self.km.slewStart(ra, dec)
+            await self.km.commands.slewStart(ra, dec)
 
 
-class TelescopeSet(SimpleNamespace):
+class TelescopeSet:
     """A representation of a set of telescopes."""
 
     def __init__(self, trurl: Trurl, names: list):

@@ -45,9 +45,9 @@ class NPS:
         await self.update_status()
 
     async def update_status(self):
-        """Retrieves the status of the telescope."""
+        """Retrieves the status of the power outlet."""
 
-        reply: ActorReply = await self.nps.status()
+        reply: ActorReply = await self.nps.commands.status()
         self.status = reply.flatten()["status"][self.name]
 
         return self.status
@@ -55,13 +55,13 @@ class NPS:
     async def on(self, outlet: str):
         """Turns an outlet on."""
 
-        await self.nps.on(outlet)
+        await self.nps.commands.on(outlet)
         await self.update_status()
 
     async def off(self, outlet: str):
         """Turns an outlet on."""
 
-        await self.nps.off(outlet)
+        await self.nps.commands.off(outlet)
         await self.update_status()
 
 
