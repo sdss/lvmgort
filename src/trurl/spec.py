@@ -91,17 +91,21 @@ class SpectrographSet:
 
         await asyncio.gather(*[self[spec].prepare() for spec in self.names])
 
-    async def expose(self, specs: list[str] | None = None, **kwargs):
-        """Exposes the spectrographs."""
-
-        if specs is None:
-            specs = self.names.copy()
+    def get_seqno(self):
+        """Returns the next exposure sequence number."""
 
         next_exposure_number_path = config["specs"]["nextExposureNumber"]
         with open(next_exposure_number_path, "r") as fd:
             data = fd.read().strip()
             seqno = int(data) if data != "" else 1
 
-        await asyncio.gather(
-            *[self[spec].expose(seqno=seqno, **kwargs) for spec in specs]
-        )
+        return seqno
+
+    async def expose(self, specs: list[str] | None = None, **kwargs):
+        """Exposes the spectrographs."""
+
+        if specs is None:
+            specs = self.names.copy()
+
+        seqno = self.get_seqno()
+        await asyncio.gather(*[self[sp].expose(seqno=seqno, **kwargs) for sp in specs])

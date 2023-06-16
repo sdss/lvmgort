@@ -8,4 +8,5 @@
 
 from clu.parsers.click import command_parser as trurl_parser
 
+from .specs import *
 from .telescopes import *

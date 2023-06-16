@@ -24,3 +24,6 @@ telescopes:
       spec:
         az: 254
         alt: 58
+
+specs:
+  nextExposureNumber: /data/spectro/nextExposureNumber

@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import click
 
 from trurl.actor import TrurlCommand
@@ -23,26 +25,40 @@ def spec():
     """Handles multiple spectrographs."""
 
 
-@spec.command()
-@click.argument("EXPOSURE-TIME", type=float, required=False)
-@click.option("--flavour", type=str, help="The exposure type.")
+@spec.command(context_settings=dict(ignore_unknown_options=True))
 @click.option(
     "--spec",
     type=click.Choice(["sp1", "sp2", "sp3"]),
     help="Spectrograph to command. Otherwise exposes all connected spectrographs.",
 )
+@click.argument("extra_opts", type=click.UNPROCESSED, nargs=-1)
 async def expose(
     command: TrurlCommand,
-    exposure_time: float | None = None,
-    flavour: str | None = None,
     spec: str | None = None,
+    extra_opts: list = [],
 ):
-    """Exposes the spectrographs."""
+    """Exposes the spectrographs. Accepts the same flags as lvmscp expose."""
 
-    sp = command.actor.trurl.specs
-    if spec is not None:
-        sp = command.actor.trurl.specs[spec]
+    # Here we don't use the unclick interface since extra_opts is a string that
+    # we can pass directly to each one of the lvmscp actors. But we still need to
+    # specify the seqno.
 
-    await sp.expose(exposure_time=exposure_time, flavour=flavour)
+    specs = command.actor.trurl.specs
+
+    if "-s" in extra_opts or "--seqno" in extra_opts:
+        return command.fail("--seqno/-s cannot be manually specified in trurl.")
+
+    seqno = specs.get_seqno()
+    command_str = f"expose -s {seqno} " + " ".join(extra_opts)
+
+    if spec is None:
+        names = specs.names
+        scp_commands = [specs[name].scp.send_raw_command(command_str) for name in names]
+    else:
+        scp_commands = [specs[spec].scp.send_raw_command(command_str)]
+
+    command.info(f"Exposing with seqno={seqno}")
+
+    await asyncio.gather(*scp_commands)
 
     return command.finish()
