@@ -20,6 +20,7 @@ from clu.client import AMQPClient
 
 from trurl.exceptions import TrurlError
 from trurl.nps import NPSSet
+from trurl.spec import SpectrographSet
 from trurl.telescope import TelescopeSet
 
 from .tools import get_valid_variable_name
@@ -65,6 +66,7 @@ class Trurl:
 
         self.telescopes = TelescopeSet(self, telescopes or DEFAULT_TELESCOPES)
         self.nps = NPSSet(self, ["calib"])
+        self.specs = SpectrographSet(self, DEFAULT_SPECTROGRAPHS)
 
     async def init(self) -> Self:
         """Initialises the client."""
@@ -74,6 +76,7 @@ class Trurl:
 
         await self.telescopes.prepare()
         await self.nps.prepare()
+        await self.specs.prepare()
 
         return self
 
