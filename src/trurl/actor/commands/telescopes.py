@@ -34,9 +34,18 @@ async def park(command: TrurlCommand, disable: bool = False):
 
 
 @telescope.command()
+async def home(command: TrurlCommand):
+    """Home the telescopes."""
+
+    await command.actor.trurl.telescopes.home()
+
+    return command.finish()
+
+
+@telescope.command()
 @click.argument("RA_H", type=float, required=False)
 @click.argument("DEC_D", type=float, required=False)
-@click.argument("--named-position", "-n", type=str, help="Go to named position.")
+@click.option("--named-position", "-n", type=str, help="Go to named position.")
 @click.option("--altaz", is_flag=True, help="Coordinates are Alt/Az in de degrees.")
 @click.option(
     "--telescope",
