@@ -126,6 +126,17 @@ class RemoteActor:
 
         return self
 
+    async def send_raw_command(self, *args, **kwargs):
+        """Sends a raw command to the actor.
+
+        The parameters are the same as CLU's ``AMQPClient.send_command()`` with
+        the exception of the consumer name, which is replaced with the current actor
+        name.
+
+        """
+
+        return await self._trurl.client.send_command(self._name, *args, **kwargs)
+
     async def refresh(self):
         """Refresesh the command list."""
 
