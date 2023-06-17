@@ -109,14 +109,7 @@ class SpectrographSet(TrurlDeviceSet[Spectrograph]):
             await calib_nps.off(lamp)
 
         print("Taking biases.")
-        nbias = cal_config["biases"]["count"]
-        await self.trurl.specs.expose(flavour="bias", count=nbias)
+        await self.trurl.specs.expose(flavour="bias", **cal_config["biases"])
 
         print("Taking darks.")
-        ndarks = cal_config["darks"]["count"]
-        dark_exp_time = cal_config["darks"]["exposure_time"]
-        await self.trurl.specs.expose(
-            flavour="dark",
-            count=ndarks,
-            exposure_time=dark_exp_time,
-        )
+        await self.trurl.specs.expose(flavour="dark", **cal_config["darks"])

@@ -63,25 +63,25 @@ specs:
     lamps_nps: calib
     lamps:
       Argon:
-        warmup: 30
-        exposure_times: [30]
+        warmup: 120
+        exposure_times: [30, 90, 270]
       Neon:
-        warmup: 30
-        exposure_times: [30]
+        warmup: 120
+        exposure_times: [30, 90, 270]
       HgNe:
-        warmup: 30
-        exposure_times: [30]
+        warmup: 120
+        exposure_times: [30, 90, 270]
       Xenon:
-        warmup: 30
-        exposure_times: [30]
+        warmup: 120
+        exposure_times: [30, 90, 270]
       LDLS:
-        warmup: 30
-        exposure_times: [30]
+        warmup: 300
+        exposure_times: [30, 90, 270]
       Quartz:
-        warmup: 30
-        exposure_times: [30]
+        warmup: 120
+        exposure_times: [30, 90, 270]
     biases:
-      count: 1
+      count: 5
     darks:
-      count: 1
+      count: 5
       exposure_time: 900
