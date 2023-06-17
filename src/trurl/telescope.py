@@ -13,65 +13,28 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from trurl import config
+from trurl.core import RemoteActor, TrurlDevice, TrurlDeviceSet
 
 
 if TYPE_CHECKING:
-    from trurl.core import ActorReply, Trurl
+    from trurl.core import ActorReply
+    from trurl.trurl import Trurl
 
 
-class Telescope:
-    """Class representing an LVM telescope functionality.
+class Telescope(TrurlDevice):
+    """Class representing an LVM telescope functionality."""
 
-    Parameters
-    ----------
-    trurl
-        The `.Trurl` instance used to communicate with the actor system.
-    name
-        The name of the telescope.
-    pwi_actor
-        The PlaneWave mount control actor. If `None`, uses ``lvm.{name}.pwi``.
-    agcam_actor
-        The autoguide camera actor. If `None`, uses ``lvm.{name}.agcam``.
-    agp_actor
-        The autoguide actor. If `None`, uses ``lvm.{name}.agp``.
+    def __init__(self, trurl: Trurl, name: str, actor: str, **kwargs):
+        super().__init__(trurl, name, actor)
 
-    """
+        self.pwi = self.actor
 
-    def __init__(
-        self,
-        trurl: Trurl,
-        name: str,
-        pwi_actor: str | None = None,
-        agcam_actor: str | None = None,
-        agp_actor: str | None = None,
-    ):
-        self.name = name
-        self.trurl = trurl
-
-        self._pwi_actor_name = pwi_actor or f"lvm.{name}.pwi"
-        self._km_actor_name = pwi_actor or f"lvm.{name}.km"
-        self._agcam_actor_name = agcam_actor or f"lvm.{name}.agcam"
-        self._agp_actor_name = agp_actor or f"lvm.{name}.agp"
-
-        if self.name != "spec":
-            self._km_actor_name = f"lvm.{name}.km"
-        else:
-            self._km_actor_name = None
-
-        self.status = {}
-
-    async def prepare(self):
-        """Prepares the telescope class for asynchronous access."""
-
-        self.pwi = await self.trurl.add_actor(self._pwi_actor_name)
-        # await self.trurl.add_actor(self.agcam_actor)
-        # await self.trurl.add_actor(self.agp_actor)
-
-        if self._km_actor_name:
-            await self.trurl.add_actor(self._km_actor_name)
-            self.km = self.trurl.actors[self._km_actor_name]
-        else:
-            self.km = None
+        kmirror_actor = kwargs.get("kmirror", None)
+        self.km: RemoteActor | None = None
+        self.has_kmirror = False
+        if kmirror_actor:
+            self.has_kmirror = True
+            self.km = self.trurl.add_actor(kmirror_actor)
 
     async def update_status(self):
         """Retrieves the status of the telescope."""
@@ -158,32 +121,20 @@ class Telescope:
             await self.km.commands.slewStart(ra, dec)
 
 
-class TelescopeSet:
+class TelescopeSet(TrurlDeviceSet[Telescope]):
     """A representation of a set of telescopes."""
 
-    def __init__(self, trurl: Trurl, names: list):
-        self.names = names
-
-        for name in names:
-            setattr(self, name, Telescope(trurl, name))
-
-    def __getitem__(self, key: str) -> Telescope:
-        return getattr(self, key)
-
-    async def prepare(self):
-        """Prepares the set of telescopes for asynchronous access."""
-
-        await asyncio.gather(*[self[tel].prepare() for tel in self.names])
+    __DEVICE_CLASS__ = Telescope
 
     async def initialise(self):
         """Initialise all telescopes."""
 
-        await asyncio.gather(*[self[tel].initialise() for tel in self.names])
+        await asyncio.gather(*[tel.initialise() for tel in self.values()])
 
     async def home(self):
         """Initialises and homes all telescopes."""
 
-        await asyncio.gather(*[self[tel].home() for tel in self.names])
+        await asyncio.gather(*[tel.home() for tel in self.values()])
 
     async def park(
         self,
@@ -196,13 +147,13 @@ class TelescopeSet:
 
         await asyncio.gather(
             *[
-                self[tel].park(
+                tel.park(
                     disable=disable,
                     use_pw_park=use_pw_park,
                     alt_az=alt_az,
                     kmirror=kmirror,
                 )
-                for tel in self.names
+                for tel in self.values()
             ]
         )
 
@@ -218,14 +169,14 @@ class TelescopeSet:
 
         await asyncio.gather(
             *[
-                self[tel].goto_coordinates(
+                tel.goto_coordinates(
                     ra=ra,
                     dec=dec,
                     alt=alt,
                     az=az,
                     kmirror=kmirror,
                 )
-                for tel in self.names
+                for tel in self.values()
             ]
         )
 
@@ -238,18 +189,19 @@ class TelescopeSet:
         position_data = config["telescopes"]["named_positions"][name]
 
         coros = []
-        for tel in self.names:
-            if tel in position_data:
-                coords = position_data[tel]
+        for tel in self.values():
+            name = tel.name
+            if name in position_data:
+                coords = position_data[name]
             elif "all" in position_data:
                 coords = position_data["all"]
             else:
-                raise ValueError(f"Cannot find position data for {name:!r}.")
+                raise ValueError(f"Cannot find position data for {name!r}.")
 
             if "alt" in coords and "az" in coords:
-                coro = self[tel].goto_coordinates(alt=coords["alt"], az=coords["az"])
+                coro = tel.goto_coordinates(alt=coords["alt"], az=coords["az"])
             elif "ra" in coords and "dec" in coords:
-                coro = self[tel].goto_coordinates(ra=coords["ra"], dec=coords["dec"])
+                coro = tel.goto_coordinates(ra=coords["ra"], dec=coords["dec"])
             else:
                 raise ValueError(f"No ra/dec or alt/az coordinates found for {name!r}.")
 

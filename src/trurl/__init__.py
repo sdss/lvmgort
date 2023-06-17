@@ -20,3 +20,4 @@ __version__ = get_package_version(path=__file__, package_name=NAME)
 
 
 from .core import *
+from .trurl import *

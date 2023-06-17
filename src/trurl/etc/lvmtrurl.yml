@@ -6,6 +6,19 @@ actor:
   log_dir: /data/logs/trurl
 
 telescopes:
+  devices:
+    sci:
+      actor: lvm.sci.pwi
+      kmirror: lvm.sci.km
+    spec:
+      actor: lvm.spec.pwi
+      kmirror: null
+    skye:
+      actor: lvm.skye.pwi
+      kmirror: lvm.skye.km
+    skyw:
+      actor: lvm.skyw.pwi
+      kmirror: lvm.skyw.km
   named_positions:
     park:
       all:
@@ -14,16 +27,61 @@ telescopes:
     calibration:
       skyw:
         az: 100
-        alt: 42
+        alt: 45
       skye:
-        az: 265
-        alt: 35
+        az: -95
+        alt: 30
       sci:
-        az: 128
-        alt: 68
+        az: -30
+        alt: 115
       spec:
-        az: 254
-        alt: 58
+        az: -105
+        alt: 55
+
+nps:
+  devices:
+    sp1:
+      actor: lvmnps.sp1
+    sp2:
+      actor: lvmnps.sp2
+    sp3:
+      actor: lvmnps.sp3
+    calib:
+      actor: lvmnps.calib
 
 specs:
+  devices:
+    sp1:
+      actor: lvmscp.sp1
+    sp2:
+      actor: lvmscp.sp2
+    sp3:
+      actor: lvmscp.sp3
   nextExposureNumber: /data/spectro/nextExposureNumber
+  calibration:
+    position: calibration
+    lamps_nps: calib
+    lamps:
+      Argon:
+        warmup: 30
+        exposure_times: [30]
+      Neon:
+        warmup: 30
+        exposure_times: [30]
+      HgNe:
+        warmup: 30
+        exposure_times: [30]
+      Xenon:
+        warmup: 30
+        exposure_times: [30]
+      LDLS:
+        warmup: 30
+        exposure_times: [30]
+      Quartz:
+        warmup: 30
+        exposure_times: [30]
+    biases:
+      count: 1
+    darks:
+      count: 1
+      exposure_time: 900

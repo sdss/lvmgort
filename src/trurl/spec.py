@@ -13,83 +13,40 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from trurl import config
+from trurl.core import TrurlDevice, TrurlDeviceSet
 
 
 if TYPE_CHECKING:
-    from trurl.core import ActorReply, RemoteActor, Trurl
+    from trurl.core import ActorReply
+    from trurl.trurl import Trurl
 
 
-class Spectrograph:
-    """Class representing an LVM spectrograph functionality.
+class Spectrograph(TrurlDevice):
+    """Class representing an LVM spectrograph functionality."""
 
-    Parameters
-    ----------
-    trurl
-        The `.Trurl` instance used to communicate with the actor system.
-    name
-        The name of the spectrograph.
-
-    """
-
-    def __init__(
-        self,
-        trurl: Trurl,
-        name: str,
-    ):
-        self.name = name
-        self.trurl = trurl
-
-        self._scp_actor_name = f"lvmscp.{name}"
-        self.scp: RemoteActor | None = None
+    def __init__(self, trurl: Trurl, name: str, actor: str, **kwargs):
+        super().__init__(trurl, name, actor)
 
         self.status = {}
-
-    async def prepare(self):
-        """Prepares the spectrograph class for asynchronous access."""
-
-        self.scp = await self.trurl.add_actor(self._scp_actor_name)
 
     async def update_status(self):
         """Retrieves the status of the telescope."""
 
-        assert self.scp
-
-        reply: ActorReply = await self.scp.commands.status()
+        reply: ActorReply = await self.actor.commands.status()
         self.status = reply.flatten()
 
         return self.status
 
-    async def initialise(self):
-        """Connects to the telescope and initialises the axes."""
-
-        assert self.scp
-
-        await self.scp.commands.init()
-
     async def expose(self, **kwargs):
         """Exposes the spectrograph."""
 
-        assert self.scp
-
-        await self.scp.commands.expose(**kwargs)
+        await self.actor.commands.expose(**kwargs)
 
 
-class SpectrographSet:
+class SpectrographSet(TrurlDeviceSet[Spectrograph]):
     """A set of LVM spectrographs."""
 
-    def __init__(self, trurl: Trurl, names: list):
-        self.names = names
-
-        for name in names:
-            setattr(self, name, Spectrograph(trurl, name))
-
-    def __getitem__(self, key: str):
-        return getattr(self, key)
-
-    async def prepare(self):
-        """Prepares the set of spectrographs for asynchronous access."""
-
-        await asyncio.gather(*[self[spec].prepare() for spec in self.names])
+    __DEVICE_CLASS__ = Spectrograph
 
     def get_seqno(self):
         """Returns the next exposure sequence number."""
@@ -104,8 +61,62 @@ class SpectrographSet:
     async def expose(self, specs: list[str] | None = None, **kwargs):
         """Exposes the spectrographs."""
 
-        if specs is None:
-            specs = self.names.copy()
-
         seqno = self.get_seqno()
-        await asyncio.gather(*[self[sp].expose(seqno=seqno, **kwargs) for sp in specs])
+
+        await self.reset()
+
+        if specs is None:
+            await self._send_command_all("expose", seqno=seqno, **kwargs)
+
+    async def update_status(self):
+        """Update the status fo all the spectrographs."""
+
+        await asyncio.gather(*[spec.update_status() for spec in self.values()])
+
+    async def reset(self):
+        """Reset the spectrographs."""
+
+        await self._send_command_all("reset")
+
+    async def calibrate(self):
+        """Runs the calibration sequence."""
+
+        # TODO: add some checks. Confirm HDs are open, specs connected, etc.
+
+        cal_config = config["specs"]["calibration"]
+
+        print("Moving telescopes to position.")
+        await self.trurl.telescopes.goto_named_position(cal_config["position"])
+
+        print("Exposing lamps.")
+
+        calib_nps = self.trurl.nps[cal_config["lamps_nps"]]
+        lamps_config = cal_config["lamps"]
+
+        # Turn off all lamps.
+        for lamp in lamps_config:
+            await calib_nps.off(lamp)
+
+        for lamp in lamps_config:
+            print(f"Warming up lamp {lamp}.")
+            await calib_nps.on(lamp)
+            await asyncio.sleep(lamps_config[lamp]["warmup"])
+            print(f"{lamp} did warm up.")
+            for exp_time in lamps_config[lamp]["exposure_times"]:
+                print(f"Exposing for {exp_time} seconds.")
+                await self.trurl.specs.expose(flavour="arc", exposure_time=exp_time)
+            print(f"Turning off {lamp}.")
+            await calib_nps.off(lamp)
+
+        print("Taking biases.")
+        nbias = cal_config["biases"]["count"]
+        await self.trurl.specs.expose(flavour="bias", count=nbias)
+
+        print("Taking darks.")
+        ndarks = cal_config["darks"]["count"]
+        dark_exp_time = cal_config["darks"]["exposure_time"]
+        await self.trurl.specs.expose(
+            flavour="dark",
+            count=ndarks,
+            exposure_time=dark_exp_time,
+        )

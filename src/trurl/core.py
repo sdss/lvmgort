@@ -8,89 +8,35 @@
 
 from __future__ import annotations
 
-import uuid
+import asyncio
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Self, Type, TypeVar
 
 import unclick
 
-from clu.client import AMQPClient
-
 from trurl.exceptions import TrurlError
-from trurl.nps import NPSSet
-from trurl.spec import SpectrographSet
-from trurl.telescope import TelescopeSet
 
 from .tools import get_valid_variable_name
 
 
 if TYPE_CHECKING:
-    from typing import Self
-
     from clu.command import Command
 
-
-__all__ = ["Trurl", "RemoteActor"]
-
-
-DEFAULT_TELESCOPES = ["sci", "spec", "skyw", "skye"]
-DEFAULT_SPECTROGRAPHS = ["sp1", "sp2", "sp3"]
+    from trurl.trurl import Trurl
 
 
-class Trurl:
-    """The main ``lvmtrurl`` client class, used to communicate with the actor system."""
+__all__ = ["RemoteActor", "RemoteCommand", "ActorReply"]
 
-    def __init__(
-        self,
-        client: AMQPClient | None = None,
-        host="lvm-hub.lco.cl",
-        user: str = "guest",
-        password="guest",
-        telescopes: list[str] = DEFAULT_TELESCOPES,
-    ):
-        if client:
-            self.client = client
-        else:
-            client_uuid = str(uuid.uuid4()).split("-")[1]
 
-            self.client = AMQPClient(
-                f"trurl-client-{client_uuid}",
-                host=host,
-                user=user,
-                password=password,
-            )
+class CommandSet(dict[str, "RemoteCommand"]):
+    """A command set for a remote actor."""
 
-        self.actors: dict[str, RemoteActor] = {}
-
-        self.telescopes = TelescopeSet(self, telescopes or DEFAULT_TELESCOPES)
-        self.nps = NPSSet(self, ["calib"])
-        self.specs = SpectrographSet(self, DEFAULT_SPECTROGRAPHS)
-
-    async def init(self) -> Self:
-        """Initialises the client."""
-
-        if not self.connected:
-            await self.client.start()
-
-        await self.telescopes.prepare()
-        await self.nps.prepare()
-        await self.specs.prepare()
-
-        return self
-
-    @property
-    def connected(self):
-        """Returns `True` if the client is connected."""
-
-        return self.client.connection and self.client.connection.connection is not None
-
-    async def add_actor(self, actor: str):
-        """Adds an actor to the programmatic API."""
-
-        self.actors[actor] = await RemoteActor(self, actor).init()
-        return self.actors[actor]
+    def __getattribute__(self, __name: str) -> RemoteCommand:
+        if __name in self:
+            return self[__name]
+        return super().__getattribute__(__name)
 
 
 class RemoteActor:
@@ -98,12 +44,13 @@ class RemoteActor:
 
     def __init__(self, trurl: Trurl, name: str):
         self._trurl = trurl
-        self._name = name
 
-        self._commands: list[str] = []
-        self._model: dict = {}
+        self.name = name
+        self.model: dict = {}
+        self.commands = CommandSet()
 
-        self.commands = SimpleNamespace()
+    def __repr__(self):
+        return f"<RemoteActor (name={self.name})>"
 
     async def init(self) -> Self:
         """Initialises the representation of the actor."""
@@ -111,9 +58,9 @@ class RemoteActor:
         if not self._trurl.connected:
             raise RuntimeError("Trurl is not connected.")
 
-        cmd = await self._trurl.client.send_command(self._name, "get-command-model")
+        cmd = await self._trurl.client.send_command(self.name, "get-command-model")
         if cmd.status.did_fail:
-            raise TrurlError(f"Cannot get model for actor {self._name}.")
+            raise TrurlError(f"Cannot get model for actor {self.name}.")
 
         self.model = cmd.replies.get("command_model")
 
@@ -121,8 +68,8 @@ class RemoteActor:
         for command_info in self.model["commands"].values():
             command_name = get_valid_variable_name(command_info["name"])
             commands_dict[command_name] = RemoteCommand(self, command_info)
-            self.commands = SimpleNamespace(**commands_dict)
-            self._commands.append(command_name)
+
+        self.commands = CommandSet(commands_dict)
 
         return self
 
@@ -135,7 +82,7 @@ class RemoteActor:
 
         """
 
-        return await self._trurl.client.send_command(self._name, *args, **kwargs)
+        return await self._trurl.client.send_command(self.name, *args, **kwargs)
 
     async def refresh(self):
         """Refresesh the command list."""
@@ -180,11 +127,11 @@ class RemoteCommand:
             parent_string = self._parent.get_command_string() + " "
 
         cmd = await self._remote_actor._trurl.client.send_command(
-            self._remote_actor._name,
+            self._remote_actor.name,
             parent_string + self.get_command_string(*args, **kwargs),
         )
 
-        actor_reply = ActorReply(cmd)
+        actor_reply = ActorReply(self._remote_actor, cmd)
         for reply in cmd.replies:
             if len(reply.body) > 0:
                 actor_reply.replies.append(reply.body)
@@ -201,6 +148,7 @@ class RemoteCommand:
 class ActorReply:
     """A reply to an actor command."""
 
+    actor: RemoteActor
     command: Command
     replies: list[dict] = field(default_factory=list)
 
@@ -227,3 +175,52 @@ class ActorReply:
                 return reply[key]
 
         return None
+
+
+class TrurlDevice:
+    """A trurl-managed device."""
+
+    def __init__(self, trurl: Trurl, name: str, actor: str, **kwargs):
+        self.trurl = trurl
+        self.name = name
+        self.actor = trurl.add_actor(actor)
+
+
+TrurlDeviceType = TypeVar("TrurlDeviceType", bound=TrurlDevice)
+
+
+class TrurlDeviceSet(dict[str, TrurlDeviceType], Generic[TrurlDeviceType]):
+    """A set to trurl-managed devices."""
+
+    __DEVICE_CLASS__: ClassVar[Type[TrurlDevice]]
+
+    def __init__(self, trurl: Trurl, data: dict[str, dict]):
+        self.trurl = trurl
+
+        _dict_data = {}
+        for device_name in data:
+            device_data = data[device_name].copy()
+            actor_name = device_data.pop("actor")
+            _dict_data[device_name] = self.__DEVICE_CLASS__(
+                trurl,
+                device_name,
+                actor_name,
+                **device_data,
+            )
+
+        dict.__init__(self, _dict_data)
+
+    def __getattribute__(self, __name: str) -> Any:
+        if __name in self:
+            return self.__getitem__(__name)
+        return super().__getattribute__(__name)
+
+    async def _send_command_all(self, command: str, *args, **kwargs):
+        """Calls a command in all the devices."""
+
+        tasks = []
+        for dev in self.values():
+            actor_command = dev.actor.commands[command]
+            tasks.append(actor_command(*args, **kwargs))
+
+        return await asyncio.gather(*tasks)
