@@ -12,7 +12,7 @@ import asyncio
 
 from typing import TYPE_CHECKING
 
-from trurl import config
+from trurl import config, log
 from trurl.core import TrurlDevice, TrurlDeviceSet
 
 
@@ -62,6 +62,7 @@ class SpectrographSet(TrurlDeviceSet[Spectrograph]):
         """Exposes the spectrographs."""
 
         seqno = self.get_seqno()
+        log.info(f"Taking exposure {seqno}.")
 
         await self.reset()
 
@@ -85,31 +86,37 @@ class SpectrographSet(TrurlDeviceSet[Spectrograph]):
 
         cal_config = config["specs"]["calibration"]
 
-        print("Moving telescopes to position.")
+        log.info("Moving telescopes to position.")
         await self.trurl.telescopes.goto_named_position(cal_config["position"])
-
-        print("Exposing lamps.")
 
         calib_nps = self.trurl.nps[cal_config["lamps_nps"]]
         lamps_config = cal_config["lamps"]
 
         # Turn off all lamps.
+        log.info("Checking that all lamps are off.")
         for lamp in lamps_config:
             await calib_nps.off(lamp)
 
         for lamp in lamps_config:
-            print(f"Warming up lamp {lamp}.")
+            warmup = lamps_config[lamp]["warmup"]
+            log.info(f"Warming up lamp {lamp} for {warmup} seconds.")
             await calib_nps.on(lamp)
-            await asyncio.sleep(lamps_config[lamp]["warmup"])
-            print(f"{lamp} did warm up.")
+            await asyncio.sleep(warmup)
             for exp_time in lamps_config[lamp]["exposure_times"]:
-                print(f"Exposing for {exp_time} seconds.")
+                log.info(f"Exposing for {exp_time} seconds.")
                 await self.trurl.specs.expose(flavour="arc", exposure_time=exp_time)
-            print(f"Turning off {lamp}.")
+            log.info(f"Turning off {lamp}.")
             await calib_nps.off(lamp)
 
-        print("Taking biases.")
-        await self.trurl.specs.expose(flavour="bias", **cal_config["biases"])
+        log.info("Taking biases.")
+        nbias = cal_config["biases"]["count"]
+        for _ in range(nbias):
+            await self.trurl.specs.expose(flavour="bias")
 
-        print("Taking darks.")
-        await self.trurl.specs.expose(flavour="dark", **cal_config["darks"])
+        log.info("Taking darks.")
+        ndarks = cal_config["darks"]["count"]
+        for _ in range(ndarks):
+            await self.trurl.specs.expose(
+                flavour="dark",
+                exposure_time=cal_config["darks"]["exposure_time"],
+            )

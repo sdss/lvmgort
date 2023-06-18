@@ -85,3 +85,7 @@ specs:
     darks:
       count: 5
       exposure_time: 900
+
+scheduler:
+  host: 10.8.38.26
+  port: 5100
