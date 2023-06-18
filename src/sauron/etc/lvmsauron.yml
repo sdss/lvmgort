@@ -24,6 +24,10 @@ telescopes:
       all:
         alt: -60
         az: 90
+    zenith:
+      all:
+        alt: 90
+        az: 0
     calibration:
       skyw:
         az: 100
