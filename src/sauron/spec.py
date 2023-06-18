@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 from typing import TYPE_CHECKING
 
@@ -58,7 +59,7 @@ class SpectrographSet(SauronDeviceSet[Spectrograph]):
 
         return seqno
 
-    async def expose(self, specs: list[str] | None = None, **kwargs):
+    async def expose(self, tile_data: dict | None = None, **kwargs):
         """Exposes the spectrographs."""
 
         seqno = self.get_seqno()
@@ -66,8 +67,12 @@ class SpectrographSet(SauronDeviceSet[Spectrograph]):
 
         await self.reset()
 
-        if specs is None:
-            await self._send_command_all("expose", seqno=seqno, **kwargs)
+        if tile_data is not None:
+            header = json.dumps(tile_data)
+        else:
+            header = None
+
+        await self._send_command_all("expose", seqno=seqno, header=header, **kwargs)
 
     async def update_status(self):
         """Update the status fo all the spectrographs."""
