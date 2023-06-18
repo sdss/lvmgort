@@ -24,7 +24,7 @@ __all__ = ["Sauron"]
 
 
 class Sauron:
-    """The main ``lvmsauron`` client class, used to communicate with the actor system."""
+    """The main ``lvmsauron`` client, used to communicate with the actor system."""
 
     def __init__(
         self,
