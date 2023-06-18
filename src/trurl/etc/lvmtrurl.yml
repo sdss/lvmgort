@@ -65,21 +65,27 @@ specs:
       Argon:
         warmup: 120
         exposure_times: [30, 90, 270]
+        flavour: arc
       Neon:
         warmup: 120
         exposure_times: [30, 90, 270]
+        flavour: arc
       HgNe:
         warmup: 120
         exposure_times: [30, 90, 270]
+        flavour: arc
       Xenon:
         warmup: 120
         exposure_times: [30, 90, 270]
+        flavour: arc
       LDLS:
         warmup: 300
         exposure_times: [30, 90, 270]
+        flavour: flat
       Quartz:
         warmup: 120
         exposure_times: [30, 90, 270]
+        flavour: flat
     biases:
       count: 5
     darks:

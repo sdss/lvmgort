@@ -99,12 +99,13 @@ class SpectrographSet(TrurlDeviceSet[Spectrograph]):
 
         for lamp in lamps_config:
             warmup = lamps_config[lamp]["warmup"]
+            flavour = lamps_config[lamp]["flavour"]
             log.info(f"Warming up lamp {lamp} for {warmup} seconds.")
             await calib_nps.on(lamp)
             await asyncio.sleep(warmup)
             for exp_time in lamps_config[lamp]["exposure_times"]:
                 log.info(f"Exposing for {exp_time} seconds.")
-                await self.trurl.specs.expose(flavour="arc", exposure_time=exp_time)
+                await self.trurl.specs.expose(flavour=flavour, exposure_time=exp_time)
             log.info(f"Turning off {lamp}.")
             await calib_nps.off(lamp)
 
