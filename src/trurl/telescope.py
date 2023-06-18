@@ -12,8 +12,9 @@ import asyncio
 
 from typing import TYPE_CHECKING
 
-from trurl import config
+from trurl import config, log
 from trurl.core import RemoteActor, TrurlDevice, TrurlDeviceSet
+from trurl.tools import get_calibrators, get_next_tile_id
 
 
 if TYPE_CHECKING:
@@ -103,14 +104,14 @@ class Telescope(TrurlDevice):
     ):
         """Moves the telescope to a given RA/Dec or Alt/Az."""
 
-        if ra is not None or dec is not None:
+        if ra is not None and dec is not None:
             is_radec = ra is not None and dec is not None and not alt and not az
             assert is_radec, "Invalid input parameters"
 
             await self.initialise()
-            await self.pwi.commands.gotoRaDecJ2000(ra, dec)
+            await self.pwi.commands.gotoRaDecJ2000(ra / 15.0, dec)
 
-        if alt is not None or az is not None:
+        elif alt is not None and az is not None:
             is_altaz = alt is not None and az is not None and not ra and not dec
             assert is_altaz, "Invalid input parameters"
 
@@ -118,7 +119,7 @@ class Telescope(TrurlDevice):
             await self.pwi.commands.gotoAltAzJ2000(alt, az)
 
         if kmirror and self.km and ra and dec:
-            await self.km.commands.slewStart(ra, dec)
+            await self.km.commands.slewStart(ra / 15.0, dec)
 
 
 class TelescopeSet(TrurlDeviceSet[Telescope]):
@@ -157,7 +158,7 @@ class TelescopeSet(TrurlDeviceSet[Telescope]):
             ]
         )
 
-    async def goto_coordinates(
+    async def goto_coordinates_all(
         self,
         ra: float | None = None,
         dec: float | None = None,
@@ -208,3 +209,74 @@ class TelescopeSet(TrurlDeviceSet[Telescope]):
             coros.append(coro)
 
         await asyncio.gather(*coros)
+
+    async def goto_tile_id(
+        self,
+        tile_id: int | None = None,
+        ra: float | None = None,
+        dec: float | None = None,
+    ):
+        """Moves all the telescopes to a ``tile_id``.
+
+        If the ``tile_id`` is not provided, the next tile is retrieved from
+        the scheduler. If ``ra``/``dec`` are provided, the science telescope
+        will point to those coordinates and the remaining will be grabbed from
+        the scheduler.
+
+        """
+
+        if tile_id is None and (ra is None or dec is None):
+            raise ValueError("tile_id or (ra, dec) are required.")
+
+        tile_id_data: dict = {}
+        if tile_id is None and (ra is None or dec is None):
+            tile_id_data = await get_next_tile_id()
+            calibrators = await get_calibrators(tile_id=tile_id)
+        else:
+            tile_id_data = {"tile_id": None, "tile_pos": (ra, dec)}
+            calibrators = await get_calibrators(ra=ra, dec=dec)
+
+        tile_id = tile_id_data["tile_id"]
+
+        sci = (tile_id_data["tile_pos"][0], tile_id_data["tile_pos"][1])
+        skye, skyw = calibrators["sky_pos"]
+        spec = calibrators["standard_pos"][0]
+
+        log.info(f"Going to tile_id={tile_id}.")
+        log.debug(f"Science: {sci}")
+        log.debug(f"Spec: {spec}")
+        log.debug(f"SkyE: {skye}")
+        log.debug(f"SkyW: {skyw}")
+
+        await self.goto(sci=sci, spec=spec, skye=skye, skyw=skyw)
+
+        tile_id_data.update(calibrators)
+        return tile_id_data
+
+    async def goto(
+        self,
+        sci: tuple[float, float] | None = None,
+        spec: tuple[float, float] | None = None,
+        skye: tuple[float, float] | None = None,
+        skyw: tuple[float, float] | None = None,
+    ):
+        """Sends each telescope to a different position."""
+
+        jobs = []
+
+        if sci is not None:
+            jobs.append(self["sci"].goto_coordinates(ra=sci[0], dec=sci[1]))
+
+        if spec is not None:
+            jobs.append(self["spec"].goto_coordinates(ra=spec[0], dec=spec[1]))
+
+        if skye is not None:
+            jobs.append(self["skye"].goto_coordinates(ra=skye[0], dec=skye[1]))
+
+        if skyw is not None:
+            jobs.append(self["skyw"].goto_coordinates(ra=skyw[0], dec=skyw[1]))
+
+        if len(jobs) == 0:
+            return
+
+        await asyncio.gather(*jobs)
