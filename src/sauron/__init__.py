@@ -13,6 +13,7 @@ config = get_config(NAME)
 
 log = get_logger(NAME)
 log.sh.setLevel(logging.INFO)
+log.sh.formatter.print_time = True  # type:ignore
 
 
 # package name should be pip package name

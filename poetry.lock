@@ -2019,13 +2019,13 @@ unclick = ">=0.1.0b4,<0.2.0"
 
 [[package]]
 name = "sdsstools"
-version = "1.0.2"
+version = "1.1.0"
 description = "Small tools for SDSS products"
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "sdsstools-1.0.2-py3-none-any.whl", hash = "sha256:e6f3ed62fa79e7de84bb496c13cdcadbfd1ecbdf6660bae7a5dad237dfd4c6e2"},
-    {file = "sdsstools-1.0.2.tar.gz", hash = "sha256:74a477430155993e6a1dd8f7c780cbab7cce907c83d87f17553c614c90aea44b"},
+    {file = "sdsstools-1.1.0-py3-none-any.whl", hash = "sha256:d4d57855a9ac779399a68994374dc577deb9f27436019c99f248249070b754a4"},
+    {file = "sdsstools-1.1.0.tar.gz", hash = "sha256:083dee962600c479e3a0304a1648713df471725e65f64f880280f33014184feb"},
 ]
 
 [package.dependencies]
@@ -2034,6 +2034,7 @@ invoke = ">=1.3.0,<2.0.0"
 packaging = ">=20.4"
 pygments = ">=2.5.2,<3.0.0"
 pyyaml = ">=4.0"
+typing-extensions = ">=4.6.3,<5.0.0"
 
 [[package]]
 name = "setuptools"
@@ -2561,4 +2562,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10,<4.0"
-content-hash = "025fdadda3429d5aa30ae5eeae57d4f7967ac2df6baeebf515cf92d029dc5a02"
+content-hash = "dc38c7a5b54a3c7b5a88e171144ab182a7a670e6c6a6fe0b26b3a1453cde2ee5"
