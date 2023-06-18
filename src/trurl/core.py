@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from types import SimpleNamespace
 
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Self, Type, TypeVar
 
