@@ -7,13 +7,14 @@
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
 import asyncio
+import logging
 import uuid
 
 from typing import Self
 
 from clu.client import AMQPClient
 
-from sauron import config
+from sauron import config, log
 from sauron.core import RemoteActor
 from sauron.enclosure import Enclosure
 from sauron.nps import NPSSet
@@ -51,7 +52,7 @@ class Sauron:
         self.telescopes = TelescopeSet(self, config["telescopes"]["devices"])
         self.nps = NPSSet(self, config["nps"]["devices"])
         self.specs = SpectrographSet(self, config["specs"]["devices"])
-        self.enclosure = Enclosure(self, name='enclosure', actor='lvmecp')
+        self.enclosure = Enclosure(self, name="enclosure", actor="lvmecp")
 
     async def init(self) -> Self:
         """Initialises the client."""
@@ -76,3 +77,16 @@ class Sauron:
             self.actors[actor] = RemoteActor(self, actor)
 
         return self.actors[actor]
+
+    def set_verbosity(self, verbosity: str | int = "info"):
+        """Sets the level of verbosity to ``debug``, ``info``, or ``warning``."""
+
+        if isinstance(verbosity, int):
+            log.sh.setLevel(verbosity)
+            return
+
+        verbosity = verbosity.lower()
+        if verbosity not in ["debug", "info", "warning"]:
+            raise ValueError("Invalid verbosity value.")
+
+        log.sh.setLevel(logging.getLevelName(verbosity.upper()))
