@@ -55,18 +55,32 @@ class Telescope(SauronDevice):
 
         return is_connected and is_enabled
 
-    async def initialise(self):
+    async def initialise(self, home: bool | None = None):
         """Connects to the telescope and initialises the axes."""
 
         if not (await self.is_ready()):
             await self.pwi.commands.setConnected(True)
             await self.pwi.commands.setEnabled(True)
 
+            if home is True or home is None:
+                log.warning(f"{self.name}: homing telescope")
+                await self.home()
+                return
+
+        if home is True:
+            await self.home()
+
     async def home(self):
         """Initialises and homes the telescope."""
 
-        await self.initialise()
+        await self.initialise(home=False)
         await self.pwi.commands.findHome()
+
+        if self.km:
+            await self.km.commands.moveToHome()
+
+        # findHome does not block, so wait a reasonable amount of time.
+        await asyncio.sleep(30)
 
     async def park(
         self,
