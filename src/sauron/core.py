@@ -176,7 +176,7 @@ class ActorReply:
         return None
 
 
-class sauronDevice:
+class SauronDevice:
     """A sauron-managed device."""
 
     def __init__(self, sauron: Sauron, name: str, actor: str, **kwargs):
@@ -185,13 +185,13 @@ class sauronDevice:
         self.actor = sauron.add_actor(actor)
 
 
-sauronDeviceType = TypeVar("sauronDeviceType", bound=sauronDevice)
+sauronDeviceType = TypeVar("sauronDeviceType", bound=SauronDevice)
 
 
-class sauronDeviceSet(dict[str, sauronDeviceType], Generic[sauronDeviceType]):
+class SauronDeviceSet(dict[str, sauronDeviceType], Generic[sauronDeviceType]):
     """A set to sauron-managed devices."""
 
-    __DEVICE_CLASS__: ClassVar[Type[sauronDevice]]
+    __DEVICE_CLASS__: ClassVar[Type[SauronDevice]]
 
     def __init__(self, sauron: Sauron, data: dict[str, dict]):
         self.sauron = sauron
