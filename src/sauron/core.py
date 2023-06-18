@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Self, Type, TypeVar
 
@@ -103,13 +104,14 @@ class RemoteCommand:
         self._parent = parent
 
         self._name = model["name"]
+        self.commands = SimpleNamespace()
 
-        self._is_group = "commands" in model and len(model["commands"]) > 0
-        if self._is_group:
+        self.is_group = "commands" in model and len(model["commands"]) > 0
+        if self.is_group:
             for command_info in model["commands"].values():
                 command_name = get_valid_variable_name(command_info["name"])
                 child_command = RemoteCommand(remote_actor, command_info, parent=self)
-                setattr(self, command_name, child_command)
+                setattr(self.commands, command_name, child_command)
 
     def get_command_string(self, *args, **kwargs):
         """Gets the command string for a set of arguments."""
