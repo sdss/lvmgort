@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from clu.actor import AMQPActor
 
-from trurl.core import Trurl
+from trurl import Trurl
 
 
 __all__ = ["TrurlActor"]
