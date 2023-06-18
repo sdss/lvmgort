@@ -13,6 +13,7 @@ config = get_config("lvmtrurl")
 
 log = get_logger(NAME)
 log.sh.setLevel(logging.INFO)
+log.start_file_logger("/data/logs/trurl/trurl.log")
 
 
 # package name should be pip package name
