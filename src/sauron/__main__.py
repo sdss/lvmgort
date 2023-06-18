@@ -16,8 +16,8 @@ from click_default_group import DefaultGroup
 
 from sdsstools.daemonizer import DaemonGroup, cli_coro
 
-from trurl import __version__
-from trurl.actor.actor import TrurlActor
+from sauron import __version__
+from sauron.actor.actor import TrurlActor
 
 
 @click.group(

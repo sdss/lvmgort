@@ -10,19 +10,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from trurl.core import TrurlDevice, TrurlDeviceSet
+from sauron.core import SauronDevice, SauronDeviceSet
 
 
 if TYPE_CHECKING:
-    from trurl import ActorReply
-    from trurl.trurl import Trurl
+    from sauron import ActorReply
+    from sauron.sauron import Sauron
 
 
-class NPS(TrurlDevice):
+class NPS(SauronDevice):
     """Class representing a networked power switch."""
 
-    def __init__(self, trurl: Trurl, name: str, actor: str, **kwargs):
-        super().__init__(trurl, name, actor)
+    def __init__(self, sauron: Sauron, name: str, actor: str, **kwargs):
+        super().__init__(sauron, name, actor)
 
         self.status = {}
 
@@ -47,7 +47,7 @@ class NPS(TrurlDevice):
         await self.update_status()
 
 
-class NPSSet(TrurlDeviceSet[NPS]):
+class NPSSet(SauronDeviceSet[NPS]):
     """A set of networked power switches."""
 
     __DEVICE_CLASS__ = NPS

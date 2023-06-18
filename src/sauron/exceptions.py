@@ -7,32 +7,32 @@
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
 
-class TrurlError(Exception):
-    """A custom core TrurlError exception"""
+class SauronError(Exception):
+    """A custom core SauronError exception"""
 
     pass
 
 
-class TrurlTimeout(TrurlError):
+class SauronTimeout(SauronError):
     """Raised if a timeout occurs."""
 
     pass
 
 
-class TrurlNotImplemented(TrurlError):
+class SauronNotImplemented(SauronError):
     """A custom exception for not yet implemented features."""
 
     def __init__(self, message=None):
         message = "This feature is not implemented yet." if not message else message
 
-        super(TrurlNotImplemented, self).__init__(message)
+        super(SauronNotImplemented, self).__init__(message)
 
 
-class TrurlWarning(Warning):
-    """Base warning for Trurl."""
+class SauronWarning(Warning):
+    """Base warning for Sauron."""
 
 
-class TrurlUserWarning(UserWarning, TrurlWarning):
+class SauronUserWarning(UserWarning, SauronWarning):
     """The primary warning class."""
 
     pass

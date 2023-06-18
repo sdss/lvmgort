@@ -12,20 +12,20 @@ import asyncio
 
 from typing import TYPE_CHECKING
 
-from trurl import config, log
-from trurl.core import TrurlDevice, TrurlDeviceSet
+from sauron import config, log
+from sauron.core import SauronDevice, SauronDeviceSet
 
 
 if TYPE_CHECKING:
-    from trurl.core import ActorReply
-    from trurl.trurl import Trurl
+    from sauron.core import ActorReply
+    from sauron.sauron import Sauron
 
 
-class Spectrograph(TrurlDevice):
+class Spectrograph(SauronDevice):
     """Class representing an LVM spectrograph functionality."""
 
-    def __init__(self, trurl: Trurl, name: str, actor: str, **kwargs):
-        super().__init__(trurl, name, actor)
+    def __init__(self, sauron: Sauron, name: str, actor: str, **kwargs):
+        super().__init__(sauron, name, actor)
 
         self.status = {}
 
@@ -43,7 +43,7 @@ class Spectrograph(TrurlDevice):
         await self.actor.commands.expose(**kwargs)
 
 
-class SpectrographSet(TrurlDeviceSet[Spectrograph]):
+class SpectrographSet(SauronDeviceSet[Spectrograph]):
     """A set of LVM spectrographs."""
 
     __DEVICE_CLASS__ = Spectrograph
@@ -87,9 +87,9 @@ class SpectrographSet(TrurlDeviceSet[Spectrograph]):
         cal_config = config["specs"]["calibration"]
 
         log.info("Moving telescopes to position.")
-        await self.trurl.telescopes.goto_named_position(cal_config["position"])
+        await self.sauron.telescopes.goto_named_position(cal_config["position"])
 
-        calib_nps = self.trurl.nps[cal_config["lamps_nps"]]
+        calib_nps = self.sauron.nps[cal_config["lamps_nps"]]
         lamps_config = cal_config["lamps"]
 
         # Turn off all lamps.
@@ -105,19 +105,19 @@ class SpectrographSet(TrurlDeviceSet[Spectrograph]):
             await asyncio.sleep(warmup)
             for exp_time in lamps_config[lamp]["exposure_times"]:
                 log.info(f"Exposing for {exp_time} seconds.")
-                await self.trurl.specs.expose(flavour=flavour, exposure_time=exp_time)
+                await self.sauron.specs.expose(flavour=flavour, exposure_time=exp_time)
             log.info(f"Turning off {lamp}.")
             await calib_nps.off(lamp)
 
         log.info("Taking biases.")
         nbias = cal_config["biases"]["count"]
         for _ in range(nbias):
-            await self.trurl.specs.expose(flavour="bias")
+            await self.sauron.specs.expose(flavour="bias")
 
         log.info("Taking darks.")
         ndarks = cal_config["darks"]["count"]
         for _ in range(ndarks):
-            await self.trurl.specs.expose(
+            await self.sauron.specs.expose(
                 flavour="dark",
                 exposure_time=cal_config["darks"]["exposure_time"],
             )

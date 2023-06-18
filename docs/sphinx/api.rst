@@ -1,19 +1,19 @@
 
 .. _api:
 
-trurl Reference
-===============
+sauron Reference
+================
 
 Core classes
 ------------
 
-.. automodule:: trurl.core
+.. automodule:: sauron.core
    :members:
    :show-inheritance:
 
 Exceptions
 ----------
 
-.. automodule:: trurl.exceptions
+.. automodule:: sauron.exceptions
    :members:
    :show-inheritance:

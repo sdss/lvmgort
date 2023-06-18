@@ -1,13 +1,13 @@
 [tool.poetry]
-name = "lvmtrurl"
+name = "lvmsauron"
 version = "0.1.0a0"
 description = "The brains of LVM observing"
 authors = ["José Sánchez-Gallego <gallegoj@uw.edu>"]
 license = "BSD-3-Clause"
 readme = "README.md"
-homepage = "https://github.com/sdss/lvmtrurl"
-repository = "https://github.com/sdss/lvmtrurl"
-documentation = "https://lvmtrurl.readthedocs.org"
+homepage = "https://github.com/sdss/lvmsauron"
+repository = "https://github.com/sdss/lvmsauron"
+documentation = "https://lvmsauron.readthedocs.org"
 keywords = ["astronomy", "software"]
 classifiers = [
     "Intended Audience :: Science/Research",
@@ -20,12 +20,12 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 packages = [
-    { include = "trurl", from = "src" }
+    { include = "sauron", from = "src" }
 ]
-include = ["src/trurl/etc/*"]
+include = ["src/sauron/etc/*"]
 
 [tool.poetry.scripts]
-trurl = "trurl.__main__:main"
+sauron = "sauron.__main__:main"
 
 [tool.poetry.dependencies]
 python = "^3.10,<4.0"
@@ -72,22 +72,22 @@ fast = true
 profile = "black"
 sections = ["FUTURE", "STDLIB", "TYPING", "THIRDPARTY", "SDSS", "FIRSTPARTY", "LOCALFOLDER"]
 default_section = "THIRDPARTY"
-known_first_party = "trurl"
+known_first_party = "sauron"
 known_typing = ["typing"]
 known_sdss = ["sdsstools", "clu"]
 lines_after_imports = 2
 
 [tool.pytest.ini_options]
-addopts = "--cov trurl --cov-report xml --cov-report html --cov-report term -W ignore"
+addopts = "--cov sauron --cov-report xml --cov-report html --cov-report term -W ignore"
 asyncio_mode = "auto"
 
 [tool.coverage.run]
 branch = true
-include = ["src/trurl/*"]
+include = ["src/sauron/*"]
 omit = [
     "*/__init__.py",
-    "src/trurl/__main__.py",
-    "src/trurl/exceptions.py"
+    "src/sauron/__main__.py",
+    "src/sauron/exceptions.py"
 ]
 
 [tool.coverage.report]

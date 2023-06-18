@@ -1,4 +1,4 @@
-(lvmtrurl-changelog)=
+(lvmsauron-changelog)=
 
 ```{include} ../../CHANGELOG.md
 ```

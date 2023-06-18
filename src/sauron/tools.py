@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from trurl import config
+from sauron import config
 
 
 if TYPE_CHECKING:
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
     from clu import AMQPClient, AMQPReply
 
-    from trurl import Trurl
+    from sauron import Sauron
 
 
 __all__ = [
@@ -54,14 +54,14 @@ def get_valid_variable_name(var_name: str):
 
 
 async def ds9_agcam_monitor(
-    client: AMQPClient | Trurl,
+    client: AMQPClient | Sauron,
     cameras: list[str] | None = None,
     replace_path_prefix: tuple[str, str] | None = None,
     **kwargs,
 ):
     """Shows guider images in DS9."""
 
-    from trurl import Trurl
+    from sauron import Sauron
 
     images_handled = set([])
 
@@ -104,7 +104,7 @@ async def ds9_agcam_monitor(
 
         await ds9_display_frames([filename], ds9=ds9, **kwargs)
 
-    if isinstance(client, Trurl):
+    if isinstance(client, Sauron):
         client = client.client
 
     client.add_reply_callback(handle_reply)

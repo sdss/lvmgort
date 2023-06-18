@@ -12,21 +12,21 @@ import asyncio
 
 from typing import TYPE_CHECKING
 
-from trurl import config, log
-from trurl.core import RemoteActor, TrurlDevice, TrurlDeviceSet
-from trurl.tools import get_calibrators, get_next_tile_id
+from sauron import config, log
+from sauron.core import RemoteActor, SauronDevice, SauronDeviceSet
+from sauron.tools import get_calibrators, get_next_tile_id
 
 
 if TYPE_CHECKING:
-    from trurl.core import ActorReply
-    from trurl.trurl import Trurl
+    from sauron.core import ActorReply
+    from sauron.sauron import Sauron
 
 
-class Telescope(TrurlDevice):
+class Telescope(SauronDevice):
     """Class representing an LVM telescope functionality."""
 
-    def __init__(self, trurl: Trurl, name: str, actor: str, **kwargs):
-        super().__init__(trurl, name, actor)
+    def __init__(self, sauron: Sauron, name: str, actor: str, **kwargs):
+        super().__init__(sauron, name, actor)
 
         self.pwi = self.actor
 
@@ -35,7 +35,7 @@ class Telescope(TrurlDevice):
         self.has_kmirror = False
         if kmirror_actor:
             self.has_kmirror = True
-            self.km = self.trurl.add_actor(kmirror_actor)
+            self.km = self.sauron.add_actor(kmirror_actor)
 
     async def update_status(self):
         """Retrieves the status of the telescope."""
@@ -122,7 +122,7 @@ class Telescope(TrurlDevice):
             await self.km.commands.slewStart(ra / 15.0, dec)
 
 
-class TelescopeSet(TrurlDeviceSet[Telescope]):
+class TelescopeSet(SauronDeviceSet[Telescope]):
     """A representation of a set of telescopes."""
 
     __DEVICE_CLASS__ = Telescope

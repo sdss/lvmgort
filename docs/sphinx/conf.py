@@ -2,7 +2,7 @@ import os
 
 from pkg_resources import parse_version
 
-from trurl import __version__
+from sauron import __version__
 
 
 # Are we building in RTD?
@@ -42,7 +42,7 @@ source_parsers = {
 master_doc = "index"
 
 # General information about the project.
-project = "lvmtrurl"
+project = "lvmsauron"
 copyright = "{0}, {1}".format("2023-", "José Sánchez-Gallego")
 author = "José Sánchez-Gallego"
 
@@ -116,7 +116,7 @@ copybutton_prompt_text = r">>> |\$ "
 copybutton_prompt_is_regexp = True
 
 rst_epilog = f"""
-.. |lvmtrurl_version| replace:: {__version__}
+.. |lvmsauron_version| replace:: {__version__}
 """
 
 
@@ -125,7 +125,7 @@ rst_epilog = f"""
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 html_theme = "furo"
-html_title = "lvmtrurl"
+html_title = "lvmsauron"
 html_logo = "_static/lvm_logo.png"
 html_favicon = "./_static/favicon.ico"
 

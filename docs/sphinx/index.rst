@@ -1,16 +1,16 @@
 
-lvmtrurl's documentation
+lvmsauron's documentation
 ========================
 
-This is the documentation for the SDSS Python product ``lvmtrurl``. The current version is |lvmtrurl_version|. You can install the package by doing
+This is the documentation for the SDSS Python product ``lvmsauron``. The current version is |lvmsauron_version|. You can install the package by doing
 
 .. code-block:: console
 
-  $ pip install lvmtrurl
+  $ pip install lvmsauron
 
-``lvmtrurl`` provides the library ``trurl``::
+``lvmsauron`` provides the library ``sauron``::
 
-  >> from trurl import __version__
+  >> from sauron import __version__
   >> __version__
   0.1.0a0
 

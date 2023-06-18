@@ -12,7 +12,7 @@ import asyncio
 
 import click
 
-from trurl.actor import TrurlCommand
+from sauron.actor import TrurlCommand
 
 from . import trurl_parser
 

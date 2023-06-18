@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from clu.actor import AMQPActor
 
-from trurl import Trurl
+from sauron import Trurl
 
 
 __all__ = ["TrurlActor"]

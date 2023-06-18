@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Generic, Self, Type, TypeVar
 
 import unclick
 
-from trurl.exceptions import TrurlError
+from sauron.exceptions import SauronError
 
 from .tools import get_valid_variable_name
 
@@ -23,7 +23,7 @@ from .tools import get_valid_variable_name
 if TYPE_CHECKING:
     from clu.command import Command
 
-    from trurl.trurl import Trurl
+    from sauron import Sauron
 
 
 __all__ = ["RemoteActor", "RemoteCommand", "ActorReply"]
@@ -41,8 +41,8 @@ class CommandSet(dict[str, "RemoteCommand"]):
 class RemoteActor:
     """A programmatic representation of a remote actor."""
 
-    def __init__(self, trurl: Trurl, name: str):
-        self._trurl = trurl
+    def __init__(self, sauron: Sauron, name: str):
+        self._sauron = sauron
 
         self.name = name
         self.model: dict = {}
@@ -54,12 +54,12 @@ class RemoteActor:
     async def init(self) -> Self:
         """Initialises the representation of the actor."""
 
-        if not self._trurl.connected:
-            raise RuntimeError("Trurl is not connected.")
+        if not self._sauron.connected:
+            raise RuntimeError("sauron is not connected.")
 
-        cmd = await self._trurl.client.send_command(self.name, "get-command-model")
+        cmd = await self._sauron.client.send_command(self.name, "get-command-model")
         if cmd.status.did_fail:
-            raise TrurlError(f"Cannot get model for actor {self.name}.")
+            raise SauronError(f"Cannot get model for actor {self.name}.")
 
         self.model = cmd.replies.get("command_model")
 
@@ -81,7 +81,7 @@ class RemoteActor:
 
         """
 
-        return await self._trurl.client.send_command(self.name, *args, **kwargs)
+        return await self._sauron.client.send_command(self.name, *args, **kwargs)
 
     async def refresh(self):
         """Refresesh the command list."""
@@ -125,7 +125,7 @@ class RemoteCommand:
             # cases, but probably good enough for now.
             parent_string = self._parent.get_command_string() + " "
 
-        cmd = await self._remote_actor._trurl.client.send_command(
+        cmd = await self._remote_actor._sauron.client.send_command(
             self._remote_actor.name,
             parent_string + self.get_command_string(*args, **kwargs),
         )
@@ -138,7 +138,7 @@ class RemoteCommand:
         if not cmd.status.did_succeed:
             error = actor_reply.get("error")
             error = str(error) if error is not None else ""
-            raise TrurlError(f"Failed executing command {self._name}. {error}")
+            raise SauronError(f"Failed executing command {self._name}. {error}")
 
         return actor_reply
 
@@ -176,32 +176,32 @@ class ActorReply:
         return None
 
 
-class TrurlDevice:
-    """A trurl-managed device."""
+class sauronDevice:
+    """A sauron-managed device."""
 
-    def __init__(self, trurl: Trurl, name: str, actor: str, **kwargs):
-        self.trurl = trurl
+    def __init__(self, sauron: Sauron, name: str, actor: str, **kwargs):
+        self.sauron = sauron
         self.name = name
-        self.actor = trurl.add_actor(actor)
+        self.actor = sauron.add_actor(actor)
 
 
-TrurlDeviceType = TypeVar("TrurlDeviceType", bound=TrurlDevice)
+sauronDeviceType = TypeVar("sauronDeviceType", bound=sauronDevice)
 
 
-class TrurlDeviceSet(dict[str, TrurlDeviceType], Generic[TrurlDeviceType]):
-    """A set to trurl-managed devices."""
+class sauronDeviceSet(dict[str, sauronDeviceType], Generic[sauronDeviceType]):
+    """A set to sauron-managed devices."""
 
-    __DEVICE_CLASS__: ClassVar[Type[TrurlDevice]]
+    __DEVICE_CLASS__: ClassVar[Type[sauronDevice]]
 
-    def __init__(self, trurl: Trurl, data: dict[str, dict]):
-        self.trurl = trurl
+    def __init__(self, sauron: Sauron, data: dict[str, dict]):
+        self.sauron = sauron
 
         _dict_data = {}
         for device_name in data:
             device_data = data[device_name].copy()
             actor_name = device_data.pop("actor")
             _dict_data[device_name] = self.__DEVICE_CLASS__(
-                trurl,
+                sauron,
                 device_name,
                 actor_name,
                 **device_data,

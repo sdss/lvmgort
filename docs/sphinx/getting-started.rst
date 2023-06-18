@@ -1,23 +1,23 @@
-Getting started with Trurl
-==========================
+Getting started with sauron
+===========================
 
 Minimal example
 ---------------
 
-The following is a minimum example of how to use the Trurl client to connect to the actor system and command the telescope to a science field, exposing during 15 minutes.
+The following is a minimum example of how to use the `.Sauron`` client to connect to the actor system and command the telescope to a science field, exposing during 15 minutes.
 
 This code must be run in one of the LVM mountain servers with access to the RabbitMQ exchange.
 
 .. code-block:: python
 
-    >>> from lvmtrurl import Trurl
+    >>> from sauron import Sauron
 
-    >>> trurl = Trurl()
-    >>> await trurl.init()
-    >>> trurl.connected()
+    >>> sauron = Sauron()
+    >>> await sauron.init()
+    >>> sauron.connected()
     True
 
-    >>> await trurl.telescopes['sci'].update_status()
+    >>> await sauron.telescopes['sci'].update_status()
     {'is_tracking': False,
     'is_connected': True,
     'is_slewing': False,
@@ -53,7 +53,7 @@ This code must be run in one of the LVM mountain servers with access to the Rabb
 Reference
 ---------
 
-.. automodule:: trurl.core
-   :members: Trurl
+.. automodule:: sauron.core
+   :members: sauron
    :show-inheritance:
    :noindex:

@@ -3,7 +3,7 @@
 #
 # @Author: José Sánchez-Gallego (gallegoj@uw.edu)
 # @Date: 2023-06-16
-# @Filename: trurl.py
+# @Filename: Sauron.py
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
 import asyncio
@@ -13,18 +13,18 @@ from typing import Self
 
 from clu.client import AMQPClient
 
-from trurl import config
-from trurl.core import RemoteActor
-from trurl.nps import NPSSet
-from trurl.spec import SpectrographSet
-from trurl.telescope import TelescopeSet
+from sauron import config
+from sauron.core import RemoteActor
+from sauron.nps import NPSSet
+from sauron.spec import SpectrographSet
+from sauron.telescope import TelescopeSet
 
 
-__all__ = ["Trurl"]
+__all__ = ["Sauron"]
 
 
-class Trurl:
-    """The main ``lvmtrurl`` client class, used to communicate with the actor system."""
+class Sauron:
+    """The main ``lvmsauron`` client class, used to communicate with the actor system."""
 
     def __init__(
         self,
@@ -39,7 +39,7 @@ class Trurl:
             client_uuid = str(uuid.uuid4()).split("-")[1]
 
             self.client = AMQPClient(
-                f"trurl-client-{client_uuid}",
+                f"Sauron-client-{client_uuid}",
                 host=host,
                 user=user,
                 password=password,
