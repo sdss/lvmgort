@@ -177,3 +177,44 @@ def parse_agcam_filename(file_: str | pathlib.Path) -> tuple[str, str] | None:
         return None
 
     return match.groups()
+
+
+async def get_next_tile_id() -> dict:
+    """Retrieves the next ``tile_id`` from the scheduler API."""
+
+    sch_config = config["scheduler"]
+    host = sch_config["host"]
+    port = sch_config["port"]
+
+    async with httpx.AsyncClient(base_url=f"http://{host}:{port}/") as client:
+        resp = await client.get("next_tile")
+        if resp.status_code != 200:
+            raise httpx.RequestError("Failed request to /next_tile")
+        tile_id_data = resp.json()
+
+    return tile_id_data
+
+
+async def get_calibrators(
+    tile_id: int | None = None,
+    ra: float | None = None,
+    dec: float | None = None,
+):
+    """Get calibrators for a ``tile_id`` or science pointing."""
+
+    if tile_id is None and (ra is None or dec is None):
+        raise ValueError("tile_id or (ra, dec) are required.")
+
+    sch_config = config["scheduler"]
+    host = sch_config["host"]
+    port = sch_config["port"]
+
+    async with httpx.AsyncClient(base_url=f"http://{host}:{port}/") as client:
+        if tile_id:
+            resp = await client.get("cals", params={"tile_id": tile_id})
+        else:
+            resp = await client.get("cals", params={"ra": ra, "dec": dec})
+        if resp.status_code != 200:
+            raise httpx.RequestError("Failed request to /cals")
+
+    return resp.json()
