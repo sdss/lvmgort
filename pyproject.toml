@@ -24,9 +24,6 @@ packages = [
 ]
 include = ["src/sauron/etc/*"]
 
-[tool.poetry.scripts]
-sauron = "sauron.__main__:main"
-
 [tool.poetry.dependencies]
 python = "^3.10,<4.0"
 sdsstools = "^1.0.0"
