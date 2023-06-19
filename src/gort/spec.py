@@ -15,20 +15,20 @@ from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from gort import config, log
-from gort.core import GortDevice, GortDeviceSet
 from gort.exceptions import GortError
+from gort.gort import GortDevice, GortDeviceSet
 from gort.tools import tqdm_timer
 
 
 if TYPE_CHECKING:
     from gort.core import ActorReply
-    from gort.gort import Gort
+    from gort.gort import GortClient
 
 
 class Spectrograph(GortDevice):
     """Class representing an LVM spectrograph functionality."""
 
-    def __init__(self, gort: Gort, name: str, actor: str, **kwargs):
+    def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
 
         self.status = {}

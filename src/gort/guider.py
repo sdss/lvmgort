@@ -13,18 +13,18 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from gort import log
-from gort.core import GortDevice, GortDeviceSet
 from gort.exceptions import GortError
+from gort.gort import GortDevice, GortDeviceSet
 
 
 if TYPE_CHECKING:
-    from gort.gort import Gort
+    from gort.gort import GortClient
 
 
 class Guider(GortDevice):
     """Class representing a guider."""
 
-    def __init__(self, gort: Gort, name: str, actor: str, **kwargs):
+    def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
 
     def print_reply(self, reply):
