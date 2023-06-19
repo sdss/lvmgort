@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from gort import log
 from gort.gort import GortDevice, GortDeviceSet
 
 
@@ -45,6 +46,13 @@ class NPS(GortDevice):
 
         await self.actor.commands.off(outlet)
         await self.update_status()
+
+    async def all_off(self):
+        """Turns off all the outlets."""
+
+        for outlet_number in range(1, 9):
+            log.debug(f"Turning off outlet {outlet_number}.")
+            await self.actor.commands.off("", outlet_number)
 
 
 class NPSSet(GortDeviceSet[NPS]):
