@@ -24,8 +24,6 @@ if TYPE_CHECKING:
 
     from clu import AMQPClient, AMQPReply
 
-    from gort import GortClient
-
 
 __all__ = [
     "get_valid_variable_name",
@@ -56,14 +54,12 @@ def get_valid_variable_name(var_name: str):
 
 
 async def ds9_agcam_monitor(
-    amqp_client: AMQPClient | GortClient,
+    amqp_client: AMQPClient,
     cameras: list[str] | None = None,
     replace_path_prefix: tuple[str, str] | None = None,
     **kwargs,
 ):
     """Shows guider images in DS9."""
-
-    from gort import GortClient
 
     images_handled = set([])
 
@@ -105,9 +101,6 @@ async def ds9_agcam_monitor(
             filename = filename.replace(replace_path_prefix[0], replace_path_prefix[1])
 
         await ds9_display_frames([filename], ds9=ds9, **kwargs)
-
-    if isinstance(amqp_client, GortClient):
-        amqp_client = amqp_client.client
 
     amqp_client.add_reply_callback(handle_reply)
 
