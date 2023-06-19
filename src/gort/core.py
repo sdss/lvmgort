@@ -8,12 +8,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import warnings
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Generic, Self, Type, TypeVar
+from typing import TYPE_CHECKING, Callable, Self
 
 import unclick
 
@@ -23,10 +22,8 @@ from .tools import get_valid_variable_name
 
 
 if TYPE_CHECKING:
-    from clu.client import AMQPReply
+    from clu.client import AMQPClient, AMQPReply
     from clu.command import Command
-
-    from gort import Gort
 
 
 __all__ = ["RemoteActor", "RemoteCommand", "ActorReply"]
@@ -44,8 +41,8 @@ class CommandSet(dict[str, "RemoteCommand"]):
 class RemoteActor:
     """A programmatic representation of a remote actor."""
 
-    def __init__(self, gort: Gort, name: str):
-        self._gort = gort
+    def __init__(self, client: AMQPClient, name: str):
+        self.client = client
 
         self.name = name
         self.model: dict = {}
@@ -57,10 +54,13 @@ class RemoteActor:
     async def init(self) -> Self:
         """Initialises the representation of the actor."""
 
-        if not self._gort.connected:
+        if (
+            self.client.connection.connection
+            and self.client.connection.connection.is_closed
+        ):
             raise RuntimeError("gort is not connected.")
 
-        cmd = await self._gort.client.send_command(self.name, "get-command-model")
+        cmd = await self.client.send_command(self.name, "get-command-model")
         if cmd.status.did_fail:
             warnings.warn(f"Cannot get model for actor {self.name}.", GortWarning)
             return self
@@ -85,7 +85,7 @@ class RemoteActor:
 
         """
 
-        return await self._gort.client.send_command(self.name, *args, **kwargs)
+        return await self.client.send_command(self.name, *args, **kwargs)
 
     async def refresh(self):
         """Refresesh the command list."""
@@ -135,7 +135,7 @@ class RemoteCommand:
             # cases, but probably good enough for now.
             parent_string = self._parent.get_command_string() + " "
 
-        cmd = await self._remote_actor._gort.client.send_command(
+        cmd = await self._remote_actor.client.send_command(
             self._remote_actor.name,
             parent_string + self.get_command_string(*args, **kwargs),
             callback=reply_callback,
@@ -185,52 +185,3 @@ class ActorReply:
                 return reply[key]
 
         return None
-
-
-class GortDevice:
-    """A gort-managed device."""
-
-    def __init__(self, gort: Gort, name: str, actor: str, **kwargs):
-        self.gort = gort
-        self.name = name
-        self.actor = gort.add_actor(actor)
-
-
-gortDeviceType = TypeVar("gortDeviceType", bound=GortDevice)
-
-
-class GortDeviceSet(dict[str, gortDeviceType], Generic[gortDeviceType]):
-    """A set to gort-managed devices."""
-
-    __DEVICE_CLASS__: ClassVar[Type[GortDevice]]
-
-    def __init__(self, gort: Gort, data: dict[str, dict]):
-        self.gort = gort
-
-        _dict_data = {}
-        for device_name in data:
-            device_data = data[device_name].copy()
-            actor_name = device_data.pop("actor")
-            _dict_data[device_name] = self.__DEVICE_CLASS__(
-                gort,
-                device_name,
-                actor_name,
-                **device_data,
-            )
-
-        dict.__init__(self, _dict_data)
-
-    def __getattribute__(self, __name: str) -> Any:
-        if __name in self:
-            return self.__getitem__(__name)
-        return super().__getattribute__(__name)
-
-    async def _send_command_all(self, command: str, *args, **kwargs):
-        """Calls a command in all the devices."""
-
-        tasks = []
-        for dev in self.values():
-            actor_command = dev.actor.commands[command]
-            tasks.append(actor_command(*args, **kwargs))
-
-        return await asyncio.gather(*tasks)

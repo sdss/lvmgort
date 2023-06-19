@@ -13,19 +13,19 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from gort import config, log
-from gort.core import GortDevice, GortDeviceSet, RemoteActor
+from gort.gort import GortDevice, GortDeviceSet, RemoteActor
 from gort.tools import get_calibrators, get_next_tile_id
 
 
 if TYPE_CHECKING:
     from gort.core import ActorReply
-    from gort.gort import Gort
+    from gort.gort import GortClient
 
 
 class Telescope(GortDevice):
     """Class representing an LVM telescope functionality."""
 
-    def __init__(self, gort: Gort, name: str, actor: str, **kwargs):
+    def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
 
         self.pwi = self.actor

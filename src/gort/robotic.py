@@ -8,7 +8,7 @@
 
 
 from gort import log
-from gort.gort import Gort
+from gort.gort import GortClient
 from gort.tools import register_observation
 
 
@@ -16,7 +16,7 @@ __all__ = ["observe_tile"]
 
 
 async def observe_tile(
-    gort: Gort | None = None,
+    gort: GortClient | None = None,
     tile_id: int | None = None,
     verbose=False,
 ):
@@ -35,7 +35,7 @@ async def observe_tile(
     """
 
     if not gort:
-        gort = await Gort().init()
+        gort = await GortClient().init()
 
     if verbose:
         gort.set_verbosity("debug")
