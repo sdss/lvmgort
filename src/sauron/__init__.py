@@ -21,4 +21,5 @@ __version__ = get_package_version(path=__file__, package_name=NAME)
 
 
 from .core import *
+from .robotic import *
 from .sauron import *
