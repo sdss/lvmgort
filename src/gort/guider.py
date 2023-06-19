@@ -33,11 +33,23 @@ class Guider(GortDevice):
         if reply.body:
             log.debug(f"{self.actor.name}: {reply.body}")
 
-    async def focus(self):
+    async def focus(
+        self,
+        guess: float = 40,
+        step_size: float = 0.5,
+        steps: int = 7,
+        exposure_time: float = 5.0,
+    ):
         """Focus the telescope."""
 
         try:
-            await self.actor.commands.focus(reply_callback=self.print_reply)
+            await self.actor.commands.focus(
+                reply_callback=self.print_reply,
+                guess=guess,
+                step_size=step_size,
+                steps=steps,
+                exposure_time=exposure_time,
+            )
         except GortError as err:
             log.error(f"{self.actor.name}: failed focusing with error {err}")
 
@@ -71,12 +83,27 @@ class GuiderSet(GortDeviceSet[Guider]):
         if len(cmds) > 0:
             await asyncio.gather(*cmds)
 
-    async def focus(self, inplace=False):
+    async def focus(
+        self,
+        inplace=False,
+        guess: float = 40,
+        step_size: float = 0.5,
+        steps: int = 7,
+        exposure_time: float = 5.0,
+    ):
         """Focus all the telescopes."""
 
         # Send telescopes to zenith.
         if not inplace:
             await self.gort.telescope.goto_named_position("zenith")
 
-        jobs = [ag.focus() for ag in self.values()]
+        jobs = [
+            ag.focus(
+                guess=guess,
+                step_size=step_size,
+                steps=steps,
+                exposure_time=exposure_time,
+            )
+            for ag in self.values()
+        ]
         await asyncio.gather(*jobs)
