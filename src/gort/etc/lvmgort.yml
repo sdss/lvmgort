@@ -5,7 +5,7 @@ actor:
   port: 5672
   log_dir: /data/logs/gort
 
-telescopes:
+telescope:
   devices:
     sci:
       actor: lvm.sci.pwi
@@ -42,7 +42,7 @@ telescopes:
         az: -105
         alt: 55
 
-guiders:
+guider:
   devices:
     sci:
       actor: lvm.sci.guider
@@ -64,7 +64,7 @@ nps:
     calib:
       actor: lvmnps.calib
 
-specs:
+spec:
   devices:
     sp1:
       actor: lvmscp.sp1

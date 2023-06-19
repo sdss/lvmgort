@@ -40,7 +40,7 @@ async def observe_tile(
     if verbose:
         gort.set_verbosity("debug")
 
-    tile_id_data = await gort.telescopes.goto_tile_id(tile_id)
+    tile_id_data = await gort.telescope.goto_tile_id(tile_id)
 
     tile_id = tile_id_data["tile_id"]
     dither_pos = tile_id_data["dither_pos"]
@@ -49,7 +49,7 @@ async def observe_tile(
         "tile_id": (tile_id, "The tile_id of this observation"),
         "dpos": (dither_pos, "Dither position"),
     }
-    exp_nos = await gort.specs.expose(tile_data=exp_tile_data, show_progress=True)
+    exp_nos = await gort.spec.expose(tile_data=exp_tile_data, show_progress=True)
 
     if len(exp_nos) < 1:
         raise ValueError("No exposures to be registered.")
