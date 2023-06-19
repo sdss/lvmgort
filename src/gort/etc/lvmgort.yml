@@ -101,36 +101,69 @@ spec:
   calibration:
     position: calibration
     lamps_nps: calib
-    lamps:
-      Argon:
-        warmup: 120
-        exposure_times: [30, 90, 270]
-        flavour: arc
-      Neon:
-        warmup: 120
-        exposure_times: [30, 90, 270]
-        flavour: arc
-      HgNe:
-        warmup: 120
-        exposure_times: [30, 90, 270]
-        flavour: arc
-      Xenon:
-        warmup: 120
-        exposure_times: [30, 90, 270]
-        flavour: arc
-      LDLS:
-        warmup: 300
-        exposure_times: [30, 90, 270]
-        flavour: flat
-      Quartz:
-        warmup: 120
-        exposure_times: [30, 90, 270]
-        flavour: flat
-    biases:
-      count: 5
-    darks:
-      count: 5
-      exposure_time: 900
+    sequences:
+      full:
+        lamps:
+          Argon:
+            warmup: 120
+            exposure_times: [30, 90, 270]
+            flavour: arc
+          Neon:
+            warmup: 120
+            exposure_times: [30, 90, 270]
+            flavour: arc
+          HgNe:
+            warmup: 120
+            exposure_times: [30, 90, 270]
+            flavour: arc
+          Xenon:
+            warmup: 120
+            exposure_times: [30, 90, 270]
+            flavour: arc
+          LDLS:
+            warmup: 300
+            exposure_times: [30, 90, 270]
+            flavour: flat
+          Quartz:
+            warmup: 120
+            exposure_times: [30, 90, 270]
+            flavour: flat
+        biases:
+          count: 5
+        darks:
+          count: 5
+          exposure_time: 900
+      normal:
+        lamps:
+          Argon:
+            warmup: 120
+            exposure_times: [30]
+            flavour: arc
+          Neon:
+            warmup: 120
+            exposure_times: [30]
+            flavour: arc
+          HgNe:
+            warmup: 120
+            exposure_times: [30]
+            flavour: arc
+          Xenon:
+            warmup: 120
+            exposure_times: [30]
+            flavour: arc
+          LDLS:
+            warmup: 300
+            exposure_times: [30]
+            flavour: flat
+          Quartz:
+            warmup: 120
+            exposure_times: [30]
+            flavour: flat
+        biases:
+          count: 5
+        darks:
+          count: 1
+          exposure_time: 900
 
 scheduler:
   host: 10.8.38.26
