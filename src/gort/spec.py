@@ -119,45 +119,64 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         await self._send_command_all("reset")
 
-    async def calibrate(self):
-        """Runs the calibration sequence."""
+    async def calibrate(self, sequence: str = "normal"):
+        """Runs the calibration sequence.
+
+        Parameters
+        ----------
+        sequence
+            The calibration sequence to execute.
+
+        """
 
         # TODO: add some checks. Confirm HDs are open, specs connected, etc.
 
         cal_config = config["specs"]["calibration"]
 
+        if sequence not in cal_config["sequences"]:
+            raise ValueError(f"Unknown sequence {sequence!r}.")
+        sequence_config = cal_config["sequences"][sequence]
+
         log.info("Moving telescopes to position.")
         await self.gort.telescope.goto_named_position(cal_config["position"])
 
         calib_nps = self.gort.nps[cal_config["lamps_nps"]]
-        lamps_config = cal_config["lamps"]
+        lamps_config = sequence_config["lamps"]
 
         # Turn off all lamps.
         log.info("Checking that all lamps are off.")
-        for lamp in lamps_config:
-            await calib_nps.off(lamp)
+        await calib_nps.all_off()
 
-        for lamp in lamps_config:
-            warmup = lamps_config[lamp]["warmup"]
-            flavour = lamps_config[lamp]["flavour"]
-            log.info(f"Warming up lamp {lamp} for {warmup} seconds.")
-            await calib_nps.on(lamp)
-            await asyncio.sleep(warmup)
-            for exp_time in lamps_config[lamp]["exposure_times"]:
-                log.info(f"Exposing for {exp_time} seconds.")
-                await self.gort.spec.expose(flavour=flavour, exposure_time=exp_time)
-            log.info(f"Turning off {lamp}.")
-            await calib_nps.off(lamp)
+        try:
+            for lamp in lamps_config:
+                warmup = lamps_config[lamp]["warmup"]
+                flavour = lamps_config[lamp]["flavour"]
+                log.info(f"Warming up lamp {lamp} for {warmup} seconds.")
+                await calib_nps.on(lamp)
+                await asyncio.sleep(warmup)
+                for exp_time in lamps_config[lamp]["exposure_times"]:
+                    log.info(f"Exposing for {exp_time} seconds.")
+                    await self.gort.spec.expose(flavour=flavour, exposure_time=exp_time)
+                log.info(f"Turning off {lamp}.")
+                await calib_nps.off(lamp)
 
-        log.info("Taking biases.")
-        nbias = cal_config["biases"]["count"]
-        for _ in range(nbias):
-            await self.gort.spec.expose(flavour="bias")
+            log.info("Taking biases.")
+            nbias = sequence_config["biases"]["count"]
+            for _ in range(nbias):
+                await self.gort.spec.expose(flavour="bias")
 
-        log.info("Taking darks.")
-        ndarks = cal_config["darks"]["count"]
-        for _ in range(ndarks):
-            await self.gort.spec.expose(
-                flavour="dark",
-                exposure_time=cal_config["darks"]["exposure_time"],
+            log.info("Taking darks.")
+            ndarks = sequence_config["darks"]["count"]
+            for _ in range(ndarks):
+                await self.gort.spec.expose(
+                    flavour="dark",
+                    exposure_time=sequence_config["darks"]["exposure_time"],
+                )
+
+        except Exception:
+            log.error(
+                "Errored while executing sequence. "
+                "Turning all the lamps off before raising."
             )
+            await calib_nps.all_off()
+            raise
