@@ -101,10 +101,10 @@ class GortDevice:
         self.actor = gort.add_actor(actor)
 
 
-gortDeviceType = TypeVar("gortDeviceType", bound=GortDevice)
+GortDeviceType = TypeVar("GortDeviceType", bound=GortDevice)
 
 
-class GortDeviceSet(dict[str, gortDeviceType], Generic[gortDeviceType]):
+class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
     """A set to gort-managed devices."""
 
     __DEVICE_CLASS__: ClassVar[Type[GortDevice]]
