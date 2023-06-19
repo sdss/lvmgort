@@ -239,16 +239,15 @@ class TelescopeSet(SauronDeviceSet[Telescope]):
 
         """
 
-        if tile_id is None and (ra is None or dec is None):
-            raise ValueError("tile_id or (ra, dec) are required.")
-
         tile_id_data: dict = {}
-        if tile_id is None and (ra is None or dec is None):
+        if tile_id is None and (ra is None and dec is None):
             tile_id_data = await get_next_tile_id()
-            calibrators = await get_calibrators(tile_id=tile_id)
-        else:
+            calibrators = await get_calibrators(tile_id=tile_id_data["tile_id"])
+        elif ra is not None and dec is not None:
             tile_id_data = {"tile_id": None, "tile_pos": (ra, dec)}
             calibrators = await get_calibrators(ra=ra, dec=dec)
+        else:
+            raise ValueError("Both ra and dec need to be provided.")
 
         tile_id = tile_id_data["tile_id"]
 
