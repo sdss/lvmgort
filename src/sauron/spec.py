@@ -10,11 +10,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+from contextlib import suppress
 
 from typing import TYPE_CHECKING
 
 from sauron import config, log
 from sauron.core import SauronDevice, SauronDeviceSet
+from sauron.exceptions import SauronError
+from sauron.tools import tqdm_timer
 
 
 if TYPE_CHECKING:
@@ -59,20 +62,52 @@ class SpectrographSet(SauronDeviceSet[Spectrograph]):
 
         return seqno
 
-    async def expose(self, tile_data: dict | None = None, **kwargs):
+    async def expose(
+        self,
+        tile_data: dict | None = None,
+        show_progress: bool = False,
+        **kwargs,
+    ):
         """Exposes the spectrographs."""
 
-        seqno = self.get_seqno()
-        log.info(f"Taking exposure {seqno}.")
+        count: int = kwargs.pop("count", 1)
+        exposure_time: float = kwargs.pop("exposure_time", 10)
 
-        await self.reset()
+        exp_nos = []
 
-        if tile_data is not None:
-            header = json.dumps(tile_data)
-        else:
-            header = None
+        for _ in range(count):
+            seqno = self.get_seqno()
+            log.info(f"Taking spectrograph exposure {seqno}.")
 
-        await self._send_command_all("expose", seqno=seqno, header=header, **kwargs)
+            await self.reset()
+
+            if tile_data is not None:
+                header = json.dumps(tile_data)
+            else:
+                header = None
+
+            if show_progress:
+                timer = tqdm_timer(exposure_time + 45)
+            else:
+                timer = None
+
+            try:
+                await self._send_command_all(
+                    "expose",
+                    exposure_time=exposure_time,
+                    seqno=seqno,
+                    header=header,
+                    **kwargs,
+                )
+                exp_nos.append(seqno)
+            except Exception as err:
+                with suppress(asyncio.CancelledError):
+                    if timer:
+                        await timer
+
+                raise SauronError(f"Exposure failed with error {err}")
+
+        return exp_nos
 
     async def update_status(self):
         """Update the status fo all the spectrographs."""
