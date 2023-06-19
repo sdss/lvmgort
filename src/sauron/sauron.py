@@ -17,6 +17,7 @@ from clu.client import AMQPClient
 from sauron import config, log
 from sauron.core import RemoteActor
 from sauron.enclosure import Enclosure
+from sauron.guider import GuiderSet
 from sauron.nps import NPSSet
 from sauron.spec import SpectrographSet
 from sauron.telescope import TelescopeSet
@@ -53,6 +54,7 @@ class Sauron:
         self.nps = NPSSet(self, config["nps"]["devices"])
         self.specs = SpectrographSet(self, config["specs"]["devices"])
         self.enclosure = Enclosure(self, name="enclosure", actor="lvmecp")
+        self.guiders = GuiderSet(self, config["guiders"]["devices"])
 
     async def init(self) -> Self:
         """Initialises the client."""

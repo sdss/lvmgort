@@ -42,6 +42,17 @@ telescopes:
         az: -105
         alt: 55
 
+guiders:
+  devices:
+    sci:
+      actor: lvm.sci.guider
+    spec:
+      actor: lvm.spec.guider
+    skye:
+      actor: lvm.skye.guider
+    skyw:
+      actor: lvm.skyw.guider
+
 nps:
   devices:
     sp1:
