@@ -13,7 +13,7 @@ import warnings
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Self, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Generic, Self, Type, TypeVar
 
 import unclick
 
@@ -23,6 +23,7 @@ from .tools import get_valid_variable_name
 
 
 if TYPE_CHECKING:
+    from clu.client import AMQPReply
     from clu.command import Command
 
     from sauron import Sauron
@@ -120,7 +121,12 @@ class RemoteCommand:
 
         return unclick.build_command_string(self._model, *args, **kwargs)
 
-    async def __call__(self, *args, **kwargs):
+    async def __call__(
+        self,
+        *args,
+        reply_callback: Callable[[AMQPReply], None] | None = None,
+        **kwargs,
+    ):
         """Executes the remote command with some given arguments."""
 
         parent_string = ""
@@ -132,6 +138,7 @@ class RemoteCommand:
         cmd = await self._remote_actor._sauron.client.send_command(
             self._remote_actor.name,
             parent_string + self.get_command_string(*args, **kwargs),
+            callback=reply_callback,
         )
 
         actor_reply = ActorReply(self._remote_actor, cmd)
