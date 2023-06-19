@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import warnings
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 
@@ -16,7 +17,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Generic, Self, Type, TypeVar
 
 import unclick
 
-from sauron.exceptions import SauronError
+from sauron.exceptions import SauronError, SauronWarning
 
 from .tools import get_valid_variable_name
 
@@ -60,7 +61,8 @@ class RemoteActor:
 
         cmd = await self._sauron.client.send_command(self.name, "get-command-model")
         if cmd.status.did_fail:
-            raise SauronError(f"Cannot get model for actor {self.name}.")
+            warnings.warn(f"Cannot get model for actor {self.name}.", SauronWarning)
+            return self
 
         self.model = cmd.replies.get("command_model")
 
