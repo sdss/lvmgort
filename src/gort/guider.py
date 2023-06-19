@@ -54,7 +54,7 @@ class GuiderSet(GortDeviceSet[Guider]):
         # We use goto_named_position to prevent disabling the telescope and having
         # to rehome.
         log.debug("Moving telescopes to park position.")
-        await self.gort.telescopes.goto_named_position("park")
+        await self.gort.telescope.goto_named_position("park")
 
         # Take darks.
         log.debug("Taking darks.")
@@ -76,7 +76,7 @@ class GuiderSet(GortDeviceSet[Guider]):
 
         # Send telescopes to zenith.
         if not inplace:
-            await self.gort.telescopes.goto_named_position("zenith")
+            await self.gort.telescope.goto_named_position("zenith")
 
         jobs = [ag.focus() for ag in self.values()]
         await asyncio.gather(*jobs)

@@ -47,11 +47,11 @@ class GortClient(AMQPClient):
 
         self.actors: dict[str, RemoteActor] = {}
 
-        self.telescopes = TelescopeSet(self, config["telescopes"]["devices"])
+        self.telescope = TelescopeSet(self, config["telescope"]["devices"])
         self.nps = NPSSet(self, config["nps"]["devices"])
-        self.specs = SpectrographSet(self, config["specs"]["devices"])
+        self.spec = SpectrographSet(self, config["spec"]["devices"])
         self.enclosure = Enclosure(self, name="enclosure", actor="lvmecp")
-        self.guiders = GuiderSet(self, config["guiders"]["devices"])
+        self.guider = GuiderSet(self, config["guider"]["devices"])
 
     async def init(self) -> Self:
         """Initialises the client."""

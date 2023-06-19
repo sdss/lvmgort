@@ -127,7 +127,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         cal_config = config["specs"]["calibration"]
 
         log.info("Moving telescopes to position.")
-        await self.gort.telescopes.goto_named_position(cal_config["position"])
+        await self.gort.telescope.goto_named_position(cal_config["position"])
 
         calib_nps = self.gort.nps[cal_config["lamps_nps"]]
         lamps_config = cal_config["lamps"]
@@ -145,19 +145,19 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             await asyncio.sleep(warmup)
             for exp_time in lamps_config[lamp]["exposure_times"]:
                 log.info(f"Exposing for {exp_time} seconds.")
-                await self.gort.specs.expose(flavour=flavour, exposure_time=exp_time)
+                await self.gort.spec.expose(flavour=flavour, exposure_time=exp_time)
             log.info(f"Turning off {lamp}.")
             await calib_nps.off(lamp)
 
         log.info("Taking biases.")
         nbias = cal_config["biases"]["count"]
         for _ in range(nbias):
-            await self.gort.specs.expose(flavour="bias")
+            await self.gort.spec.expose(flavour="bias")
 
         log.info("Taking darks.")
         ndarks = cal_config["darks"]["count"]
         for _ in range(ndarks):
-            await self.gort.specs.expose(
+            await self.gort.spec.expose(
                 flavour="dark",
                 exposure_time=cal_config["darks"]["exposure_time"],
             )
