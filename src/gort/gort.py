@@ -21,12 +21,11 @@ from gort.core import RemoteActor
 __all__ = ["GortClient"]
 
 
-class GortClient:
+class GortClient(AMQPClient):
     """The main ``lvmgort`` client, used to communicate with the actor system."""
 
     def __init__(
         self,
-        client: AMQPClient | None = None,
         host="lvm-hub.lco.cl",
         user: str = "guest",
         password="guest",
@@ -37,17 +36,14 @@ class GortClient:
         from gort.spec import SpectrographSet
         from gort.telescope import TelescopeSet
 
-        if client:
-            self.client = client
-        else:
-            client_uuid = str(uuid.uuid4()).split("-")[1]
+        client_uuid = str(uuid.uuid4()).split("-")[1]
 
-            self.client = AMQPClient(
-                f"Gort-client-{client_uuid}",
-                host=host,
-                user=user,
-                password=password,
-            )
+        super().__init__(
+            f"Gort-client-{client_uuid}",
+            host=host,
+            user=user,
+            password=password,
+        )
 
         self.actors: dict[str, RemoteActor] = {}
 
@@ -61,7 +57,7 @@ class GortClient:
         """Initialises the client."""
 
         if not self.connected:
-            await self.client.start()
+            await self.start()
 
         await asyncio.gather(*[ractor.init() for ractor in self.actors.values()])
 
@@ -71,13 +67,13 @@ class GortClient:
     def connected(self):
         """Returns `True` if the client is connected."""
 
-        return self.client.connection and self.client.connection.connection is not None
+        return self.connection and self.connection.connection is not None
 
     def add_actor(self, actor: str):
         """Adds an actor to the programmatic API."""
 
         if actor not in self.actors:
-            self.actors[actor] = RemoteActor(self.client, actor)
+            self.actors[actor] = RemoteActor(self, actor)
 
         return self.actors[actor]
 
