@@ -16,16 +16,17 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Generic, Self, Type, TypeVar
 
 import unclick
+
 from gort.exceptions import GortError, GortWarning
 
 from .tools import get_valid_variable_name
 
 
 if TYPE_CHECKING:
-    from gort import Gort
-
     from clu.client import AMQPReply
     from clu.command import Command
+
+    from gort import Gort
 
 
 __all__ = ["RemoteActor", "RemoteCommand", "ActorReply"]

@@ -15,14 +15,16 @@ import re
 from typing import TYPE_CHECKING
 
 import httpx
+
 from gort import config
 
 
 if TYPE_CHECKING:
-    from gort import Gort
     from pyds9 import DS9
 
     from clu import AMQPClient, AMQPReply
+
+    from gort import Gort
 
 
 __all__ = [
