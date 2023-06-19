@@ -16,9 +16,10 @@ from clu.client import AMQPClient
 
 from gort import config, log
 from gort.core import RemoteActor
+from gort.tools import register_observation
 
 
-__all__ = ["GortClient"]
+__all__ = ["GortClient", "Gort"]
 
 
 class GortClient(AMQPClient):
@@ -138,3 +139,50 @@ class GortDeviceSet(dict[str, gortDeviceType], Generic[gortDeviceType]):
             tasks.append(actor_command(*args, **kwargs))
 
         return await asyncio.gather(*tasks)
+
+
+class Gort(GortClient):
+    """Gort's robotic functionality."""
+
+    def __init__(self, *args, verbosity="info", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.set_verbosity(verbosity)
+
+    async def observe_tile(self, tile_id: int | None = None):
+        """Performs all the operations necessary to observe a tile.
+
+        Parameters
+        ----------
+        tile_id
+            The ``tile_id`` to observe. If not provided, observes the next tile
+            suggested by the scheduler.
+
+        """
+
+        tile_id_data = await self.telescope.goto_tile_id(tile_id)
+
+        tile_id = tile_id_data["tile_id"]
+        dither_pos = tile_id_data["dither_pos"]
+
+        exp_tile_data = {
+            "tile_id": (tile_id, "The tile_id of this observation"),
+            "dpos": (dither_pos, "Dither position"),
+        }
+        exp_nos = await self.spec.expose(tile_data=exp_tile_data, show_progress=True)
+
+        if len(exp_nos) < 1:
+            raise ValueError("No exposures to be registered.")
+
+        log.info("Registering observation.")
+        registration_payload = {
+            "dither": dither_pos,
+            "tile_id": tile_id,
+            "jd": tile_id_data["jd"],
+            "seeing": 10,
+            "standards": tile_id_data["standard_pks"],
+            "skies": tile_id_data["sky_pks"],
+            "exposure_no": exp_nos[0],
+        }
+        log.debug(f"Registration payload {registration_payload}")
+        await register_observation(registration_payload)
+        log.debug("Registration complete.")
