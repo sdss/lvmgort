@@ -1,9 +1,10 @@
+
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # @Author: José Sánchez-Gallego (gallegoj@uw.edu)
 # @Date: 2023-06-16
-# @Filename: Sauron.py
+# @Filename: gort.py
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
 import asyncio
@@ -14,20 +15,20 @@ from typing import Self
 
 from clu.client import AMQPClient
 
-from sauron import config, log
-from sauron.core import RemoteActor
-from sauron.enclosure import Enclosure
-from sauron.guider import GuiderSet
-from sauron.nps import NPSSet
-from sauron.spec import SpectrographSet
-from sauron.telescope import TelescopeSet
+from gort import config, log
+from gort.core import RemoteActor
+from gort.enclosure import Enclosure
+from gort.guider import GuiderSet
+from gort.nps import NPSSet
+from gort.spec import SpectrographSet
+from gort.telescope import TelescopeSet
 
 
-__all__ = ["Sauron"]
+__all__ = ["Gort"]
 
 
-class Sauron:
-    """The main ``lvmsauron`` client, used to communicate with the actor system."""
+class Gort:
+    """The main ``lvmgort`` client, used to communicate with the actor system."""
 
     def __init__(
         self,
@@ -42,7 +43,7 @@ class Sauron:
             client_uuid = str(uuid.uuid4()).split("-")[1]
 
             self.client = AMQPClient(
-                f"Sauron-client-{client_uuid}",
+                f"Gort-client-{client_uuid}",
                 host=host,
                 user=user,
                 password=password,

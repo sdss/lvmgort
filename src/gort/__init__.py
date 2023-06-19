@@ -6,7 +6,7 @@ from sdsstools import get_config, get_logger, get_package_version
 
 
 # pip package name
-NAME = "lvmsauron"
+NAME = "lvmgort"
 
 # Loads config. config name is the package name.
 config = get_config(NAME)
@@ -21,5 +21,5 @@ __version__ = get_package_version(path=__file__, package_name=NAME)
 
 
 from .core import *
+from .gort import *
 from .robotic import *
-from .sauron import *

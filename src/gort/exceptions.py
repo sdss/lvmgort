@@ -7,32 +7,32 @@
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
 
-class SauronError(Exception):
-    """A custom core SauronError exception"""
+class GortError(Exception):
+    """A custom core GortError exception"""
 
     pass
 
 
-class SauronTimeout(SauronError):
+class GortTimeout(GortError):
     """Raised if a timeout occurs."""
 
     pass
 
 
-class SauronNotImplemented(SauronError):
+class GortNotImplemented(GortError):
     """A custom exception for not yet implemented features."""
 
     def __init__(self, message=None):
         message = "This feature is not implemented yet." if not message else message
 
-        super(SauronNotImplemented, self).__init__(message)
+        super(GortNotImplemented, self).__init__(message)
 
 
-class SauronWarning(Warning):
-    """Base warning for Sauron."""
+class GortWarning(Warning):
+    """Base warning for Gort."""
 
 
-class SauronUserWarning(UserWarning, SauronWarning):
+class GortUserWarning(UserWarning, GortWarning):
     """The primary warning class."""
 
     pass

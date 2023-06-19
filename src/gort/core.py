@@ -16,17 +16,16 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Generic, Self, Type, TypeVar
 
 import unclick
-
-from sauron.exceptions import SauronError, SauronWarning
+from gort.exceptions import GortError, GortWarning
 
 from .tools import get_valid_variable_name
 
 
 if TYPE_CHECKING:
+    from gort import Gort
+
     from clu.client import AMQPReply
     from clu.command import Command
-
-    from sauron import Sauron
 
 
 __all__ = ["RemoteActor", "RemoteCommand", "ActorReply"]
@@ -44,8 +43,8 @@ class CommandSet(dict[str, "RemoteCommand"]):
 class RemoteActor:
     """A programmatic representation of a remote actor."""
 
-    def __init__(self, sauron: Sauron, name: str):
-        self._sauron = sauron
+    def __init__(self, gort: Gort, name: str):
+        self._gort = gort
 
         self.name = name
         self.model: dict = {}
@@ -57,12 +56,12 @@ class RemoteActor:
     async def init(self) -> Self:
         """Initialises the representation of the actor."""
 
-        if not self._sauron.connected:
-            raise RuntimeError("sauron is not connected.")
+        if not self._gort.connected:
+            raise RuntimeError("gort is not connected.")
 
-        cmd = await self._sauron.client.send_command(self.name, "get-command-model")
+        cmd = await self._gort.client.send_command(self.name, "get-command-model")
         if cmd.status.did_fail:
-            warnings.warn(f"Cannot get model for actor {self.name}.", SauronWarning)
+            warnings.warn(f"Cannot get model for actor {self.name}.", GortWarning)
             return self
 
         self.model = cmd.replies.get("command_model")
@@ -85,7 +84,7 @@ class RemoteActor:
 
         """
 
-        return await self._sauron.client.send_command(self.name, *args, **kwargs)
+        return await self._gort.client.send_command(self.name, *args, **kwargs)
 
     async def refresh(self):
         """Refresesh the command list."""
@@ -135,7 +134,7 @@ class RemoteCommand:
             # cases, but probably good enough for now.
             parent_string = self._parent.get_command_string() + " "
 
-        cmd = await self._remote_actor._sauron.client.send_command(
+        cmd = await self._remote_actor._gort.client.send_command(
             self._remote_actor.name,
             parent_string + self.get_command_string(*args, **kwargs),
             callback=reply_callback,
@@ -149,7 +148,7 @@ class RemoteCommand:
         if not cmd.status.did_succeed:
             error = actor_reply.get("error")
             error = str(error) if error is not None else ""
-            raise SauronError(f"Failed executing command {self._name}. {error}")
+            raise GortError(f"Failed executing command {self._name}. {error}")
 
         return actor_reply
 
@@ -187,32 +186,32 @@ class ActorReply:
         return None
 
 
-class SauronDevice:
-    """A sauron-managed device."""
+class GortDevice:
+    """A gort-managed device."""
 
-    def __init__(self, sauron: Sauron, name: str, actor: str, **kwargs):
-        self.sauron = sauron
+    def __init__(self, gort: Gort, name: str, actor: str, **kwargs):
+        self.gort = gort
         self.name = name
-        self.actor = sauron.add_actor(actor)
+        self.actor = gort.add_actor(actor)
 
 
-sauronDeviceType = TypeVar("sauronDeviceType", bound=SauronDevice)
+gortDeviceType = TypeVar("gortDeviceType", bound=GortDevice)
 
 
-class SauronDeviceSet(dict[str, sauronDeviceType], Generic[sauronDeviceType]):
-    """A set to sauron-managed devices."""
+class GortDeviceSet(dict[str, gortDeviceType], Generic[gortDeviceType]):
+    """A set to gort-managed devices."""
 
-    __DEVICE_CLASS__: ClassVar[Type[SauronDevice]]
+    __DEVICE_CLASS__: ClassVar[Type[GortDevice]]
 
-    def __init__(self, sauron: Sauron, data: dict[str, dict]):
-        self.sauron = sauron
+    def __init__(self, gort: Gort, data: dict[str, dict]):
+        self.gort = gort
 
         _dict_data = {}
         for device_name in data:
             device_data = data[device_name].copy()
             actor_name = device_data.pop("actor")
             _dict_data[device_name] = self.__DEVICE_CLASS__(
-                sauron,
+                gort,
                 device_name,
                 actor_name,
                 **device_data,

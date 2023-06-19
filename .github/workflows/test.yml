@@ -39,17 +39,17 @@ jobs:
       - name: Lint with flake8
         run: |
           pip install flake8
-          flake8 src/sauron --count --show-source --statistics
+          flake8 src/gort --count --show-source --statistics
 
       - name: Lint with black
         run: |
           pip install black
-          black --check src/sauron
+          black --check src/gort
 
       - name: Lint with isort
         run: |
           pip install isort
-          isort -c src/sauron
+          isort -c src/gort
 
       - name: Test with pytest
         run: |

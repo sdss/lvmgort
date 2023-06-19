@@ -1,16 +1,16 @@
 
-lvmsauron's documentation
+lvmgort's documentation
 ========================
 
-This is the documentation for the SDSS Python product ``lvmsauron``. The current version is |lvmsauron_version|. You can install the package by doing
+This is the documentation for the SDSS Python product ``lvmgort``. The current version is |lvmgort_version|. You can install the package by doing
 
 .. code-block:: console
 
-  $ pip install lvmsauron
+  $ pip install lvmgort
 
-``lvmsauron`` provides the library ``sauron``::
+``lvmgort`` provides the library ``gort``::
 
-  >> from sauron import __version__
+  >> from gort import __version__
   >> __version__
   0.1.0a0
 

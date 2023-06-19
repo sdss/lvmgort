@@ -15,16 +15,14 @@ import re
 from typing import TYPE_CHECKING
 
 import httpx
-
-from sauron import config
+from gort import config
 
 
 if TYPE_CHECKING:
+    from gort import Gort
     from pyds9 import DS9
 
     from clu import AMQPClient, AMQPReply
-
-    from sauron import Sauron
 
 
 __all__ = [
@@ -56,14 +54,14 @@ def get_valid_variable_name(var_name: str):
 
 
 async def ds9_agcam_monitor(
-    client: AMQPClient | Sauron,
+    client: AMQPClient | Gort,
     cameras: list[str] | None = None,
     replace_path_prefix: tuple[str, str] | None = None,
     **kwargs,
 ):
     """Shows guider images in DS9."""
 
-    from sauron import Sauron
+    from gort import Gort
 
     images_handled = set([])
 
@@ -106,7 +104,7 @@ async def ds9_agcam_monitor(
 
         await ds9_display_frames([filename], ds9=ds9, **kwargs)
 
-    if isinstance(client, Sauron):
+    if isinstance(client, Gort):
         client = client.client
 
     client.add_reply_callback(handle_reply)

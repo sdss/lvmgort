@@ -1,19 +1,19 @@
 
 .. _api:
 
-sauron Reference
-================
+gort Reference
+==============
 
 Core classes
 ------------
 
-.. automodule:: sauron.core
+.. automodule:: gort.core
    :members:
    :show-inheritance:
 
 Exceptions
 ----------
 
-.. automodule:: sauron.exceptions
+.. automodule:: gort.exceptions
    :members:
    :show-inheritance:

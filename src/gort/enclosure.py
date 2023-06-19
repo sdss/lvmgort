@@ -10,20 +10,20 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sauron import log
-from sauron.core import SauronDevice
+from gort import log
+from gort.core import GortDevice
 
 
 if TYPE_CHECKING:
-    from sauron import ActorReply
-    from sauron.sauron import Sauron
+    from gort import ActorReply
+    from gort.gort import Gort
 
 
-class Enclosure(SauronDevice):
+class Enclosure(GortDevice):
     """Class representing the LVM enclosure."""
 
-    def __init__(self, sauron: Sauron, name: str, actor: str, **kwargs):
-        super().__init__(sauron, name, actor)
+    def __init__(self, gort: Gort, name: str, actor: str, **kwargs):
+        super().__init__(gort, name, actor)
 
         self.status = {}
 
