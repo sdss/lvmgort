@@ -37,6 +37,9 @@ class Telescope(GortDevice):
             self.has_kmirror = True
             self.km = self.gort.add_actor(kmirror_actor)
 
+        fibsel = "lvm.spec.fibsel"
+        self.fibsel = self.gort.add_actor(fibsel) if self.name == "spec" else None
+
     async def update_status(self):
         """Retrieves the status of the telescope."""
 
@@ -134,6 +137,23 @@ class Telescope(GortDevice):
 
         if kmirror and self.km and ra and dec:
             await self.km.commands.slewStart(ra / 15.0, dec)
+
+    async def goto_mask_position(self, position: str | int):
+        """Moves the spectrophotometric mask to the desired position."""
+
+        if self.name != "spec" or not self.fibsel:
+            raise ValueError("goto_mask_position can only be used with spec.")
+
+        if isinstance(position, str):
+            mask_positions = config["telescope"]["mask_positions"]
+            if position not in mask_positions:
+                raise ValueError(f"Cannot find position {position!r}.")
+
+            motor_position = mask_positions[position]
+        else:
+            motor_position = position
+
+        await self.fibsel.commands.moveAbsolute(motor_position)
 
 
 class TelescopeSet(GortDeviceSet[Telescope]):
