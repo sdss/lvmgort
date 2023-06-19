@@ -32,6 +32,7 @@ click-default-group = "^1.2.2"
 setuptools = "^67.6.0"
 typing-extensions = "^4.5.0"
 httpx = "^0.24.1"
+tqdm = "^4.65.0"
 
 [tool.poetry.group.dev.dependencies]
 ipython = ">=8.0.0"

@@ -34,6 +34,8 @@ __all__ = [
     "ds9_display_frames",
     "get_next_tile_id",
     "get_calibrators",
+    "register_observation",
+    "tqdm_timer",
 ]
 
 CAMERAS = [
@@ -208,9 +210,6 @@ async def get_calibrators(
 ):
     """Get calibrators for a ``tile_id`` or science pointing."""
 
-    if tile_id is None and (ra is None or dec is None):
-        raise ValueError("tile_id or (ra, dec) are required.")
-
     sch_config = config["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
@@ -218,9 +217,65 @@ async def get_calibrators(
     async with httpx.AsyncClient(base_url=f"http://{host}:{port}/") as client:
         if tile_id:
             resp = await client.get("cals", params={"tile_id": tile_id})
-        else:
+        elif ra is not None and dec is not None:
             resp = await client.get("cals", params={"ra": ra, "dec": dec})
+        else:
+            raise ValueError("ra and dec are required.")
         if resp.status_code != 200:
             raise httpx.RequestError("Failed request to /cals")
 
     return resp.json()
+
+
+async def register_observation(payload: dict):
+    """Registers an observation with the scheduler."""
+
+    sch_config = config["scheduler"]
+    host = sch_config["host"]
+    port = sch_config["port"]
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.put(
+            f"http://{host}:{port}/register_observation",
+            json=payload,
+            follow_redirects=True,
+        )
+
+        if resp.status_code != 200 or not resp.json()["success"]:
+            raise RuntimeError("Failed registering observation.")
+
+
+def is_notebook() -> bool:
+    """Returns `True` if the code is run inside a Jupyter Notebook.
+
+    https://stackoverflow.com/questions/15411967/how-can-i-check-if-code-is-executed-in-the-ipython-notebook
+
+    """
+
+    try:
+        shell = get_ipython().__class__.__name__  # type: ignore
+        if shell == "ZMQInteractiveShell":
+            return True  # Jupyter notebook or qtconsole
+        elif shell == "TerminalInteractiveShell":
+            return False  # Terminal running IPython
+        else:
+            return False  # Other type (?)
+    except NameError:
+        return False  # Probably standard Python interpreter
+
+
+def tqdm_timer(seconds: int):
+    """Creates a task qith a tqdm progress bar."""
+
+    if is_notebook():
+        from tqdm.notebook import tqdm
+    else:
+        from tqdm import tqdm
+
+    bar_format = "{l_bar}{bar}| {n_fmt}/{total_fmt}s"
+
+    async def _progress():
+        for _ in tqdm(range(seconds), bar_format=bar_format):
+            await asyncio.sleep(1)
+
+    return asyncio.create_task(_progress())
