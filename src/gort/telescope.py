@@ -12,21 +12,21 @@ import asyncio
 
 from typing import TYPE_CHECKING
 
-from sauron import config, log
-from sauron.core import RemoteActor, SauronDevice, SauronDeviceSet
-from sauron.tools import get_calibrators, get_next_tile_id
+from gort import config, log
+from gort.core import GortDevice, GortDeviceSet, RemoteActor
+from gort.tools import get_calibrators, get_next_tile_id
 
 
 if TYPE_CHECKING:
-    from sauron.core import ActorReply
-    from sauron.sauron import Sauron
+    from gort.core import ActorReply
+    from gort.gort import Gort
 
 
-class Telescope(SauronDevice):
+class Telescope(GortDevice):
     """Class representing an LVM telescope functionality."""
 
-    def __init__(self, sauron: Sauron, name: str, actor: str, **kwargs):
-        super().__init__(sauron, name, actor)
+    def __init__(self, gort: Gort, name: str, actor: str, **kwargs):
+        super().__init__(gort, name, actor)
 
         self.pwi = self.actor
 
@@ -35,7 +35,7 @@ class Telescope(SauronDevice):
         self.has_kmirror = False
         if kmirror_actor:
             self.has_kmirror = True
-            self.km = self.sauron.add_actor(kmirror_actor)
+            self.km = self.gort.add_actor(kmirror_actor)
 
     async def update_status(self):
         """Retrieves the status of the telescope."""
@@ -136,7 +136,7 @@ class Telescope(SauronDevice):
             await self.km.commands.slewStart(ra / 15.0, dec)
 
 
-class TelescopeSet(SauronDeviceSet[Telescope]):
+class TelescopeSet(GortDeviceSet[Telescope]):
     """A representation of a set of telescopes."""
 
     __DEVICE_CLASS__ = Telescope

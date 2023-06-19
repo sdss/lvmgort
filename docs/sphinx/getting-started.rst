@@ -1,23 +1,23 @@
-Getting started with sauron
-===========================
+Getting started with gort
+=========================
 
 Minimal example
 ---------------
 
-The following is a minimum example of how to use the `.Sauron`` client to connect to the actor system and command the telescope to a science field, exposing during 15 minutes.
+The following is a minimum example of how to use the `.Gort`` client to connect to the actor system and command the telescope to a science field, exposing during 15 minutes.
 
 This code must be run in one of the LVM mountain servers with access to the RabbitMQ exchange.
 
 .. code-block:: python
 
-    >>> from sauron import Sauron
+    >>> from gort import Gort
 
-    >>> sauron = Sauron()
-    >>> await sauron.init()
-    >>> sauron.connected()
+    >>> gort = Gort()
+    >>> await gort.init()
+    >>> gort.connected()
     True
 
-    >>> await sauron.telescopes['sci'].update_status()
+    >>> await gort.telescopes['sci'].update_status()
     {'is_tracking': False,
     'is_connected': True,
     'is_slewing': False,
@@ -53,7 +53,7 @@ This code must be run in one of the LVM mountain servers with access to the Rabb
 Reference
 ---------
 
-.. automodule:: sauron.core
-   :members: sauron
+.. automodule:: gort.core
+   :members: gort
    :show-inheritance:
    :noindex:

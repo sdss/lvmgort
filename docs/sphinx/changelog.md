@@ -1,4 +1,4 @@
-(lvmsauron-changelog)=
+(lvmgort-changelog)=
 
 ```{include} ../../CHANGELOG.md
 ```

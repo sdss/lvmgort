@@ -14,22 +14,22 @@ from contextlib import suppress
 
 from typing import TYPE_CHECKING
 
-from sauron import config, log
-from sauron.core import SauronDevice, SauronDeviceSet
-from sauron.exceptions import SauronError
-from sauron.tools import tqdm_timer
+from gort import config, log
+from gort.core import GortDevice, GortDeviceSet
+from gort.exceptions import GortError
+from gort.tools import tqdm_timer
 
 
 if TYPE_CHECKING:
-    from sauron.core import ActorReply
-    from sauron.sauron import Sauron
+    from gort.core import ActorReply
+    from gort.gort import Gort
 
 
-class Spectrograph(SauronDevice):
+class Spectrograph(GortDevice):
     """Class representing an LVM spectrograph functionality."""
 
-    def __init__(self, sauron: Sauron, name: str, actor: str, **kwargs):
-        super().__init__(sauron, name, actor)
+    def __init__(self, gort: Gort, name: str, actor: str, **kwargs):
+        super().__init__(gort, name, actor)
 
         self.status = {}
 
@@ -47,7 +47,7 @@ class Spectrograph(SauronDevice):
         await self.actor.commands.expose(**kwargs)
 
 
-class SpectrographSet(SauronDeviceSet[Spectrograph]):
+class SpectrographSet(GortDeviceSet[Spectrograph]):
     """A set of LVM spectrographs."""
 
     __DEVICE_CLASS__ = Spectrograph
@@ -105,7 +105,7 @@ class SpectrographSet(SauronDeviceSet[Spectrograph]):
                     if timer:
                         await timer
 
-                raise SauronError(f"Exposure failed with error {err}")
+                raise GortError(f"Exposure failed with error {err}")
 
         return exp_nos
 
@@ -127,9 +127,9 @@ class SpectrographSet(SauronDeviceSet[Spectrograph]):
         cal_config = config["specs"]["calibration"]
 
         log.info("Moving telescopes to position.")
-        await self.sauron.telescopes.goto_named_position(cal_config["position"])
+        await self.gort.telescopes.goto_named_position(cal_config["position"])
 
-        calib_nps = self.sauron.nps[cal_config["lamps_nps"]]
+        calib_nps = self.gort.nps[cal_config["lamps_nps"]]
         lamps_config = cal_config["lamps"]
 
         # Turn off all lamps.
@@ -145,19 +145,19 @@ class SpectrographSet(SauronDeviceSet[Spectrograph]):
             await asyncio.sleep(warmup)
             for exp_time in lamps_config[lamp]["exposure_times"]:
                 log.info(f"Exposing for {exp_time} seconds.")
-                await self.sauron.specs.expose(flavour=flavour, exposure_time=exp_time)
+                await self.gort.specs.expose(flavour=flavour, exposure_time=exp_time)
             log.info(f"Turning off {lamp}.")
             await calib_nps.off(lamp)
 
         log.info("Taking biases.")
         nbias = cal_config["biases"]["count"]
         for _ in range(nbias):
-            await self.sauron.specs.expose(flavour="bias")
+            await self.gort.specs.expose(flavour="bias")
 
         log.info("Taking darks.")
         ndarks = cal_config["darks"]["count"]
         for _ in range(ndarks):
-            await self.sauron.specs.expose(
+            await self.gort.specs.expose(
                 flavour="dark",
                 exposure_time=cal_config["darks"]["exposure_time"],
             )

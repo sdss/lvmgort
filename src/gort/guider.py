@@ -12,20 +12,20 @@ import asyncio
 
 from typing import TYPE_CHECKING
 
-from sauron import log
-from sauron.core import SauronDevice, SauronDeviceSet
-from sauron.exceptions import SauronError
+from gort import log
+from gort.core import GortDevice, GortDeviceSet
+from gort.exceptions import GortError
 
 
 if TYPE_CHECKING:
-    from sauron.sauron import Sauron
+    from gort.gort import Gort
 
 
-class Guider(SauronDevice):
+class Guider(GortDevice):
     """Class representing a guider."""
 
-    def __init__(self, sauron: Sauron, name: str, actor: str, **kwargs):
-        super().__init__(sauron, name, actor)
+    def __init__(self, gort: Gort, name: str, actor: str, **kwargs):
+        super().__init__(gort, name, actor)
 
     def print_reply(self, reply):
         """Outputs command replies."""
@@ -38,11 +38,11 @@ class Guider(SauronDevice):
 
         try:
             await self.actor.commands.focus(reply_callback=self.print_reply)
-        except SauronError as err:
+        except GortError as err:
             log.error(f"{self.actor.name}: failed focusing with error {err}")
 
 
-class GuiderSet(SauronDeviceSet[Guider]):
+class GuiderSet(GortDeviceSet[Guider]):
     """A set of telescope guiders."""
 
     __DEVICE_CLASS__ = Guider
@@ -54,7 +54,7 @@ class GuiderSet(SauronDeviceSet[Guider]):
         # We use goto_named_position to prevent disabling the telescope and having
         # to rehome.
         log.debug("Moving telescopes to park position.")
-        await self.sauron.telescopes.goto_named_position("park")
+        await self.gort.telescopes.goto_named_position("park")
 
         # Take darks.
         log.debug("Taking darks.")
@@ -76,7 +76,7 @@ class GuiderSet(SauronDeviceSet[Guider]):
 
         # Send telescopes to zenith.
         if not inplace:
-            await self.sauron.telescopes.goto_named_position("zenith")
+            await self.gort.telescopes.goto_named_position("zenith")
 
         jobs = [ag.focus() for ag in self.values()]
         await asyncio.gather(*jobs)
