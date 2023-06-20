@@ -101,7 +101,7 @@ class Telescope(GortDevice):
         elif alt_az is not None:
             await self.pwi.commands.gotoAltAzJ2000(*alt_az)
         else:
-            coords = config["telescopes"]["named_positions"]["park"]["all"]
+            coords = config["telescope"]["named_positions"]["park"]["all"]
             await self.pwi.commands.gotoAltAzJ2000(coords["alt"], coords["az"])
 
         if disable:
