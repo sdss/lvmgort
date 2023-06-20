@@ -118,8 +118,28 @@ class Telescope(GortDevice):
         alt: float | None = None,
         az: float | None = None,
         kmirror: bool = True,
+        altaz_tracking: bool = False,
     ):
-        """Moves the telescope to a given RA/Dec or Alt/Az."""
+        """Moves the telescope to a given RA/Dec or Alt/Az.
+
+        Parameters
+        ----------
+        ra
+            Right ascension coordinates to move to.
+        dec
+            Declination coordinates to move to.
+        alt
+            Altitude coordinates to move to.
+        az
+            Azimuth coordinates to move to.
+        kmirror
+            Whether to move the k-mirror into position. Only when
+            the coordinates provided are RA/Dec.
+        altaz_tracking
+            If `True`, starts tracking after moving to alt/az coordinates.
+            By defaul the PWI won't track with those coordinates.
+
+        """
 
         if ra is not None and dec is not None:
             is_radec = ra is not None and dec is not None and not alt and not az
@@ -134,6 +154,8 @@ class Telescope(GortDevice):
 
             await self.initialise()
             await self.pwi.commands.gotoAltAzJ2000(alt, az)
+            if altaz_tracking:
+                await self.pwi.commands.setTracking(enable=True)
 
         if kmirror and self.km and ra and dec:
             await self.km.commands.slewStart(ra / 15.0, dec)
@@ -199,8 +221,28 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         alt: float | None = None,
         az: float | None = None,
         kmirror: bool = True,
+        altaz_tracking: bool = False,
     ):
-        """Moves all the telescopes to a given RA/Dec or Alt/Az."""
+        """Moves all the telescopes to a given RA/Dec or Alt/Az.
+
+        Parameters
+        ----------
+        ra
+            Right ascension coordinates to move to.
+        dec
+            Declination coordinates to move to.
+        alt
+            Altitude coordinates to move to.
+        az
+            Azimuth coordinates to move to.
+        kmirror
+            Whether to move the k-mirror into position. Only when
+            the coordinates provided are RA/Dec.
+        altaz_tracking
+            If `True`, starts tracking after moving to alt/az coordinates.
+            By defaul the PWI won't track with those coordinates.
+
+        """
 
         await asyncio.gather(
             *[
@@ -210,18 +252,19 @@ class TelescopeSet(GortDeviceSet[Telescope]):
                     alt=alt,
                     az=az,
                     kmirror=kmirror,
+                    altaz_tracking=altaz_tracking,
                 )
                 for tel in self.values()
             ]
         )
 
-    async def goto_named_position(self, name: str):
+    async def goto_named_position(self, name: str, altaz_tracking: bool = False):
         """Sends the telescopes to a named position."""
 
-        if name not in config["telescopes"]["named_positions"]:
+        if name not in config["telescope"]["named_positions"]:
             raise ValueError(f"Invalid named position {name!r}.")
 
-        position_data = config["telescopes"]["named_positions"][name]
+        position_data = config["telescope"]["named_positions"][name]
 
         coros = []
         for tel in self.values():
@@ -234,7 +277,11 @@ class TelescopeSet(GortDeviceSet[Telescope]):
                 raise ValueError(f"Cannot find position data for {name!r}.")
 
             if "alt" in coords and "az" in coords:
-                coro = tel.goto_coordinates(alt=coords["alt"], az=coords["az"])
+                coro = tel.goto_coordinates(
+                    alt=coords["alt"],
+                    az=coords["az"],
+                    altaz_tracking=altaz_tracking,
+                )
             elif "ra" in coords and "dec" in coords:
                 coro = tel.goto_coordinates(ra=coords["ra"], dec=coords["dec"])
             else:

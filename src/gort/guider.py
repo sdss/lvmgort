@@ -95,7 +95,7 @@ class GuiderSet(GortDeviceSet[Guider]):
 
         # Send telescopes to zenith.
         if not inplace:
-            await self.gort.telescope.goto_named_position("zenith")
+            await self.gort.telescope.goto_named_position("zenith", altaz_tracking=True)
 
         jobs = [
             ag.focus(
