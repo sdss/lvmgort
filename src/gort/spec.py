@@ -55,7 +55,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
     def get_seqno(self):
         """Returns the next exposure sequence number."""
 
-        next_exposure_number_path = config["specs"]["nextExposureNumber"]
+        next_exposure_number_path = config["spec"]["nextExposureNumber"]
         with open(next_exposure_number_path, "r") as fd:
             data = fd.read().strip()
             seqno = int(data) if data != "" else 1
@@ -131,7 +131,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         # TODO: add some checks. Confirm HDs are open, specs connected, etc.
 
-        cal_config = config["specs"]["calibration"]
+        cal_config = config["spec"]["calibration"]
 
         if sequence not in cal_config["sequences"]:
             raise ValueError(f"Unknown sequence {sequence!r}.")
@@ -146,6 +146,8 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         # Turn off all lamps.
         log.info("Checking that all lamps are off.")
         await calib_nps.all_off()
+
+        log.info(f"Running calibration sequence {sequence!r}.")
 
         try:
             for lamp in lamps_config:
