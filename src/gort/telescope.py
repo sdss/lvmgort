@@ -20,6 +20,7 @@ from gort.tools import get_calibrators, get_next_tile_id
 if TYPE_CHECKING:
     from gort.core import ActorReply
     from gort.gort import GortClient
+    from gort.guider import GuiderSet
 
 
 class Telescope(GortDevice):
@@ -39,6 +40,11 @@ class Telescope(GortDevice):
 
         fibsel = "lvm.spec.fibsel"
         self.fibsel = self.gort.add_actor(fibsel) if self.name == "spec" else None
+
+        if self.name in self.gort.guiders:
+            self.guider = self.gort.guiders[name]
+        else:
+            self.guider = None
 
     async def update_status(self):
         """Retrieves the status of the telescope."""
@@ -101,7 +107,7 @@ class Telescope(GortDevice):
         elif alt_az is not None:
             await self.pwi.commands.gotoAltAzJ2000(*alt_az)
         else:
-            coords = config["telescope"]["named_positions"]["park"]["all"]
+            coords = config["telescopes"]["named_positions"]["park"]["all"]
             await self.pwi.commands.gotoAltAzJ2000(coords["alt"], coords["az"])
 
         if disable:
@@ -160,14 +166,14 @@ class Telescope(GortDevice):
         if kmirror and self.km and ra and dec:
             await self.km.commands.slewStart(ra / 15.0, dec)
 
-    async def goto_mask_position(self, position: str | int):
+    async def move_mask_to_position(self, position: str | int):
         """Moves the spectrophotometric mask to the desired position."""
 
         if self.name != "spec" or not self.fibsel:
-            raise ValueError("goto_mask_position can only be used with spec.")
+            raise ValueError("move_mask_to_position can only be used with spec.")
 
         if isinstance(position, str):
-            mask_positions = config["telescope"]["mask_positions"]
+            mask_positions = config["telescopes"]["mask_positions"]
             if position not in mask_positions:
                 raise ValueError(f"Cannot find position {position!r}.")
 
@@ -182,6 +188,11 @@ class TelescopeSet(GortDeviceSet[Telescope]):
     """A representation of a set of telescopes."""
 
     __DEVICE_CLASS__ = Telescope
+
+    def __init__(self, gort: GortClient, data: dict[str, dict], guiders: GuiderSet):
+        super().__init__(gort, data)
+
+        self.guiders = guiders
 
     async def initialise(self):
         """Initialise all telescopes."""
@@ -261,10 +272,10 @@ class TelescopeSet(GortDeviceSet[Telescope]):
     async def goto_named_position(self, name: str, altaz_tracking: bool = False):
         """Sends the telescopes to a named position."""
 
-        if name not in config["telescope"]["named_positions"]:
+        if name not in config["telescopes"]["named_positions"]:
             raise ValueError(f"Invalid named position {name!r}.")
 
-        position_data = config["telescope"]["named_positions"][name]
+        position_data = config["telescopes"]["named_positions"][name]
 
         coros = []
         for tel in self.values():
@@ -348,7 +359,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
             jobs.append(self["sci"].goto_coordinates(ra=sci[0], dec=sci[1]))
 
         if spec is not None:
-            jobs.append(self["spec"].goto_coordinates(ra=spec[0], dec=spec[1]))
+            jobs.append(self["specs"].goto_coordinates(ra=spec[0], dec=spec[1]))
 
         if skye is not None:
             jobs.append(self["skye"].goto_coordinates(ra=skye[0], dec=skye[1]))

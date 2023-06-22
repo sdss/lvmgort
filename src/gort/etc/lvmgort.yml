@@ -5,7 +5,7 @@ actor:
   port: 5672
   log_dir: /data/logs/gort
 
-telescope:
+telescopes:
   devices:
     sci:
       actor: lvm.sci.pwi
@@ -42,18 +42,8 @@ telescope:
         az: -105
         alt: 55
   mask_positions:
-    P2-5: 9915
-    P2-4: 11375
-    P2-3: 12885
-    P2-2: 14335
-    P2-6: 8395
-    P2-7: 6940
-    P2-8: 5405
-    P2-9: 3945
-    P2-10: 2395
-    P2-11: 935
-    P2-1: 15885
-    P2-12: 17340
+    P1-1: 1650
+    P1-2: 215
     P1-3: 16610
     P1-4: 15180
     P1-5: 13640
@@ -64,10 +54,20 @@ telescope:
     P1-10: 6205
     P1-11: 4645
     P1-12: 3210
-    P1-1: 1650
-    P1-2: 215
+    P2-1: 15885
+    P2-2: 14335
+    P2-3: 12885
+    P2-4: 11375
+    P2-5: 9915
+    P2-6: 8395
+    P2-7: 6940
+    P2-8: 5405
+    P2-9: 3945
+    P2-10: 2395
+    P2-11: 935
+    P2-12: 17340
 
-guider:
+guiders:
   devices:
     sci:
       actor: lvm.sci.guider
@@ -89,7 +89,7 @@ nps:
     calib:
       actor: lvmnps.calib
 
-spec:
+specs:
   devices:
     sp1:
       actor: lvmscp.sp1

@@ -25,6 +25,9 @@ if TYPE_CHECKING:
     from gort.gort import GortClient
 
 
+READOUT_TIME = 56
+
+
 class Spectrograph(GortDevice):
     """Class representing an LVM spectrograph functionality."""
 
@@ -55,7 +58,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
     def get_seqno(self):
         """Returns the next exposure sequence number."""
 
-        next_exposure_number_path = config["spec"]["nextExposureNumber"]
+        next_exposure_number_path = config["specs"]["nextExposureNumber"]
         with open(next_exposure_number_path, "r") as fd:
             data = fd.read().strip()
             seqno = int(data) if data != "" else 1
@@ -87,7 +90,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                 header = None
 
             if show_progress:
-                timer = tqdm_timer(exposure_time + 45)
+                timer = tqdm_timer(exposure_time + READOUT_TIME)
             else:
                 timer = None
 
@@ -131,14 +134,14 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         # TODO: add some checks. Confirm HDs are open, specs connected, etc.
 
-        cal_config = config["spec"]["calibration"]
+        cal_config = config["specs"]["calibration"]
 
         if sequence not in cal_config["sequences"]:
             raise ValueError(f"Unknown sequence {sequence!r}.")
         sequence_config = cal_config["sequences"][sequence]
 
         log.info("Moving telescopes to position.")
-        await self.gort.telescope.goto_named_position(cal_config["position"])
+        await self.gort.telescopes.goto_named_position(cal_config["position"])
 
         calib_nps = self.gort.nps[cal_config["lamps_nps"]]
         lamps_config = sequence_config["lamps"]
@@ -158,19 +161,21 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                 await asyncio.sleep(warmup)
                 for exp_time in lamps_config[lamp]["exposure_times"]:
                     log.info(f"Exposing for {exp_time} seconds.")
-                    await self.gort.spec.expose(flavour=flavour, exposure_time=exp_time)
+                    await self.gort.specs.expose(
+                        flavour=flavour, exposure_time=exp_time
+                    )
                 log.info(f"Turning off {lamp}.")
                 await calib_nps.off(lamp)
 
             log.info("Taking biases.")
             nbias = sequence_config["biases"]["count"]
             for _ in range(nbias):
-                await self.gort.spec.expose(flavour="bias")
+                await self.gort.specs.expose(flavour="bias")
 
             log.info("Taking darks.")
             ndarks = sequence_config["darks"]["count"]
             for _ in range(ndarks):
-                await self.gort.spec.expose(
+                await self.gort.specs.expose(
                     flavour="dark",
                     exposure_time=sequence_config["darks"]["exposure_time"],
                 )
@@ -182,3 +187,6 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             )
             await calib_nps.all_off()
             raise
+
+        finally:
+            await self.gort.telescopes.park()
