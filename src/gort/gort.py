@@ -48,11 +48,15 @@ class GortClient(AMQPClient):
 
         self.actors: dict[str, RemoteActor] = {}
 
-        self.telescope = TelescopeSet(self, config["telescope"]["devices"])
+        self.guiders = GuiderSet(self, config["guiders"]["devices"])
+        self.telescopes = TelescopeSet(
+            self,
+            config["telescopes"]["devices"],
+            guiders=self.guiders,
+        )
         self.nps = NPSSet(self, config["nps"]["devices"])
-        self.spec = SpectrographSet(self, config["spec"]["devices"])
+        self.specs = SpectrographSet(self, config["specs"]["devices"])
         self.enclosure = Enclosure(self, name="enclosure", actor="lvmecp")
-        self.guider = GuiderSet(self, config["guider"]["devices"])
 
     async def init(self) -> Self:
         """Initialises the client."""
@@ -92,24 +96,15 @@ class GortClient(AMQPClient):
         log.sh.setLevel(logging.getLevelName(verbosity.upper()))
 
 
-class GortDevice:
-    """A gort-managed device."""
-
-    def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
-        self.gort = gort
-        self.name = name
-        self.actor = gort.add_actor(actor)
-
-
-GortDeviceType = TypeVar("GortDeviceType", bound=GortDevice)
+GortDeviceType = TypeVar("GortDeviceType", bound="GortDevice")
 
 
 class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
     """A set to gort-managed devices."""
 
-    __DEVICE_CLASS__: ClassVar[Type[GortDevice]]
+    __DEVICE_CLASS__: ClassVar[Type["GortDevice"]]
 
-    def __init__(self, gort: GortClient, data: dict[str, dict]):
+    def __init__(self, gort: GortClient, data: dict[str, dict], **kwargs):
         self.gort = gort
 
         _dict_data = {}
@@ -121,6 +116,7 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
                 device_name,
                 actor_name,
                 **device_data,
+                **kwargs,
             )
 
         dict.__init__(self, _dict_data)
@@ -141,6 +137,15 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
         return await asyncio.gather(*tasks)
 
 
+class GortDevice:
+    """A gort-managed device."""
+
+    def __init__(self, gort: GortClient, name: str, actor: str):
+        self.gort = gort
+        self.name = name
+        self.actor = gort.add_actor(actor)
+
+
 class Gort(GortClient):
     """Gort's robotic functionality."""
 
@@ -159,7 +164,7 @@ class Gort(GortClient):
 
         """
 
-        tile_id_data = await self.telescope.goto_tile_id(tile_id)
+        tile_id_data = await self.telescopes.goto_tile_id(tile_id)
 
         tile_id = tile_id_data["tile_id"]
         dither_pos = tile_id_data["dither_pos"]
@@ -168,7 +173,7 @@ class Gort(GortClient):
             "tile_id": (tile_id, "The tile_id of this observation"),
             "dpos": (dither_pos, "Dither position"),
         }
-        exp_nos = await self.spec.expose(tile_data=exp_tile_data, show_progress=True)
+        exp_nos = await self.specs.expose(tile_data=exp_tile_data, show_progress=True)
 
         if len(exp_nos) < 1:
             raise ValueError("No exposures to be registered.")
