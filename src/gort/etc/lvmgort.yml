@@ -36,8 +36,8 @@ telescopes:
         az: -95
         alt: 30
       sci:
-        az: -30
-        alt: 115
+        az: 120.5
+        alt: 73.6
       spec:
         az: -105
         alt: 55
