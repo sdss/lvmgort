@@ -54,3 +54,13 @@ class Enclosure(GortDevice):
 
         log.info("Stoping the dome.")
         await self.actor.commands.dome.commands.stop()
+
+    async def is_local(self):
+        """Returns `True` if the enclosure is in local mode."""
+
+        await self.update_status()
+        safety_status_labels = self.status.get("safety_status_labels", None)
+        if safety_status_labels is None:
+            raise ValueError("Cannot determine if enclosure is in local mode.")
+
+        return "LOCAL" in safety_status_labels
