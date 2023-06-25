@@ -10,15 +10,20 @@ telescopes:
     sci:
       actor: lvm.sci.pwi
       kmirror: lvm.sci.km
+      focuser: lvm.sci.foc
     spec:
       actor: lvm.spec.pwi
       kmirror: null
+      focuser: lvm.spec.foc
+      fibsel: lvm.spec.fibsel
     skye:
       actor: lvm.skye.pwi
       kmirror: lvm.skye.km
+      focuser: lvm.skye.foc
     skyw:
       actor: lvm.skyw.pwi
       kmirror: lvm.skyw.km
+      focuser: lvm.skyw.foc
   named_positions:
     park:
       all:
