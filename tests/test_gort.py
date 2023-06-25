@@ -6,6 +6,9 @@
 # @Filename: test_main.py
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
+from gort import Gort
+
 
 def test_placeholder():
-    assert True
+    g = Gort()
+    assert g
