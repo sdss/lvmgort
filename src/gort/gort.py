@@ -31,6 +31,7 @@ class GortClient(AMQPClient):
         user: str = "guest",
         password="guest",
     ):
+        from gort.ag import AGSet
         from gort.enclosure import Enclosure
         from gort.guider import GuiderSet
         from gort.nps import NPSSet
@@ -52,6 +53,7 @@ class GortClient(AMQPClient):
 
         self.actors: dict[str, RemoteActor] = {}
 
+        self.ags = AGSet(self, config["ags"]["devices"])
         self.guiders = GuiderSet(self, config["guiders"]["devices"])
         self.telescopes = TelescopeSet(self, config["telescopes"]["devices"])
         self.nps = NPSSet(self, config["nps"]["devices"])

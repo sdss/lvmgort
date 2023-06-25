@@ -170,6 +170,17 @@ specs:
           count: 1
           exposure_time: 900
 
+ags:
+  devices:
+    sci:
+      actor: lvm.sci.agcam
+    spec:
+      actor: lvm.spec.agcam
+    skye:
+      actor: lvm.skye.agcam
+    skyw:
+      actor: lvm.skyw.agcam
+
 scheduler:
   host: 10.8.38.26
   port: 5100

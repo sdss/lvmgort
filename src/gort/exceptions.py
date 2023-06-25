@@ -73,6 +73,12 @@ class GortSpecError(GortDeviceError):
     pass
 
 
+class GortAGError(GortDeviceError):
+    """AG-related error."""
+
+    pass
+
+
 class GortTelescopeError(GortDeviceError):
     """Telescope-related error."""
 
