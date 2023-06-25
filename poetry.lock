@@ -2,13 +2,13 @@
 
 [[package]]
 name = "aio-pika"
-version = "9.1.2"
+version = "9.1.3"
 description = "Wrapper around the aiormq for asyncio and humans"
 optional = false
 python-versions = ">=3.7,<4.0"
 files = [
-    {file = "aio_pika-9.1.2-py3-none-any.whl", hash = "sha256:d109bafa360369315dc083098cf6597dea6d99d3f25cf07da2a0f00ec294ab1b"},
-    {file = "aio_pika-9.1.2.tar.gz", hash = "sha256:bacec2aea65b0ca9011400db45568340fae9022f8ae27a8fee8df42889127738"},
+    {file = "aio_pika-9.1.3-py3-none-any.whl", hash = "sha256:32fd2da24cb81ef8f08503bb9a3a1537bbf54a565b7a4fb5f6bb4f93fa5113a4"},
+    {file = "aio_pika-9.1.3.tar.gz", hash = "sha256:05b979dd12ac1728a560884aa5676d8ea158afb9b3b14951ff99b9a3b01a8ae1"},
 ]
 
 [package.dependencies]
@@ -1600,13 +1600,13 @@ tests = ["check-manifest", "coverage", "defusedxml", "markdown2", "olefile", "pa
 
 [[package]]
 name = "platformdirs"
-version = "3.6.0"
+version = "3.8.0"
 description = "A small Python package for determining appropriate platform-specific dirs, e.g. a \"user data dir\"."
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "platformdirs-3.6.0-py3-none-any.whl", hash = "sha256:ffa199e3fbab8365778c4a10e1fbf1b9cd50707de826eb304b50e57ec0cc8d38"},
-    {file = "platformdirs-3.6.0.tar.gz", hash = "sha256:57e28820ca8094678b807ff529196506d7a21e17156cb1cddb3e74cebce54640"},
+    {file = "platformdirs-3.8.0-py3-none-any.whl", hash = "sha256:ca9ed98ce73076ba72e092b23d3c93ea6c4e186b3f1c3dad6edd98ff6ffcca2e"},
+    {file = "platformdirs-3.8.0.tar.gz", hash = "sha256:b0cabcb11063d21a0b261d557acb0a9d2126350e63b70cdf7db6347baea456dc"},
 ]
 
 [package.extras]
@@ -1615,13 +1615,13 @@ test = ["appdirs (==1.4.4)", "covdefaults (>=2.3)", "pytest (>=7.3.1)", "pytest-
 
 [[package]]
 name = "pluggy"
-version = "1.0.0"
+version = "1.2.0"
 description = "plugin and hook calling mechanisms for python"
 optional = false
-python-versions = ">=3.6"
+python-versions = ">=3.7"
 files = [
-    {file = "pluggy-1.0.0-py2.py3-none-any.whl", hash = "sha256:74134bbf457f031a36d68416e1509f34bd5ccc019f0bcc952c7b909d06b37bd3"},
-    {file = "pluggy-1.0.0.tar.gz", hash = "sha256:4224373bacce55f955a878bf9cfa763c1e360858e330072059e10bad68531159"},
+    {file = "pluggy-1.2.0-py3-none-any.whl", hash = "sha256:c2fd55a7d7a3863cba1a013e4e2414658b1d07b6bc57b3919e0c63c9abb99849"},
+    {file = "pluggy-1.2.0.tar.gz", hash = "sha256:d12f0c4b579b15f5e054301bb226ee85eeeba08ffec228092f8defbaa3a4c4b3"},
 ]
 
 [package.extras]
@@ -1794,13 +1794,13 @@ files = [
 
 [[package]]
 name = "pytest"
-version = "7.3.2"
+version = "7.4.0"
 description = "pytest: simple powerful testing with Python"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "pytest-7.3.2-py3-none-any.whl", hash = "sha256:cdcbd012c9312258922f8cd3f1b62a6580fdced17db6014896053d47cddf9295"},
-    {file = "pytest-7.3.2.tar.gz", hash = "sha256:ee990a3cc55ba808b80795a79944756f315c67c12b56abd3ac993a7b8c17030b"},
+    {file = "pytest-7.4.0-py3-none-any.whl", hash = "sha256:78bf16451a2eb8c7a2ea98e32dc119fd2aa758f1d5d66dbf0a59d69a3969df32"},
+    {file = "pytest-7.4.0.tar.gz", hash = "sha256:b4bf8c45bd59934ed84001ad51e11b4ee40d40a1229d2c79f9c592b0a3f6bd8a"},
 ]
 
 [package.dependencies]
@@ -1999,23 +1999,27 @@ docutils = ">=0.7"
 
 [[package]]
 name = "sdss-clu"
-version = "2.0.2"
+version = "2.1.0"
 description = "A new protocol for SDSS actors."
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "sdss_clu-2.0.2-py3-none-any.whl", hash = "sha256:285eee3f397d0af10304cae5ed808644660a026899d698c04679a35467c40492"},
-    {file = "sdss_clu-2.0.2.tar.gz", hash = "sha256:0b571911b114bfb98ab615fe7ee40ff799d6ba7534e4b6ffdd6ab4e91e45b026"},
+    {file = "sdss_clu-2.1.0-py3-none-any.whl", hash = "sha256:e507f2559b4898be7ef4b95203db95e0cacd35fb2169ca35d7770e1d47d4b997"},
+    {file = "sdss_clu-2.1.0.tar.gz", hash = "sha256:4c001db08184c3df57940da45179ec8dbd6f0f47202c4ec4638df9d84ea765b2"},
 ]
 
 [package.dependencies]
 aio_pika = ">=9.0.0,<10.0.0"
 aiormq = ">=6.6.4,<7.0.0"
 click = ">=8.0,<9.0"
+click-default-group = ">=1.2.2,<2.0.0"
 jsonschema = ">=4.0.1,<5.0.0"
 prompt_toolkit = ">=3.0.6,<4.0.0"
 sdsstools = ">=1.0.0,<2.0.0"
 unclick = ">=0.1.0b4,<0.2.0"
+
+[package.extras]
+websocket = ["websockets (>=11.0.3,<12.0.0)"]
 
 [[package]]
 name = "sdsstools"
@@ -2148,6 +2152,26 @@ sphinx = "*"
 
 [package.extras]
 test = ["pytest", "pytest-cov"]
+
+[[package]]
+name = "sphinx-autodoc-typehints"
+version = "1.23.2"
+description = "Type hints (PEP 484) support for the Sphinx autodoc extension"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "sphinx_autodoc_typehints-1.23.2-py3-none-any.whl", hash = "sha256:92d0074e48acf26551795e1fad3416709fa7f1d67b809ce76e4aa093e032ad90"},
+    {file = "sphinx_autodoc_typehints-1.23.2.tar.gz", hash = "sha256:dd8e999eb7d31643d42eb7d4673e0551c44af31a9e0fc07ddbc893b063d88658"},
+]
+
+[package.dependencies]
+sphinx = ">=7.0.1"
+
+[package.extras]
+docs = ["furo (>=2023.5.20)", "sphinx (>=7.0.1)"]
+numpy = ["nptyping (>=2.5)"]
+testing = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "diff-cover (>=7.5)", "pytest (>=7.3.1)", "pytest-cov (>=4.1)", "sphobjinv (>=2.3.1)", "typing-extensions (>=4.6.3)"]
+type-comment = ["typed-ast (>=1.5.4)"]
 
 [[package]]
 name = "sphinx-basic-ng"
@@ -2582,4 +2606,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10,<4.0"
-content-hash = "593ac09eff0ad8d8f725c094401278ab94eba3f7a71e640733a5b19c487e37cc"
+content-hash = "d8b3fcf98037ecb670b63f5bbe4974904bb5a97af5269c6d55425a6cccf77bcb"

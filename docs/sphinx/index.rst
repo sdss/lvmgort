@@ -1,8 +1,8 @@
 
-lvmgort's documentation
-========================
+GORT's documentation
+====================
 
-This is the documentation for the SDSS Python product ``lvmgort``. The current version is |lvmgort_version|. You can install the package by doing
+This is the documentation for the SDSS Python product ``gort``. The current version is |lvmgort_version|. You can install the package by doing
 
 .. code-block:: console
 
@@ -21,16 +21,9 @@ Contents
   :maxdepth: 2
 
   getting-started
+  observing
   Changelog <changelog>
-
-
-Reference
----------
-
-.. toctree::
-   :maxdepth: 1
-
-   api
+  api
 
 
 Indices and tables

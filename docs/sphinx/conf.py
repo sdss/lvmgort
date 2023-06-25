@@ -16,6 +16,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx.ext.autosummary",
+    "sphinx_autodoc_typehints",
     "sphinx.ext.todo",
     "sphinx.ext.viewcode",
     "sphinx.ext.mathjax",
@@ -107,10 +108,13 @@ intersphinx_mapping = {
 autodoc_mock_imports = ["_tkinter"]
 autodoc_member_order = "groupwise"
 autodoc_default_options = {"members": None, "show-inheritance": None}
-autodoc_typehints = "description"
+# autodoc_typehints = "description"
 
-napoleon_use_rtype = False
-napoleon_use_ivar = True
+simplify_optional_unions = True
+typehints_use_signature_return = True
+
+# napoleon_use_rtype = False
+# napoleon_use_ivar = True
 
 copybutton_prompt_text = r">>> |\$ "
 copybutton_prompt_is_regexp = True
@@ -125,9 +129,14 @@ rst_epilog = f"""
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 html_theme = "furo"
-html_title = "lvmgort"
-html_logo = "_static/lvm_logo.png"
+html_title = "GORT's documentation"
+html_logo = "_static/lvm_logo_gort.png"
 html_favicon = "./_static/favicon.ico"
+html_theme_options = {
+    "source_repository": "https://github.com/sdss/lvmgort/",
+    "source_branch": "main",
+    "source_directory": "docs/sphinx",
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
