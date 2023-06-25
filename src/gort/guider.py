@@ -12,7 +12,6 @@ import asyncio
 
 from typing import TYPE_CHECKING
 
-from gort import log
 from gort.exceptions import GortError
 from gort.gort import GortDevice, GortDeviceSet
 
@@ -31,7 +30,7 @@ class Guider(GortDevice):
         """Outputs command replies."""
 
         if reply.body:
-            log.debug(f"{self.actor.name}: {reply.body}")
+            self.write_to_log(str(reply.body))
 
     async def focus(
         self,
@@ -42,6 +41,8 @@ class Guider(GortDevice):
     ):
         """Focus the telescope."""
 
+        self.write_to_log("Focusing telescope.")
+
         try:
             await self.actor.commands.focus(
                 reply_callback=self.print_reply,
@@ -51,7 +52,7 @@ class Guider(GortDevice):
                 exposure_time=exposure_time,
             )
         except GortError as err:
-            log.error(f"{self.actor.name}: failed focusing with error {err}")
+            self.write_to_log(f"Failed focusing with error {err}", level="error")
 
 
 class GuiderSet(GortDeviceSet[Guider]):
@@ -65,11 +66,11 @@ class GuiderSet(GortDeviceSet[Guider]):
         # Move telescopes to park to prevent light, since we don't have shutters.
         # We use goto_named_position to prevent disabling the telescope and having
         # to rehome.
-        log.debug("Moving telescopes to park position.")
+        self.write_to_log("Moving telescopes to park position.", level="info")
         await self.gort.telescopes.goto_named_position("park")
 
         # Take darks.
-        log.debug("Taking darks.")
+        self.write_to_log("Taking darks.", level="info")
 
         cmds = []
         for ag in self.values():

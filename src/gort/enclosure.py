@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from gort import log
+from gort.exceptions import GortEnclosureError
 from gort.gort import GortDevice
 
 
@@ -38,21 +38,21 @@ class Enclosure(GortDevice):
     async def open(self):
         """Open the enclosure dome."""
 
-        log.info("Opening the enclosure ...")
+        self.write_to_log("Opening the enclosure ...", level="info")
         await self.actor.commands.dome.commands.open()
-        log.info("Enclosure is now open.")
+        self.write_to_log("Enclosure is now open.", level="info")
 
     async def close(self):
         """Close the enclosure dome."""
 
-        log.info("Closing the enclosure ...")
+        self.write_to_log("Closing the enclosure ...", level="info")
         await self.actor.commands.dome.commands.close()
-        log.info("Enclosure is now closed.")
+        self.write_to_log("Enclosure is now closed.", level="info")
 
     async def stop(self):
         """Stop the enclosure dome."""
 
-        log.info("Stoping the dome.")
+        self.write_to_log("Stoping the dome.", level="info")
         await self.actor.commands.dome.commands.stop()
 
     async def is_local(self):
@@ -61,6 +61,6 @@ class Enclosure(GortDevice):
         await self.update_status()
         safety_status_labels = self.status.get("safety_status_labels", None)
         if safety_status_labels is None:
-            raise ValueError("Cannot determine if enclosure is in local mode.")
+            raise GortEnclosureError("Cannot determine if enclosure is in local mode.")
 
         return "LOCAL" in safety_status_labels

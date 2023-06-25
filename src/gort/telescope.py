@@ -12,7 +12,8 @@ import asyncio
 
 from typing import TYPE_CHECKING
 
-from gort import config, log
+from gort import config
+from gort.exceptions import GortTelescopeError
 from gort.gort import GortDevice, GortDeviceSet, RemoteActor
 from gort.tools import get_calibrators, get_next_tile_id
 
@@ -68,6 +69,7 @@ class Telescope(GortDevice):
         """Connects to the telescope and initialises the axes."""
 
         if not (await self.is_ready()):
+            self.write_to_log("Initialising telescope.")
             await self.pwi.commands.setConnected(True)
             await self.pwi.commands.setEnabled(True)
 
@@ -76,6 +78,11 @@ class Telescope(GortDevice):
 
     async def home(self):
         """Initialises and homes the telescope."""
+
+        if await self.gort.enclosure.is_local():
+            raise GortTelescopeError("Cannot home in local mode.")
+
+        self.write_to_log("Homing telescope.", level="info")
 
         if not (await self.is_ready()):
             await self.pwi.commands.setConnected(True)
@@ -95,23 +102,46 @@ class Telescope(GortDevice):
         use_pw_park=False,
         alt_az: tuple[float, float] | None = None,
         kmirror: bool = True,
+        force: bool = False,
     ):
         """Parks the telescope."""
+
+        if await self.gort.enclosure.is_local():
+            raise GortTelescopeError("Cannot home in local mode.")
 
         await self.initialise()
 
         if use_pw_park:
+            self.write_to_log("Parking telescope to PW default position.", level="info")
             await self.pwi.commands.park()
         elif alt_az is not None:
-            await self.pwi.commands.gotoAltAzJ2000(*alt_az)
+            self.write_to_log(f"Parking telescope to alt={alt_az[0]}, az={alt_az[1]}.")
+            await self.goto_coordinates(
+                alt=alt_az[0],
+                az=alt_az[1],
+                kmirror=False,
+                altaz_tracking=False,
+                force=force,
+            )
         else:
             coords = config["telescopes"]["named_positions"]["park"]["all"]
-            await self.pwi.commands.gotoAltAzJ2000(coords["alt"], coords["az"])
+            alt = coords["alt"]
+            az = coords["az"]
+            self.write_to_log(f"Parking telescope to alt={alt}, az={az}.", level="info")
+            await self.goto_coordinates(
+                alt=alt,
+                az=az,
+                kmirror=False,
+                altaz_tracking=False,
+                force=force,
+            )
 
         if disable:
+            self.write_to_log("Disabling telescope.")
             await self.pwi.commands.setEnabled(False)
 
         if kmirror and self.km:
+            self.write_to_log("Homing k-mirror.", level="info")
             await self.km.commands.slewStop()
             await self.km.commands.moveAbsolute(90, "DEG")
 
@@ -123,6 +153,7 @@ class Telescope(GortDevice):
         az: float | None = None,
         kmirror: bool = True,
         altaz_tracking: bool = False,
+        force: bool = False,
     ):
         """Moves the telescope to a given RA/Dec or Alt/Az.
 
@@ -142,14 +173,21 @@ class Telescope(GortDevice):
         altaz_tracking
             If `True`, starts tracking after moving to alt/az coordinates.
             By defaul the PWI won't track with those coordinates.
+        force
+            Move the telescopes even if mode is local.
 
         """
+
+        if (await self.gort.enclosure.is_local()) and not force:
+            raise GortTelescopeError("Cannot move telescope in local mode.")
 
         if ra is not None and dec is not None:
             is_radec = ra is not None and dec is not None and not alt and not az
             assert is_radec, "Invalid input parameters"
 
             await self.initialise()
+
+            self.write_to_log(f"Moving to ra={ra/15:.6f} dec={dec:.6f}.", level="info")
             await self.pwi.commands.gotoRaDecJ2000(ra / 15.0, dec)
 
         elif alt is not None and az is not None:
@@ -157,10 +195,13 @@ class Telescope(GortDevice):
             assert is_altaz, "Invalid input parameters"
 
             await self.initialise()
+
+            self.write_to_log(f"Moving to ra={alt:.6f} dec={az:.6f}.", level="info")
             await self.pwi.commands.gotoAltAzJ2000(alt, az)
             if altaz_tracking:
                 await self.pwi.commands.setTracking(enable=True)
 
+        # TODO: this can be done concurrently with the telescope slew.
         if kmirror and self.km and ra and dec:
             await self.km.commands.slewStart(ra / 15.0, dec)
 
@@ -168,18 +209,21 @@ class Telescope(GortDevice):
         """Moves the spectrophotometric mask to the desired position."""
 
         if self.name != "spec" or not self.fibsel:
-            raise ValueError("move_mask_to_position can only be used with spec.")
+            raise GortTelescopeError(f"Telescope {self.name} does not have a mask.")
 
         if isinstance(position, str):
             mask_positions = config["telescopes"]["mask_positions"]
             if position not in mask_positions:
-                raise ValueError(f"Cannot find position {position!r}.")
+                raise GortTelescopeError(f"Cannot find position {position!r}.")
 
-            motor_position = mask_positions[position]
+            steps = mask_positions[position]
+            self.write_to_log(f"Moving mask to {position}: {steps} DT.", level="info")
+
         else:
-            motor_position = position
+            steps = position
+            self.write_to_log(f"Moving mask to {steps} DT.", level="info")
 
-        await self.fibsel.commands.moveAbsolute(motor_position)
+        await self.fibsel.commands.moveAbsolute(steps)
 
 
 class TelescopeSet(GortDeviceSet[Telescope]):
@@ -208,6 +252,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         alt_az: tuple[float, float] | None = None,
         disable=True,
         kmirror=True,
+        force=False,
     ):
         """Parks the telescopes."""
 
@@ -218,6 +263,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
                     use_pw_park=use_pw_park,
                     alt_az=alt_az,
                     kmirror=kmirror,
+                    force=force,
                 )
                 for tel in self.values()
             ]
@@ -231,6 +277,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         az: float | None = None,
         kmirror: bool = True,
         altaz_tracking: bool = False,
+        force: bool = False,
     ):
         """Moves all the telescopes to a given RA/Dec or Alt/Az.
 
@@ -250,6 +297,8 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         altaz_tracking
             If `True`, starts tracking after moving to alt/az coordinates.
             By defaul the PWI won't track with those coordinates.
+        force
+            Move the telescopes even if mode is local.
 
         """
 
@@ -262,16 +311,24 @@ class TelescopeSet(GortDeviceSet[Telescope]):
                     az=az,
                     kmirror=kmirror,
                     altaz_tracking=altaz_tracking,
+                    force=force,
                 )
                 for tel in self.values()
             ]
         )
 
-    async def goto_named_position(self, name: str, altaz_tracking: bool = False):
+    async def goto_named_position(
+        self,
+        name: str,
+        altaz_tracking: bool = False,
+        force: bool = False,
+    ):
         """Sends the telescopes to a named position."""
 
+        await self._check_local(force)
+
         if name not in config["telescopes"]["named_positions"]:
-            raise ValueError(f"Invalid named position {name!r}.")
+            raise GortTelescopeError(f"Invalid named position {name!r}.")
 
         position_data = config["telescopes"]["named_positions"][name]
 
@@ -283,18 +340,25 @@ class TelescopeSet(GortDeviceSet[Telescope]):
             elif "all" in position_data:
                 coords = position_data["all"]
             else:
-                raise ValueError(f"Cannot find position data for {name!r}.")
+                raise GortTelescopeError(f"Cannot find position data for {name!r}.")
 
             if "alt" in coords and "az" in coords:
                 coro = tel.goto_coordinates(
                     alt=coords["alt"],
                     az=coords["az"],
                     altaz_tracking=altaz_tracking,
+                    force=force,
                 )
             elif "ra" in coords and "dec" in coords:
-                coro = tel.goto_coordinates(ra=coords["ra"], dec=coords["dec"])
+                coro = tel.goto_coordinates(
+                    ra=coords["ra"],
+                    dec=coords["dec"],
+                    force=force,
+                )
             else:
-                raise ValueError(f"No ra/dec or alt/az coordinates found for {name!r}.")
+                raise GortTelescopeError(
+                    f"No ra/dec or alt/az coordinates found for {name!r}."
+                )
 
             coros.append(coro)
 
@@ -305,6 +369,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         tile_id: int | None = None,
         ra: float | None = None,
         dec: float | None = None,
+        force: bool = False,
     ):
         """Moves all the telescopes to a ``tile_id``.
 
@@ -315,6 +380,8 @@ class TelescopeSet(GortDeviceSet[Telescope]):
 
         """
 
+        await self._check_local(force)
+
         tile_id_data: dict = {}
         if tile_id is None and (ra is None and dec is None):
             tile_id_data = await get_next_tile_id()
@@ -323,7 +390,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
             tile_id_data = {"tile_id": None, "tile_pos": (ra, dec)}
             calibrators = await get_calibrators(ra=ra, dec=dec)
         else:
-            raise ValueError("Both ra and dec need to be provided.")
+            raise GortTelescopeError("Both ra and dec need to be provided.")
 
         tile_id = tile_id_data["tile_id"]
 
@@ -331,13 +398,13 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         skye, skyw = calibrators["sky_pos"]
         spec = calibrators["standard_pos"][0]
 
-        log.info(f"Going to tile_id={tile_id}.")
-        log.debug(f"Science: {sci}")
-        log.debug(f"Spec: {spec}")
-        log.debug(f"SkyE: {skye}")
-        log.debug(f"SkyW: {skyw}")
+        self.write_to_log(f"Going to tile_id={tile_id}.", level="info")
+        self.write_to_log(f"Science: {sci}")
+        self.write_to_log(f"Spec: {spec}")
+        self.write_to_log(f"SkyE: {skye}")
+        self.write_to_log(f"SkyW: {skyw}")
 
-        await self.goto(sci=sci, spec=spec, skye=skye, skyw=skyw)
+        await self.goto(sci=sci, spec=spec, skye=skye, skyw=skyw, force=force)
 
         tile_id_data.update(calibrators)
         return tile_id_data
@@ -348,8 +415,11 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         spec: tuple[float, float] | None = None,
         skye: tuple[float, float] | None = None,
         skyw: tuple[float, float] | None = None,
+        force: bool = False,
     ):
         """Sends each telescope to a different position."""
+
+        await self._check_local(force)
 
         jobs = []
 
@@ -369,3 +439,10 @@ class TelescopeSet(GortDeviceSet[Telescope]):
             return
 
         await asyncio.gather(*jobs)
+
+    async def _check_local(self, force: bool = False):
+        """Checks if the telescope is in local mode and raises an error."""
+
+        is_local = await self.gort.enclosure.is_local()
+        if is_local and not force:
+            raise GortTelescopeError("Cannot move telescopes in local mode.")

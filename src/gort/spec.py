@@ -14,8 +14,8 @@ from contextlib import suppress
 
 from typing import TYPE_CHECKING
 
-from gort import config, log
-from gort.exceptions import GortError
+from gort import config
+from gort.exceptions import GortSpecError
 from gort.gort import GortDevice, GortDeviceSet
 from gort.tools import tqdm_timer
 
@@ -46,6 +46,8 @@ class Spectrograph(GortDevice):
 
     async def expose(self, **kwargs):
         """Exposes the spectrograph."""
+
+        self.write_to_log(f"Exposing spectrograph {self.name}.")
 
         await self.actor.commands.expose(**kwargs)
 
@@ -80,7 +82,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         for _ in range(count):
             seqno = self.get_seqno()
-            log.info(f"Taking spectrograph exposure {seqno}.")
+            self.write_to_log(f"Taking spectrograph exposure {seqno}.", level="info")
 
             await self.reset()
 
@@ -108,7 +110,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                     if timer:
                         await timer
 
-                raise GortError(f"Exposure failed with error {err}")
+                raise GortSpecError(f"Exposure failed with error {err}")
 
         return exp_nos
 
@@ -137,42 +139,42 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         cal_config = config["specs"]["calibration"]
 
         if sequence not in cal_config["sequences"]:
-            raise ValueError(f"Unknown sequence {sequence!r}.")
+            raise GortSpecError(f"Unknown sequence {sequence!r}.")
         sequence_config = cal_config["sequences"][sequence]
 
-        log.info("Moving telescopes to position.")
+        self.write_to_log("Moving telescopes to position.", level="info")
         await self.gort.telescopes.goto_named_position(cal_config["position"])
 
         calib_nps = self.gort.nps[cal_config["lamps_nps"]]
         lamps_config = sequence_config["lamps"]
 
         # Turn off all lamps.
-        log.info("Checking that all lamps are off.")
+        self.write_to_log("Checking that all lamps are off.", level="info")
         await calib_nps.all_off()
 
-        log.info(f"Running calibration sequence {sequence!r}.")
+        self.write_to_log(f"Running calibration sequence {sequence!r}.", level="info")
 
         try:
             for lamp in lamps_config:
                 warmup = lamps_config[lamp]["warmup"]
                 flavour = lamps_config[lamp]["flavour"]
-                log.info(f"Warming up lamp {lamp} for {warmup} seconds.")
+                self.write_to_log(f"Warming up lamp {lamp} ({warmup} s).", level="info")
                 await calib_nps.on(lamp)
                 await asyncio.sleep(warmup)
                 for exp_time in lamps_config[lamp]["exposure_times"]:
-                    log.info(f"Exposing for {exp_time} seconds.")
+                    self.write_to_log(f"Exposing for {exp_time} s.", level="info")
                     await self.gort.specs.expose(
                         flavour=flavour, exposure_time=exp_time
                     )
-                log.info(f"Turning off {lamp}.")
+                self.write_to_log(f"Turning off {lamp}.")
                 await calib_nps.off(lamp)
 
-            log.info("Taking biases.")
+            self.write_to_log("Taking biases.", level="info")
             nbias = sequence_config["biases"]["count"]
             for _ in range(nbias):
                 await self.gort.specs.expose(flavour="bias")
 
-            log.info("Taking darks.")
+            self.write_to_log("Taking darks.", level="info")
             ndarks = sequence_config["darks"]["count"]
             for _ in range(ndarks):
                 await self.gort.specs.expose(
@@ -181,12 +183,13 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                 )
 
         except Exception:
-            log.error(
+            self.write_to_log(
                 "Errored while executing sequence. "
-                "Turning all the lamps off before raising."
+                "Turning all the lamps off before raising.",
+                level="error",
             )
-            await calib_nps.all_off()
             raise
 
         finally:
+            await calib_nps.all_off()
             await self.gort.telescopes.park()
