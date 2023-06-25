@@ -14,13 +14,66 @@ from typing import TYPE_CHECKING
 
 from gort import config
 from gort.exceptions import GortTelescopeError
-from gort.gort import GortDevice, GortDeviceSet, RemoteActor
+from gort.gort import GortDevice, GortDeviceSet
 from gort.tools import get_calibrators, get_next_tile_id
 
 
 if TYPE_CHECKING:
     from gort.core import ActorReply
     from gort.gort import GortClient
+
+
+class KMirror(GortDevice):
+    """A device representing a K-mirror."""
+
+    async def status(self):
+        """Returns the status of the k-mirror."""
+
+        return await self.actor.commands.status()
+
+    async def home(self):
+        """Homes the k-mirror."""
+
+        self.write_to_log("Homing k-mirror.", level="info")
+        await self.actor.commands.moveToHome()
+
+    async def park(self):
+        """Park the k-mirror at 90 degrees."""
+
+        await self.actor.commands.slewStop()
+        await self.move(90)
+
+    async def move(self, degs: float):
+        """Move the k-mirror to a position in degrees."""
+
+        self.write_to_log(f"Moving k-mirror to {degs:.3f} degrees.", level="info")
+        await self.actor.commands.moveAbsolute(degs, "deg")
+
+    async def slew(self, ra: float, dec: float):
+        """Moves the mirror to the position for ``ra, dec`` and starts slewing."""
+
+        await self.actor.commands.slewStart(ra / 15.0, dec)
+
+
+class Focuser(GortDevice):
+    """A device representing a focuser."""
+
+    async def status(self):
+        """Returns the status of the focuser."""
+
+        return await self.actor.commands.status()
+
+    async def home(self):
+        """Homes the focuser."""
+
+        self.write_to_log("Homing focuser.", level="info")
+        await self.actor.commands.moveToHome()
+
+    async def move(self, dts: float):
+        """Move the focuser to a position in DT."""
+
+        self.write_to_log(f"Moving focuser to {dts:.3f} DT.", level="info")
+        await self.actor.commands.moveAbsolute(dts, "DT")
 
 
 class Telescope(GortDevice):
@@ -32,11 +85,14 @@ class Telescope(GortDevice):
         self.pwi = self.actor
 
         kmirror_actor = kwargs.get("kmirror", None)
-        self.km: RemoteActor | None = None
-        self.has_kmirror = False
         if kmirror_actor:
             self.has_kmirror = True
-            self.km = self.gort.add_actor(kmirror_actor)
+            self.km = KMirror(self.gort, f"{self.name}.km", kmirror_actor)
+        else:
+            self.has_kmirror = False
+            self.km = None
+
+        self.focuser = Focuser(self.gort, f"{self.name}.focuser", kwargs["focuser"])
 
         fibsel = "lvm.spec.fibsel"
         self.fibsel = self.gort.add_actor(fibsel) if self.name == "spec" else None
@@ -93,7 +149,7 @@ class Telescope(GortDevice):
         await asyncio.sleep(30)
 
         if self.km:
-            await self.km.commands.moveToHome()
+            await self.km.home()
 
     async def park(
         self,
@@ -141,8 +197,7 @@ class Telescope(GortDevice):
 
         if kmirror and self.km:
             self.write_to_log("Homing k-mirror.", level="info")
-            await self.km.commands.slewStop()
-            await self.km.commands.moveAbsolute(90, "DEG")
+            await self.km.park()
 
     async def goto_coordinates(
         self,
@@ -202,7 +257,7 @@ class Telescope(GortDevice):
 
         # TODO: this can be done concurrently with the telescope slew.
         if kmirror and self.km and ra and dec:
-            await self.km.commands.slewStart(ra / 15.0, dec)
+            await self.km.slew(ra / 15.0, dec)
 
     async def move_mask_to_position(self, position: str | int):
         """Moves the spectrophotometric mask to the desired position."""
