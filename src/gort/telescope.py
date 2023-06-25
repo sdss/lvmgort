@@ -71,25 +71,23 @@ class Telescope(GortDevice):
             await self.pwi.commands.setConnected(True)
             await self.pwi.commands.setEnabled(True)
 
-            if home is True or home is None:
-                log.warning(f"{self.name}: homing telescope")
-                await self.home()
-                return
-
         if home is True:
             await self.home()
 
     async def home(self):
         """Initialises and homes the telescope."""
 
-        await self.initialise(home=False)
-        await self.pwi.commands.findHome()
+        if not (await self.is_ready()):
+            await self.pwi.commands.setConnected(True)
+            await self.pwi.commands.setEnabled(True)
 
-        if self.km:
-            await self.km.commands.moveToHome()
+        await self.pwi.commands.findHome()
 
         # findHome does not block, so wait a reasonable amount of time.
         await asyncio.sleep(30)
+
+        if self.km:
+            await self.km.commands.moveToHome()
 
     async def park(
         self,
