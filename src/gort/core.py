@@ -15,6 +15,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Callable, Self
 
 import unclick
+from aiormq import AMQPConnectionError, ChannelInvalidStateError
 
 from gort.exceptions import GortError, GortWarning
 
@@ -60,7 +61,7 @@ class RemoteActor:
         ):
             raise RuntimeError("gort is not connected.")
 
-        cmd = await self.client.send_command(self.name, "get-command-model")
+        cmd = await self.send_raw_command("get-command-model")
         if cmd.status.did_fail:
             warnings.warn(f"Cannot get model for actor {self.name}.", GortWarning)
             return self
@@ -85,7 +86,16 @@ class RemoteActor:
 
         """
 
-        return await self.client.send_command(self.name, *args, **kwargs)
+        try:
+            cmd = await self.client.send_command(self.name, *args, **kwargs)
+        except (AMQPConnectionError, ChannelInvalidStateError):
+            # Client has disconnected. This should only happen if running Gort
+            # in an ipython terminal where the event loop only runs while a command
+            # is executing. See https://tinyurl.com/4kcwxzx9
+            await self.client.start()
+            cmd = await self.client.send_command(self.name, *args, **kwargs)
+
+        return cmd
 
     async def refresh(self):
         """Refresesh the command list."""
@@ -135,8 +145,7 @@ class RemoteCommand:
             # cases, but probably good enough for now.
             parent_string = self._parent.get_command_string() + " "
 
-        cmd = await self._remote_actor.client.send_command(
-            self._remote_actor.name,
+        cmd = await self._remote_actor.send_raw_command(
             parent_string + self.get_command_string(*args, **kwargs),
             callback=reply_callback,
         )
