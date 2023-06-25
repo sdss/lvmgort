@@ -1,4 +1,4 @@
-# Gort
+# LVM GORT
 
 ![Versions](https://img.shields.io/badge/python->3.11-blue)
 [![Documentation Status](https://readthedocs.org/projects/lvmgort/badge/?version=latest)](https://lvmgort.readthedocs.io/en/latest/)
