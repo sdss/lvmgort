@@ -21,7 +21,6 @@ from gort.tools import get_calibrators, get_next_tile_id
 if TYPE_CHECKING:
     from gort.core import ActorReply
     from gort.gort import GortClient
-    from gort.guider import GuiderSet
 
 
 class Telescope(GortDevice):
@@ -231,10 +230,10 @@ class TelescopeSet(GortDeviceSet[Telescope]):
 
     __DEVICE_CLASS__ = Telescope
 
-    def __init__(self, gort: GortClient, data: dict[str, dict], guiders: GuiderSet):
+    def __init__(self, gort: GortClient, data: dict[str, dict]):
         super().__init__(gort, data)
 
-        self.guiders = guiders
+        self.guiders = self.gort.guiders
 
     async def initialise(self):
         """Initialise all telescopes."""

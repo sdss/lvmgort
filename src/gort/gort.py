@@ -53,11 +53,7 @@ class GortClient(AMQPClient):
         self.actors: dict[str, RemoteActor] = {}
 
         self.guiders = GuiderSet(self, config["guiders"]["devices"])
-        self.telescopes = TelescopeSet(
-            self,
-            config["telescopes"]["devices"],
-            guiders=self.guiders,
-        )
+        self.telescopes = TelescopeSet(self, config["telescopes"]["devices"])
         self.nps = NPSSet(self, config["nps"]["devices"])
         self.specs = SpectrographSet(self, config["specs"]["devices"])
         self.enclosure = Enclosure(self, name="enclosure", actor="lvmecp")
