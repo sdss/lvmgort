@@ -44,7 +44,11 @@ class GortClient(AMQPClient):
             host=host,
             user=user,
             password=password,
+            log=log,
         )
+
+        # Reset verbosity.
+        self.set_verbosity()
 
         self.actors: dict[str, RemoteActor] = {}
 
@@ -82,18 +86,20 @@ class GortClient(AMQPClient):
 
         return self.actors[actor]
 
-    def set_verbosity(self, verbosity: str | int = "info"):
+    def set_verbosity(self, verbosity: str | int | None = None):
         """Sets the level of verbosity to ``debug``, ``info``, or ``warning``."""
 
+        verbosity = verbosity or "warning"
+
         if isinstance(verbosity, int):
-            log.sh.setLevel(verbosity)
+            self.log.sh.setLevel(verbosity)
             return
 
         verbosity = verbosity.lower()
         if verbosity not in ["debug", "info", "warning"]:
             raise ValueError("Invalid verbosity value.")
 
-        log.sh.setLevel(logging.getLevelName(verbosity.upper()))
+        self.log.sh.setLevel(logging.getLevelName(verbosity.upper()))
 
 
 GortDeviceType = TypeVar("GortDeviceType", bound="GortDevice")
@@ -136,6 +142,24 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
 
         return await asyncio.gather(*tasks)
 
+    def write_to_log(
+        self,
+        message: str,
+        level: str = "debug",
+        header: str | None = None,
+    ):
+        """Writes a message to the log with a custom header."""
+
+        if header is None:
+            header = f"({self.__class__.__name__}) "
+
+        message = f"{header}{message}"
+
+        level = logging.getLevelName(level.upper())
+        assert isinstance(level, int)
+
+        self.gort.log.log(level, message)
+
 
 class GortDevice:
     """A gort-managed device."""
@@ -145,13 +169,33 @@ class GortDevice:
         self.name = name
         self.actor = gort.add_actor(actor)
 
+    def write_to_log(
+        self,
+        message: str,
+        level: str = "debug",
+        header: str | None = None,
+    ):
+        """Writes a message to the log with a custom header."""
+
+        if header is None:
+            header = f"({self.name}) "
+
+        message = f"{header}{message}"
+
+        level = logging.getLevelName(level.upper())
+        assert isinstance(level, int)
+
+        self.gort.log.log(level, message)
+
 
 class Gort(GortClient):
     """Gort's robotic functionality."""
 
-    def __init__(self, *args, verbosity="info", **kwargs):
+    def __init__(self, *args, verbosity: str | None = None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.set_verbosity(verbosity)
+
+        if verbosity:
+            self.set_verbosity(verbosity)
 
     async def observe_tile(self, tile_id: int | None = None):
         """Performs all the operations necessary to observe a tile.
@@ -178,7 +222,7 @@ class Gort(GortClient):
         if len(exp_nos) < 1:
             raise ValueError("No exposures to be registered.")
 
-        log.info("Registering observation.")
+        self.log.info("Registering observation.")
         registration_payload = {
             "dither": dither_pos,
             "tile_id": tile_id,
@@ -188,6 +232,6 @@ class Gort(GortClient):
             "skies": tile_id_data["sky_pks"],
             "exposure_no": exp_nos[0],
         }
-        log.debug(f"Registration payload {registration_payload}")
+        self.log.debug(f"Registration payload {registration_payload}")
         await register_observation(registration_payload)
-        log.debug("Registration complete.")
+        self.log.debug("Registration complete.")
