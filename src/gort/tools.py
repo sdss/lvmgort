@@ -34,6 +34,7 @@ __all__ = [
     "get_calibrators",
     "register_observation",
     "tqdm_timer",
+    "get_ccd_frame_path",
 ]
 
 CAMERAS = [
@@ -272,3 +273,59 @@ def tqdm_timer(seconds: int):
             await asyncio.sleep(1)
 
     return asyncio.create_task(_progress())
+
+
+def get_ccd_frame_path(
+    frame_id: int,
+    sjd: int | None = None,
+    cameras: str | list[str] | None = None,
+    spectro_path="/data/spectro",
+) -> list[str]:
+    """Returns the paths for the files for a spectrograph frame.
+
+    Parameters
+    ----------
+    frame_id
+        The spectrograph frame for which the paths are searched.
+    mjd
+        The SJD in which the frames where taken. If not provided, all the
+        directories under ``spectro_path`` are searched.
+    cameras
+        The cameras to be returned. If `None`, all cameras found are returned.
+    spectro_path
+        The path to the ``spectro`` directory where spectrograph files are
+        stored under an SJD structure.
+
+    Returns
+    -------
+    paths
+        The list of paths to CCD frames that match ``frame_id``.
+
+    """
+
+    if isinstance(cameras, str):
+        cameras = [cameras]
+
+    base_path = pathlib.Path(spectro_path)
+    recursive = True
+    if sjd:
+        base_path /= str(sjd)
+        recursive = False
+
+    # Glob all files that match the frame_id.
+    globp = f"*{frame_id}.fits.*"
+    if recursive:
+        globp = f"**/{globp}"
+
+    files = [str(path) for path in base_path.glob(globp)]
+
+    if cameras is None:
+        return files
+
+    files_camera = []
+    for camera in cameras:
+        for file in files:
+            if f"-{camera}-" in file:
+                files_camera.append(file)
+
+    return files_camera
