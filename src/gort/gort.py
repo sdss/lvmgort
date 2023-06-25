@@ -19,17 +19,31 @@ from gort.core import RemoteActor
 from gort.tools import register_observation
 
 
-__all__ = ["GortClient", "Gort"]
+__all__ = ["GortClient", "Gort", "GortDeviceSet", "GortDevice"]
 
 
 class GortClient(AMQPClient):
-    """The main ``lvmgort`` client, used to communicate with the actor system."""
+    """The main ``gort`` client, used to communicate with the actor system.
+
+    A subclass of `~clu.client.AMQPClient` with defaults for host and logging,
+    it loads the `.GortDeviceSet` and `.RemoteActor` instances for the LVM system.
+
+    Parameters
+    ----------
+    host
+        The host on which the RabbitMQ exchange is running.
+    user
+        The user to connect to the exchange.
+    password
+        The password to connect to the exchange.
+
+    """
 
     def __init__(
         self,
-        host="lvm-hub.lco.cl",
+        host: str = "lvm-hub.lco.cl",
         user: str = "guest",
-        password="guest",
+        password: str = "guest",
     ):
         from gort.ag import AGSet
         from gort.enclosure import Enclosure
@@ -61,7 +75,14 @@ class GortClient(AMQPClient):
         self.enclosure = Enclosure(self, name="enclosure", actor="lvmecp")
 
     async def init(self) -> Self:
-        """Initialises the client."""
+        """Initialises the client.
+
+        Returns
+        -------
+        object
+            The same instance of `.GortClient` after initialisation.
+
+        """
 
         if not self.connected:
             await self.start()
@@ -77,7 +98,14 @@ class GortClient(AMQPClient):
         return self.connection and self.connection.connection is not None
 
     def add_actor(self, actor: str):
-        """Adds an actor to the programmatic API."""
+        """Adds an actor to the programmatic API.
+
+        Parameters
+        ----------
+        actor
+            The name of the actor to add.
+
+        """
 
         if actor not in self.actors:
             self.actors[actor] = RemoteActor(self, actor)
@@ -85,7 +113,15 @@ class GortClient(AMQPClient):
         return self.actors[actor]
 
     def set_verbosity(self, verbosity: str | int | None = None):
-        """Sets the level of verbosity to ``debug``, ``info``, or ``warning``."""
+        """Sets the level of verbosity to ``debug``, ``info``, or ``warning``.
+
+        Parameters
+        ----------
+        verbosity
+            The level of verbosity. Can be a string level name, an integer, or `None`,
+            in which case the default verbosity will be used.
+
+        """
 
         verbosity = verbosity or "warning"
 
@@ -104,7 +140,23 @@ GortDeviceType = TypeVar("GortDeviceType", bound="GortDevice")
 
 
 class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
-    """A set to gort-managed devices."""
+    """A set to gort-managed devices.
+
+    Devices can be accessed as items of the `.GortDeviceSet` dictionary
+    or ussing dot notation, as attributes.
+
+    Parameters
+    ----------
+    gort
+        The `.GortClient` instance.
+    data
+        A mapping of device to device info. Each device must at least include
+        an ``actor`` key with the actor to use to communicated with the device.
+        Any other information is passed to the `.GortDevice` on instantiation.
+    kwargs
+        Other keyword arguments to pass wo the device class.
+
+    """
 
     __DEVICE_CLASS__: ClassVar[Type["GortDevice"]]
 
@@ -131,7 +183,16 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
         return super().__getattribute__(__name)
 
     async def _send_command_all(self, command: str, *args, **kwargs):
-        """Calls a command in all the devices."""
+        """Sends a command to all the devices.
+
+        Parameters
+        ----------
+        command
+            The command to call.
+        args, kwargs
+            Arguments to pass to the `.RemoteCommand`.
+
+        """
 
         tasks = []
         for dev in self.values():
@@ -146,7 +207,19 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
         level: str = "debug",
         header: str | None = None,
     ):
-        """Writes a message to the log with a custom header."""
+        """Writes a message to the log with a custom header.
+
+        Parameters
+        ----------
+        message
+            The message to log.
+        level
+            The level to use for logging: ``'debug'``, ``'info'``, ``'warning'``, or
+            ``'error'``.
+        header
+            The header to prepend to the message. By default uses the class name.
+
+        """
 
         if header is None:
             header = f"({self.__class__.__name__}) "
@@ -160,7 +233,20 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
 
 
 class GortDevice:
-    """A gort-managed device."""
+    """A gort-managed device.
+
+    Parameters
+    ----------
+    gort
+        The `.GortClient` instance.
+    name
+        The name of the device.
+    actor
+        The name of the actor used to interface with this device. The actor is
+        added to the list of `.RemoteActor` in the `.GortClient`.
+
+
+    """
 
     def __init__(self, gort: GortClient, name: str, actor: str):
         self.gort = gort
@@ -173,7 +259,19 @@ class GortDevice:
         level: str = "debug",
         header: str | None = None,
     ):
-        """Writes a message to the log with a custom header."""
+        """Writes a message to the log with a custom header.
+
+        Parameters
+        ----------
+        message
+            The message to log.
+        level
+            The level to use for logging: ``'debug'``, ``'info'``, ``'warning'``, or
+            ``'error'``.
+        header
+            The header to prepend to the message. By default uses the device name.
+
+        """
 
         if header is None:
             header = f"({self.name}) "
@@ -187,7 +285,20 @@ class GortDevice:
 
 
 class Gort(GortClient):
-    """Gort's robotic functionality."""
+    """Gort's robotic functionality.
+
+    `.Gort` is subclass of `.GortClient` that implements higher-level robotic
+    functionality. This is the class a user will normally instantiate and
+    interact with.
+
+    Parameters
+    ----------
+    args, kwargs
+        Arguments to pass to `.GortClient`.
+    verbosity
+        The level of logging verbosity.
+
+    """
 
     def __init__(self, *args, verbosity: str | None = None, **kwargs):
         super().__init__(*args, **kwargs)
