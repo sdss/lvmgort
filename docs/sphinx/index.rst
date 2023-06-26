@@ -26,6 +26,13 @@ Contents
   api
 
 
+Links
+-----
+
+* `Repository <https://github.com/sdss/lvmgort>`__
+* `Issue tracking <https://github.com/sdss/lvmgort/issues>`__
+
+
 Indices and tables
 ------------------
 
