@@ -53,3 +53,62 @@ This command will block until the dome is fully open, and will return an error i
 
 .. warning::
     Jupyter notebooks don't allow to run more than one cell at the same time, so in practice it's not possible to have concurrency. If you need to do an emergency stop of the enclosure while it is already moving, you'll need to first stop the running cell (note that this won't stop the command that opens the dome) and then run another cell with the stop command.
+
+Misc
+----
+
+The following is an unsorted list of operations and troubleshooting using ``gort``.
+
+Moving the k-mirror to any position
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Normally ``gort`` will determine if the k-mirror of a telescope needs to be moved, parked, or set to tracking. To move it manually you can do ::
+
+    >>> await g.telescopes.sci.km.move(80)
+    03:02:20 [INFO]: (sci.km) Moving k-mirror to 80.000 degrees.
+    03:02:20 [DEBUG]: (sci.km) Stopping slew.
+    03:02:20 [DEBUG]: (sci.km) Moving k-mirror to absolute position.
+
+The k-mirror can be parked with ::
+
+    >>> await g.telescopes.sci.km.park()
+    03:09:29 [INFO]: (sci.km) Moving k-mirror to 90.000 degrees.
+    03:09:29 [DEBUG]: (sci.km) Stopping slew.
+    03:09:29 [DEBUG]: (sci.km) Moving k-mirror to absolute position.
+
+Lower level access to the k-mirror features can be obtained using the programmatic actor interface ::
+
+    >>> g.telescopes.sci.km.actor.commands
+    {'__commands': <gort.core.RemoteCommand at 0x7f5a715e33d0>,
+     'chat': <gort.core.RemoteCommand at 0x7f5a715e3410>,
+     'get_command_model': <gort.core.RemoteCommand at 0x7f5a715e3510>,
+     'getAbsoluteEncoderPosition': <gort.core.RemoteCommand at 0x7f5a715e3450>,
+     'getCurrentTime': <gort.core.RemoteCommand at 0x7f5a715e3490>,
+     'getDeviceEncoderPosition': <gort.core.RemoteCommand at 0x7f5a715e34d0>,
+     'getIncrementalEncoderPosition': <gort.core.RemoteCommand at 0x7f5a715e3550>,
+     'getNamedPosition': <gort.core.RemoteCommand at 0x7f5a715e35d0>,
+     'getPosition': <gort.core.RemoteCommand at 0x7f5a715e3650>,
+     'getPositionSwitchStatus': <gort.core.RemoteCommand at 0x7f5a715e36d0>,
+     'getVelocity': <gort.core.RemoteCommand at 0x7f5a715e3750>,
+     'get_schema': <gort.core.RemoteCommand at 0x7f5a715e37d0>,
+     'help': <gort.core.RemoteCommand at 0x7f5a715e3850>,
+     'isAtHome': <gort.core.RemoteCommand at 0x7f5a715e38d0>,
+     'isAtLimit': <gort.core.RemoteCommand at 0x7f5a715e3950>,
+     'isMoving': <gort.core.RemoteCommand at 0x7f5a715e39d0>,
+     'isReachable': <gort.core.RemoteCommand at 0x7f5a715e3a50>,
+     'keyword': <gort.core.RemoteCommand at 0x7f5a715e3ad0>,
+     'moveAbsolute': <gort.core.RemoteCommand at 0x7f5a715e3b50>,
+     'moveRelative': <gort.core.RemoteCommand at 0x7f5a715e3bd0>,
+     'moveToHome': <gort.core.RemoteCommand at 0x7f5a715e3c50>,
+     'moveToLimit': <gort.core.RemoteCommand at 0x7f5a715e3cd0>,
+     'moveToNamedPosition': <gort.core.RemoteCommand at 0x7f5a715e3d50>,
+     'ping': <gort.core.RemoteCommand at 0x7f5a715e3dd0>,
+     'scanAllReferenceSwitches': <gort.core.RemoteCommand at 0x7f5a715e3e50>,
+     'setPosition': <gort.core.RemoteCommand at 0x7f5a715e3ed0>,
+     'setVelocity': <gort.core.RemoteCommand at 0x7f5a715e3f50>,
+     'slewStart': <gort.core.RemoteCommand at 0x7f5a715e3fd0>,
+     'slewStop': <gort.core.RemoteCommand at 0x7f5a715dc090>,
+     'status': <gort.core.RemoteCommand at 0x7f5a715dc110>,
+     'version': <gort.core.RemoteCommand at 0x7f5a715dc190>}
+
+     >>> await g.telescopes.sci.km.actor.commands.slewStop()
