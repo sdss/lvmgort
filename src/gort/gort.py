@@ -32,6 +32,8 @@ class GortClient(AMQPClient):
     ----------
     host
         The host on which the RabbitMQ exchange is running.
+    port
+        The port on which the RabbitMQ exchange listens to connections.
     user
         The user to connect to the exchange.
     password
@@ -42,6 +44,7 @@ class GortClient(AMQPClient):
     def __init__(
         self,
         host: str = "lvm-hub.lco.cl",
+        port: int = 5672,
         user: str = "guest",
         password: str = "guest",
     ):
@@ -57,6 +60,7 @@ class GortClient(AMQPClient):
         super().__init__(
             f"Gort-client-{client_uuid}",
             host=host,
+            port=port,
             user=user,
             password=password,
             log=log,
