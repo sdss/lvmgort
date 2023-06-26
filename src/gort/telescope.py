@@ -57,6 +57,11 @@ class KMirror(GortDevice):
     async def slew(self, ra: float, dec: float):
         """Moves the mirror to the position for ``ra, dec`` and starts slewing."""
 
+        self.write_to_log(
+            f"Slewing k-mirror to ra={ra:.6f} dec={dec:.6f} and tracking.",
+            level="info",
+        )
+
         await self.actor.commands.slewStart(ra / 15.0, dec)
 
 
