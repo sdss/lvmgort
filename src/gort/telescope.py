@@ -47,6 +47,11 @@ class KMirror(GortDevice):
         """Move the k-mirror to a position in degrees."""
 
         self.write_to_log(f"Moving k-mirror to {degs:.3f} degrees.", level="info")
+
+        self.write_to_log("Stopping slew.")
+        await self.actor.commands.slewStop()
+
+        self.write_to_log("Moving k-mirror to absolute position.")
         await self.actor.commands.moveAbsolute(degs, "deg")
 
     async def slew(self, ra: float, dec: float):
