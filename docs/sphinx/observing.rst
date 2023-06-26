@@ -111,4 +111,4 @@ Lower level access to the k-mirror features can be obtained using the programmat
      'status': <gort.core.RemoteCommand at 0x7f5a715dc110>,
      'version': <gort.core.RemoteCommand at 0x7f5a715dc190>}
 
-     >>> await g.telescopes.sci.km.actor.commands.slewStop()
+    >>> await g.telescopes.sci.km.actor.commands.slewStop()
