@@ -15,6 +15,8 @@ Core classes
    :members:
    :show-inheritance:
 
+.. _api-devices:
+
 Devices
 -------
 

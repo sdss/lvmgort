@@ -62,6 +62,8 @@ This code must be run in one of the LVM mountain servers with access to the Rabb
     'position_timestamp': '2023-03-11 16:54:22.5626'},
     'geometry': 1}
 
+``gort`` is an asynchronous library which enables multiple processes to run at the same time without blocking the event loop. ``gort`` is written using `asyncio`.  A certain familiarity with asynchronous programming is recommended, but at a minimum, many of ``gort``'s functions and methods are actually *coroutines* that need to be *awaited* when called. Awaiting a coroutine informs the event manager that other coroutines can be run at the same time, allowing concurrency. In the :ref:`API <api>` documentation, coroutines are prefixed by an *async* label. Those methods and functions need to be awaited.
+
 .. _actor-programmatic:
 
 Actor programmatic access
