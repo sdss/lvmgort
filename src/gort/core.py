@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import warnings
 from dataclasses import dataclass, field
 from types import SimpleNamespace
@@ -49,6 +50,8 @@ class RemoteActor:
         self.model: dict = {}
         self.commands = CommandSet()
 
+        self._connect_lock = asyncio.Lock()
+
     def __repr__(self):
         return f"<RemoteActor (name={self.name})>"
 
@@ -86,14 +89,15 @@ class RemoteActor:
 
         """
 
-        try:
-            cmd = await self.client.send_command(self.name, *args, **kwargs)
-        except (AMQPConnectionError, ChannelInvalidStateError):
-            # Client has disconnected. This should only happen if running Gort
-            # in an ipython terminal where the event loop only runs while a command
-            # is executing. See https://tinyurl.com/4kcwxzx9
-            await self.client.start()
-            cmd = await self.client.send_command(self.name, *args, **kwargs)
+        async with self._connect_lock:
+            try:
+                cmd = await self.client.send_command(self.name, *args, **kwargs)
+            except (AMQPConnectionError, ChannelInvalidStateError):
+                # Client has disconnected. This should only happen if running Gort
+                # in an ipython terminal where the event loop only runs while a command
+                # is executing. See https://tinyurl.com/4kcwxzx9
+                await self.client.start()
+                cmd = await self.client.send_command(self.name, *args, **kwargs)
 
         return cmd
 
