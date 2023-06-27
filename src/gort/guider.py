@@ -26,6 +26,11 @@ class Guider(GortDevice):
     def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
 
+        try:
+            self.ag = self.gort.ags[self.name]
+        except KeyError:
+            self.ag = None
+
     def print_reply(self, reply):
         """Outputs command replies."""
 
