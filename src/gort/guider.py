@@ -34,6 +34,7 @@ class Guider(GortDevice):
 
     async def focus(
         self,
+        inplace=False,
         guess: float = 40,
         step_size: float = 0.5,
         steps: int = 7,
@@ -41,7 +42,13 @@ class Guider(GortDevice):
     ):
         """Focus the telescope."""
 
-        self.write_to_log("Focusing telescope.")
+        # Send telescopes to zenith.
+        if not inplace:
+            self.write_to_log("Moving telescope to zenith.")
+            await self.gort.telescopes.goto_named_position(
+                "zenith",
+                altaz_tracking=True,
+            )
 
         try:
             await self.actor.commands.focus(
@@ -94,15 +101,9 @@ class GuiderSet(GortDeviceSet[Guider]):
     ):
         """Focus all the telescopes."""
 
-        # Send telescopes to zenith.
-        if not inplace:
-            await self.gort.telescopes.goto_named_position(
-                "zenith",
-                altaz_tracking=True,
-            )
-
         jobs = [
             ag.focus(
+                inplace=inplace,
                 guess=guess,
                 step_size=step_size,
                 steps=steps,
