@@ -32,9 +32,8 @@ class Kubernetes:
         else:
             self.is_pod = False
 
-        # If we are in a notebook, we assume it's the one running in the
-        # Jupyter Lab deployment, which is configured to have access to the
-        # cluster.
+        # If we are in a notebook, we assume it's the one running in the Jupyter
+        # Lab deployment, which is configured to have access to the cluster.
         if self.is_notebook or self.is_pod:
             kubernetes.config.load_incluster_config()
         else:
@@ -71,7 +70,7 @@ class Kubernetes:
 
         return None
 
-    def get_yaml_file(self, name: str, read: bool = True):
+    def get_yaml_file(self, name: str):
         """Finds and returns the contents of a Kubernetes YAML file."""
 
         if self.is_notebook or self.is_pod:
@@ -88,10 +87,7 @@ class Kubernetes:
         elif len(files) > 1:
             raise ValueError(f"Multiple YAML files found for {name!r}.")
 
-        if read is False:
-            return files[0]
-        else:
-            return read_yaml_file(files[0])
+        return files[0], read_yaml_file(files[0])
 
     def restart_deployment(self, deployment: str):
         """Restarts a deployment.
@@ -127,6 +123,9 @@ class Kubernetes:
             )
 
         else:
-            body = self.get_yaml_file(deployment)
-            log.warning(f"{deployment} not running. Starting from YAML file.")
+            file_, body = self.get_yaml_file(deployment)
+            log.warning(
+                f"{deployment!r} is not running. "
+                f"Starting deployment from YAML file {str(file_)}."
+            )
             create_from_yaml(kubernetes.client.ApiClient(), yaml_objects=[body])
