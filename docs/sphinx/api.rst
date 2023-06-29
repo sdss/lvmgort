@@ -40,6 +40,13 @@ Devices
    :members:
    :show-inheritance:
 
+Kubernetes
+----------
+
+.. automodule:: gort.kubernetes
+   :members: Kubernetes
+   :show-inheritance:
+
 Tools
 -----
 
