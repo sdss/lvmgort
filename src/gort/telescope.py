@@ -289,6 +289,56 @@ class Telescope(GortDevice):
 
         await self.fibsel.commands.moveAbsolute(steps)
 
+    async def offset(
+        self,
+        ra: float | None = None,
+        dec: float | None = None,
+        axis0: float | None = None,
+        axis1: float | None = None,
+    ):
+        """Apply an offset to the telescope axes.
+
+        Parameters
+        ----------
+        ra
+            Offset in RA, in arcsec.
+        dec
+            Offset in Dec, in arcsec.
+        axis0
+            Offset in axis 0, in arcsec.
+        axis1
+            Offset in axis 1, in arcsec.
+
+        """
+
+        if any([ra, dec]) and any([axis0, axis1]):
+            raise GortTelescopeError(
+                "Cannot offset in ra/dec and axis0/axis1 at the same time."
+            )
+
+        kwargs = {}
+        if any([ra, dec]):
+            if ra is not None:
+                kwargs["ra_add_arcsec"] = ra
+            if dec is not None:
+                kwargs["dec_add_arcsec"] = dec
+            self.write_to_log(f"Offsetting RA={ra:.3f}, Dec={dec:.3f}.")
+
+        elif any([axis0, axis1]):
+            if axis0 is not None:
+                kwargs["axis0_add_arcsec"] = axis0
+            if axis1 is not None:
+                kwargs["axis1_add_arcsec"] = axis1
+            self.write_to_log(f"Offsetting axis0={axis0:.3f}, axis1={axis1:.3f}.")
+
+        else:
+            # This should not happen.
+            raise GortTelescopeError("No offsets provided.")
+
+        await self.actor.commands.offset(**kwargs)
+
+        self.write_to_log("Offset complete.")
+
 
 class TelescopeSet(GortDeviceSet[Telescope]):
     """A representation of a set of telescopes."""
