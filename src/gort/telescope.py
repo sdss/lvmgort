@@ -308,6 +308,59 @@ class Telescope(GortDevice):
         if kmirror and self.km and ra and dec:
             await self.km.slew(ra / 15.0, dec)
 
+    async def goto_named_position(
+        self,
+        name: str,
+        altaz_tracking: bool = False,
+        force: bool = False,
+    ):
+        """Sends the telescope to a named position.
+
+        Parameters
+        ----------
+        name
+            The name of the position, e.g., ``'zenith'``.
+        altaz_tracking
+            Whether to start tracking after reaching the position, if the
+            coordinates are alt/az.
+        force
+            Move the telescope even in local enclosure mode.
+
+        """
+
+        if (await self.gort.enclosure.is_local()) and not force:
+            raise GortTelescopeError("Cannot move telescope in local mode.")
+
+        if name not in config["telescopes"]["named_positions"]:
+            raise GortTelescopeError(f"Invalid named position {name!r}.")
+
+        position_data = config["telescopes"]["named_positions"][name]
+
+        if self.name in position_data:
+            coords = position_data[self.name]
+        elif "all" in position_data:
+            coords = position_data["all"]
+        else:
+            raise GortTelescopeError("Cannot find position data.")
+
+        if "alt" in coords and "az" in coords:
+            coro = self.goto_coordinates(
+                alt=coords["alt"],
+                az=coords["az"],
+                altaz_tracking=altaz_tracking,
+                force=force,
+            )
+        elif "ra" in coords and "dec" in coords:
+            coro = self.goto_coordinates(
+                ra=coords["ra"],
+                dec=coords["dec"],
+                force=force,
+            )
+        else:
+            raise GortTelescopeError("No ra/dec or alt/az coordinates found.")
+
+        await coro
+
     async def move_mask_to_position(self, position: str | int):
         """Moves the spectrophotometric mask to the desired position.
 
@@ -511,7 +564,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
             Whether to start tracking after reaching the position, if the
             coordinates are alt/az.
         force
-            Move the telescope even in local enclosure mode.
+            Move the telescopes even in local enclosure mode.
 
         """
 
@@ -520,39 +573,16 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         if name not in config["telescopes"]["named_positions"]:
             raise GortTelescopeError(f"Invalid named position {name!r}.")
 
-        position_data = config["telescopes"]["named_positions"][name]
-
-        coros = []
-        for tel in self.values():
-            name = tel.name
-            if name in position_data:
-                coords = position_data[name]
-            elif "all" in position_data:
-                coords = position_data["all"]
-            else:
-                raise GortTelescopeError(f"Cannot find position data for {name!r}.")
-
-            if "alt" in coords and "az" in coords:
-                coro = tel.goto_coordinates(
-                    alt=coords["alt"],
-                    az=coords["az"],
+        await asyncio.gather(
+            *[
+                tel.goto_named_position(
+                    name=name,
                     altaz_tracking=altaz_tracking,
                     force=force,
                 )
-            elif "ra" in coords and "dec" in coords:
-                coro = tel.goto_coordinates(
-                    ra=coords["ra"],
-                    dec=coords["dec"],
-                    force=force,
-                )
-            else:
-                raise GortTelescopeError(
-                    f"No ra/dec or alt/az coordinates found for {name!r}."
-                )
-
-            coros.append(coro)
-
-        await asyncio.gather(*coros)
+                for tel in self.values()
+            ]
+        )
 
     async def goto_tile_id(
         self,
