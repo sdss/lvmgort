@@ -440,6 +440,8 @@ class Telescope(GortDevice):
 
         self.write_to_log("Offset complete.")
 
+        return True
+
 
 class TelescopeSet(GortDeviceSet[Telescope]):
     """A representation of a set of telescopes."""
