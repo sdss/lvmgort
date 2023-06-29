@@ -44,7 +44,14 @@ class KMirror(GortDevice):
         await self.move(90)
 
     async def move(self, degs: float):
-        """Move the k-mirror to a position in degrees."""
+        """Move the k-mirror to a position in degrees. Does NOT track after the move.
+
+        Parameters
+        ----------
+        degs
+            The position to which to move the k-mirror, in degrees.
+
+        """
 
         self.write_to_log(f"Moving k-mirror to {degs:.3f} degrees.", level="info")
 
@@ -55,7 +62,16 @@ class KMirror(GortDevice):
         await self.actor.commands.moveAbsolute(degs, "deg")
 
     async def slew(self, ra: float, dec: float):
-        """Moves the mirror to the position for ``ra, dec`` and starts slewing."""
+        """Moves the mirror to the position for ``ra, dec`` and starts slewing.
+
+        Parameters
+        ----------
+        ra
+            Right ascension of the field to track, in degrees.
+        dec
+            Declination of the field to track, in degrees.
+
+        """
 
         self.write_to_log(
             f"Slewing k-mirror to ra={ra:.6f} dec={dec:.6f} and tracking.",
@@ -131,7 +147,14 @@ class Telescope(GortDevice):
         return is_connected and is_enabled
 
     async def initialise(self, home: bool | None = None):
-        """Connects to the telescope and initialises the axes."""
+        """Connects to the telescope and initialises the axes.
+
+        Parameters
+        ----------
+        home
+            If `True`, runs the homing routine after initialising.
+
+        """
 
         if not (await self.is_ready()):
             self.write_to_log("Initialising telescope.")
@@ -169,7 +192,23 @@ class Telescope(GortDevice):
         kmirror: bool = True,
         force: bool = False,
     ):
-        """Parks the telescope."""
+        """Parks the telescope.
+
+        Parameters
+        ----------
+        disable
+            Disables the axes after reaching the park position.
+        use_pw_park
+            Uses the internal park position stored in the PlaneWave mount.
+        alt_az
+            A tuple with the alt and az position at which to park the telescope.
+            If not provided, defaults to the ``park`` named position.
+        kmirror
+            Whether to park the mirror at 90 degrees.
+        force
+            Moves the telescope even if the mode is local.
+
+        """
 
         if await self.gort.enclosure.is_local():
             raise GortTelescopeError("Cannot home in local mode.")
@@ -270,7 +309,16 @@ class Telescope(GortDevice):
             await self.km.slew(ra / 15.0, dec)
 
     async def move_mask_to_position(self, position: str | int):
-        """Moves the spectrophotometric mask to the desired position."""
+        """Moves the spectrophotometric mask to the desired position.
+
+        Parameters
+        ----------
+        position
+            A position in the form `PN-M` where ``N=1,2`` and ``M=1-12``, in which
+            case the mask will rotate to expose the fibre with that name. If
+            ``position`` is a number, moves the mask to that value.
+
+        """
 
         if self.name != "spec" or not self.fibsel:
             raise GortTelescopeError(f"Telescope {self.name} does not have a mask.")
@@ -362,13 +410,29 @@ class TelescopeSet(GortDeviceSet[Telescope]):
 
     async def park(
         self,
+        disable=True,
         use_pw_park=False,
         alt_az: tuple[float, float] | None = None,
-        disable=True,
         kmirror=True,
         force=False,
     ):
-        """Parks the telescopes."""
+        """Parks the telescopes.
+
+        Parameters
+        ----------
+        disable
+            Disables the axes after reaching the park position.
+        use_pw_park
+            Uses the internal park position stored in the PlaneWave mounts.
+        alt_az
+            A tuple with the alt and az position at which to park the telescopes.
+            If not provided, defaults to the ``park`` named position.
+        kmirror
+            Whether to park the mirrors at 90 degrees.
+        force
+            Moves the telescopes even if the mode is local.
+
+        """
 
         await asyncio.gather(
             *[
@@ -437,7 +501,19 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         altaz_tracking: bool = False,
         force: bool = False,
     ):
-        """Sends the telescopes to a named position."""
+        """Sends the telescopes to a named position.
+
+        Parameters
+        ----------
+        name
+            The name of the position, e.g., ``'zenith'``.
+        altaz_tracking
+            Whether to start tracking after reaching the position, if the
+            coordinates are alt/az.
+        force
+            Move the telescope even in local enclosure mode.
+
+        """
 
         await self._check_local(force)
 
@@ -492,6 +568,18 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         will point to those coordinates and the remaining will be grabbed from
         the scheduler.
 
+        Parameters
+        ----------
+        tile_id
+            The tile_id to which to slew. The coordinates for each telescope
+            are retrieved from the database.
+        ra,dec
+            The RA and Dec where to point the science telescopes. The other
+            telescopes are pointed to calibrators that fit the science pointing.
+            Cannot be used with ``tile_id``.
+        force
+            Move the telescope even in local enclosure mode.
+
         """
 
         await self._check_local(force)
@@ -531,7 +619,20 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         skyw: tuple[float, float] | None = None,
         force: bool = False,
     ):
-        """Sends each telescope to a different position."""
+        """Sends each telescope to a different position.
+
+        Parameters
+        ----------
+        sci
+            The RA and Dec where to slew the science telescope.
+        spec
+            The RA and Dec where to slew the spectrophotometric telescope.
+        skye
+            The RA and Dec where to slew the skyE telescope.
+        skyw
+            The RA and Dec where to slew the skyW telescope.
+
+        """
 
         await self._check_local(force)
 
