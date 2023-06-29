@@ -22,6 +22,7 @@ Contents
 
   getting-started
   observing
+  troubleshooting
   Changelog <changelog>
   api
 
