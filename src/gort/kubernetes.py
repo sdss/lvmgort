@@ -102,6 +102,8 @@ class Kubernetes:
             if namespace is None:
                 raise ValueError(f"Namespace not found for deployment {deployment}.")
 
+            # Create a patch for the current deployment saying that it was restarted
+            # now, and it will.
             now = datetime.datetime.utcnow()
             now = str(now.isoformat("T") + "Z")
             body = {
