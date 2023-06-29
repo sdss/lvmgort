@@ -33,6 +33,7 @@ setuptools = "^67.6.0"
 typing-extensions = "^4.5.0"
 httpx = "^0.24.1"
 tqdm = "^4.65.0"
+kubernetes = "^26.1.0"
 
 [tool.poetry.group.dev.dependencies]
 ipython = ">=8.0.0"

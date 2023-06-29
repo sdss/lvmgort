@@ -184,3 +184,8 @@ ags:
 scheduler:
   host: 10.8.38.26
   port: 5100
+
+kubernetes:
+  path:
+    default: /home/sdss5/config/kube
+    notebook: ~/sdss5/config/kube

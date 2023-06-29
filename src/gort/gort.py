@@ -16,6 +16,7 @@ from clu.client import AMQPClient
 
 from gort import config, log
 from gort.core import RemoteActor
+from gort.kubernetes import Kubernetes
 from gort.tools import register_observation
 
 
@@ -306,6 +307,8 @@ class Gort(GortClient):
 
     def __init__(self, *args, verbosity: str | None = None, **kwargs):
         super().__init__(*args, **kwargs)
+
+        self.kubernetes = Kubernetes()
 
         if verbosity:
             self.set_verbosity(verbosity)
