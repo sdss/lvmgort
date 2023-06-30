@@ -10,7 +10,7 @@ The LVM software is based on the concept of :ref:`actor <clu:new-actors>`. An ac
 
 `gort` provides three levels of abstraction for accessing the LVM infrastructure:
 
-- The lowest level access is a :ref:`programmatic API <actor-programmatic>` to the individual actors that run in the LVM infrastructure.
+- The lowest level access is a :ref:`programmatic API <actor-programmatic>` to interact with the individual actors that run in the LVM infrastructure.
 - On top of that, `gort` defines a series of `.GortDeviceSet` and `.GortDevice` classes that expose specific :ref:`device functionality <device-sets>` that is of general use. These classes provide less comprehensive access to the actor devices, but encapsulate the main features that a user is likely to use, and allow to command multiple devices as one, e.g., to send all four telescopes to zenith.
 - The highest level part of `gort` provides the tools for unassisted observing, e.g., observing a tile. Ultimately, `gort` provides a robotic mode that takes care of all aspects of observing.
 
@@ -66,7 +66,7 @@ This code must be run in one of the LVM mountain servers with access to the Rabb
 
 .. _actor-programmatic:
 
-Actor programmatic access
+Programmatic actor access
 -------------------------
 
 AMQP actors typically receive commands as a string with CLI-like format. For example, to expose spectrograph ``sp1`` and take a dark of 900 seconds one would do ::
