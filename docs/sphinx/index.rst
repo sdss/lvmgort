@@ -8,10 +8,10 @@ This is the documentation for the SDSS Python product ``gort``. The current vers
 
   $ pip install lvmgort
 
-``lvmgort`` provides the library ``gort``::
+``lvmgort`` provides the library ``gort`` ::
 
-  >> from gort import __version__
-  >> __version__
+  >>> from gort import __version__
+  >>> __version__
   0.1.0a0
 
 Contents
