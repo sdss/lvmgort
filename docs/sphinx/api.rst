@@ -37,7 +37,7 @@ Devices
    :show-inheritance:
 
 .. automodule:: gort.telescope
-   :members:
+   :members: Telescope, TelescopeSet, KMirror, Focuser, FibSel
    :show-inheritance:
 
 Kubernetes
