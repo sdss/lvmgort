@@ -102,6 +102,36 @@ class Focuser(GortDevice):
         await self.actor.commands.moveAbsolute(dts, "DT")
 
 
+class FibSel(GortDevice):
+    """A device representing the fibre mask in the spectrophotometric telescope."""
+
+    async def move_to_position(self, position: str | int):
+        """Moves the spectrophotometric mask to the desired position.
+
+        Parameters
+        ----------
+        position
+            A position in the form `PN-M` where ``N=1,2`` and ``M=1-12``, in which
+            case the mask will rotate to expose the fibre with that name. If
+            ``position`` is a number, moves the mask to that value.
+
+        """
+
+        if isinstance(position, str):
+            mask_positions = config["telescopes"]["mask_positions"]
+            if position not in mask_positions:
+                raise GortTelescopeError(f"Cannot find position {position!r}.")
+
+            steps = mask_positions[position]
+            self.write_to_log(f"Moving mask to {position}: {steps} DT.", level="info")
+
+        else:
+            steps = position
+            self.write_to_log(f"Moving mask to {steps} DT.", level="info")
+
+        await self.actor.commands.moveAbsolute(steps)
+
+
 class Telescope(GortDevice):
     """Class representing an LVM telescope functionality."""
 
@@ -120,8 +150,11 @@ class Telescope(GortDevice):
 
         self.focuser = Focuser(self.gort, f"{self.name}.focuser", kwargs["focuser"])
 
-        fibsel = "lvm.spec.fibsel"
-        self.fibsel = self.gort.add_actor(fibsel) if self.name == "spec" else None
+        self.fibsel = (
+            FibSel(self.gort, f"{self.name}.fibsel", "lvm.spec.fibsel")
+            if self.name == "spec"
+            else None
+        )
 
         if self.name in self.gort.guiders:
             self.guider = self.gort.guiders[name]
@@ -360,35 +393,6 @@ class Telescope(GortDevice):
             raise GortTelescopeError("No ra/dec or alt/az coordinates found.")
 
         await coro
-
-    async def move_mask_to_position(self, position: str | int):
-        """Moves the spectrophotometric mask to the desired position.
-
-        Parameters
-        ----------
-        position
-            A position in the form `PN-M` where ``N=1,2`` and ``M=1-12``, in which
-            case the mask will rotate to expose the fibre with that name. If
-            ``position`` is a number, moves the mask to that value.
-
-        """
-
-        if self.name != "spec" or not self.fibsel:
-            raise GortTelescopeError(f"Telescope {self.name} does not have a mask.")
-
-        if isinstance(position, str):
-            mask_positions = config["telescopes"]["mask_positions"]
-            if position not in mask_positions:
-                raise GortTelescopeError(f"Cannot find position {position!r}.")
-
-            steps = mask_positions[position]
-            self.write_to_log(f"Moving mask to {position}: {steps} DT.", level="info")
-
-        else:
-            steps = position
-            self.write_to_log(f"Moving mask to {steps} DT.", level="info")
-
-        await self.fibsel.commands.moveAbsolute(steps)
 
     async def offset(
         self,
