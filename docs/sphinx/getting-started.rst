@@ -66,8 +66,8 @@ This code must be run in one of the LVM mountain servers with access to the Rabb
 
 .. _actor-programmatic:
 
-Programmatic actor access
--------------------------
+Programmatic actor API
+----------------------
 
 AMQP actors typically receive commands as a string with CLI-like format. For example, to expose spectrograph ``sp1`` and take a dark of 900 seconds one would do ::
 
