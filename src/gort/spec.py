@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 from gort import config
 from gort.exceptions import GortSpecError
 from gort.gort import GortDevice, GortDeviceSet
-from gort.tools import tqdm_timer
+from gort.tools import move_mask_interval, tqdm_timer
 
 
 if TYPE_CHECKING:
@@ -137,7 +137,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         await self.gort.telescopes.goto_named_position(cal_config["position"])
 
         calib_nps = self.gort.nps[cal_config["lamps_nps"]]
-        lamps_config = sequence_config["lamps"]
+        lamps_config = sequence_config.get("lamps", {})
 
         # Turn off all lamps.
         self.write_to_log("Checking that all lamps are off.", level="info")
@@ -148,30 +148,66 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         try:
             for lamp in lamps_config:
                 warmup = lamps_config[lamp]["warmup"]
-                flavour = lamps_config[lamp]["flavour"]
+
                 self.write_to_log(f"Warming up lamp {lamp} ({warmup} s).", level="info")
                 await calib_nps.on(lamp)
                 await asyncio.sleep(warmup)
+
                 for exp_time in lamps_config[lamp]["exposure_times"]:
+                    flavour = lamps_config[lamp]["flavour"]
+
+                    # Check if we are spinning the fibre selector and,
+                    # if so, launch the task.
+                    fibsel = lamps_config[lamp].get("fibsel", None)
+                    fibsel_task: asyncio.Task | None = None
+                    if fibsel:
+                        initial_position = fibsel.get("initial_position", None)
+                        positions = fibsel.get("positions", "P1-*")
+                        time_per_position = fibsel.get("time_per_position", None)
+                        total_time = exp_time if time_per_position is None else None
+
+                        if initial_position:
+                            # Move to the initial position before starting the exposure.
+                            await self.gort.telescopes.spec.fibsel.move_to_position(
+                                initial_position
+                            )
+
+                        # Launch the task.
+                        fibsel_task = asyncio.create_task(
+                            move_mask_interval(
+                                self.gort,
+                                positions,
+                                total_time=total_time,
+                                time_per_position=time_per_position,
+                            )
+                        )
+
                     self.write_to_log(f"Exposing for {exp_time} s.", level="info")
                     await self.gort.specs.expose(
-                        flavour=flavour, exposure_time=exp_time
+                        flavour=flavour,
+                        exposure_time=exp_time,
                     )
+
+                    if fibsel_task:
+                        await fibsel_task
+
                 self.write_to_log(f"Turning off {lamp}.")
                 await calib_nps.off(lamp)
 
-            self.write_to_log("Taking biases.", level="info")
-            nbias = sequence_config["biases"]["count"]
-            for _ in range(nbias):
-                await self.gort.specs.expose(flavour="bias")
+            if "bias" in sequence_config:
+                self.write_to_log("Taking biases.", level="info")
+                nbias = sequence_config["biases"].get("count", 1)
+                for _ in range(nbias):
+                    await self.gort.specs.expose(flavour="bias")
 
-            self.write_to_log("Taking darks.", level="info")
-            ndarks = sequence_config["darks"]["count"]
-            for _ in range(ndarks):
-                await self.gort.specs.expose(
-                    flavour="dark",
-                    exposure_time=sequence_config["darks"]["exposure_time"],
-                )
+            if "darks" in sequence_config:
+                self.write_to_log("Taking darks.", level="info")
+                ndarks = sequence_config["darks"].get("count")
+                for _ in range(ndarks):
+                    await self.gort.specs.expose(
+                        flavour="dark",
+                        exposure_time=sequence_config["darks"]["exposure_time"],
+                    )
 
         except Exception:
             self.write_to_log(
