@@ -35,17 +35,17 @@ telescopes:
         az: 0
     calibration:
       skyw:
-        az: 100
-        alt: 45
+        az: 101.327 
+        alt: 42.311 
       skye:
-        az: -95
-        alt: 30
+        az: 263.417
+        alt: 31.903
       sci:
-        az: 120.5
-        alt: 73.6
+        az: 130.183
+        alt: 70.804
       spec:
-        az: -105
-        alt: 55
+        az: 252.558
+        alt: 56.414
   mask_positions:
     P1-1: 1650
     P1-2: 215
