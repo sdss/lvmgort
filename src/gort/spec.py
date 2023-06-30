@@ -177,6 +177,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                             move_mask_interval(
                                 self.gort,
                                 positions,
+                                order_by_steps=True,
                                 total_time=total_time,
                                 time_per_position=time_per_position,
                             )

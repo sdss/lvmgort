@@ -338,6 +338,7 @@ def get_ccd_frame_path(
 async def move_mask_interval(
     gort: GortClient,
     positions: str | list[str] = "P1-*",
+    order_by_steps: bool = False,
     total_time: float | None = None,
     time_per_position: float | None = None,
     notifier: Callable[[str], None] | Callable[[str], Coroutine] | None = None,
@@ -353,6 +354,9 @@ async def move_mask_interval(
         be treated as a regular expression and any mask position that matches the
         value will be iterated, in alphabetic order. Alternative it can be a list
         of positions to move to which will be executed in that order.
+    order_by_steps
+        If `True`, the positions are iterated in order of smaller to larger
+        number of step motors.
     total_time
         The total time to spend iterating over positions, in seconds. Each position
         will  be visited for an equal amount of time. The time required to move the
@@ -381,10 +385,16 @@ async def move_mask_interval(
     if total_time is None and time_per_position is None:
         raise ValueError("One of total_time or time_per_position needs to be passed.")
 
+    mask_config = config["telescopes"]["mask_positions"]
+    all_positions = list(mask_config)
+
     if isinstance(positions, str):
         regex = positions
         all_positions = fibsel.list_positions()
         positions = [pos for pos in all_positions if re.match(regex, pos)]
+
+        if order_by_steps:
+            positions = sorted(positions, key=lambda p: mask_config[p])
 
     fibsel.write_to_log(f"Iterating over positions {positions}.")
 
