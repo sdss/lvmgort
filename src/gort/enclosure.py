@@ -25,15 +25,12 @@ class Enclosure(GortDevice):
     def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
 
-        self.status = {}
-
-    async def update_status(self):
+    async def status(self):
         """Retrieves the status of the power outlet."""
 
         reply: ActorReply = await self.actor.commands.status()
-        self.status = reply.flatten()
 
-        return self.status
+        return reply.flatten()
 
     async def open(self):
         """Open the enclosure dome."""
@@ -58,9 +55,25 @@ class Enclosure(GortDevice):
     async def is_local(self):
         """Returns `True` if the enclosure is in local mode."""
 
-        await self.update_status()
-        safety_status_labels = self.status.get("safety_status_labels", None)
+        status = await self.status()
+        safety_status_labels = status.get("safety_status_labels", None)
         if safety_status_labels is None:
             raise GortEnclosureError("Cannot determine if enclosure is in local mode.")
 
         return "LOCAL" in safety_status_labels
+
+    async def get_door_status(self):
+        """Returns the status of the door and lock."""
+
+        status = await self.status()
+        safety_status_labels = status.get("safety_status_labels", None)
+        if safety_status_labels is None:
+            raise GortEnclosureError("Cannot determine door status.")
+
+        reply = {
+            "door_closed": "DOOR_CLOSED" in safety_status_labels,
+            "door_locked": "DOOR_LOCKED" in safety_status_labels,
+            "local": await self.is_local(),
+        }
+
+        return reply
