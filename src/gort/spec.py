@@ -141,6 +141,8 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         calib_nps = self.gort.nps[cal_config["lamps_nps"]]
         lamps_config = sequence_config.get("lamps", {})
 
+        fibsel_task: asyncio.Task | None = None
+
         # Turn off all lamps.
         self.write_to_log("Checking that all lamps are off.", level="info")
         await calib_nps.all_off()
@@ -161,7 +163,6 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                     # Check if we are spinning the fibre selector and,
                     # if so, launch the task.
                     fibsel = lamps_config[lamp].get("fibsel", None)
-                    fibsel_task: asyncio.Task | None = None
                     if fibsel:
                         initial_position = fibsel.get("initial_position", None)
                         positions = fibsel.get("positions", "P1-*")
@@ -221,8 +222,12 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                 "Turning all the lamps off before raising.",
                 level="error",
             )
+
+            # Stop the mask iteration task.
+            if fibsel_task and not fibsel_task.done():
+                fibsel_task.cancel()
+
             raise
 
         finally:
             await calib_nps.all_off()
-            await self.gort.telescopes.park()
