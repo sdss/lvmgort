@@ -10,7 +10,7 @@ The LVM software is based on the concept of :ref:`actor <clu:new-actors>`. An ac
 
 `gort` provides three levels of abstraction for accessing the LVM infrastructure:
 
-- The lowest level access is a :ref:`programmatic API <actor-programmatic>` to the individual actors that run in the LVM infrastructure.
+- The lowest level access is a :ref:`programmatic API <actor-programmatic>` to interact with the individual actors that run in the LVM infrastructure.
 - On top of that, `gort` defines a series of `.GortDeviceSet` and `.GortDevice` classes that expose specific :ref:`device functionality <device-sets>` that is of general use. These classes provide less comprehensive access to the actor devices, but encapsulate the main features that a user is likely to use, and allow to command multiple devices as one, e.g., to send all four telescopes to zenith.
 - The highest level part of `gort` provides the tools for unassisted observing, e.g., observing a tile. Ultimately, `gort` provides a robotic mode that takes care of all aspects of observing.
 
@@ -66,8 +66,8 @@ This code must be run in one of the LVM mountain servers with access to the Rabb
 
 .. _actor-programmatic:
 
-Actor programmatic access
--------------------------
+Programmatic actor API
+----------------------
 
 AMQP actors typically receive commands as a string with CLI-like format. For example, to expose spectrograph ``sp1`` and take a dark of 900 seconds one would do ::
 
@@ -156,8 +156,8 @@ Devices can have their own subdevices. For example all the `.Telescope` instance
 
 More details on how to use the device sets for observing, with code examples, are provided :ref:`here <observing>`.
 
-Note on using ``gort`` in IPython
----------------------------------
+Using ``gort`` in IPython
+-------------------------
 
 ``gort`` can generally be used in IPython, but note that there's a small caveat. As described `here <https://ipython.readthedocs.io/en/stable/interactive/autoawait.html#difference-between-terminal-ipython-and-ipykernel>`__, IPython does not keep a running event loop while a command is not being executed. This means that `.Gort` cannot keep a connection open to the RabbitMQ exchange and eventually the connection closes.
 

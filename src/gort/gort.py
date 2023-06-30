@@ -308,7 +308,14 @@ class Gort(GortClient):
     def __init__(self, *args, verbosity: str | None = None, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.kubernetes = Kubernetes()
+        try:
+            self.kubernetes = Kubernetes()
+        except Exception:
+            self.log.warning(
+                "Gort cannot access the Kubernets cluster. "
+                "The Kubernetes module won't be available."
+            )
+            self.kubernetes = None
 
         if verbosity:
             self.set_verbosity(verbosity)
