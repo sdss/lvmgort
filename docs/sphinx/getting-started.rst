@@ -156,8 +156,8 @@ Devices can have their own subdevices. For example all the `.Telescope` instance
 
 More details on how to use the device sets for observing, with code examples, are provided :ref:`here <observing>`.
 
-Note on using ``gort`` in IPython
----------------------------------
+Using ``gort`` in IPython
+-------------------------
 
 ``gort`` can generally be used in IPython, but note that there's a small caveat. As described `here <https://ipython.readthedocs.io/en/stable/interactive/autoawait.html#difference-between-terminal-ipython-and-ipykernel>`__, IPython does not keep a running event loop while a command is not being executed. This means that `.Gort` cannot keep a connection open to the RabbitMQ exchange and eventually the connection closes.
 
