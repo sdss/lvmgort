@@ -105,6 +105,11 @@ class Focuser(GortDevice):
 class FibSel(GortDevice):
     """A device representing the fibre mask in the spectrophotometric telescope."""
 
+    def list_positions(self) -> list[str]:
+        """Returns a list of valid positions."""
+
+        return list(config["telescopes"]["mask_positions"])
+
     async def move_to_position(self, position: str | int):
         """Moves the spectrophotometric mask to the desired position.
 

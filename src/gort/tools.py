@@ -12,7 +12,7 @@ import asyncio
 import pathlib
 import re
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Coroutine
 
 import httpx
 
@@ -23,6 +23,9 @@ if TYPE_CHECKING:
     from pyds9 import DS9
 
     from clu import AMQPClient, AMQPReply
+
+    from gort.gort import GortClient
+    from gort.telescope import FibSel
 
 
 __all__ = [
@@ -35,6 +38,7 @@ __all__ = [
     "register_observation",
     "tqdm_timer",
     "get_ccd_frame_path",
+    "move_mask_interval",
 ]
 
 CAMERAS = [
@@ -329,3 +333,74 @@ def get_ccd_frame_path(
                 files_camera.append(file)
 
     return files_camera
+
+
+async def move_mask_interval(
+    gort: GortClient,
+    positions: str | list[str] = "P1-*",
+    total_time: float | None = None,
+    time_per_position: float | None = None,
+    notifier: Callable[[str], None] | Callable[[str], Coroutine] | None = None,
+):
+    """Moves the fibre mask in the spectrophotometric telescope at intervals.
+
+    Parameters
+    ----------
+    gort
+        The instance of `.Gort` to communicate with the actor system.
+    positions
+        The positions to iterate over. It can be a string in which case it will
+        be treated as a regular expression and any mask position that matches the
+        value will be iterated, in alphabetic order. Alternative it can be a list
+        of positions to move to which will be executed in that order.
+    total_time
+        The total time to spend iterating over positions, in seconds. Each position
+        will  be visited for an equal amount of time. The time required to move the
+        mask will not be taken into account, which means the total execution
+        time will be longer than ``total_time``.
+    time_per_position
+        The time to spend on each mask position, in seconds. The total execution
+        time will be ``len(positions)*total_time+overhead`` where ``overhead`` is
+        the time required to move the mask between positions.
+    notifier
+        A function or coroutine to call every time a new position is reached.
+        If it's a coroutine, it is scheduled as a task. If it is a normal
+        callback it should run quickly to not perceptibly affect the total
+        execution time.
+
+    """
+
+    try:
+        fibsel: FibSel = gort.telescopes.spec.fibsel
+    except Exception as err:
+        raise RuntimeError(f"Cannot find fibre selector: {err}")
+
+    if total_time is not None and time_per_position is not None:
+        raise ValueError("Only one of total_time or time_per_position can be used.")
+
+    if total_time is None and time_per_position is None:
+        raise ValueError("One of total_time or time_per_position needs to be passed.")
+
+    if isinstance(positions, str):
+        regex = positions
+        all_positions = fibsel.list_positions()
+        positions = [pos for pos in all_positions if re.match(regex, pos)]
+
+    fibsel.write_to_log(f"Iterating over positions {positions}.")
+
+    if total_time:
+        time_per_position = total_time / len(positions)
+
+    assert time_per_position is not None
+
+    for position in positions:
+        await fibsel.move_to_position(position)
+
+        # Notify.
+        if notifier is not None:
+            if asyncio.iscoroutinefunction(notifier):
+                asyncio.create_task(notifier(position))
+            else:
+                notifier(position)
+
+        await asyncio.sleep(time_per_position)
