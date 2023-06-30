@@ -34,15 +34,11 @@ class Spectrograph(GortDevice):
     def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
 
-        self.status = {}
-
-    async def update_status(self):
+    async def status(self):
         """Retrieves the status of the telescope."""
 
         reply: ActorReply = await self.actor.commands.status()
-        self.status = reply.flatten()
-
-        return self.status
+        return reply.flatten()
 
     async def expose(self, **kwargs):
         """Exposes the spectrograph."""
@@ -113,11 +109,6 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                 raise GortSpecError(f"Exposure failed with error {err}")
 
         return exp_nos
-
-    async def update_status(self):
-        """Update the status fo all the spectrographs."""
-
-        await asyncio.gather(*[spec.update_status() for spec in self.values()])
 
     async def reset(self):
         """Reset the spectrographs."""

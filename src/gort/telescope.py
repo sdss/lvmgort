@@ -166,18 +166,16 @@ class Telescope(GortDevice):
         else:
             self.guider = None
 
-    async def update_status(self):
+    async def status(self):
         """Retrieves the status of the telescope."""
 
         reply: ActorReply = await self.pwi.commands.status()
-        self.status = reply.flatten()
-
-        return self.status
+        return reply.flatten()
 
     async def is_ready(self):
         """Checks if the telescope is ready to be moved."""
 
-        status = await self.update_status()
+        status = await self.status()
 
         is_connected = status.get("is_connected", False)
         is_enabled = status.get("is_enabled", False)
