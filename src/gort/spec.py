@@ -115,13 +115,15 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         await self._send_command_all("reset")
 
-    async def calibrate(self, sequence: str = "normal"):
+    async def calibrate(self, sequence: str = "normal", park_after: bool = True):
         """Runs the calibration sequence.
 
         Parameters
         ----------
         sequence
             The calibration sequence to execute.
+        park_after
+            Park the telescopes after a successful calibration sequence.
 
         """
 
@@ -209,6 +211,9 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                         flavour="dark",
                         exposure_time=sequence_config["darks"]["exposure_time"],
                     )
+
+            if park_after:
+                await self.gort.telescopes.park()
 
         except Exception:
             self.write_to_log(
