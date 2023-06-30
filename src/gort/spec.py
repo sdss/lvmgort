@@ -40,8 +40,23 @@ class Spectrograph(GortDevice):
         reply: ActorReply = await self.actor.commands.status()
         return reply.flatten()
 
+    async def is_idle(self):
+        """Returns `True` if the spectrograph is idle and ready to expose."""
+
+        status = await self.status()
+        try:
+            if "IDLE" in status["status"]["status_names"]:
+                return True
+        except Exception:
+            pass
+
+        return False
+
     async def expose(self, **kwargs):
         """Exposes the spectrograph."""
+
+        if not (await self.is_idle()):
+            raise GortSpecError("Spectrographs is not idle. Cannot expose.")
 
         self.write_to_log(f"Exposing spectrograph {self.name}.")
 
@@ -63,6 +78,13 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         return seqno
 
+    async def are_idle(self):
+        """Returns `True` if all the spectrographs are idle and ready to expose."""
+
+        result = await asyncio.gather(*[spec.is_idle() for spec in self.values()])
+
+        return all(result)
+
     async def expose(
         self,
         tile_data: dict | None = None,
@@ -70,6 +92,9 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         **kwargs,
     ):
         """Exposes the spectrographs."""
+
+        if not (await self.are_idle()):
+            raise GortSpecError("Spectrographs are not idle. Cannot expose.")
 
         count: int = kwargs.pop("count", 1)
         exposure_time: float = kwargs.pop("exposure_time", 10)
