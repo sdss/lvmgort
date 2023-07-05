@@ -105,6 +105,18 @@ class Focuser(GortDevice):
 class FibSel(GortDevice):
     """A device representing the fibre mask in the spectrophotometric telescope."""
 
+    async def status(self):
+        """Returns the status of the fibre selector."""
+
+        return await self.actor.commands.status()
+
+    async def home(self):
+        """Homes the fibre selector."""
+
+        self.write_to_log("Homing fibsel.", level="info")
+        await self.actor.commands.moveToHome()
+        self.write_to_log("Fibsel homing complete.")
+
     def list_positions(self) -> list[str]:
         """Returns a list of valid positions."""
 
