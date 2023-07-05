@@ -50,7 +50,7 @@ class Guider(GortDevice):
         # Send telescopes to zenith.
         if not inplace:
             self.write_to_log("Moving telescope to zenith.")
-            await self.gort.telescopes.goto_named_position(
+            await self.gort.telescopes[self.name].goto_named_position(
                 "zenith",
                 altaz_tracking=True,
             )
