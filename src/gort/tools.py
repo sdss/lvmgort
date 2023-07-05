@@ -39,6 +39,7 @@ __all__ = [
     "tqdm_timer",
     "get_ccd_frame_path",
     "move_mask_interval",
+    "radec_sexagesimal_to_decimal",
 ]
 
 CAMERAS = [
@@ -414,3 +415,31 @@ async def move_mask_interval(
                 notifier(position)
 
         await asyncio.sleep(time_per_position)
+
+
+def radec_sexagesimal_to_decimal(ra: str, dec: str, ra_is_hours: bool = True):
+    """Converts a string of sexagesimal RA and Dec to decimal."""
+
+    ra_match = re.match(r"([+-]?\d+?)[:hd\s](\d+)[:m\s](\d*\.?\d*)", ra)
+    if ra_match is None:
+        raise ValueError("Invalid format for RA.")
+
+    ra_groups = ra_match.groups()
+    ra_deg = float(ra_groups[0]) + float(ra_groups[1]) / 60 + float(ra_groups[2]) / 3600
+
+    if ra_is_hours:
+        ra_deg *= 15
+
+    dec_match = re.match(r"([+-]?\d+?)[:hd\s](\d+)[:m\s](\d*\.?\d*)", dec)
+    if dec_match is None:
+        raise ValueError("Invalid format for Dec.")
+
+    dec_groups = dec_match.groups()
+    dec_deg = float(dec_groups[0])
+
+    if dec_deg >= 0:
+        dec_deg += float(dec_groups[1]) / 60 + float(dec_groups[2]) / 3600
+    else:
+        dec_deg -= float(dec_groups[1]) / 60 - float(dec_groups[2]) / 3600
+
+    return ra_deg, dec_deg
