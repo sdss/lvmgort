@@ -11,6 +11,7 @@ from __future__ import annotations
 import datetime
 import os
 import pathlib
+from time import sleep
 
 import kubernetes
 from kubernetes.utils import create_from_yaml
@@ -89,7 +90,7 @@ class Kubernetes:
 
         return files[0], read_yaml_file(files[0])
 
-    def restart_deployment(self, deployment: str):
+    def restart_deployment(self, deployment: str, from_file: bool = False):
         """Restarts a deployment.
 
         If the deployment is running, does a rollout restart. Otherwise looks
@@ -97,7 +98,7 @@ class Kubernetes:
 
         """
 
-        if deployment in self.list_deployments():
+        if deployment in self.list_deployments() and not from_file:
             namespace = self.get_deployment_namespace(deployment)
             if namespace is None:
                 raise ValueError(f"Namespace not found for deployment {deployment}.")
@@ -126,8 +127,14 @@ class Kubernetes:
 
         else:
             file_, body = self.get_yaml_file(deployment)
-            log.warning(
-                f"{deployment!r} is not running. "
-                f"Starting deployment from YAML file {str(file_)}."
-            )
+
+            if deployment in self.list_deployments():
+                namespace = self.get_deployment_namespace(deployment)
+                log.debug(f"Deleting deployment {deployment}.")
+                self.apps_v1.delete_namespaced_deployment("lvmguider", namespace)
+                sleep(5)  # Give some time for the pods to exit.
+            else:
+                log.warning(f"{deployment!r} is not running.")
+
+            log.info(f"Starting deployment from YAML file {str(file_)}.")
             create_from_yaml(kubernetes.client.ApiClient(), yaml_objects=[body])
