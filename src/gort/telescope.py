@@ -36,6 +36,7 @@ class KMirror(GortDevice):
 
         self.write_to_log("Homing k-mirror.", level="info")
         await self.actor.commands.moveToHome()
+        self.write_to_log("k-mirror homing complete.")
 
     async def park(self):
         """Park the k-mirror at 90 degrees."""
@@ -94,6 +95,7 @@ class Focuser(GortDevice):
 
         self.write_to_log("Homing focuser.", level="info")
         await self.actor.commands.moveToHome()
+        self.write_to_log("Focuser homing complete.")
 
     async def move(self, dts: float):
         """Move the focuser to a position in DT."""
@@ -212,8 +214,28 @@ class Telescope(GortDevice):
         if home is True:
             await self.home()
 
-    async def home(self):
-        """Initialises and homes the telescope."""
+    async def home(self, home_subdevices: bool = False):
+        """Initialises and homes the telescope.
+
+        Parameters
+        ---------
+        home_subdevices
+            Homes telecope k-mirror, focuser, and fibre selector (if
+            applicable).
+
+        """
+
+        home_subdevices_task: asyncio.Future | None = None
+        if home_subdevices:
+            subdev_tasks = []
+            if self.km is not None:
+                subdev_tasks.append(self.km.home())
+            if self.fibsel is not None:
+                subdev_tasks.append(self.fibsel.home())
+            if self.focuser is not None:
+                subdev_tasks.append(self.focuser.home())
+
+            home_subdevices_task = asyncio.gather(*subdev_tasks)
 
         if await self.gort.enclosure.is_local():
             raise GortTelescopeError("Cannot home in local mode.")
@@ -229,8 +251,8 @@ class Telescope(GortDevice):
         # findHome does not block, so wait a reasonable amount of time.
         await asyncio.sleep(30)
 
-        if self.km:
-            await self.km.home()
+        if home_subdevices_task is not None and not home_subdevices_task.done():
+            await home_subdevices_task
 
     async def park(
         self,
@@ -477,10 +499,20 @@ class TelescopeSet(GortDeviceSet[Telescope]):
 
         await asyncio.gather(*[tel.initialise() for tel in self.values()])
 
-    async def home(self):
-        """Initialises and homes all telescopes."""
+    async def home(self, home_subdevices: bool = False):
+        """Initialises and homes all telescopes.
 
-        await asyncio.gather(*[tel.home() for tel in self.values()])
+        Parameters
+        ---------
+        home_subdevices
+            Homes telecope k-mirror, focuser, and fibre selector (if
+            applicable).
+
+        """
+
+        await asyncio.gather(
+            *[tel.home(home_subdevices=home_subdevices) for tel in self.values()]
+        )
 
     async def park(
         self,
