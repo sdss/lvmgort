@@ -333,13 +333,13 @@ class Telescope(GortDevice):
         Parameters
         ----------
         ra
-            Right ascension coordinates to move to.
+            Right ascension coordinates to move to, in degrees.
         dec
-            Declination coordinates to move to.
+            Declination coordinates to move to, in degrees.
         alt
-            Altitude coordinates to move to.
+            Altitude coordinates to move to, in degrees.
         az
-            Azimuth coordinates to move to.
+            Azimuth coordinates to move to, in degrees.
         kmirror
             Whether to move the k-mirror into position. Only when
             the coordinates provided are RA/Dec.
@@ -360,7 +360,7 @@ class Telescope(GortDevice):
 
             await self.initialise()
 
-            self.write_to_log(f"Moving to ra={ra/15:.6f} dec={dec:.6f}.", level="info")
+            self.write_to_log(f"Moving to ra={ra:.6f} dec={dec:.6f}.", level="info")
             await self.pwi.commands.gotoRaDecJ2000(ra / 15.0, dec)
 
         elif alt is not None and az is not None:
@@ -369,14 +369,14 @@ class Telescope(GortDevice):
 
             await self.initialise()
 
-            self.write_to_log(f"Moving to ra={alt:.6f} dec={az:.6f}.", level="info")
+            self.write_to_log(f"Moving to alt={alt:.6f} az={az:.6f}.", level="info")
             await self.pwi.commands.gotoAltAzJ2000(alt, az)
             if altaz_tracking:
                 await self.pwi.commands.setTracking(enable=True)
 
         # TODO: this can be done concurrently with the telescope slew.
         if kmirror and self.km and ra and dec:
-            await self.km.slew(ra / 15.0, dec)
+            await self.km.slew(ra, dec)
 
     async def goto_named_position(
         self,
