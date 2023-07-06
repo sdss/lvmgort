@@ -12,7 +12,8 @@ import asyncio
 
 from typing import TYPE_CHECKING
 
-from gort.exceptions import GortError
+from gort import config
+from gort.exceptions import GortError, GortGuiderError
 from gort.gort import GortDevice, GortDeviceSet
 
 
@@ -59,6 +60,53 @@ class Guider(GortDevice):
             )
         except GortError as err:
             self.write_to_log(f"Failed focusing with error {err}", level="error")
+
+    async def guide(
+        self,
+        exposure_time: float = 5.0,
+        pixel: tuple[float, float] | str | None = None,
+        **guide_kwargs,
+    ):
+        """Starts the guide loop.
+
+        This command blocks until `.stop` is called.
+
+        Parameters
+        ----------
+        exposure_time
+            The exposure time of the AG integrations.
+        pixel
+            The pixel on the master frame on which to guide. Defaults to
+            the central pixel. This can also be the name of a known pixel
+            position for this telescope, e.g., ``'P1-1'`` for ``spec``.
+        guide_kwargs
+            Other keyword arguments to pass to ``guide start``.
+
+        """
+
+        if isinstance(pixel, str):
+            if pixel not in config["guiders"][self.name]["named_pixels"]:
+                raise GortGuiderError(f"Invalid pixel name {pixel!r}.")
+            pixel = config["guiders"][self.name]["named_pixels"][pixel]
+
+        await self.actor.commands.guide.commands.start(
+            reply_callback=self.print_reply,
+            exposure_time=exposure_time,
+            pixel=pixel,
+            **guide_kwargs,
+        )
+
+    async def stop(self, now: bool = False):
+        """Stops the guide loop.
+
+        Parameters
+        ----------
+        now
+            Aggressively stops the guide loop.
+
+        """
+
+        await self.actor.commands.guide.commands.stop()
 
 
 class GuiderSet(GortDeviceSet[Guider]):
