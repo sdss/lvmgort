@@ -31,12 +31,6 @@ class Guider(GortDevice):
         except KeyError:
             self.ag = None
 
-    def print_reply(self, reply):
-        """Outputs command replies."""
-
-        if reply.body:
-            self.write_to_log(str(reply.body))
-
     async def focus(
         self,
         inplace=False,

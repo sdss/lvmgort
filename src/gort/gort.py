@@ -288,6 +288,12 @@ class GortDevice:
 
         self.gort.log.log(level, message)
 
+    def print_reply(self, reply):
+        """Outputs command replies."""
+
+        if reply.body:
+            self.write_to_log(str(reply.body))
+
 
 class Gort(GortClient):
     """Gort's robotic functionality.
