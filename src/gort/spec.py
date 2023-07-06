@@ -247,7 +247,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                 self.write_to_log(f"Turning off {lamp}.")
                 await calib_nps.off(lamp)
 
-            if "bias" in sequence_config:
+            if "biases" in sequence_config:
                 self.write_to_log("Taking biases.", level="info")
                 nbias = sequence_config["biases"].get("count", 1)
                 for _ in range(nbias):
