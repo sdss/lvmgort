@@ -326,7 +326,13 @@ class Gort(GortClient):
         if verbosity:
             self.set_verbosity(verbosity)
 
-    async def observe_tile(self, tile_id: int | None = None, expose: bool = True):
+    async def observe_tile(
+        self,
+        tile_id: int | None = None,
+        ra: float | None = None,
+        dec: float | None = None,
+        expose: bool = True,
+    ):
         """Performs all the operations necessary to observe a tile.
 
         Parameters
@@ -334,12 +340,20 @@ class Gort(GortClient):
         tile_id
             The ``tile_id`` to observe. If not provided, observes the next tile
             suggested by the scheduler.
+        ra,dec
+            The RA and Dec where to point the science telescopes. The other
+            telescopes are pointed to calibrators that fit the science pointing.
+            Cannot be used with ``tile_id``.
         expose
             Exposes the spectrographs. Otherwise only slews.
 
         """
 
-        tile_id_data = await self.telescopes.goto_tile_id(tile_id)
+        tile_id_data = await self.telescopes.goto_tile_id(
+            tile_id=tile_id,
+            ra=ra,
+            dec=dec,
+        )
 
         tile_id = tile_id_data["tile_id"]
         dither_pos = tile_id_data["dither_pos"]
