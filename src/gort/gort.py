@@ -326,7 +326,7 @@ class Gort(GortClient):
         if verbosity:
             self.set_verbosity(verbosity)
 
-    async def observe_tile(self, tile_id: int | None = None):
+    async def observe_tile(self, tile_id: int | None = None, expose: bool = True):
         """Performs all the operations necessary to observe a tile.
 
         Parameters
@@ -334,6 +334,8 @@ class Gort(GortClient):
         tile_id
             The ``tile_id`` to observe. If not provided, observes the next tile
             suggested by the scheduler.
+        expose
+            Exposes the spectrographs. Otherwise only slews.
 
         """
 
@@ -342,25 +344,29 @@ class Gort(GortClient):
         tile_id = tile_id_data["tile_id"]
         dither_pos = tile_id_data["dither_pos"]
 
-        exp_tile_data = {
-            "tile_id": (tile_id, "The tile_id of this observation"),
-            "dpos": (dither_pos, "Dither position"),
-        }
-        exp_nos = await self.specs.expose(tile_data=exp_tile_data, show_progress=True)
+        if expose:
+            exp_tile_data = {
+                "tile_id": (tile_id, "The tile_id of this observation"),
+                "dpos": (dither_pos, "Dither position"),
+            }
+            exp_nos = await self.specs.expose(
+                tile_data=exp_tile_data,
+                show_progress=True,
+            )
 
-        if len(exp_nos) < 1:
-            raise ValueError("No exposures to be registered.")
+            if len(exp_nos) < 1:
+                raise ValueError("No exposures to be registered.")
 
-        self.log.info("Registering observation.")
-        registration_payload = {
-            "dither": dither_pos,
-            "tile_id": tile_id,
-            "jd": tile_id_data["jd"],
-            "seeing": 10,
-            "standards": tile_id_data["standard_pks"],
-            "skies": tile_id_data["sky_pks"],
-            "exposure_no": exp_nos[0],
-        }
-        self.log.debug(f"Registration payload {registration_payload}")
-        await register_observation(registration_payload)
-        self.log.debug("Registration complete.")
+            self.log.info("Registering observation.")
+            registration_payload = {
+                "dither": dither_pos,
+                "tile_id": tile_id,
+                "jd": tile_id_data["jd"],
+                "seeing": 10,
+                "standards": tile_id_data["standard_pks"],
+                "skies": tile_id_data["sky_pks"],
+                "exposure_no": exp_nos[0],
+            }
+            self.log.debug(f"Registration payload {registration_payload}")
+            await register_observation(registration_payload)
+            self.log.debug("Registration complete.")
