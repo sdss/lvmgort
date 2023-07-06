@@ -725,7 +725,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
             jobs.append(self["sci"].goto_coordinates(ra=sci[0], dec=sci[1]))
 
         if spec is not None:
-            jobs.append(self["specs"].goto_coordinates(ra=spec[0], dec=spec[1]))
+            jobs.append(self["spec"].goto_coordinates(ra=spec[0], dec=spec[1]))
 
         if skye is not None:
             jobs.append(self["skye"].goto_coordinates(ra=skye[0], dec=skye[1]))
