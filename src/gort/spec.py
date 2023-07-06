@@ -91,7 +91,23 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         show_progress: bool = False,
         **kwargs,
     ):
-        """Exposes the spectrographs."""
+        """Exposes the spectrographs.
+
+        Parameters
+        ----------
+        tile_data
+            Tile data to add to the headers.
+        show_progress
+            Displays a progress bar with the elapsed exposure time.
+        kwargs
+            Keyword arguments to pass to ``lvmscp expose``.
+
+        Returns
+        -------
+        exp_nos
+            The numbers of the exposed frames.
+
+        """
 
         if not (await self.are_idle()):
             raise GortSpecError("Spectrographs are not idle. Cannot expose.")
@@ -99,7 +115,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         count: int = kwargs.pop("count", 1)
         exposure_time: float = kwargs.pop("exposure_time", 10)
 
-        exp_nos = []
+        exp_nos: list[int] = []
 
         for _ in range(count):
             seqno = self.get_seqno()
@@ -140,7 +156,12 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         await self._send_command_all("reset")
 
-    async def calibrate(self, sequence: str = "normal", park_after: bool = True):
+    async def calibrate(
+        self,
+        sequence: str = "normal",
+        park_after: bool = True,
+        show_progress: bool = False,
+    ):
         """Runs the calibration sequence.
 
         Parameters
@@ -149,6 +170,8 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             The calibration sequence to execute.
         park_after
             Park the telescopes after a successful calibration sequence.
+        show_progress
+            Displays a progress bar with the elapsed exposure time.
 
         """
 
@@ -215,6 +238,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                     await self.gort.specs.expose(
                         flavour=flavour,
                         exposure_time=exp_time,
+                        show_progress=show_progress,
                     )
 
                     if fibsel_task:
