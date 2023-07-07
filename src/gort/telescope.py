@@ -354,6 +354,10 @@ class Telescope(GortDevice):
         if (await self.gort.enclosure.is_local()) and not force:
             raise GortTelescopeError("Cannot move telescope in local mode.")
 
+        kmirror_task: asyncio.Task | None = None
+        if kmirror and self.km and ra and dec:
+            kmirror_task = asyncio.create_task(self.km.slew(ra, dec))
+
         if ra is not None and dec is not None:
             is_radec = ra is not None and dec is not None and not alt and not az
             assert is_radec, "Invalid input parameters"
@@ -374,9 +378,8 @@ class Telescope(GortDevice):
             if altaz_tracking:
                 await self.pwi.commands.setTracking(enable=True)
 
-        # TODO: this can be done concurrently with the telescope slew.
-        if kmirror and self.km and ra and dec:
-            await self.km.slew(ra, dec)
+        if kmirror_task is not None and not kmirror_task.done():
+            await kmirror_task
 
     async def goto_named_position(
         self,
