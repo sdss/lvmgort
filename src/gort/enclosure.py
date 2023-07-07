@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from gort import config
 from gort.exceptions import GortEnclosureError
 from gort.gort import GortDevice
 
@@ -59,6 +60,11 @@ class Enclosure(GortDevice):
         safety_status_labels = status.get("safety_status_labels", None)
         if safety_status_labels is None:
             raise GortEnclosureError("Cannot determine if enclosure is in local mode.")
+
+        # This should generally not be on, but it's useful as a way of disabling
+        # the local mode when the lock or door are not working.
+        if config["enclosure"].get("bypass_local_mode", False) is True:
+            return False
 
         return "LOCAL" in safety_status_labels
 
