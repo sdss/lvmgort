@@ -59,7 +59,10 @@ class Enclosure(GortDevice):
         status = await self.status()
         safety_status_labels = status.get("safety_status_labels", None)
         if safety_status_labels is None:
-            raise GortEnclosureError("Cannot determine if enclosure is in local mode.")
+            raise GortEnclosureError(
+                "Cannot determine if enclosure is in local mode.",
+                error_code=501,
+            )
 
         # This should generally not be on, but it's useful as a way of disabling
         # the local mode when the lock or door are not working.
@@ -74,7 +77,10 @@ class Enclosure(GortDevice):
         status = await self.status()
         safety_status_labels = status.get("safety_status_labels", None)
         if safety_status_labels is None:
-            raise GortEnclosureError("Cannot determine door status.")
+            raise GortEnclosureError(
+                "Cannot determine door status.",
+                error_code=502,
+            )
 
         reply = {
             "door_closed": "DOOR_CLOSED" in safety_status_labels,

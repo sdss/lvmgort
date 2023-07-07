@@ -9,8 +9,6 @@
 from __future__ import annotations
 
 import asyncio
-import inspect
-from inspect import currentframe, getouterframes
 
 from typing import TYPE_CHECKING
 
@@ -141,7 +139,10 @@ class FibSel(GortDevice):
         if isinstance(position, str):
             mask_positions = config["telescopes"]["mask_positions"]
             if position not in mask_positions:
-                raise GortTelescopeError(f"Cannot find position {position!r}.")
+                raise GortTelescopeError(
+                    f"Cannot find position {position!r}.",
+                    error_code=201,
+                )
 
             steps = mask_positions[position]
             self.write_to_log(f"Moving mask to {position}: {steps} DT.", level="info")
@@ -240,7 +241,7 @@ class Telescope(GortDevice):
             home_subdevices_task = asyncio.gather(*subdev_tasks)
 
         if await self.gort.enclosure.is_local():
-            raise GortTelescopeError("Cannot home in local mode.")
+            raise GortTelescopeError("Cannot home in local mode.", error_code=101)
 
         self.write_to_log("Homing telescope.", level="info")
 
@@ -283,7 +284,7 @@ class Telescope(GortDevice):
         """
 
         if await self.gort.enclosure.is_local():
-            raise GortTelescopeError("Cannot home in local mode.")
+            raise GortTelescopeError("Cannot home in local mode.", error_code=101)
 
         await self.initialise()
 
@@ -354,7 +355,10 @@ class Telescope(GortDevice):
         """
 
         if (await self.gort.enclosure.is_local()) and not force:
-            raise GortTelescopeError("Cannot move telescope in local mode.")
+            raise GortTelescopeError(
+                "Cannot move telescope in local mode.",
+                error_code=101,
+            )
 
         kmirror_task: asyncio.Task | None = None
         if kmirror and self.km and ra and dec:
@@ -379,7 +383,8 @@ class Telescope(GortDevice):
                 raise GortTelescopeError(
                     "Telescope failed to reach desired position. "
                     "The axes have been disabled for safety. "
-                    "Try re-homing the telescope."
+                    "Try re-homing the telescope.",
+                    error_code=102,
                 )
 
         elif alt is not None and az is not None:
@@ -421,10 +426,16 @@ class Telescope(GortDevice):
         """
 
         if (await self.gort.enclosure.is_local()) and not force:
-            raise GortTelescopeError("Cannot move telescope in local mode.")
+            raise GortTelescopeError(
+                "Cannot move telescope in local mode.",
+                error_code=101,
+            )
 
         if name not in config["telescopes"]["named_positions"]:
-            raise GortTelescopeError(f"Invalid named position {name!r}.")
+            raise GortTelescopeError(
+                f"Invalid named position {name!r}.",
+                error_code=103,
+            )
 
         position_data = config["telescopes"]["named_positions"][name]
 
@@ -433,7 +444,7 @@ class Telescope(GortDevice):
         elif "all" in position_data:
             coords = position_data["all"]
         else:
-            raise GortTelescopeError("Cannot find position data.")
+            raise GortTelescopeError("Cannot find position data.", error_code=103)
 
         if "alt" in coords and "az" in coords:
             coro = self.goto_coordinates(
@@ -449,7 +460,10 @@ class Telescope(GortDevice):
                 force=force,
             )
         else:
-            raise GortTelescopeError("No ra/dec or alt/az coordinates found.")
+            raise GortTelescopeError(
+                "No ra/dec or alt/az coordinates found.",
+                error_code=103,
+            )
 
         await coro
 
@@ -646,7 +660,10 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         await self._check_local(force)
 
         if name not in config["telescopes"]["named_positions"]:
-            raise GortTelescopeError(f"Invalid named position {name!r}.")
+            raise GortTelescopeError(
+                f"Invalid named position {name!r}.",
+                error_code=103,
+            )
 
         await asyncio.gather(
             *[
@@ -765,4 +782,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
 
         is_local = await self.gort.enclosure.is_local()
         if is_local and not force:
-            raise GortTelescopeError("Cannot move telescopes in local mode.")
+            raise GortTelescopeError(
+                "Cannot move telescopes in local mode.",
+                error_code=101,
+            )

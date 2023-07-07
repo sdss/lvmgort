@@ -7,12 +7,47 @@
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
 import inspect
+from enum import Enum
+
+
+def decapitalize_first_letter(s, upper_rest=False):
+    return "".join([s[:1].lower(), (s[1:].upper() if upper_rest else s[1:])])
+
+
+class ErrorCodes(Enum):
+    """List of error codes."""
+
+    UNCATEGORISED_ERROR = 0
+    NOT_IMPLEMENTED = 1
+    COMMAND_FAILED = 2
+    CANNOT_MOVE_LOCAL_MODE = 101
+    FAILED_REACHING_COMMANDED_POSITION = 102
+    INVALID_TELESCOPE_POSITION = 103
+    FIBSEL_INVALID_POSITION = 201
+    SECTROGRAPH_FAILED_EXPOSING = 301
+    SECTROGRAPH_NOT_IDLE = 302
+    INVALID_CALIBRATION_SEQUENCE = 303
+    LOCAL_MODE_FAILED = 501
+    DOOR_STATUS_FAILED = 502
+    INVALID_PIXEL_NAME = 610
+    UNKNOWN_ERROR = 999
 
 
 class GortError(Exception):
     """A custom core GortError exception"""
 
-    pass
+    def __init__(self, message: str | None = None, error_code: int = 0):
+        try:
+            self.error_code = ErrorCodes(error_code)
+        except ValueError:
+            self.error_code = ErrorCodes.UNKNOWN_ERROR
+            error_code = self.error_code.value
+
+        if message is not None and message != "":
+            message = decapitalize_first_letter(message)
+            super().__init__(f"Error {error_code} ({self.error_code.name}): {message}")
+        else:
+            super().__init__(f"Error {error_code} ({self.error_code.name})")
 
 
 class GortTimeout(GortError):
@@ -24,16 +59,16 @@ class GortTimeout(GortError):
 class GortNotImplemented(GortError):
     """A custom exception for not yet implemented features."""
 
-    def __init__(self, message=None):
+    def __init__(self, message: str | None = None):
         message = "This feature is not implemented yet." if not message else message
 
-        super(GortNotImplemented, self).__init__(message)
+        super(GortNotImplemented, self).__init__(message, error_code=1)
 
 
 class GortDeviceError(GortError):
     """A device error, which appends the name of the device to the error message."""
 
-    def __init__(self, message: str | None = None) -> None:
+    def __init__(self, message: str | None = None, error_code: int = 0) -> None:
         from gort.gort import GortDevice
 
         if message is not None:
@@ -46,7 +81,7 @@ class GortDeviceError(GortError):
                 if issubclass(obj.__class__, GortDevice) and name is not None:
                     message = f"({name}) {message}"
 
-        super().__init__(message)
+        super().__init__(message, error_code=error_code)
 
 
 class GortEnclosureError(GortDeviceError):

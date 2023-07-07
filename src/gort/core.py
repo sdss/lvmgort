@@ -162,7 +162,10 @@ class RemoteCommand:
         if not cmd.status.did_succeed:
             error = actor_reply.get("error")
             error = str(error) if error is not None else ""
-            raise GortError(f"Failed executing command {self._name}. {error}")
+            raise GortError(
+                f"Failed executing command {self._name}. {error}",
+                error_code=2,
+             )
 
         return actor_reply
 

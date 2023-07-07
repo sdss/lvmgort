@@ -86,7 +86,7 @@ class Guider(GortDevice):
 
         if isinstance(pixel, str):
             if pixel not in config["guiders"][self.name]["named_pixels"]:
-                raise GortGuiderError(f"Invalid pixel name {pixel!r}.")
+                raise GortGuiderError(f"Invalid pixel name {pixel!r}.", error_code=610)
             pixel = config["guiders"][self.name]["named_pixels"][pixel]
 
         await self.actor.commands.guide.commands.start(

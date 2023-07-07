@@ -56,7 +56,10 @@ class Spectrograph(GortDevice):
         """Exposes the spectrograph."""
 
         if not (await self.is_idle()):
-            raise GortSpecError("Spectrographs is not idle. Cannot expose.")
+            raise GortSpecError(
+                "Spectrographs is not idle. Cannot expose.",
+                error_code=301,
+            )
 
         self.write_to_log(f"Exposing spectrograph {self.name}.")
 
@@ -110,7 +113,10 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         """
 
         if not (await self.are_idle()):
-            raise GortSpecError("Spectrographs are not idle. Cannot expose.")
+            raise GortSpecError(
+                "Spectrographs are not idle. Cannot expose.",
+                error_code=302,
+            )
 
         count: int = kwargs.pop("count", 1)
         exposure_time: float = kwargs.pop("exposure_time", 10)
@@ -147,7 +153,10 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                     if timer:
                         await timer
 
-                raise GortSpecError(f"Exposure failed with error {err}")
+                raise GortSpecError(
+                    f"Exposure failed with error {err}",
+                    error_code=301,
+                )
 
         return exp_nos
 
@@ -180,7 +189,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         cal_config = config["specs"]["calibration"]
 
         if sequence not in cal_config["sequences"]:
-            raise GortSpecError(f"Unknown sequence {sequence!r}.")
+            raise GortSpecError(f"Unknown sequence {sequence!r}.", error_code=303)
         sequence_config = cal_config["sequences"][sequence]
 
         self.write_to_log("Moving telescopes to position.", level="info")
