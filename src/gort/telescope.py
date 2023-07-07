@@ -9,13 +9,15 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
+from inspect import currentframe, getouterframes
 
 from typing import TYPE_CHECKING
 
 from gort import config
 from gort.exceptions import GortTelescopeError
 from gort.gort import GortDevice, GortDeviceSet
-from gort.tools import get_calibrators, get_next_tile_id
+from gort.tools import angular_separation, get_calibrators, get_next_tile_id
 
 
 if TYPE_CHECKING:
@@ -367,6 +369,19 @@ class Telescope(GortDevice):
             self.write_to_log(f"Moving to ra={ra:.6f} dec={dec:.6f}.", level="info")
             await self.pwi.commands.gotoRaDecJ2000(ra / 15.0, dec)
 
+            # Check that we reached the position.
+            status = await self.status()
+            ra_status = status["ra_j2000_hours"] * 15
+            dec_status = status["dec_j2000_degs"]
+            separation = angular_separation(ra, dec, ra_status, dec_status)
+            if separation > 0.1:
+                await self.actor.commands.setEnabled(False)
+                raise GortTelescopeError(
+                    "Telescope failed to reach desired position. "
+                    "The axes have been disabled for safety. "
+                    "Try re-homing the telescope."
+                )
+
         elif alt is not None and az is not None:
             is_altaz = alt is not None and az is not None and not ra and not dec
             assert is_altaz, "Invalid input parameters"
@@ -377,6 +392,10 @@ class Telescope(GortDevice):
             await self.pwi.commands.gotoAltAzJ2000(alt, az)
             if altaz_tracking:
                 await self.pwi.commands.setTracking(enable=True)
+
+            status = await self.status()
+            ra_status = status["altitude_degs"] * 15
+            dec_status = status["azimuth_degs"] * 15
 
         if kmirror_task is not None and not kmirror_task.done():
             await kmirror_task

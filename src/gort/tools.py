@@ -15,6 +15,8 @@ import re
 from typing import TYPE_CHECKING, Callable, Coroutine
 
 import httpx
+from astropy import units as uu
+from astropy.coordinates import angular_separation as astropy_angular_separation
 
 from gort import config
 
@@ -40,6 +42,7 @@ __all__ = [
     "get_ccd_frame_path",
     "move_mask_interval",
     "radec_sexagesimal_to_decimal",
+    "angular_separation",
 ]
 
 CAMERAS = [
@@ -443,3 +446,21 @@ def radec_sexagesimal_to_decimal(ra: str, dec: str, ra_is_hours: bool = True):
         dec_deg -= float(dec_groups[1]) / 60 - float(dec_groups[2]) / 3600
 
     return ra_deg, dec_deg
+
+
+def angular_separation(lon1: float, lat1: float, lon2: float, lat2: float):
+    """A wrapper around astropy's ``angular_separation``.
+
+    Returns the separation between two sets of coordinates. All units must
+    be degrees and the returned values is also the separation in degrees.
+
+    """
+
+    separation = astropy_angular_separation(
+        lon1 * uu.degree,  # type: ignore
+        lat1 * uu.degree,  # type: ignore
+        lon2 * uu.degree,  # type: ignore
+        lat2 * uu.degree,  # type: ignore
+    )
+
+    return separation.to("deg").value
