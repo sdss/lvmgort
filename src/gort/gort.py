@@ -355,10 +355,10 @@ class Gort(GortClient):
             dec=dec,
         )
 
-        tile_id = tile_id_data["tile_id"]
-        dither_pos = tile_id_data["dither_pos"]
-
         if expose:
+            tile_id = tile_id_data["tile_id"]
+            dither_pos = tile_id_data["dither_pos"]
+
             exp_tile_data = {
                 "tile_id": (tile_id, "The tile_id of this observation"),
                 "dpos": (dither_pos, "Dither position"),
