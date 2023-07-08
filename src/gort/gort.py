@@ -10,12 +10,13 @@ import asyncio
 import logging
 import uuid
 
-from typing import Any, ClassVar, Generic, Self, Type, TypeVar
+from typing import Any, Callable, ClassVar, Generic, Self, Type, TypeVar
 
 from clu.client import AMQPClient
 
 from gort import config, log
 from gort.core import RemoteActor
+from gort.exceptions import GortError
 from gort.kubernetes import Kubernetes
 from gort.tools import register_observation
 
