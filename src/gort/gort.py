@@ -326,6 +326,16 @@ class Gort(GortClient):
         if verbosity:
             self.set_verbosity(verbosity)
 
+    async def emergency_close(self):
+        """Parks and closes the telescopes."""
+
+        tasks = []
+        tasks.append(self.telescopes.park(disable=True))
+        tasks.append(self.enclosure.close())
+
+        self.log.warning("Closing and parking telescopes.")
+        await asyncio.gather(*tasks)
+
     async def observe_tile(
         self,
         tile_id: int | None = None,
