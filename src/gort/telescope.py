@@ -318,7 +318,7 @@ class Telescope(GortDevice):
             await self.pwi.commands.setEnabled(False)
 
         if kmirror and self.km:
-            self.write_to_log("Homing k-mirror.", level="info")
+            self.write_to_log("Parking k-mirror.", level="info")
             await self.km.park()
 
     async def goto_coordinates(
