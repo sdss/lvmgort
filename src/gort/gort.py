@@ -386,11 +386,18 @@ class Gort(GortClient):
 
         """
 
+        # Make sure all guiders are stopped.
+        await self.guiders.stop(now=True)
+
+        # Send telescopes to science and calibrator targets.
         tile_id_data = await self.telescopes.goto_tile_id(
             tile_id=tile_id,
             ra=ra,
             dec=dec,
         )
+
+        # Start guider.
+        await self.guiders.guide()
 
         if expose:
             tile_id = tile_id_data["tile_id"]
