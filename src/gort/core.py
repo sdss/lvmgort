@@ -165,7 +165,7 @@ class RemoteCommand:
             raise GortError(
                 f"Failed executing command {self._name}. {error}",
                 error_code=2,
-             )
+            )
 
         return actor_reply
 
