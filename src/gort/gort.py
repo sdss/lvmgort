@@ -24,6 +24,9 @@ from gort.tools import register_observation
 __all__ = ["GortClient", "Gort", "GortDeviceSet", "GortDevice"]
 
 
+DevType = TypeVar("DevType", bound="GortDeviceSet | GortDevice")
+
+
 class GortClient(AMQPClient):
     """The main ``gort`` client, used to communicate with the actor system.
 
@@ -72,13 +75,16 @@ class GortClient(AMQPClient):
         self.set_verbosity()
 
         self.actors: dict[str, RemoteActor] = {}
+        self.config = config.copy()
 
-        self.ags = AGSet(self, config["ags"]["devices"])
-        self.guiders = GuiderSet(self, config["guiders"]["devices"])
-        self.telescopes = TelescopeSet(self, config["telescopes"]["devices"])
-        self.nps = NPSSet(self, config["nps"]["devices"])
-        self.specs = SpectrographSet(self, config["specs"]["devices"])
-        self.enclosure = Enclosure(self, name="enclosure", actor="lvmecp")
+        self.__device_sets = []
+
+        self.ags = self.add_device(AGSet, config["ags"]["devices"])
+        self.guiders = self.add_device(GuiderSet, config["guiders"]["devices"])
+        self.telescopes = self.add_device(TelescopeSet, config["telescopes"]["devices"])
+        self.nps = self.add_device(NPSSet, config["nps"]["devices"])
+        self.specs = self.add_device(SpectrographSet, config["specs"]["devices"])
+        self.enclosure = self.add_device(Enclosure, name="enclosure", actor="lvmecp")
 
     async def init(self) -> Self:
         """Initialises the client.
@@ -95,7 +101,18 @@ class GortClient(AMQPClient):
 
         await asyncio.gather(*[ractor.init() for ractor in self.actors.values()])
 
+        # Initialise device sets.
+        await asyncio.gather(*[dev.init() for dev in self.__device_sets])
+
         return self
+
+    def add_device(self, class_: Type[DevType], *args, **kwargs) -> DevType:
+        """Adds a new device or device set to Gort."""
+
+        ds = class_(self, *args, **kwargs)
+        self.__device_sets.append(ds)
+
+        return ds
 
     @property
     def connected(self):
@@ -182,6 +199,14 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
             )
 
         dict.__init__(self, _dict_data)
+
+    async def init(self):
+        """Runs asynchronous tasks that must be executed on init."""
+
+        # Run devices init methods.
+        await asyncio.gather(*[dev.init() for dev in self.values()])
+
+        return
 
     def __getattribute__(self, __name: str) -> Any:
         if __name in self:
@@ -285,6 +310,16 @@ class GortDevice:
         self.gort = gort
         self.name = name
         self.actor = gort.add_actor(actor)
+
+    async def init(self):
+        """Runs asynchronous tasks that must be executed on init.
+
+        If the device is part of a `.DeviceSet`, this method is called
+        by `.DeviceSet.init`.
+
+        """
+
+        return
 
     def write_to_log(
         self,
