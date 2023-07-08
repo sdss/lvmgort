@@ -398,10 +398,6 @@ class Telescope(GortDevice):
             if altaz_tracking:
                 await self.pwi.commands.setTracking(enable=True)
 
-            status = await self.status()
-            ra_status = status["altitude_degs"] * 15
-            dec_status = status["azimuth_degs"] * 15
-
         if kmirror_task is not None and not kmirror_task.done():
             await kmirror_task
 
@@ -546,9 +542,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
 
         """
 
-        await asyncio.gather(
-            *[tel.home(home_subdevices=home_subdevices) for tel in self.values()]
-        )
+        await self.call_device_method(Telescope.home, home_subdevices=home_subdevices)
 
     async def park(
         self,
@@ -576,17 +570,13 @@ class TelescopeSet(GortDeviceSet[Telescope]):
 
         """
 
-        await asyncio.gather(
-            *[
-                tel.park(
-                    disable=disable,
-                    use_pw_park=use_pw_park,
-                    alt_az=alt_az,
-                    kmirror=kmirror,
-                    force=force,
-                )
-                for tel in self.values()
-            ]
+        await self.call_device_method(
+            Telescope.park,
+            disable=disable,
+            use_pw_park=use_pw_park,
+            alt_az=alt_az,
+            kmirror=kmirror,
+            force=force,
         )
 
     async def goto_coordinates_all(
@@ -622,19 +612,15 @@ class TelescopeSet(GortDeviceSet[Telescope]):
 
         """
 
-        await asyncio.gather(
-            *[
-                tel.goto_coordinates(
-                    ra=ra,
-                    dec=dec,
-                    alt=alt,
-                    az=az,
-                    kmirror=kmirror,
-                    altaz_tracking=altaz_tracking,
-                    force=force,
-                )
-                for tel in self.values()
-            ]
+        await self.call_device_method(
+            Telescope.goto_coordinates,
+            ra=ra,
+            dec=dec,
+            alt=alt,
+            az=az,
+            kmirror=kmirror,
+            altaz_tracking=altaz_tracking,
+            force=force,
         )
 
     async def goto_named_position(
@@ -665,15 +651,11 @@ class TelescopeSet(GortDeviceSet[Telescope]):
                 error_code=103,
             )
 
-        await asyncio.gather(
-            *[
-                tel.goto_named_position(
-                    name=name,
-                    altaz_tracking=altaz_tracking,
-                    force=force,
-                )
-                for tel in self.values()
-            ]
+        await self.call_device_method(
+            Telescope.goto_named_position,
+            name=name,
+            altaz_tracking=altaz_tracking,
+            force=force,
         )
 
     async def goto_tile_id(

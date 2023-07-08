@@ -187,6 +187,33 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
             return self.__getitem__(__name)
         return super().__getattribute__(__name)
 
+    async def call_device_method(self, method: Callable, *args, **kwargs):
+        """Calls a method in each one of the devices.
+
+        Parameters
+        ----------
+        method
+            The method to call. This must be the abstract class method,
+            not the method from an instantiated object.
+        args,kwargs
+            Arguments to pass to the method.
+
+        """
+
+        if not callable(method):
+            raise GortError("Method is not callable.")
+
+        if hasattr(method, "__self__"):
+            # This is a bound method, so let's get the class method.
+            method = method.__func__
+
+        if not hasattr(self.__DEVICE_CLASS__, method.__name__):
+            raise GortError("Method does not belong to this class devices.")
+
+        devices = self.values()
+
+        return await asyncio.gather(*[method(dev, *args, **kwargs) for dev in devices])
+
     async def _send_command_all(self, command: str, *args, **kwargs):
         """Sends a command to all the devices.
 
