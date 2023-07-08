@@ -15,9 +15,12 @@ from typing import TYPE_CHECKING
 from gort import config
 from gort.exceptions import GortError, GortGuiderError
 from gort.gort import GortDevice, GortDeviceSet
+from gort.maskbits import GuiderStatus
 
 
 if TYPE_CHECKING:
+    from clu import AMQPReply
+
     from gort.gort import GortClient
 
 
@@ -26,6 +29,32 @@ class Guider(GortDevice):
 
     def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
+
+        self.separation: float | None = None
+        self.status: GuiderStatus | None = None
+
+        self.gort.add_reply_callback(self._status_cb)
+
+    @property
+    def ag(self):
+        """Gets the `.AG` device associated with this guider."""
+
+        return self.gort.ags[self.name]
+
+    @property
+    def telescope(self):
+        """Gets the `.Telescope` device associated with this guider."""
+
+        return self.gort.telescopes[self.name]
+
+    async def _status_cb(self, reply: AMQPReply):
+        """Listens to guider keywords and updates the internal state."""
+
+        if reply.sender == self.actor.name:
+            if "status" in reply.body:
+                self.status = GuiderStatus(int(reply.body["status"], 16))
+            if "measured_pointing" in reply.body:
+                self.separation = reply.body["measured_pointing"]["separation"]
 
     async def expose(self, *args, continuous: bool = False, **kwargs):
         """Exposes this telescope cameras.
@@ -78,9 +107,14 @@ class Guider(GortDevice):
             )
         except GortError as err:
             self.write_to_log(f"Failed focusing with error {err}", level="error")
+        finally:
+            self.status = None
+            self.separation = None
 
     async def guide(
         self,
+        ra: float | None = None,
+        dec: float | None = None,
         exposure_time: float = 5.0,
         pixel: tuple[float, float] | str | None = None,
         **guide_kwargs,
@@ -91,6 +125,9 @@ class Guider(GortDevice):
 
         Parameters
         ----------
+        ra,dec
+            The coordinates to acquire. If `None`, the current telescope
+            coordinates are used.
         exposure_time
             The exposure time of the AG integrations.
         pixel
@@ -102,15 +139,30 @@ class Guider(GortDevice):
 
         """
 
-        if isinstance(pixel, str):
-            if pixel not in config["guiders"][self.name]["named_pixels"]:
-                raise GortGuiderError(f"Invalid pixel name {pixel!r}.", error_code=610)
-            pixel = config["guiders"][self.name]["named_pixels"][pixel]
+        if ra is None or dec is None:
+            status = await self.telescope.status()
+            ra_status = status["ra_j2000_hours"] * 15
+            dec_status = status["dec_j2000_degs"]
 
-        await self.actor.commands.guide.commands.start(
+            ra = ra if ra is not None else ra_status
+            dec = dec if dec is not None else dec_status
+
+        if isinstance(pixel, str):
+            if pixel not in config["guiders"]["devices"][self.name]["named_pixels"]:
+                raise GortGuiderError(f"Invalid pixel name {pixel!r}.", error_code=610)
+            pixel = config["guiders"]["devices"][self.name]["named_pixels"][pixel]
+
+        log_msg = f"Guiding at RA={ra:.6f}, Dec={dec:.6f}"
+        if pixel is not None:
+            log_msg += f", pixel=({pixel[0]:.1f}, {pixel[1]:.1f})."
+        self.write_to_log(log_msg, level="info")
+
+        await self.actor.commands.start(
             reply_callback=self.print_reply,
+            fieldra=ra,
+            fielddec=dec,
             exposure_time=exposure_time,
-            pixel=pixel,
+            reference_pixel=pixel,
             **guide_kwargs,
         )
 
@@ -124,7 +176,30 @@ class Guider(GortDevice):
 
         """
 
-        await self.actor.commands.guide.commands.stop()
+        self.write_to_log(f"Stopping guider with now={now}.", "info")
+        await self.actor.commands.stop(now=now)
+
+    async def set_pixel(
+        self,
+        pixel: tuple[float, float] | str | None = None,
+    ):
+        """Sets the master frame pixel on which to guide.
+
+        Parameters
+        ----------
+        pixel
+            The pixel on the master frame on which to guide. Defaults to
+            the central pixel. This can also be the name of a known pixel
+            position for this telescope, e.g., ``'P1-1'`` for ``spec``.
+
+        """
+
+        if isinstance(pixel, str):
+            if pixel not in config["guiders"]["devices"][self.name]["named_pixels"]:
+                raise GortGuiderError(f"Invalid pixel name {pixel!r}.", error_code=610)
+            pixel = config["guiders"]["devices"][self.name]["named_pixels"][pixel]
+
+        await self.actor.commands.set_pixel(*pixel)
 
 
 class GuiderSet(GortDeviceSet[Guider]):
@@ -197,3 +272,27 @@ class GuiderSet(GortDeviceSet[Guider]):
             for ag in self.values()
         ]
         await asyncio.gather(*jobs)
+
+    async def guide(self, *args, continuous: bool = False, **kwargs):
+        """Guide on all telescopes.
+
+        Parameters
+        ----------
+        args,kwargs
+            Arguments to be passed to `.Guider.guide`.
+
+        """
+
+        await self.call_device_method(Guider.guide, *args, **kwargs)
+
+    async def stop(self, now: bool = False):
+        """Stops the guide loop on all telescopes.
+
+        Parameters
+        ----------
+        now
+            Aggressively stops the guide loop.
+
+        """
+
+        await self.call_device_method(Guider.stop, now=now)
