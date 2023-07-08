@@ -199,7 +199,10 @@ class Guider(GortDevice):
                 raise GortGuiderError(f"Invalid pixel name {pixel!r}.", error_code=610)
             pixel = config["guiders"]["devices"][self.name]["named_pixels"][pixel]
 
-        await self.actor.commands.set_pixel(*pixel)
+        if pixel is None:
+            await self.actor.commands.reset_pixel()
+        else:
+            await self.actor.commands.set_pixel(*pixel)
 
 
 class GuiderSet(GortDeviceSet[Guider]):
