@@ -27,10 +27,28 @@ class Guider(GortDevice):
     def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
 
-        try:
-            self.ag = self.gort.ags[self.name]
-        except KeyError:
-            self.ag = None
+    async def expose(self, *args, continuous: bool = False, **kwargs):
+        """Exposes this telescope cameras.
+
+        Parameters
+        ----------
+        args,kwargs
+            Arguments to be passed to the guider expose command.
+        continuous
+            Whether to expose the camera continuously. If `False`
+            it takes a single exposure.
+
+        """
+
+        while True:
+            await self.actor.commands.expose(
+                reply_callback=self.print_reply,
+                *args,
+                **kwargs,
+            )
+
+            if not continuous:
+                return
 
     async def focus(
         self,
@@ -113,6 +131,26 @@ class GuiderSet(GortDeviceSet[Guider]):
     """A set of telescope guiders."""
 
     __DEVICE_CLASS__ = Guider
+
+    async def expose(self, *args, continuous: bool = False, **kwargs):
+        """Exposes all the cameras using the guider.
+
+        Parameters
+        ----------
+        args,kwargs
+            Arguments to be passed to `.Guider.expose`.
+        continuous
+            Whether to expose the camera continuously. If `False`
+            it takes a single exposure.
+
+        """
+
+        await self.call_device_method(
+            Guider.expose,
+            *args,
+            continuous=continuous,
+            **kwargs,
+        )
 
     async def take_darks(self):
         """Takes AG darks."""
