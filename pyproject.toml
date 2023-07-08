@@ -24,6 +24,9 @@ packages = [
 ]
 include = ["src/gort/etc/*"]
 
+[tool.poetry.scripts]
+gort = "gort.__main__:main"
+
 [tool.poetry.dependencies]
 python = "^3.11,<4.0"
 sdsstools = "^1.1.0"
@@ -35,6 +38,7 @@ httpx = "^0.24.1"
 tqdm = "^4.65.0"
 kubernetes = "^26.1.0"
 astropy = "^5.3.1"
+websockets = "^11.0.3"
 
 [tool.poetry.group.dev.dependencies]
 ipython = ">=8.0.0"
