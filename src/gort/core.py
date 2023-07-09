@@ -63,7 +63,7 @@ class RemoteActor:
             self.client.connection.connection
             and self.client.connection.connection.is_closed
         ):
-            raise RuntimeError("gort is not connected.")
+            raise RuntimeError("Gort is not connected.")
 
         cmd = await self.send_raw_command("get-command-model")
         if cmd.status.did_fail:
