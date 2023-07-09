@@ -12,6 +12,8 @@ import asyncio
 
 from typing import TYPE_CHECKING
 
+import numpy
+
 from gort import config
 from gort.exceptions import GortTelescopeError
 from gort.gort import GortDevice, GortDeviceSet
@@ -160,6 +162,7 @@ class Telescope(GortDevice):
     def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
 
+        self.config = self.gort.config["telescopes"]
         self.pwi = self.actor
 
         kmirror_actor = kwargs.get("kmirror", None)
@@ -329,6 +332,7 @@ class Telescope(GortDevice):
         az: float | None = None,
         kmirror: bool = True,
         altaz_tracking: bool = False,
+        use_pointing_offsets: bool = True,
         force: bool = False,
     ):
         """Moves the telescope to a given RA/Dec or Alt/Az.
@@ -349,6 +353,8 @@ class Telescope(GortDevice):
         altaz_tracking
             If `True`, starts tracking after moving to alt/az coordinates.
             By defaul the PWI won't track with those coordinates.
+        use_pointing_offsets
+            If defined, uses the RA/Dec calibrations offsets for the telescope.
         force
             Move the telescopes even if mode is local.
 
@@ -371,6 +377,18 @@ class Telescope(GortDevice):
             await self.initialise()
 
             self.write_to_log(f"Moving to ra={ra:.6f} dec={dec:.6f}.", level="info")
+
+            if use_pointing_offsets:
+                offsets = self.config.get("pointing_offsets", {}).get(self.name, None)
+                if offsets is not None:
+                    ra_offset = offsets[0] / 3600.0
+                    dec_offset = offsets[1] / 3600.0
+                    ra = float(ra + ra_offset / numpy.cos(numpy.radians(dec)))
+                    dec = float(dec + dec_offset)
+
+            ra = float(numpy.clip(ra, 0, 360))
+            dec = float(numpy.clip(dec, -90, 90))
+
             await self.pwi.commands.gotoRaDecJ2000(ra / 15.0, dec)
 
             # Check that we reached the position.
