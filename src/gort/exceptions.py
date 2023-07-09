@@ -120,6 +120,12 @@ class GortTelescopeError(GortDeviceError):
     pass
 
 
+class TileError(GortError):
+    """An error associated with a `.Tile`."""
+
+    pass
+
+
 class GortWarning(Warning):
     """Base warning for Gort."""
 
