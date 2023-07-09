@@ -90,17 +90,29 @@ class RemoteActor:
 
         """
 
+        # This lock prevents that if the client has disconnected we get multiple
+        # reconnections. We need to not await here to prevent blocking.
         async with self._connect_lock:
             try:
-                cmd = await self.client.send_command(self.name, *args, **kwargs)
+                cmd = await self.client.send_command(
+                    self.name,
+                    *args,
+                    await_command=False,
+                    **kwargs,
+                )
             except (AMQPConnectionError, ChannelInvalidStateError):
                 # Client has disconnected. This should only happen if running Gort
                 # in an ipython terminal where the event loop only runs while a command
                 # is executing. See https://tinyurl.com/4kcwxzx9
                 await self.client.start()
-                cmd = await self.client.send_command(self.name, *args, **kwargs)
+                cmd = await self.client.send_command(
+                    self.name,
+                    *args,
+                    await_command=False,
+                    **kwargs,
+                )
 
-        return cmd
+        return await cmd
 
     async def refresh(self):
         """Refresesh the command list."""
