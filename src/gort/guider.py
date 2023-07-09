@@ -157,7 +157,7 @@ class Guider(GortDevice):
             log_msg += f", pixel=({pixel[0]:.1f}, {pixel[1]:.1f})."
         self.write_to_log(log_msg, level="info")
 
-        await self.actor.commands.start(
+        await self.actor.commands.guide(
             reply_callback=self.print_reply,
             fieldra=ra,
             fielddec=dec,
@@ -245,7 +245,7 @@ class GuiderSet(GortDeviceSet[Guider]):
         cmds = []
         for ag in self.values():
             cmds.append(
-                ag.actor.commands.guide.commands.expose(
+                ag.actor.commands.expose(
                     flavour="dark",
                     reply_callback=ag.print_reply,
                 )
@@ -276,7 +276,7 @@ class GuiderSet(GortDeviceSet[Guider]):
         ]
         await asyncio.gather(*jobs)
 
-    async def guide(self, *args, continuous: bool = False, **kwargs):
+    async def guide(self, *args, **kwargs):
         """Guide on all telescopes.
 
         Parameters
