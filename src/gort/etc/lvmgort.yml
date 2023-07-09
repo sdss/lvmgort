@@ -1,0 +1,244 @@
+---
+telescopes:
+  devices:
+    sci:
+      actor: lvm.sci.pwi
+      kmirror: lvm.sci.km
+      focuser: lvm.sci.foc
+    spec:
+      actor: lvm.spec.pwi
+      kmirror: null
+      focuser: lvm.spec.foc
+      fibsel: lvm.spec.fibsel
+    skye:
+      actor: lvm.skye.pwi
+      kmirror: lvm.skye.km
+      focuser: lvm.skye.foc
+    skyw:
+      actor: lvm.skyw.pwi
+      kmirror: lvm.skyw.km
+      focuser: lvm.skyw.foc
+  pointing_offsets:
+    sci: [-1618, -848]
+    skye: [-251, -15]
+    skyw: [-393, 119]
+    spec: [4250, 0]
+  named_positions:
+    park:
+      all:
+        alt: -60
+        az: 90
+    zenith:
+      all:
+        alt: 90
+        az: 0
+    calibration:
+      skyw:
+        az: 101.327
+        alt: 42.311
+      skye:
+        az: 263.417
+        alt: 31.903
+      sci:
+        az: 130.183
+        alt: 70.804
+      spec:
+        az: 252.558
+        alt: 56.414
+  mask_positions:
+    P1-1: 1650
+    P1-2: 215
+    P1-3: 16610
+    P1-4: 15180
+    P1-5: 13640
+    P1-6: 12205
+    P1-7: 10645
+    P1-8: 9205
+    P1-9: 7665
+    P1-10: 6205
+    P1-11: 4645
+    P1-12: 3210
+    P2-1: 15885
+    P2-2: 14335
+    P2-3: 12885
+    P2-4: 11375
+    P2-5: 9915
+    P2-6: 8395
+    P2-7: 6940
+    P2-8: 5405
+    P2-9: 3945
+    P2-10: 2395
+    P2-11: 935
+    P2-12: 17340
+
+guiders:
+  devices:
+    sci:
+      actor: lvm.sci.guider
+    spec:
+      actor: lvm.spec.guider
+      named_pixels:
+        P1-1: [2658.7, 1570.6]
+        P1-2: [2912.2, 1423.5]
+        P1-3: [3071.5, 1147.7]
+        P1-4: [3071.1, 853.48]
+        P1-5: [2912.5, 576.37]
+        P1-6: [2658.6, 429.15]
+        P1-7: [2341.6, 429.26]
+        P1-8: [2087.4, 576.48]
+        P1-9: [1928.8, 853.37]
+        P1-10: [1928.8, 1147.8]
+        P1-11: [2087.6, 1423.7]
+        P1-12: [2341.7, 1570.7]
+        P2-1: [2690.4, 1736.3]
+        P2-2: [3039.2, 1532.9]
+        P2-3: [3229.8, 1201.4]
+        P2-4: [3229.7, 797.37]
+        P2-5: [3039.6, 465.48]
+        P2-6: [2690.1, 264.37]
+        P2-7: [2309.5, 264.15]
+        P2-8: [1960.7, 466.04]
+        P2-9: [1770.6, 798.26]
+        P2-10: [1770.5, 1201.8]
+        P2-11: [1960.9, 1533.4]
+        P2-12: [2309.8, 1736.5]
+    skye:
+      actor: lvm.skye.guider
+    skyw:
+      actor: lvm.skyw.guider
+
+nps:
+  devices:
+    sp1:
+      actor: lvmnps.sp1
+    sp2:
+      actor: lvmnps.sp2
+    sp3:
+      actor: lvmnps.sp3
+    calib:
+      actor: lvmnps.calib
+
+specs:
+  devices:
+    sp1:
+      actor: lvmscp.sp1
+    sp2:
+      actor: lvmscp.sp2
+    sp3:
+      actor: lvmscp.sp3
+  nextExposureNumber: /data/spectro/nextExposureNumber
+  calibration:
+    position: calibration
+    lamps_nps: calib
+    sequences:
+      full:
+        lamps:
+          Argon:
+            warmup: 120
+            exposure_times: [30, 90, 270]
+            flavour: arc
+          Neon:
+            warmup: 120
+            exposure_times: [30, 90, 270]
+            flavour: arc
+          HgNe:
+            warmup: 120
+            exposure_times: [30, 90, 270]
+            flavour: arc
+          Xenon:
+            warmup: 120
+            exposure_times: [30, 90, 270]
+            flavour: arc
+          LDLS:
+            warmup: 300
+            exposure_times: [30, 90, 270]
+            flavour: flat
+          Quartz:
+            warmup: 120
+            exposure_times: [30, 90, 270]
+            flavour: flat
+        biases:
+          count: 5
+        darks:
+          count: 5
+          exposure_time: 900
+      normal:
+        lamps:
+          Argon:
+            warmup: 120
+            exposure_times: [30]
+            flavour: arc
+          Neon:
+            warmup: 120
+            exposure_times: [30]
+            flavour: arc
+          HgNe:
+            warmup: 120
+            exposure_times: [30]
+            flavour: arc
+          Xenon:
+            warmup: 120
+            exposure_times: [30]
+            flavour: arc
+          LDLS:
+            warmup: 300
+            exposure_times: [90]
+            flavour: flat
+          Quartz:
+            warmup: 120
+            exposure_times: [270]
+            flavour: flat
+            fibsel:
+              initial_position: P1-2
+              positions: P1-*
+              time_per_position: 20
+        biases:
+          count: 5
+        darks:
+          count: 1
+          exposure_time: 900
+      demo:
+        lamps:
+          Quartz:
+            warmup: 20
+            exposure_times: [120]
+            flavour: flat
+            fibsel:
+              initial_position: P1-2
+              positions: P1-*
+              time_per_position: 10
+        biases:
+          count: 1
+
+ags:
+  devices:
+    sci:
+      actor: lvm.sci.agcam
+    spec:
+      actor: lvm.spec.agcam
+    skye:
+      actor: lvm.skye.agcam
+    skyw:
+      actor: lvm.skyw.agcam
+
+enclosure:
+  bypass_local_mode: True
+
+scheduler:
+  host: 10.8.38.26
+  port: 5100
+
+kubernetes:
+  path:
+    default: /home/sdss5/config/kube
+    notebook: ~/sdss5/config/kube
+
+websocket:
+  host: 0.0.0.0
+  port: 9000
+
+database:
+  host: lvm-webapp.lco.cl
+  port: 5432
+  user: sdss
+  database: lvmdb
