@@ -334,6 +334,7 @@ class Telescope(GortDevice):
         altaz_tracking: bool = False,
         use_pointing_offsets: bool = True,
         force: bool = False,
+        retry: bool = True,
     ):
         """Moves the telescope to a given RA/Dec or Alt/Az.
 
@@ -357,6 +358,8 @@ class Telescope(GortDevice):
             If defined, uses the RA/Dec calibrations offsets for the telescope.
         force
             Move the telescopes even if mode is local.
+        retry
+            Retry once if the coordinates are not reached.
 
         """
 
@@ -369,6 +372,11 @@ class Telescope(GortDevice):
         kmirror_task: asyncio.Task | None = None
         if kmirror and self.km and ra and dec:
             kmirror_task = asyncio.create_task(self.km.slew(ra, dec))
+
+        # Commanded and reported coordinates. To be used to check if we reached
+        # the correct position.
+        commanded: tuple[float, float]
+        reported: tuple[float, float]
 
         if ra is not None and dec is not None:
             is_radec = ra is not None and dec is not None and not alt and not az
@@ -391,19 +399,13 @@ class Telescope(GortDevice):
 
             await self.pwi.commands.gotoRaDecJ2000(ra / 15.0, dec)
 
-            # Check that we reached the position.
+            # Check the position the PWI reports.
             status = await self.status()
             ra_status = status["ra_j2000_hours"] * 15
             dec_status = status["dec_j2000_degs"]
-            separation = angular_separation(ra, dec, ra_status, dec_status)
-            if separation > 0.1:
-                await self.actor.commands.setEnabled(False)
-                raise GortTelescopeError(
-                    "Telescope failed to reach desired position. "
-                    "The axes have been disabled for safety. "
-                    "Try re-homing the telescope.",
-                    error_code=102,
-                )
+
+            commanded = (ra, dec)
+            reported = (ra_status, dec_status)
 
         elif alt is not None and az is not None:
             is_altaz = alt is not None and az is not None and not ra and not dec
@@ -413,8 +415,54 @@ class Telescope(GortDevice):
 
             self.write_to_log(f"Moving to alt={alt:.6f} az={az:.6f}.", level="info")
             await self.pwi.commands.gotoAltAzJ2000(alt, az)
-            if altaz_tracking:
-                await self.pwi.commands.setTracking(enable=True)
+
+            # Check the position the PWI reports.
+            status = await self.status()
+            az_status = status["azimuth_degs"]
+            alt_status = status["altitude_degs"]
+
+            commanded = (az, alt)
+            reported = (az_status, alt_status)
+
+        else:
+            raise GortTelescopeError("Invalid coordinates.")
+
+        # Check if we reached the position. If not retry once or fail.
+        separation = angular_separation(*commanded, *reported)
+        if separation > 0.1:
+            if retry:
+                self.write_to_log(
+                    "Telescope failed to reach the desired position. Retrying",
+                    "warning",
+                )
+                # Need to make sure the k-mirror is not moving before re-trying.
+                if kmirror_task is not None and not kmirror_task.done():
+                    await kmirror_task
+
+                await asyncio.sleep(3)
+
+                return await self.goto_coordinates(
+                    ra=ra,
+                    dec=dec,
+                    alt=alt,
+                    az=az,
+                    kmirror=kmirror,
+                    altaz_tracking=altaz_tracking,
+                    use_pointing_offsets=use_pointing_offsets,
+                    force=force,
+                    retry=False,
+                )
+            else:
+                await self.actor.commands.setEnabled(False)
+                raise GortTelescopeError(
+                    "Telescope failed to reach desired position. "
+                    "The axes have been disabled for safety. "
+                    "Try re-homing the telescope.",
+                    error_code=102,
+                )
+
+        if alt is not None and az is not None and altaz_tracking:
+            await self.pwi.commands.setTracking(enable=True)
 
         if kmirror_task is not None and not kmirror_task.done():
             await kmirror_task
