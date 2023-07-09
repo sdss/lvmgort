@@ -56,6 +56,51 @@ class Guider(GortDevice):
             if "measured_pointing" in reply.body:
                 self.separation = reply.body["measured_pointing"]["separation"]
 
+    async def wait_until_guiding(
+        self,
+        min_separation: float | None = None,
+        timeout: float | None = None,
+    ):
+        """Waits until the guider has converged.
+
+        Parameters
+        ----------
+        min_separation
+            The minimum separation, in arcsec, between the measured and desired
+            positions that needs to be reached before returning. If `None`,
+            waits until guiding (as opposed to acquisition) begins.
+        timeout
+            Maximum time, in seconds, to wait before returning. If `None`,
+            waits indefinitely. If the timeout is reached it does not
+            raise an exception.
+
+        Returns
+        -------
+        reached
+            Whether the desired minimum separation was reached.
+        status
+            The current `.GuiderStatus`.
+        separation
+            The current separation.
+
+        """
+
+        elapsed = 0
+        while True:
+            if self.status is not None and self.separation is not None:
+                if not self.status & GuiderStatus.IDLE:
+                    if min_separation is not None and self.separation < min_separation:
+                        return (True, self.status, self.separation)
+                    elif min_separation is None:
+                        if self.status & GuiderStatus.GUIDING:
+                            return (True, self.status, self.separation)
+
+            elapsed += 1
+            if timeout is not None and elapsed > timeout:
+                return (False, self.status, self.separation)
+
+            await asyncio.sleep(1)
+
     async def expose(self, *args, continuous: bool = False, **kwargs):
         """Exposes this telescope cameras.
 
@@ -135,9 +180,12 @@ class Guider(GortDevice):
             the central pixel. This can also be the name of a known pixel
             position for this telescope, e.g., ``'P1-1'`` for ``spec``.
         guide_kwargs
-            Other keyword arguments to pass to ``guide start``.
+            Other keyword arguments to pass to ``lvmguider guide``.
 
         """
+
+        self.status = None
+        self.separation = None
 
         if ra is None or dec is None:
             status = await self.telescope.status()
@@ -299,3 +347,43 @@ class GuiderSet(GortDeviceSet[Guider]):
         """
 
         await self.call_device_method(Guider.stop, now=now)
+
+    async def wait_until_guiding(
+        self,
+        min_separation: float | None = None,
+        timeout: float | None = None,
+    ):
+        """Waits until the guiders have converged.
+
+        Parameters
+        ----------
+        min_separation
+            The minimum separation, in arcsec, between the measured and desired
+            positions that needs to be reached before returning. If `None`,
+            waits until guiding (as opposed to acquisition) begins.
+        timeout
+            Maximum time, in seconds, to wait before returning. If `None`,
+            waits indefinitely. If the timeout is reached it does not
+            raise an exception.
+
+        Returns
+        -------
+        status
+            A dictionary with the telescope names and a tuple indicating whether
+            the desired minimum separation was reached. tthe current `.GuiderStatus`,
+            and the current separation for that telescope.
+
+        """
+
+        names = list(self)
+        results = await asyncio.gather(
+            *[
+                self[name].wait_until_guiding(
+                    min_separation=min_separation,
+                    timeout=timeout,
+                )
+                for name in names
+            ]
+        )
+
+        return dict(zip(names, results))
