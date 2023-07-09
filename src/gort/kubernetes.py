@@ -131,7 +131,7 @@ class Kubernetes:
             if deployment in self.list_deployments():
                 namespace = self.get_deployment_namespace(deployment)
                 log.debug(f"Deleting deployment {deployment}.")
-                self.apps_v1.delete_namespaced_deployment("lvmguider", namespace)
+                self.apps_v1.delete_namespaced_deployment(deployment, namespace)
                 sleep(5)  # Give some time for the pods to exit.
             else:
                 log.warning(f"{deployment!r} is not running.")
