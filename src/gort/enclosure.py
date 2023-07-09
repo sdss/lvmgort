@@ -40,11 +40,11 @@ class Enclosure(GortDevice):
         await self.actor.commands.dome.commands.open()
         self.write_to_log("Enclosure is now open.", level="info")
 
-    async def close(self):
+    async def close(self, force: bool = False):
         """Close the enclosure dome."""
 
         self.write_to_log("Closing the enclosure ...", level="info")
-        await self.actor.commands.dome.commands.close()
+        await self.actor.commands.dome.commands.close(force=force)
         self.write_to_log("Enclosure is now closed.", level="info")
 
     async def stop(self):

@@ -396,7 +396,7 @@ class Gort(GortClient):
 
         tasks = []
         tasks.append(self.telescopes.park(disable=True))
-        tasks.append(self.enclosure.close())
+        tasks.append(self.enclosure.close(force=True))
 
         self.log.warning("Closing and parking telescopes.")
         await asyncio.gather(*tasks)
