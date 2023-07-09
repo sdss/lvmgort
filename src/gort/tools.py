@@ -37,6 +37,8 @@ __all__ = [
     "ds9_display_frames",
     "get_next_tile_id",
     "get_calibrators",
+    "get_next_tile_id_sync",
+    "get_calibrators_sync",
     "register_observation",
     "tqdm_timer",
     "get_ccd_frame_path",
@@ -189,6 +191,22 @@ def parse_agcam_filename(file_: str | pathlib.Path) -> tuple[str, str] | None:
     return match.groups()
 
 
+def get_next_tile_id_sync() -> dict:
+    """Retrieves the next ``tile_id`` from the scheduler API. Synchronous version."""
+
+    sch_config = config["scheduler"]
+    host = sch_config["host"]
+    port = sch_config["port"]
+
+    with httpx.Client(base_url=f"http://{host}:{port}/") as client:
+        resp = client.get("next_tile")
+        if resp.status_code != 200:
+            raise httpx.RequestError("Failed request to /next_tile")
+        tile_id_data = resp.json()
+
+    return tile_id_data
+
+
 async def get_next_tile_id() -> dict:
     """Retrieves the next ``tile_id`` from the scheduler API."""
 
@@ -203,6 +221,30 @@ async def get_next_tile_id() -> dict:
         tile_id_data = resp.json()
 
     return tile_id_data
+
+
+def get_calibrators_sync(
+    tile_id: int | None = None,
+    ra: float | None = None,
+    dec: float | None = None,
+):
+    """Get calibrators for a ``tile_id`` or science pointing. Synchronous version."""
+
+    sch_config = config["scheduler"]
+    host = sch_config["host"]
+    port = sch_config["port"]
+
+    with httpx.Client(base_url=f"http://{host}:{port}/") as client:
+        if tile_id:
+            resp = client.get("cals", params={"tile_id": tile_id})
+        elif ra is not None and dec is not None:
+            resp = client.get("cals", params={"ra": ra, "dec": dec})
+        else:
+            raise ValueError("ra and dec are required.")
+        if resp.status_code != 200:
+            raise httpx.RequestError("Failed request to /cals")
+
+    return resp.json()
 
 
 async def get_calibrators(
