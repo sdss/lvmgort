@@ -13,10 +13,11 @@ import warnings
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 
-from typing import TYPE_CHECKING, Callable, Self
+from typing import TYPE_CHECKING, Callable
 
 import unclick
 from aiormq import AMQPConnectionError, ChannelInvalidStateError
+from typing_extensions import Self
 
 from gort.exceptions import GortError, GortWarning
 

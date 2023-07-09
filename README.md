@@ -1,6 +1,6 @@
 # GORT
 
-![Versions](https://img.shields.io/badge/python->3.11-blue)
+![Versions](https://img.shields.io/badge/python->3.10-blue)
 [![Documentation Status](https://readthedocs.org/projects/lvmgort/badge/?version=latest)](https://lvmgort.readthedocs.io/en/latest/)
 [![Test](https://github.com/sdss/lvmgort/actions/workflows/test.yml/badge.svg)](https://github.com/sdss/lvmgort/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/sdss/lvmgort/branch/main/graph/badge.svg)](https://codecov.io/gh/sdss/lvmgort)

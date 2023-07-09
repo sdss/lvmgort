@@ -10,7 +10,9 @@ import asyncio
 import logging
 import uuid
 
-from typing import Any, Callable, ClassVar, Generic, Self, Type, TypeVar
+from typing import Any, Callable, ClassVar, Generic, Type, TypeVar
+
+from typing_extensions import Self
 
 from clu.client import AMQPClient
 
