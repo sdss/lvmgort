@@ -15,6 +15,7 @@ import re
 from typing import TYPE_CHECKING, Callable, Coroutine
 
 import httpx
+import peewee
 from astropy import units as uu
 from astropy.coordinates import angular_separation as astropy_angular_separation
 
@@ -45,6 +46,7 @@ __all__ = [
     "move_mask_interval",
     "radec_sexagesimal_to_decimal",
     "angular_separation",
+    "get_db_connection",
 ]
 
 CAMERAS = [
@@ -506,3 +508,12 @@ def angular_separation(lon1: float, lat1: float, lon2: float, lat2: float):
     )
 
     return separation.to("deg").value
+
+
+def get_db_connection():
+    """Returns a DB connection from the configuration file parameters."""
+
+    conn = peewee.PostgresqlDatabase(**config["database"])
+    assert conn.connect(), "Database connection failed."
+
+    return conn

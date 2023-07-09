@@ -39,6 +39,9 @@ tqdm = "^4.65.0"
 kubernetes = "^26.1.0"
 astropy = "^5.3.1"
 websockets = "^11.0.3"
+peewee = "^3.16.2"
+psycopg2-binary = "^2.9.6"
+pandas = "^2.0.3"
 
 [tool.poetry.group.dev.dependencies]
 ipython = ">=8.0.0"
