@@ -345,7 +345,10 @@ class Tile:
 
         return new_obj
 
-    def set_sci_coords(self, sci_coords: ScienceCoordinates | CoordTuple):
+    def set_sci_coords(
+        self,
+        sci_coords: ScienceCoordinates | CoordTuple,
+    ) -> ScienceCoordinates:
         """Sets the science telescope coordinates.
 
         Parameters
@@ -367,7 +370,7 @@ class Tile:
         self,
         sky_coords: dict[str, SkyCoordinates | CoordTuple] | None = None,
         allow_replacement: bool = True,
-    ):
+    ) -> dict[str, SkyCoordinates]:
         """Sets the sky telescopes coordinates.
 
         Parameters
@@ -452,7 +455,7 @@ class Tile:
         self,
         spec_coords: list[StandardCoordinates | CoordTuple] | None = None,
         reject_invisible: bool = True,
-    ):
+    ) -> list[StandardCoordinates]:
         """Sets the spec telescope coordinates.
 
         Parameters
