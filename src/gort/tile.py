@@ -52,6 +52,9 @@ class Coordinates:
     def __repr__(self):
         return f"<{self.__class__.__name__} (ra={self.ra:.6f}, dec={self.dec:.6f})>"
 
+    def __str__(self):
+        return f"{self.ra:.6f}, {self.dec:.6f}"
+
     def calculate_altitude(self, time: Time | None = None):
         """Returns the current altitude of the target."""
 

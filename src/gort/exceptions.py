@@ -30,6 +30,7 @@ class ErrorCodes(Enum):
     LOCAL_MODE_FAILED = 501
     DOOR_STATUS_FAILED = 502
     INVALID_PIXEL_NAME = 610
+    ACQUISITION_FAILED = 801
     UNKNOWN_ERROR = 999
 
 
@@ -122,6 +123,12 @@ class GortTelescopeError(GortDeviceError):
 
 class TileError(GortError):
     """An error associated with a `.Tile`."""
+
+    pass
+
+
+class GortObserverError(GortError):
+    """An error associated with the `.Observer`."""
 
     pass
 

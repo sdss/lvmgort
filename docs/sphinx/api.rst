@@ -40,6 +40,13 @@ Devices
    :members: Telescope, TelescopeSet, KMirror, Focuser, FibSel
    :show-inheritance:
 
+Observer
+--------
+
+.. automodule:: gort.observer
+   :members: GortObserver
+   :show-inheritance:
+
 Tile
 ----
 
