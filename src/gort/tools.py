@@ -314,7 +314,7 @@ def is_notebook() -> bool:
         return False  # Probably standard Python interpreter
 
 
-def tqdm_timer(seconds: int):
+def tqdm_timer(seconds: float):
     """Creates a task qith a tqdm progress bar."""
 
     if is_notebook():
@@ -325,7 +325,7 @@ def tqdm_timer(seconds: int):
     bar_format = "{l_bar}{bar}| {n_fmt}/{total_fmt}s"
 
     async def _progress():
-        for _ in tqdm(range(seconds), bar_format=bar_format):
+        for _ in tqdm(range(int(seconds)), bar_format=bar_format):
             await asyncio.sleep(1)
 
     return asyncio.create_task(_progress())

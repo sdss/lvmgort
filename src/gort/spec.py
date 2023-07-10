@@ -119,7 +119,10 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             )
 
         count: int = kwargs.pop("count", 1)
-        exposure_time: float = kwargs.pop("exposure_time", 10)
+
+        exposure_time = kwargs.pop("exposure_time", 10)
+        if kwargs.get("bias", False) or kwargs.get("flavour", "object") == "bias":
+            exposure_time = 0.0
 
         exp_nos: list[int] = []
 
@@ -135,7 +138,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                 header = None
 
             if show_progress:
-                timer = tqdm_timer(exposure_time + READOUT_TIME)
+                timer = tqdm_timer(float(exposure_time) + READOUT_TIME)
             else:
                 timer = None
 
