@@ -17,7 +17,7 @@ import numpy
 from gort import config
 from gort.exceptions import GortTelescopeError
 from gort.gort import GortDevice, GortDeviceSet
-from gort.tools import angular_separation, get_calibrators, get_next_tile_id
+from gort.tools import angular_separation
 
 
 if TYPE_CHECKING:
@@ -723,63 +723,6 @@ class TelescopeSet(GortDeviceSet[Telescope]):
             altaz_tracking=altaz_tracking,
             force=force,
         )
-
-    async def goto_tile_id(
-        self,
-        tile_id: int | None = None,
-        ra: float | None = None,
-        dec: float | None = None,
-        force: bool = False,
-    ):
-        """Moves all the telescopes to a ``tile_id``.
-
-        If the ``tile_id`` is not provided, the next tile is retrieved from
-        the scheduler. If ``ra``/``dec`` are provided, the science telescope
-        will point to those coordinates and the remaining will be grabbed from
-        the scheduler.
-
-        Parameters
-        ----------
-        tile_id
-            The tile_id to which to slew. The coordinates for each telescope
-            are retrieved from the database.
-        ra,dec
-            The RA and Dec where to point the science telescopes. The other
-            telescopes are pointed to calibrators that fit the science pointing.
-            Cannot be used with ``tile_id``.
-        force
-            Move the telescope even in local enclosure mode.
-
-        """
-
-        await self._check_local(force)
-
-        tile_id_data: dict = {}
-        if tile_id is None and (ra is None and dec is None):
-            tile_id_data = await get_next_tile_id()
-            calibrators = await get_calibrators(tile_id=tile_id_data["tile_id"])
-        elif ra is not None and dec is not None:
-            tile_id_data = {"tile_id": None, "tile_pos": (ra, dec)}
-            calibrators = await get_calibrators(ra=ra, dec=dec)
-        else:
-            raise GortTelescopeError("Both ra and dec need to be provided.")
-
-        tile_id = tile_id_data["tile_id"]
-
-        sci = (tile_id_data["tile_pos"][0], tile_id_data["tile_pos"][1])
-        skye, skyw = calibrators["sky_pos"]
-        spec = calibrators["standard_pos"][0]
-
-        self.write_to_log(f"Going to tile_id={tile_id}.", level="info")
-        self.write_to_log(f"Science: {sci}")
-        self.write_to_log(f"Spec: {spec}")
-        self.write_to_log(f"SkyE: {skye}")
-        self.write_to_log(f"SkyW: {skyw}")
-
-        await self.goto(sci=sci, spec=spec, skye=skye, skyw=skyw, force=force)
-
-        tile_id_data.update(calibrators)
-        return tile_id_data
 
     async def goto(
         self,
