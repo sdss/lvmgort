@@ -111,7 +111,6 @@ class QuerableCoordinates(Coordinates):
         # Cache query.
         if cls.targets is None:
             cls.targets = SkyCoord(ra=targets.ra, dec=targets.dec, unit="deg")
-        print(cls.__db_table__, cls.targets, len(cls.targets))
 
         skycoords = cls.targets.copy()
 
