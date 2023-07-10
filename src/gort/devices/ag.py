@@ -13,6 +13,9 @@ import asyncio
 from gort.gort import GortDevice, GortDeviceSet
 
 
+__all__ = ["AG", "AGSet"]
+
+
 class AG(GortDevice):
     """Class representing an AG camera."""
 

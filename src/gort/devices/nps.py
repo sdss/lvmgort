@@ -18,6 +18,9 @@ if TYPE_CHECKING:
     from gort.gort import GortClient
 
 
+__all__ = ["NPS", "NPSSet"]
+
+
 class NPS(GortDevice):
     """Class representing a networked power switch."""
 

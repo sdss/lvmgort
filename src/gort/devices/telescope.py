@@ -25,6 +25,9 @@ if TYPE_CHECKING:
     from gort.gort import GortClient
 
 
+__all__ = ["Telescope", "TelescopeSet", "KMirror", "FibSel", "Focuser"]
+
+
 class KMirror(GortDevice):
     """A device representing a K-mirror."""
 

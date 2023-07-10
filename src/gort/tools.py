@@ -30,8 +30,8 @@ if TYPE_CHECKING:
 
     from clu import AMQPClient, AMQPReply
 
+    from gort.devices.telescope import FibSel
     from gort.gort import GortClient
-    from gort.telescope import FibSel
 
 
 __all__ = [

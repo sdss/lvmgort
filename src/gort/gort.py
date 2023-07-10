@@ -57,12 +57,12 @@ class GortClient(AMQPClient):
         user: str = "guest",
         password: str = "guest",
     ):
-        from gort.ag import AGSet
-        from gort.enclosure import Enclosure
-        from gort.guider import GuiderSet
-        from gort.nps import NPSSet
-        from gort.spec import SpectrographSet
-        from gort.telescope import TelescopeSet
+        from gort.devices.ag import AGSet
+        from gort.devices.enclosure import Enclosure
+        from gort.devices.guider import GuiderSet
+        from gort.devices.nps import NPSSet
+        from gort.devices.spec import SpectrographSet
+        from gort.devices.telescope import TelescopeSet
 
         client_uuid = str(uuid.uuid4()).split("-")[1]
 

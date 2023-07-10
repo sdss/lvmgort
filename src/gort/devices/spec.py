@@ -25,6 +25,9 @@ if TYPE_CHECKING:
     from gort.gort import GortClient
 
 
+__all__ = ["Spectrograph", "SpectrographSet", "READOUT_TIME"]
+
+
 READOUT_TIME = 56
 
 

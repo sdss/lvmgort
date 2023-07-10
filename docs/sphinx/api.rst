@@ -20,23 +20,27 @@ Core classes
 Devices
 -------
 
-.. automodule:: gort.enclosure
+.. automodule:: gort.devices.enclosure
    :members:
    :show-inheritance:
 
-.. automodule:: gort.guider
+.. automodule:: gort.devices.ag
    :members:
    :show-inheritance:
 
-.. automodule:: gort.nps
+.. automodule:: gort.devices.guider
    :members:
    :show-inheritance:
 
-.. automodule:: gort.spec
+.. automodule:: gort.devices.nps
    :members:
    :show-inheritance:
 
-.. automodule:: gort.telescope
+.. automodule:: gort.devices.spec
+   :members:
+   :show-inheritance:
+
+.. automodule:: gort.devices.telescope
    :members: Telescope, TelescopeSet, KMirror, Focuser, FibSel
    :show-inheritance:
 

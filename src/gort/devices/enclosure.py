@@ -20,6 +20,9 @@ if TYPE_CHECKING:
     from gort.gort import GortClient
 
 
+__all__ = ["Enclosure"]
+
+
 class Enclosure(GortDevice):
     """Class representing the LVM enclosure."""
 
