@@ -31,7 +31,7 @@ class Guider(GortDevice):
         super().__init__(gort, name, actor)
 
         self.separation: float | None = None
-        self.status: GuiderStatus | None = None
+        self.status: GuiderStatus = GuiderStatus.IDLE
 
         self.gort.add_reply_callback(self._status_cb)
 
@@ -58,14 +58,14 @@ class Guider(GortDevice):
 
     async def wait_until_guiding(
         self,
-        min_separation: float | None = None,
+        guide_tolerance: float | None = None,
         timeout: float | None = None,
-    ):
+    ) -> tuple[bool, GuiderStatus, float | None]:
         """Waits until the guider has converged.
 
         Parameters
         ----------
-        min_separation
+        guide_tolerance
             The minimum separation, in arcsec, between the measured and desired
             positions that needs to be reached before returning. If `None`,
             waits until guiding (as opposed to acquisition) begins.
@@ -89,9 +89,12 @@ class Guider(GortDevice):
         while True:
             if self.status is not None and self.separation is not None:
                 if not self.status & GuiderStatus.IDLE:
-                    if min_separation is not None and self.separation < min_separation:
+                    if (
+                        guide_tolerance is not None
+                        and self.separation < guide_tolerance
+                    ):
                         return (True, self.status, self.separation)
-                    elif min_separation is None:
+                    elif guide_tolerance is None:
                         if self.status & GuiderStatus.GUIDING:
                             return (True, self.status, self.separation)
 
@@ -153,7 +156,6 @@ class Guider(GortDevice):
         except GortError as err:
             self.write_to_log(f"Failed focusing with error {err}", level="error")
         finally:
-            self.status = None
             self.separation = None
 
     async def guide(
@@ -184,7 +186,6 @@ class Guider(GortDevice):
 
         """
 
-        self.status = None
         self.separation = None
 
         if ra is None or dec is None:
@@ -346,18 +347,20 @@ class GuiderSet(GortDeviceSet[Guider]):
 
         """
 
+        # TODO: add option to block until GuiderStatus is IDLE.
+
         await self.call_device_method(Guider.stop, now=now)
 
     async def wait_until_guiding(
         self,
-        min_separation: float | None = None,
+        guide_tolerance: float | None = None,
         timeout: float | None = None,
     ):
         """Waits until the guiders have converged.
 
         Parameters
         ----------
-        min_separation
+        guide_tolerance
             The minimum separation, in arcsec, between the measured and desired
             positions that needs to be reached before returning. If `None`,
             waits until guiding (as opposed to acquisition) begins.
@@ -379,7 +382,7 @@ class GuiderSet(GortDeviceSet[Guider]):
         results = await asyncio.gather(
             *[
                 self[name].wait_until_guiding(
-                    min_separation=min_separation,
+                    guide_tolerance=guide_tolerance,
                     timeout=timeout,
                 )
                 for name in names
