@@ -29,15 +29,33 @@ Next we set the logging level to ``info``. By default ``gort`` will only raise a
 
 A first good step every afternoon is to home the telescopes, which may have lost their zero points during the day. For that do ::
 
-    >>> await g.telescopes.home()
+    >>> await g.telescopes.home(home_subdevices=True)
     02:31:17 [INFO]: (sci) Homing telescope.
     02:31:17 [INFO]: (spec) Homing telescope.
     02:31:17 [INFO]: (skye) Homing telescope.
     02:31:17 [INFO]: (skyw) Homing telescope.
 
-Note that we are commanding all four telescopes at the same time. This routine connects and energises the axes of the mounts and runs a homing routine, which may take up one minute. If during the night it seems the telescopes are not pointing correctly, it's useful to re-home them.
+Note that we are commanding all four telescopes at the same time. This routine connects and energises the axes of the mounts and runs a homing routine, which may take up one minute. If during the night it seems the telescopes are not pointing correctly, it's useful to re-home them. The ``home_subdevices=True`` option also homes the k-mirrors, focusers, and fibre selector.
 
-Next, we take a calibration sequence ::
+We can now take a set of autoguider dark frames with `~.GuiderSet.take_darks`. The telescopes will be pointed to the ground (since the AG cameras don't have shutters) and an exposure will be taken with each one of them. ::
+
+    >>> await g.guiders.take_darks()
+    07:07:45 [INFO]: (GuiderSet) Moving telescopes to park position.
+    07:07:46 [INFO]: (sci) Moving to alt=-60.000000 az=90.000000.
+    07:07:46 [INFO]: (spec) Moving to alt=-60.000000 az=90.000000.
+    07:07:46 [INFO]: (skye) Moving to alt=-60.000000 az=90.000000.
+    07:07:46 [INFO]: (skyw) Moving to alt=-60.000000 az=90.000000.
+    07:07:59 [INFO]: (GuiderSet) Taking darks.
+    07:07:59 [DEBUG]: (skyw) {'text': 'Taking agcam exposure skyw-1.'}
+    07:07:59 [DEBUG]: (sci) {'text': 'Taking agcam exposure sci-1.'}
+    07:07:59 [DEBUG]: (skye) {'text': 'Taking agcam exposure skye-1.'}
+    07:07:59 [DEBUG]: (spec) {'text': 'Taking agcam exposure spec-1.'}
+    07:08:08 [DEBUG]: (spec) {'frame': {'seqno': 1, 'filenames': ['/data/agcam/60135/lvm.spec.agcam.east_00000001.fits'], 'flavour': 'dark', 'n_sources': 0, 'fwhm': None}}
+    07:08:08 [DEBUG]: (skye) {'frame': {'seqno': 1, 'filenames': ['/data/agcam/60135/lvm.skye.agcam.west_00000001.fits', '/data/agcam/60135/lvm.skye.agcam.east_00000001.fits'], 'flavour': 'dark', 'n_sources': 0, 'fwhm': None}}
+    07:08:08 [DEBUG]: (skyw) {'frame': {'seqno': 1, 'filenames': ['/data/agcam/60135/lvm.skyw.agcam.west_00000001.fits', '/data/agcam/60135/lvm.skyw.agcam.east_00000001.fits'], 'flavour': 'dark', 'n_sources': 0, 'fwhm': None}}
+    07:08:08 [DEBUG]: (sci) {'frame': {'seqno': 1, 'filenames': ['/data/agcam/60135/lvm.sci.agcam.west_00000001.fits', '/data/agcam/60135/lvm.sci.agcam.east_00000001.fits'], 'flavour': 'dark', 'n_sources': 0, 'fwhm': None}}
+
+Next, we take a spectrograph calibration sequence ::
 
     await g.spec.calibrate(sequence='normal')
 
@@ -53,6 +71,14 @@ This command will block until the dome is fully open, and will return an error i
 
 .. warning::
     Jupyter notebooks don't allow to run more than one cell at the same time, so in practice it's not possible to have concurrency. If you need to do an emergency stop of the enclosure while it is already moving, you'll need to first stop the running cell (note that this won't stop the command that opens the dome) and then run another cell with the stop command.
+
+Once the dome is open we can focus the telescopes with ::
+
+    await g.guiders.focus()
+
+By default this performs a 9-step focus sweep for each telescope around focuser position 40 DT. If it seems the sweep is not sampling the best focus position you can change the `~.GuiderSet.focus` parameters, for example by passing ``guess=XXX``, or focus an individual telescope with `.Guider.focus`.
+
+At this point you should be ready to being science observations.
 
 Misc
 ----
