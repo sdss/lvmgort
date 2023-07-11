@@ -220,18 +220,27 @@ class Guider(GortDevice):
             **guide_kwargs,
         )
 
-    async def stop(self, now: bool = False):
+    async def stop(self, now: bool = False, wait_until_stopped: bool = True):
         """Stops the guide loop.
 
         Parameters
         ----------
         now
             Aggressively stops the guide loop.
+        wait_until_stopped
+            Blocks until the guider is idle.
 
         """
 
         self.write_to_log(f"Stopping guider with now={now}.", "info")
         await self.actor.commands.stop(now=now)
+
+        if wait_until_stopped:
+            while True:
+                if self.status & GuiderStatus.IDLE:
+                    self.write_to_log("Guider is not IDLE.")
+                    return
+                await asyncio.sleep(0.5)
 
     async def set_pixel(
         self,
@@ -342,17 +351,23 @@ class GuiderSet(GortDeviceSet[Guider]):
 
         await self.call_device_method(Guider.guide, *args, **kwargs)
 
-    async def stop(self, now: bool = False):
+    async def stop(self, now: bool = False, wait_until_stopped: bool = True):
         """Stops the guide loop on all telescopes.
 
         Parameters
         ----------
         now
             Aggressively stops the guide loop.
+        wait_until_stopped
+            Blocks until the guider is idle.
 
         """
 
-        await self.call_device_method(Guider.stop, now=now)
+        await self.call_device_method(
+            Guider.stop,
+            now=now,
+            wait_until_stopped=wait_until_stopped,
+        )
 
     async def wait_until_guiding(
         self,
