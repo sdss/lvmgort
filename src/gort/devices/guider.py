@@ -376,7 +376,7 @@ class GuiderSet(GortDeviceSet[Guider]):
         -------
         status
             A dictionary with the telescope names and a tuple indicating whether
-            the desired minimum separation was reached. tthe current `.GuiderStatus`,
+            the desired minimum separation was reached. the current `.GuiderStatus`,
             and the current separation for that telescope.
 
         """
