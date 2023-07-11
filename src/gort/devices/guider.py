@@ -82,24 +82,26 @@ class Guider(GortDevice):
         reached
             Whether the desired minimum separation was reached.
         status
-            The current `.GuiderStatus`.
+            The current `.GS`.
         separation
             The current separation.
 
         """
 
-        elapsed = 0
+        # Initial delay to allow time for the guider to switch to DRIFTING status.
+        await asyncio.sleep(1)
+
+        elapsed = 1
         while True:
-            if self.status is not None and self.separation is not None:
-                if not self.status & GuiderStatus.IDLE:
-                    if (
-                        guide_tolerance is not None
-                        and self.separation < guide_tolerance
-                    ):
-                        return (True, self.status, self.separation)
-                    elif guide_tolerance is None:
-                        if self.status & GuiderStatus.GUIDING:
-                            return (True, self.status, self.separation)
+            has_acquired = (
+                self.status is not None
+                and self.separation is not None
+                and self.status & GuiderStatus.GUIDING
+                and not self.status & GuiderStatus.DRIFTING
+                and (guide_tolerance is None or self.separation < guide_tolerance)
+            )
+            if has_acquired:
+                return (True, self.status, self.separation)
 
             elapsed += 1
             if timeout is not None and elapsed > timeout:
@@ -349,8 +351,6 @@ class GuiderSet(GortDeviceSet[Guider]):
             Aggressively stops the guide loop.
 
         """
-
-        # TODO: add option to block until GuiderStatus is IDLE.
 
         await self.call_device_method(Guider.stop, now=now)
 
