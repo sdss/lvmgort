@@ -158,6 +158,12 @@ class FibSel(GortDevice):
 
         await self.actor.commands.moveAbsolute(steps)
 
+    async def move_relative(self, steps: float):
+        """Move the mask a number of motor steps relative to the current position."""
+
+        self.write_to_log(f"Moving fibre mask {steps} steps.")
+        await self.actor.commands.moveRelative(steps)
+
 
 class Telescope(GortDevice):
     """Class representing an LVM telescope functionality."""
