@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from time import time
 
 from typing import TYPE_CHECKING
 
@@ -54,7 +55,7 @@ class GortObserver:
         cotasks = []
 
         # Stops guiders.
-        await self.gort.guiders.stop(now=True)
+        await self.gort.guiders.stop()
 
         # Slew telescopes.
         self.write_to_log(f"Slewing to tile_id={self.tile.tile_id}.", level="info")
@@ -140,6 +141,7 @@ class GortObserver:
             raise GortObserverError("Not enough sky positions defined.", error_code=801)
 
         # Start guide loop.
+        # TODO: do we need to pass the ra/dec coordinates of the target here?
         self.guide_task = asyncio.gather(
             *[
                 self.gort.guiders[tel].guide(
@@ -151,12 +153,10 @@ class GortObserver:
         )
 
         # Wait until convergence.
+        self.write_to_log("Waiting for guiders to converge.")
         guide_status = await asyncio.gather(
             *[
-                self.gort.guiders[tel].wait_until_guiding(
-                    guide_tolerance=guide_tolerance,
-                    timeout=timeout,
-                )
+                self.gort.guiders[tel].wait_until_guiding(timeout=timeout)
                 for tel in telescopes
             ]
         )
@@ -194,37 +194,66 @@ class GortObserver:
             self.write_to_log("Stopping guide loops.", "warning")
             await self.gort.guiders.stop()
 
-    async def expose(self):
-        """Starts exposing the spectrographs."""
+    async def expose(
+        self,
+        exposure_time: float = 900.0,
+        show_progress: bool = True,
+        iterate_over_standards: bool = True,
+    ):
+        """Starts exposing the spectrographs.
+
+        Parameters
+        ----------
+        exposure_time
+            The lenght of the exposure in seconds.
+        show_progress
+            Displays a progress bar with the elapsed exposure time.
+        iterate_over_standards
+            Whether to move the spec telescope during intergration
+            to observe various standard stars in different fibres.
+
+        """
+
+        standard_task: asyncio.Task | None = None
+        if iterate_over_standards:
+            standard_task = asyncio.create_task(
+                self._iterate_over_mask_positions(exposure_time)
+            )
 
         tile_id = self.tile.tile_id
         dither_pos = self.tile.dither_position
 
         exp_tile_data = {
-            "tile_id": (tile_id, "The tile_id of this observation"),
+            "tile_id": (tile_id or -999, "The tile_id of this observation"),
             "dpos": (dither_pos, "Dither position"),
         }
+
         exp_nos = await self.gort.specs.expose(
+            exposure_time=exposure_time,
             tile_data=exp_tile_data,
-            show_progress=True,
+            show_progress=show_progress,
         )
 
-        if len(exp_nos) < 1:
-            raise ValueError("No exposures to be registered.")
+        if standard_task is not None and not standard_task.done():
+            await standard_task
 
-        self.write_to_log("Registering observation.")
-        registration_payload = {
-            "dither": dither_pos,
-            "tile_id": tile_id,
-            "jd": 0,
-            "seeing": 10,
-            "standards": [],
-            "skies": [],
-            "exposure_no": exp_nos[0],
-        }
-        self.write_to_log(f"Registration payload {registration_payload}")
-        await register_observation(registration_payload)
-        self.write_to_log("Registration complete.")
+        if tile_id:
+            if len(exp_nos) < 1:
+                raise ValueError("No exposures to be registered.")
+
+            self.write_to_log("Registering observation.")
+            registration_payload = {
+                "dither": dither_pos,
+                "tile_id": tile_id,
+                "jd": 0,
+                "seeing": 10,
+                "standards": [],
+                "skies": [],
+                "exposure_no": exp_nos[0],
+            }
+            self.write_to_log(f"Registration payload {registration_payload}")
+            await register_observation(registration_payload)
+            self.write_to_log("Registration complete.")
 
     def write_to_log(
         self,
@@ -264,3 +293,107 @@ class GortObserver:
         positions = [pos for pos in all_positions if re.match(pattern, pos)]
 
         return sorted(positions, key=lambda p: mask_config[p])
+
+    async def _iterate_over_mask_positions(self, exposure_time: float):
+        """Iterates over the fibre mask positions.
+
+        Moving the ``spec`` telescope to each one of the standard star,
+        acquires the new field, and adjusts the time to stay on each target.
+
+        """
+
+        # TODO: record how long we exposed on each standard and save that
+        # information somewhere.
+
+        spec_coords = self.tile.spec_coords
+
+        # If we have zero or one standards, do nothing. The spec telescope
+        # is already pointing to the first mask position.
+        if len(spec_coords) <= 1:
+            return
+
+        # Time at which the exposure began.
+        t0 = time()
+
+        # Time to spend on each mask position.
+        n_stds = len(spec_coords)
+        time_per_position = exposure_time / n_stds
+
+        # Time at which we started observing the last standard.
+        t0_last_std = t0
+
+        # Number of standards observed.
+        n_observed = 1
+
+        # Index of current standard being observed.
+        current_std_idx = 0
+
+        while True:
+            await asyncio.sleep(1)
+
+            # We consider than if there is less than 2 minutes left in the
+            # exposure there is no point in going to the next standard.
+            t_now = time()
+            if t_now - t0 > exposure_time - 120:
+                self.write_to_log("Exiting standard loop.")
+                self.write_to_log(f"Standards observed: {n_observed}/{n_stds}.", "info")
+                return
+
+            # Time to move to another standard?
+            if t_now - t0_last_std > time_per_position:
+                # Check that we haven't run out standards. If so,
+                # keep observing this one.
+                if len(spec_coords) == current_std_idx + 1:
+                    continue
+
+                # Increase current index and get coordinates.
+                current_std_idx += 1
+
+                # New coordinates to observe.
+                new_coords = spec_coords[current_std_idx]
+                new_mask_position = self.mask_positions[current_std_idx]
+
+                self.write_to_log(
+                    f"Moving to standard #{current_std_idx+1} ({new_coords}) "
+                    f"on fibre {new_mask_position}."
+                )
+
+                # Finish guiding on spec telescope.
+                self.write_to_log("Stopping guiding on spec telescope.")
+                await self.gort.guiders["spec"].stop()
+
+                # TODO: some of these things can be concurrent.
+                spec_tel = self.gort.telescopes.spec
+
+                # Moving the mask to an intermediate position while we move around.
+                await spec_tel.fibsel.move_relative(500)
+
+                # Slew to new coordinates.
+                # TODO: to speed up acquisition we should slew to the coordinates
+                # of the fibre, or do an offset just before beginning to guide.
+                await spec_tel.goto_coordinates(ra=new_coords.ra, dec=new_coords.dec)
+
+                # Start to guide.
+                self.write_to_log("Starting to guide on spec telescope.")
+                await self.gort.guiders.spec.guide(
+                    fieldra=new_coords.ra,
+                    fielddec=new_coords.dec,
+                    guide_tolerance=5,
+                    pixel=new_mask_position,
+                )
+
+                result = await self.gort.guiders.spec.wait_until_guiding(timeout=60)
+                if result[0] is False:
+                    self.write_to_log(
+                        "Failed to acquire standard position. Skipping.",
+                        "warning",
+                    )
+                    continue
+
+                self.write_to_log(f"Standard position {new_mask_position} acquired.")
+
+                # Move mask to uncover fibre.
+                await spec_tel.fibsel.move_to_position(new_mask_position)
+
+                n_observed += 1
+                t0_last_std = time()
