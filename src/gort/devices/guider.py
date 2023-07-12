@@ -213,8 +213,8 @@ class Guider(GortDevice):
 
         await self.actor.commands.guide(
             reply_callback=self.print_reply,
-            fieldra=ra,
-            fielddec=dec,
+            ra=ra,
+            dec=dec,
             exposure_time=exposure_time,
             reference_pixel=pixel,
             **guide_kwargs,

@@ -386,8 +386,8 @@ class GortObserver:
                 # Start to guide.
                 self.write_to_log("Starting to guide on spec telescope.")
                 await self.gort.guiders.spec.guide(
-                    fieldra=new_coords.ra,
-                    fielddec=new_coords.dec,
+                    ra=new_coords.ra,
+                    dec=new_coords.dec,
                     guide_tolerance=5,
                     pixel=new_guider_pixel,
                 )
