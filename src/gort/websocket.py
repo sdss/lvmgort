@@ -12,7 +12,7 @@ import asyncio
 import json
 from functools import partial
 
-from typing import TYPE_CHECKING, Any, Callable, Coroutine
+from typing import TYPE_CHECKING, Callable, Coroutine
 
 from websockets.legacy.protocol import broadcast
 from websockets.server import serve
@@ -31,12 +31,13 @@ __all__ = ["WebsocketServer"]
 
 
 CALLBACKS: dict[str, Callable] = {}
+CB_TYPE = Callable[["WebsocketServer", WebSocketServerProtocol, str], None | Coroutine]
 
 
 def route(name: str):
-    def decorator(
-        fn: Callable[[WebsocketServer, WebSocketServerProtocol, str], Any | Coroutine]
-    ):
+    """Defines a WebsocketServer router."""
+
+    def decorator(fn: CB_TYPE):
         CALLBACKS[name] = fn
         return fn
 
@@ -178,7 +179,7 @@ class WebsocketServer:
         self,
         client: WebSocketServerProtocol,
         command_id: str,
-        **kwargs,
+        **_,
     ):
         """Returns the enclosure status."""
 
