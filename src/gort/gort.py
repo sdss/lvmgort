@@ -411,7 +411,14 @@ class Gort(GortClient):
     def set_signals(self, mode: str | None = None):
         """Defines the behaviour when the event loop receives a signal."""
 
-        loop = asyncio.get_running_loop()
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self.log.warning(
+                "No event loop found. Signals cannot be set and "
+                "this may cause other problems."
+            )
+            return
 
         async def _stop():
             await asyncio.gather(*[self.telescopes.stop(), self.guiders.stop()])
