@@ -54,6 +54,13 @@ def read_fibermap(
 
     if path is None:
         path = pathlib.Path(config["lvmcore"]["path"]) / config["lvmcore"]["fibermap"]
+    else:
+        path = pathlib.Path(path).absolute()
+
+    assert isinstance(path, pathlib.Path)
+
+    if not path.exists():
+        raise FileNotFoundError(f"Fibermap file {str(path)} does not exist.")
 
     if force_cache is False and _FIBERMAP_CACHE is not None:
         return _FIBERMAP_CACHE
