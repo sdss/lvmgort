@@ -658,3 +658,40 @@ def offset_to_master_frame_pixel(xmm: float, ymm: float) -> tuple[float, float]:
         raise ValueError("Pixel is out of bounds.")
 
     return (round(x_mf, 1), round(y_mf, 1))
+
+
+def xy_to_radec_offset(xpmm: float, ypmm: float):
+    """Converts offsets in the IFU to approximate RA/Dec offsets.
+
+    ..warning::
+        This is an approximate conversion that assumes the IFU is perfectly
+        aligned with the AG cameras in the focal plane and that the field
+        de-rotation is perfect. It should only be used to determine initial
+        offsets for blind telescope slews.
+
+    Parameters
+    ----------
+    xpmm
+        The x offset with respect to the central IFU fibre, in mm, as defined
+        in the fibermap.
+    ypmm
+        As ``xpmm`` for the y offset.
+
+    Returns
+    -------
+    radec
+        RA/Dec offset in arcsec as a tuple. See the warning above for caveats.
+
+    """
+
+    # In the master frame / focal plane, increase x means increasing RA and
+    # increasing y means decreasing Dec (i.e., axes are rotated 180 degrees
+    # wrt the usual North up, East left).
+
+    PIXEL_SIZE = 9  # microns/pixel
+    PIXEL_SCALE = 1  # arcsec/pixel
+
+    x_arcsec = xpmm * 1000 / PIXEL_SIZE * PIXEL_SCALE
+    y_arcsec = ypmm * 1000 / PIXEL_SIZE * PIXEL_SCALE
+
+    return (x_arcsec, -y_arcsec)
