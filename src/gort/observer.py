@@ -307,6 +307,9 @@ class GortObserver:
 
         spec_coords = self.tile.spec_coords
 
+        guider_named_pixels: dict[str, tuple[float, float]]
+        guider_named_pixels = self.gort.config["guiders"]["spec"]["named_pixels"]
+
         # If we have zero or one standards, do nothing. The spec telescope
         # is already pointing to the first mask position.
         if len(spec_coords) <= 1:
@@ -353,6 +356,13 @@ class GortObserver:
                 new_coords = spec_coords[current_std_idx]
                 new_mask_position = self.mask_positions[current_std_idx]
 
+                # Pixel on the MF corresponding to the new fibre/mask hole on
+                # which to guide. We use this tabulated list instead of
+                # offset_to_master_frame_pixel() because the latter coordinates
+                # are less precise as they do not include IFU rotation and more
+                # precise metrology.
+                new_guider_pixel = guider_named_pixels[new_mask_position]
+
                 self.write_to_log(
                     f"Moving to standard #{current_std_idx+1} ({new_coords}) "
                     f"on fibre {new_mask_position}."
@@ -379,7 +389,7 @@ class GortObserver:
                     fieldra=new_coords.ra,
                     fielddec=new_coords.dec,
                     guide_tolerance=5,
-                    pixel=new_mask_position,
+                    pixel=new_guider_pixel,
                 )
 
                 result = await self.gort.guiders.spec.wait_until_guiding(timeout=60)
