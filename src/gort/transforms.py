@@ -149,7 +149,7 @@ def offset_to_master_frame_pixel(
 def xy_to_radec_offset(xpmm: float, ypmm: float):
     """Converts offsets in the IFU to approximate RA/Dec offsets.
 
-    ..warning::
+    .. warning::
         This is an approximate conversion that assumes the IFU is perfectly
         aligned with the AG cameras in the focal plane and that the field
         de-rotation is perfect. It should only be used to determine initial
