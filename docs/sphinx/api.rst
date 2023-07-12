@@ -72,8 +72,8 @@ Tools
    :members:
    :show-inheritance:
 
-Transforms
-----------
+Transformations
+---------------
 
 .. automodule:: gort.transforms
    :members:
