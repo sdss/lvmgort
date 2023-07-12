@@ -176,7 +176,7 @@ class StandardCoordinates(QuerableCoordinates):
     __db_table__ = "lvmopsdb.standard"
 
 
-class Tile:
+class Tile(dict[str, Coordinates | list[Coordinates] | None]):
     """A representation of a science pointing with associated calibrators.
 
     This class is most usually initialised from a classmethod like
@@ -219,6 +219,16 @@ class Tile:
         self.spec_coords = self.set_spec_coords(
             spec_coords,
             reject_invisible=allow_replacement,
+        )
+
+        dict.__init__(
+            self,
+            {
+                "sci": self.sci_coords,
+                "skye": self.sky_coords.get("skye", None),
+                "skyw": self.sky_coords.get("skyw", None),
+                "spec": self.spec_coords,
+            },
         )
 
     def __repr__(self):
