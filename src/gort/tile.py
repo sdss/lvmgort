@@ -379,7 +379,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         else:
             raise TileError("Invalid inputs.")
 
-        sci_coords = ScienceCoordinates(*sci_pos)
+        sci_coords = ScienceCoordinates(*sci_pos, centre_on_fibre=None)
 
         calibrator_data = get_calibrators_sync(
             tile_id=None,
