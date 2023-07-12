@@ -16,6 +16,7 @@ from time import time
 from typing import TYPE_CHECKING
 
 from gort.exceptions import GortObserverError
+from gort.tile import Coordinates
 from gort.tools import register_observation
 from gort.transforms import fibre_slew_coordinates
 
@@ -128,46 +129,58 @@ class GortObserver:
         """
 
         # Determine telescopes on which to guide.
-        telescopes = ["sci"]
-        n_skies = 0
-        if "skye" in self.tile.sky_coords:
-            telescopes.append("skye")
-            n_skies += 1
-        if "skyw" in self.tile.sky_coords:
-            telescopes.append("skyw")
-            n_skies += 1
-        if len(self.tile.spec_coords) > 0:
-            telescopes.append("spec")
 
-        if require_spec and "spec" not in telescopes:
+        guide_coros = []
+        guide_on_telescopes: list[str] = []
+        n_skies = 0
+        for tel in ["sci", "skye", "skyw", "spec"]:
+            coords = self.tile[tel]
+
+            if coords is None or (isinstance(coords, list) and len(coords) == 0):
+                continue
+
+            if tel == "spec" and isinstance(coords, list):
+                coords = coords[0]
+            assert isinstance(coords, Coordinates)
+
+            guide_on_telescopes.append(tel)
+            if "sky" in tel:
+                n_skies += 1
+
+            # Pixel in the MF on which to guide. Always None/central pixel
+            # except for sci if defined. For spec we guide on the pixel of the
+            # first fibre/mask position.
+            pixel = coords._mf_pixel if tel != "spec" else self.mask_positions[0]
+
+            guide_coros.append(
+                self.gort.guiders[tel].guide(
+                    ra=coords.ra,
+                    dec=coords.dec,
+                    guide_tolerance=guide_tolerance,
+                    pixel=pixel,
+                )
+            )
+
+        if require_spec and "spec" not in guide_on_telescopes:
             raise GortObserverError("spec pointing not defined.", error_code=801)
         if n_skies < min_skies:
             raise GortObserverError("Not enough sky positions defined.", error_code=801)
 
         # Start guide loop.
-        # TODO: do we need to pass the ra/dec coordinates of the target here?
-        self.guide_task = asyncio.gather(
-            *[
-                self.gort.guiders[tel].guide(
-                    guide_tolerance=guide_tolerance,
-                    pixel=self.mask_positions[0] if tel == "spec" else None,
-                )
-                for tel in telescopes
-            ]
-        )
+        self.guide_task = asyncio.gather(*guide_coros)
 
         # Wait until convergence.
         self.write_to_log("Waiting for guiders to converge.")
         guide_status = await asyncio.gather(
             *[
                 self.gort.guiders[tel].wait_until_guiding(timeout=timeout)
-                for tel in telescopes
+                for tel in guide_on_telescopes
             ]
         )
 
         try:
-            n_skies = 0
-            for ii, tel in enumerate(telescopes):
+            n_skies_guiding = 0
+            for ii, tel in enumerate(guide_on_telescopes):
                 is_guiding = guide_status[ii][0]
                 if tel == "sci" and not is_guiding:
                     raise GortObserverError(
@@ -184,11 +197,11 @@ class GortObserver:
                         self.write_to_log("Spec telescope is not guiding", "warning")
                 if "sky" in tel:
                     if is_guiding:
-                        n_skies += 1
+                        n_skies_guiding += 1
                     else:
                         self.write_to_log(f"{tel} telescope is not guiding.", "warning")
 
-            if n_skies < min_skies:
+            if n_skies_guiding < min_skies:
                 raise GortObserverError(
                     "Not enough sky telescopes guiding.",
                     error_code=801,

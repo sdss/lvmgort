@@ -17,6 +17,7 @@ from httpx import RequestError
 
 from gort.exceptions import GortNotImplemented, GortWarning, TileError
 from gort.tools import get_calibrators_sync, get_db_connection, get_next_tile_id_sync
+from gort.transforms import offset_to_master_frame_pixel, read_fibermap
 
 
 __all__ = [
@@ -48,6 +49,9 @@ class Coordinates:
         self.ra = ra
         self.dec = dec
         self.skycoord = SkyCoord(ra=ra, dec=dec, unit="deg", frame="fk5")
+
+        # The MF pixel on which to guide/centre the target.
+        self._mf_pixel: tuple[float, float] | None = None
 
     def __repr__(self):
         return f"<{self.__class__.__name__} (ra={self.ra:.6f}, dec={self.dec:.6f})>"
@@ -159,9 +163,48 @@ class QuerableCoordinates(Coordinates):
 
 
 class ScienceCoordinates(Coordinates):
-    """A science position."""
+    """A science position.
 
-    pass
+    Parameters
+    ----------
+    ra
+        The RA coordinate, in degrees. FK5 frame at the epoch of observation.
+    dec
+        The Dec coordinate, in degrees.
+    centre_on_fibre
+        The name of the fibre on which to centre the target, with the format
+        ``<ifulabel>-<finufu>``. By default, acquires the target on the central
+        fibre of the science IFU.
+
+    """
+
+    def __init__(self, ra: float, dec: float, centre_on_fibre: str | None = None):
+        super().__init__(ra, dec)
+
+        self.centre_on_fibre = centre_on_fibre
+
+        # The MF pixel on which to guide/centre the target.
+        self._mf_pixel = self._set_mf_pixel(centre_on_fibre)
+
+    def _set_mf_pixel(self, fibre_name: str | None = None):
+        """Calculates the MF pixel on which to centre the target."""
+
+        if fibre_name is None:
+            self._mf_pixel = None
+            return None
+
+        fibermap = read_fibermap()
+
+        if fibre_name not in fibermap.fibername.values:
+            raise NameError(f"Fibre {fibre_name} not found in fibermap.")
+
+        fibre = fibermap.loc[fibermap.fibername == fibre_name, :]
+        xpmm, ypmm = fibre.loc[:, ["xpmm", "ypmm"]].values[0]
+
+        xmf, zmf = offset_to_master_frame_pixel(xmm=xpmm, ymm=ypmm)
+
+        self._mf_pixel = (xmf, zmf)
+        return (xmf, zmf)
 
 
 class SkyCoordinates(QuerableCoordinates):
