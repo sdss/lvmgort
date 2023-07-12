@@ -213,6 +213,21 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         self.write_to_log(f"Running calibration sequence {sequence!r}.", level="info")
 
         try:
+            if "biases" in sequence_config:
+                self.write_to_log("Taking biases.", level="info")
+                nbias = sequence_config["biases"].get("count", 1)
+                for _ in range(nbias):
+                    await self.gort.specs.expose(flavour="bias")
+
+            if "darks" in sequence_config:
+                self.write_to_log("Taking darks.", level="info")
+                ndarks = sequence_config["darks"].get("count")
+                for _ in range(ndarks):
+                    await self.gort.specs.expose(
+                        flavour="dark",
+                        exposure_time=sequence_config["darks"]["exposure_time"],
+                    )
+
             for lamp in lamps_config:
                 warmup = lamps_config[lamp]["warmup"]
 
@@ -261,21 +276,6 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
                 self.write_to_log(f"Turning off {lamp}.")
                 await calib_nps.off(lamp)
-
-            if "biases" in sequence_config:
-                self.write_to_log("Taking biases.", level="info")
-                nbias = sequence_config["biases"].get("count", 1)
-                for _ in range(nbias):
-                    await self.gort.specs.expose(flavour="bias")
-
-            if "darks" in sequence_config:
-                self.write_to_log("Taking darks.", level="info")
-                ndarks = sequence_config["darks"].get("count")
-                for _ in range(ndarks):
-                    await self.gort.specs.expose(
-                        flavour="dark",
-                        exposure_time=sequence_config["darks"]["exposure_time"],
-                    )
 
             if park_after:
                 await self.gort.telescopes.park()
