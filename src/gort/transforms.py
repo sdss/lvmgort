@@ -1,0 +1,155 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# @Author: José Sánchez-Gallego (gallegoj@uw.edu)
+# @Date: 2023-07-11
+# @Filename: transforms.py
+# @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
+
+from __future__ import annotations
+
+import pathlib
+
+import numpy
+import pandas
+import yaml
+
+from gort import config
+
+
+__all__ = [
+    "read_fibermap",
+    "offset_to_master_frame_pixel",
+    "xy_to_radec_offset",
+]
+
+
+_FIBERMAP_CACHE: pandas.DataFrame | None = None
+
+
+def read_fibermap(
+    path: str | pathlib.Path | None = None,
+    force_cache: bool = False,
+) -> pandas.DataFrame:
+    """Reads the fibermap file.
+
+    Parameters
+    ----------
+    path
+        Path to the fibermap file. If `None` uses the path from the
+        configuration file.
+    force_cache
+        If `True`, forces a re-read of the fibermap file; otherwise reads it
+        from the cache if available.
+
+    Returns
+    -------
+    fibermap
+        A pandas DataFrame with the fibermap data.
+
+    """
+
+    global _FIBERMAP_CACHE
+
+    if path is None:
+        path = pathlib.Path(config["lvmcore"]["path"]) / config["lvmcore"]["fibermap"]
+
+    if force_cache is False and _FIBERMAP_CACHE is not None:
+        return _FIBERMAP_CACHE
+
+    fibermap_y = yaml.load(open(str(path)), Loader=yaml.CFullLoader)
+
+    schema = fibermap_y["schema"]
+    cols = [it["name"] for it in schema]
+    dtypes = [it["dtype"] if it["dtype"] != "str" else "<U8" for it in schema]
+
+    fibers = pandas.DataFrame.from_records(
+        numpy.array(
+            [tuple(fibs) for fibs in fibermap_y["fibers"]],
+            dtype=list(zip(cols, dtypes)),
+        ),
+    )
+
+    # Lower-case some columns.
+    for col in fibers:
+        is_str = pandas.api.types.is_string_dtype(fibers[col].dtype)
+        if is_str and col in ["targettype", "telescope"]:
+            fibers[col] = fibers[col].str.lower()
+
+    # Add a new column with the full name of the fibre, as ifulabel-finifu
+    fibers["fibername"] = fibers["ifulabel"] + "-" + fibers["finifu"].astype(str)
+
+    _FIBERMAP_CACHE = fibers
+
+    return _FIBERMAP_CACHE
+
+
+def offset_to_master_frame_pixel(xmm: float, ymm: float) -> tuple[float, float]:
+    """Determines the pixel on master frame coordinates for an offset.
+
+    Parameters
+    ----------
+    xmm
+        The x offset, in mm, with respect to the central fibre in the IFU.
+    ymm
+        The y offset, in mm, with respect to the central fibre in the IFU.
+
+    Returns
+    -------
+    pixel
+        A tuple with the x and z coordinates of the pixel in the master frame.
+
+    Raises
+    ------
+    ValueError
+        If the pixel is out of bounds.
+
+    """
+
+    PIXEL_SCALE = 9  # microns / pixel
+    XZ_0 = (2500, 1000)  # Central pixel in the master frame
+
+    x_mf = xmm * 1000 / PIXEL_SCALE + XZ_0[0]
+    y_mf = ymm * 1000 / PIXEL_SCALE + XZ_0[1]
+
+    if x_mf < 0 or x_mf > 2 * XZ_0[0] or y_mf < 0 or y_mf > 2 * XZ_0[1]:
+        raise ValueError("Pixel is out of bounds.")
+
+    return (round(x_mf, 1), round(y_mf, 1))
+
+
+def xy_to_radec_offset(xpmm: float, ypmm: float):
+    """Converts offsets in the IFU to approximate RA/Dec offsets.
+
+    ..warning::
+        This is an approximate conversion that assumes the IFU is perfectly
+        aligned with the AG cameras in the focal plane and that the field
+        de-rotation is perfect. It should only be used to determine initial
+        offsets for blind telescope slews.
+
+    Parameters
+    ----------
+    xpmm
+        The x offset with respect to the central IFU fibre, in mm, as defined
+        in the fibermap.
+    ypmm
+        As ``xpmm`` for the y offset.
+
+    Returns
+    -------
+    radec
+        RA/Dec offset in arcsec as a tuple. See the warning above for caveats.
+
+    """
+
+    # In the master frame / focal plane, increase x means increasing RA and
+    # increasing y means decreasing Dec (i.e., axes are rotated 180 degrees
+    # wrt the usual North up, East left).
+
+    PIXEL_SIZE = 9  # microns/pixel
+    PIXEL_SCALE = 1  # arcsec/pixel
+
+    x_arcsec = xpmm * 1000 / PIXEL_SIZE * PIXEL_SCALE
+    y_arcsec = ypmm * 1000 / PIXEL_SIZE * PIXEL_SCALE
+
+    return (x_arcsec, -y_arcsec)

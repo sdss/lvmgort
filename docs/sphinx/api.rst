@@ -72,6 +72,13 @@ Tools
    :members:
    :show-inheritance:
 
+Transforms
+----------
+
+.. automodule:: gort.transforms
+   :members:
+   :show-inheritance:
+
 Exceptions
 ----------
 
