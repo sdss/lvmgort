@@ -84,7 +84,12 @@ def read_fibermap(
     return _FIBERMAP_CACHE
 
 
-def offset_to_master_frame_pixel(xmm: float, ymm: float) -> tuple[float, float]:
+def offset_to_master_frame_pixel(
+    xmm: float | None = None,
+    ymm: float | None = None,
+    ra: float | None = None,
+    dec: float | None = None,
+) -> tuple[float, float]:
     """Determines the pixel on master frame coordinates for an offset.
 
     Parameters
@@ -93,6 +98,12 @@ def offset_to_master_frame_pixel(xmm: float, ymm: float) -> tuple[float, float]:
         The x offset, in mm, with respect to the central fibre in the IFU.
     ymm
         The y offset, in mm, with respect to the central fibre in the IFU.
+    ra
+        The offset in RA, in arcsec. See `.xy_to_radec_offset` for the
+        caveats on this calculations.
+    dec
+        The offset in declination, in arcsec.
+
 
     Returns
     -------
@@ -106,11 +117,27 @@ def offset_to_master_frame_pixel(xmm: float, ymm: float) -> tuple[float, float]:
 
     """
 
-    PIXEL_SCALE = 9  # microns / pixel
+    PIXEL_SIZE = 9  # microns / pixel
+    PIXEL_SCALE = 1  # arcsec/pixel
+
     XZ_0 = (2500, 1000)  # Central pixel in the master frame
 
-    x_mf = xmm * 1000 / PIXEL_SCALE + XZ_0[0]
-    y_mf = ymm * 1000 / PIXEL_SCALE + XZ_0[1]
+    if xmm is not None and ymm is not None:
+        if ra is not None or dec is not None:
+            raise ValueError("ra/dec cannot be set along with xmm/ymm.")
+
+    elif ra is not None and dec is not None:
+        if xmm is not None or ymm is not None:
+            raise ValueError("xmm/ymm cannot be set along with ra/dec.")
+
+        xmm = ra * PIXEL_SIZE / PIXEL_SCALE / 1000
+        ymm = -dec * PIXEL_SIZE / PIXEL_SCALE / 1000
+
+    else:
+        raise ValueError("Not enough inputs supplied.")
+
+    x_mf = xmm * 1000 / PIXEL_SIZE + XZ_0[0]
+    y_mf = ymm * 1000 / PIXEL_SIZE + XZ_0[1]
 
     if x_mf < 0 or x_mf > 2 * XZ_0[0] or y_mf < 0 or y_mf > 2 * XZ_0[1]:
         raise ValueError("Pixel is out of bounds.")
