@@ -21,6 +21,7 @@ __all__ = [
     "read_fibermap",
     "offset_to_master_frame_pixel",
     "xy_to_radec_offset",
+    "fibre_slew_coordinates",
 ]
 
 
@@ -180,3 +181,49 @@ def xy_to_radec_offset(xpmm: float, ypmm: float):
     y_arcsec = ypmm * 1000 / PIXEL_SIZE * PIXEL_SCALE
 
     return (x_arcsec, -y_arcsec)
+
+
+def fibre_slew_coordinates(
+    ra: float,
+    dec: float,
+    fibre_name: str,
+) -> tuple[float, float]:
+    """Determines the slew coordinates for a fibre.
+
+    This function provides approximate slew coordinates to place
+    a target with coordinates ``ra``, ``dec`` on a given fibre. The
+    preferred way to use it is to slew the telescope using the
+    coordinates returned by this function but then guide on the
+    original target coordinates and use the appropriate pixel on the
+    master frame to guide on the fibre.
+
+    Parameters
+    ----------
+    ra,dec
+        The RA and Dec of the target to which to slew.
+    fibre_name
+        The fibre to which to slew the target, with the format
+        ``<ifulabel>-<finufu>``.
+
+    Returns
+    -------
+    slew_coordinates
+        A tuple of RA/Dec coordinates to slew, which should place
+        the target near the desired fibre.
+
+    """
+
+    fibermap = read_fibermap()
+
+    if fibre_name not in fibermap.fibername.values:
+        raise NameError(f"Fibre {fibre_name} not found in fibermap.")
+
+    fibre = fibermap.loc[fibermap.fibername == fibre_name, :]
+    xpmm, ypmm = fibre.loc[:, ["xpmm", "ypmm"]].values[0]
+
+    ra_off, dec_off = xy_to_radec_offset(xpmm, ypmm)
+
+    ra_slew = ra + ra_off / 3600.0 / numpy.cos(numpy.radians(dec))
+    dec_slew = dec + dec_off / 3600.0
+
+    return (ra_slew, dec_slew)
