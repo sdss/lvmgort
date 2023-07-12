@@ -650,7 +650,7 @@ def offset_to_master_frame_pixel(xmm: float, ymm: float) -> tuple[float, float]:
 
     PIXEL_SCALE = 9  # microns / pixel
     XZ_0 = (2500, 1000)  # Central pixel in the master frame
-    print(xmm, type(xmm))
+
     x_mf = xmm * 1000 / PIXEL_SCALE + XZ_0[0]
     y_mf = ymm * 1000 / PIXEL_SCALE + XZ_0[1]
 
