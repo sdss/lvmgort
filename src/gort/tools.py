@@ -18,7 +18,10 @@ from functools import partial
 from typing import TYPE_CHECKING, Callable, Coroutine
 
 import httpx
+import numpy
+import pandas
 import peewee
+import yaml
 from astropy import units as uu
 from astropy.coordinates import angular_separation as astropy_angular_separation
 
@@ -51,6 +54,8 @@ __all__ = [
     "angular_separation",
     "get_db_connection",
     "run_in_executor",
+    "read_fibermap",
+    "offset_to_master_frame_pixel",
 ]
 
 CAMERAS = [
@@ -62,6 +67,9 @@ CAMERAS = [
     "skyw.east",
     "spec.east",
 ]
+
+
+_FIBERMAP_CACHE: pandas.DataFrame | None = None
 
 
 def get_valid_variable_name(var_name: str):
@@ -559,3 +567,94 @@ async def run_in_executor(fn, *args, catch_warnings=False, executor="thread", **
             result = await asyncio.get_running_loop().run_in_executor(pool, fn)
 
     return result
+
+
+def read_fibermap(
+    path: str | pathlib.Path | None = None,
+    force_cache: bool = False,
+) -> pandas.DataFrame:
+    """Reads the fibermap file.
+
+    Parameters
+    ----------
+    path
+        Path to the fibermap file. If `None` uses the path from the
+        configuration file.
+    force_cache
+        If `True`, forces a re-read of the fibermap file; otherwise reads it
+        from the cache if available.
+
+    Returns
+    -------
+    fibermap
+        A pandas DataFrame with the fibermap data.
+
+    """
+
+    global _FIBERMAP_CACHE
+
+    if path is None:
+        path = pathlib.Path(config["lvmcore"]["path"]) / config["lvmcore"]["fibermap"]
+
+    if force_cache is False and _FIBERMAP_CACHE is not None:
+        return _FIBERMAP_CACHE
+
+    fibermap_y = yaml.load(open(str(path)), Loader=yaml.CFullLoader)
+
+    schema = fibermap_y["schema"]
+    cols = [it["name"] for it in schema]
+    dtypes = [it["dtype"] if it["dtype"] != "str" else "<U8" for it in schema]
+
+    fibers = pandas.DataFrame.from_records(
+        numpy.array(
+            [tuple(fibs) for fibs in fibermap_y["fibers"]],
+            dtype=list(zip(cols, dtypes)),
+        ),
+    )
+
+    # Lower-case some columns.
+    for col in fibers:
+        is_str = pandas.api.types.is_string_dtype(fibers[col].dtype)
+        if is_str and col in ["targettype", "telescope"]:
+            fibers[col] = fibers[col].str.lower()
+
+    # Add a new column with the full name of the fibre, as ifulabel-finifu
+    fibers["fibername"] = fibers["ifulabel"] + "-" + fibers["finifu"].astype(str)
+
+    _FIBERMAP_CACHE = fibers
+
+    return _FIBERMAP_CACHE
+
+
+def offset_to_master_frame_pixel(xmm: float, ymm: float) -> tuple[float, float]:
+    """Determines the pixel on master frame coordinates for an offset.
+
+    Parameters
+    ----------
+    xmm
+        The x offset, in mm, with respect to the central fibre in the IFU.
+    ymm
+        The y offset, in mm, with respect to the central fibre in the IFU.
+
+    Returns
+    -------
+    pixel
+        A tuple with the x and z coordinates of the pixel in the master frame.
+
+    Raises
+    ------
+    ValueError
+        If the pixel is out of bounds.
+
+    """
+
+    PIXEL_SCALE = 9  # microns / pixel
+    XZ_0 = (2500, 1000)  # Central pixel in the master frame
+    print(xmm, type(xmm))
+    x_mf = xmm * 1000 / PIXEL_SCALE + XZ_0[0]
+    y_mf = ymm * 1000 / PIXEL_SCALE + XZ_0[1]
+
+    if x_mf < 0 or x_mf > 2 * XZ_0[0] or y_mf < 0 or y_mf > 2 * XZ_0[1]:
+        raise ValueError("Pixel is out of bounds.")
+
+    return (round(x_mf, 1), round(y_mf, 1))

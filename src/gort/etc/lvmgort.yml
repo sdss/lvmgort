@@ -237,6 +237,10 @@ websocket:
   host: 0.0.0.0
   port: 9000
 
+lvmcore:
+  path: ${LVMCORE_DIR}
+  fibermap: metrology/lvm_fiducial_fibermap.yaml
+
 database:
   host: lvm-webapp.lco.cl
   port: 5432
