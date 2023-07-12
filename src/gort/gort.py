@@ -8,6 +8,8 @@
 
 import asyncio
 import logging
+import signal
+import sys
 import uuid
 
 from typing import Any, Callable, ClassVar, Generic, Type, TypeVar
@@ -375,10 +377,21 @@ class Gort(GortClient):
         Arguments to pass to `.GortClient`.
     verbosity
         The level of logging verbosity.
+    on_interrupt
+        Action to perform if the loop receives an interrupt signal during
+        execution. The only options are `None` (do nothing, currently running
+        commands will continue), or ``stop'`` which will stop the telescopes
+        and guiders before exiting.
 
     """
 
-    def __init__(self, *args, verbosity: str | None = None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        verbosity: str | None = None,
+        on_interrupt: str | None = None,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
 
         try:
@@ -392,6 +405,21 @@ class Gort(GortClient):
 
         if verbosity:
             self.set_verbosity(verbosity)
+
+        self.set_signals(mode=on_interrupt)
+
+    def set_signals(self, mode: str | None = None):
+        """Defines the behaviour when the event loop receives a signal."""
+
+        loop = asyncio.get_running_loop()
+
+        async def _stop():
+            await asyncio.gather(*[self.telescopes.stop(), self.guiders.stop()])
+            sys.exit(1)
+
+        if mode == "stop":
+            self.log.debug(f"Adding signal handler {mode!r}.")
+            loop.add_signal_handler(signal.SIGINT, lambda: asyncio.create_task(_stop()))
 
     async def emergency_close(self):
         """Parks and closes the telescopes."""

@@ -333,6 +333,12 @@ class Telescope(GortDevice):
             self.write_to_log("Parking k-mirror.", level="info")
             await self.km.park()
 
+    async def stop(self):
+        """Stops the mount."""
+
+        self.write_to_log("Stopping the mount.", "warning")
+        await self.actor.commands.stop()
+
     async def goto_coordinates(
         self,
         ra: float | None = None,
@@ -732,6 +738,11 @@ class TelescopeSet(GortDeviceSet[Telescope]):
             altaz_tracking=altaz_tracking,
             force=force,
         )
+
+    async def stop(self):
+        """Stops all the mounts."""
+
+        await self.call_device_method(Telescope.stop)
 
     async def goto(
         self,
