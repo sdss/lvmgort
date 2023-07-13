@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 __all__ = ["Spectrograph", "SpectrographSet", "READOUT_TIME"]
 
 
-READOUT_TIME = 56
+READOUT_TIME = 51
 
 
 class Spectrograph(GortDevice):
