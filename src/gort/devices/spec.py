@@ -431,10 +431,11 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             if "darks" in sequence_config:
                 self.write_to_log("Taking darks.", level="info")
                 ndarks = sequence_config["darks"].get("count")
-                for _ in range(ndarks):
+                for idark in range(ndarks):
                     await self.gort.specs.expose(
                         flavour="dark",
                         exposure_time=sequence_config["darks"]["exposure_time"],
+                        async_readout=idark == ndarks - 1,
                     )
 
             for lamp in lamps_config:
@@ -444,7 +445,9 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                 await calib_nps.on(lamp)
                 await asyncio.sleep(warmup)
 
-                for exp_time in lamps_config[lamp]["exposure_times"]:
+                exp_times = lamps_config[lamp]["exposure_times"]
+                n_exp_times = len(exp_times)
+                for ietime, exp_time in enumerate(exp_times):
                     flavour = lamps_config[lamp]["flavour"]
 
                     # Check if we are spinning the fibre selector and,
@@ -478,6 +481,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                         flavour=flavour,
                         exposure_time=exp_time,
                         show_progress=show_progress,
+                        async_readout=ietime == n_exp_times - 1,
                     )
 
                     if fibsel_task:
@@ -488,6 +492,10 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
             if park_after:
                 await self.gort.telescopes.park()
+
+            if self.last_exposure and not self.last_exposure.done():
+                self.write_to_log("Awaiting last exposure readout.")
+                await self.last_exposure
 
         except Exception:
             self.write_to_log(
