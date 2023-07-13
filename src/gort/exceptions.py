@@ -20,6 +20,7 @@ class ErrorCodes(Enum):
     UNCATEGORISED_ERROR = 0
     NOT_IMPLEMENTED = 1
     COMMAND_FAILED = 2
+    USAGE_ERROR = 3
     CANNOT_MOVE_LOCAL_MODE = 101
     FAILED_REACHING_COMMANDED_POSITION = 102
     INVALID_TELESCOPE_POSITION = 103
@@ -37,7 +38,7 @@ class ErrorCodes(Enum):
 class GortError(Exception):
     """A custom core GortError exception"""
 
-    def __init__(self, message: str | None = None, error_code: int = 0):
+    def __init__(self, message: str | None = None, error_code: int | ErrorCodes = 0):
         try:
             self.error_code = ErrorCodes(error_code)
         except ValueError:

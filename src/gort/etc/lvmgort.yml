@@ -126,6 +126,7 @@ specs:
       actor: lvmscp.sp2
     sp3:
       actor: lvmscp.sp3
+  data_path: /data/spectro/{SJD}
   nextExposureNumber: /data/spectro/nextExposureNumber
   calibration:
     position: calibration
