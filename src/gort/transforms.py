@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import pathlib
+import re
 
 import numpy
 import pandas
@@ -22,6 +23,7 @@ __all__ = [
     "offset_to_master_frame_pixel",
     "xy_to_radec_offset",
     "fibre_slew_coordinates",
+    "radec_sexagesimal_to_decimal",
 ]
 
 
@@ -234,3 +236,31 @@ def fibre_slew_coordinates(
     dec_slew = dec + dec_off / 3600.0
 
     return (ra_slew, dec_slew)
+
+
+def radec_sexagesimal_to_decimal(ra: str, dec: str, ra_is_hours: bool = True):
+    """Converts a string of sexagesimal RA and Dec to decimal."""
+
+    ra_match = re.match(r"([+-]?\d+?)[:hd\s](\d+)[:m\s](\d*\.?\d*)", ra)
+    if ra_match is None:
+        raise ValueError("Invalid format for RA.")
+
+    ra_groups = ra_match.groups()
+    ra_deg = float(ra_groups[0]) + float(ra_groups[1]) / 60 + float(ra_groups[2]) / 3600
+
+    if ra_is_hours:
+        ra_deg *= 15
+
+    dec_match = re.match(r"([+-]?\d+?)[:hd\s](\d+)[:m\s](\d*\.?\d*)", dec)
+    if dec_match is None:
+        raise ValueError("Invalid format for Dec.")
+
+    dec_groups = dec_match.groups()
+    dec_deg = float(dec_groups[0])
+
+    if dec_deg >= 0:
+        dec_deg += float(dec_groups[1]) / 60 + float(dec_groups[2]) / 3600
+    else:
+        dec_deg -= float(dec_groups[1]) / 60 - float(dec_groups[2]) / 3600
+
+    return ra_deg, dec_deg
