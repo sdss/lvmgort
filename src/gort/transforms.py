@@ -273,8 +273,8 @@ def fibre_to_master_frame(fibre_name: str):
     Parameters
     ----------
     fibre_name
-        The fibre to which to slew the target, with the format
-        ``<ifulabel>-<finifu>``.
+        The fibre for which to calculate the master frame coordinates,
+        with the format ``<ifulabel>-<finifu>``.
 
     Returns
     -------
