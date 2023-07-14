@@ -184,9 +184,9 @@ class ScienceCoordinates(Coordinates):
         self.centre_on_fibre = centre_on_fibre
 
         # The MF pixel on which to guide/centre the target.
-        self._mf_pixel = self._set_mf_pixel(centre_on_fibre)
+        self._mf_pixel = self.set_mf_pixel(centre_on_fibre)
 
-    def _set_mf_pixel(self, fibre_name: str | None = None):
+    def set_mf_pixel(self, fibre_name: str | None = None):
         """Calculates the MF pixel on which to centre the target."""
 
         if fibre_name is None:
