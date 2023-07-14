@@ -213,7 +213,7 @@ def fibre_slew_coordinates(
         The RA and Dec of the target to which to slew.
     fibre_name
         The fibre to which to slew the target, with the format
-        ``<ifulabel>-<finufu>``.
+        ``<ifulabel>-<finifu>``.
 
     Returns
     -------
@@ -274,7 +274,7 @@ def fibre_to_master_frame(fibre_name: str):
     ----------
     fibre_name
         The fibre to which to slew the target, with the format
-        ``<ifulabel>-<finufu>``.
+        ``<ifulabel>-<finifu>``.
 
     Returns
     -------
