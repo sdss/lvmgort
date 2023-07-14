@@ -24,6 +24,7 @@ __all__ = [
     "xy_to_radec_offset",
     "fibre_slew_coordinates",
     "radec_sexagesimal_to_decimal",
+    "fibre_to_master_frame",
 ]
 
 
@@ -264,3 +265,42 @@ def radec_sexagesimal_to_decimal(ra: str, dec: str, ra_is_hours: bool = True):
         dec_deg -= float(dec_groups[1]) / 60 - float(dec_groups[2]) / 3600
 
     return ra_deg, dec_deg
+
+
+def fibre_to_master_frame(fibre_name: str):
+    """Returns the xz coordinates in the master frame of a named fibres.
+
+    Parameters
+    ----------
+    fibre_name
+        The fibre to which to slew the target, with the format
+        ``<ifulabel>-<finufu>``.
+
+    Returns
+    -------
+    pixel
+        A tuple with the x and z coordinates of the pixel in the master frame.
+
+    Raises
+    ------
+    ValueError
+        If the pixel is out of bounds.
+
+    """
+
+    XZ_0 = (2500, 1000)  # Central pixel in the master frame
+
+    fibermap = read_fibermap()
+
+    if fibre_name not in fibermap.fibername.values:
+        raise NameError(f"Fibre {fibre_name} not found in fibermap.")
+
+    fibre = fibermap.loc[fibermap.fibername == fibre_name, :]
+    xpmm, ypmm = fibre.loc[:, ["xpmm", "ypmm"]].values[0]
+
+    x_mf, z_mf = offset_to_master_frame_pixel(xmm=xpmm, ymm=ypmm)
+
+    if x_mf < 0 or x_mf > 2 * XZ_0[0] or z_mf < 0 or z_mf > 2 * XZ_0[1]:
+        raise ValueError("Pixel is out of bounds.")
+
+    return (round(x_mf, 1), round(z_mf, 1))

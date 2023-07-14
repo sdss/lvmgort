@@ -17,7 +17,7 @@ from httpx import RequestError
 
 from gort.exceptions import GortNotImplemented, GortWarning, TileError
 from gort.tools import get_calibrators_sync, get_db_connection, get_next_tile_id_sync
-from gort.transforms import offset_to_master_frame_pixel, read_fibermap
+from gort.transforms import fibre_to_master_frame
 
 
 __all__ = [
@@ -193,15 +193,7 @@ class ScienceCoordinates(Coordinates):
             self._mf_pixel = None
             return None
 
-        fibermap = read_fibermap()
-
-        if fibre_name not in fibermap.fibername.values:
-            raise NameError(f"Fibre {fibre_name} not found in fibermap.")
-
-        fibre = fibermap.loc[fibermap.fibername == fibre_name, :]
-        xpmm, ypmm = fibre.loc[:, ["xpmm", "ypmm"]].values[0]
-
-        xmf, zmf = offset_to_master_frame_pixel(xmm=xpmm, ymm=ypmm)
+        xmf, zmf = fibre_to_master_frame(fibre_name)
 
         self._mf_pixel = (xmf, zmf)
         return (xmf, zmf)
