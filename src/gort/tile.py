@@ -398,6 +398,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             spec_coords=spec_coords,
             dither_position=dither_pos,
         )
+        new_obj.tile_id = tile_id
 
         return new_obj
 
