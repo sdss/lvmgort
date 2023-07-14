@@ -12,7 +12,8 @@ The LVM software is based on the concept of :ref:`actor <clu:new-actors>`. An ac
 
 - The lowest level access is a :ref:`programmatic API <actor-programmatic>` to interact with the individual actors that run in the LVM infrastructure.
 - On top of that, `gort` defines a series of `.GortDeviceSet` and `.GortDevice` classes that expose specific :ref:`device functionality <device-sets>` that is of general use. These classes provide less comprehensive access to the actor devices, but encapsulate the main features that a user is likely to use, and allow to command multiple devices as one, e.g., to send all four telescopes to zenith.
-- The highest level part of `gort` provides the tools for unassisted observing, e.g., observing a tile. Ultimately, `gort` provides a robotic mode that takes care of all aspects of observing.
+- The highest level part of `gort` provides the tools for unassisted observing, e.g., :ref:`observing a tile <observing-a-target>`. Ultimately, `gort` provides a robotic mode that takes care of all aspects of observing.
+
 
 Minimal example
 ---------------
@@ -63,6 +64,7 @@ This code must be run in one of the LVM mountain servers with access to the Rabb
     'geometry': 1}
 
 ``gort`` is an asynchronous library which enables multiple processes to run at the same time without blocking the event loop. ``gort`` is written using `asyncio`.  A certain familiarity with asynchronous programming is recommended, but at a minimum, many of ``gort``'s functions and methods are actually *coroutines* that need to be *awaited* when called. Awaiting a coroutine informs the event manager that other coroutines can be run at the same time, allowing concurrency. In the :ref:`API <api>` documentation, coroutines are prefixed by an *async* label. Those methods and functions need to be awaited.
+
 
 .. _actor-programmatic:
 
@@ -155,6 +157,34 @@ Devices can have their own subdevices. For example all the `.Telescope` instance
     >>> await g.telescopes.skyw.focuser.home()
 
 More details on how to use the device sets for observing, with code examples, are provided :ref:`here <observing>`.
+
+
+.. _observing-a-target:
+
+Observing a target
+------------------
+
+To observe a science target along with appropriate calibrators we define a `.Tile` object either from the scheduler ::
+
+    >>> from gort import Tile
+    >>> tile = Tile.from_scheduler()
+    >>> tile
+    <Tile (tile_id=1026052, science ra=240.000000, dec=-87.977528; n_skies=2; n_standards=12)>
+
+of from coordinates, allowing calibrators to be filled out by the scheduler ::
+
+    >>> tile = Tile.from_coordinates(ra=250.1, dec=-5.2)
+    >>> tile
+    <Tile (tile_id=None, science ra=250.100000, dec=-5.200000; n_skies=2; n_standards=12)>
+
+A `.Tile` can then be observed using `.GortObserver` or, more conviniently, with `.Gort.observe_tile` ::
+
+    g = await Gort().init()
+    tile = Tile.from_scheduler()
+    await g.observe_tile(tile)
+
+To learn more about observing tiles, see the :ref:`corresponding section <tiles>`.
+
 
 Using ``gort`` in IPython
 -------------------------

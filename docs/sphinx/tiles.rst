@@ -1,6 +1,8 @@
 
-Defining observation tiles
-==========================
+.. _tiles:
+
+Tiles and offsets
+=================
 
 The standard unit of LVM observation is a *tile*, which includes a patch on the sky observed with the science IFU, two sky background patches observed with SkyE and SkyW, and a series of spectrophotometric standards (usually 12) observed in quick succession.
 

@@ -13,6 +13,7 @@ We assume you'll be running this code in an LVM server, most likely in a Jupyter
 .. warning::
     It may seem from this that security to access the actor system and associated hardware is lax. In reality neither the host nor any of the services are open to the outside world, and the RabbitMQ exchange can only be accessed by secure shell, which requires the user being granted access. Given that, we consider that additional security in the form of passwords is unnecessary.
 
+
 Afternoon checkouts
 -------------------
 
@@ -79,6 +80,13 @@ Once the dome is open we can focus the telescopes with ::
 By default this performs a 9-step focus sweep for each telescope around focuser position 40 DT. If it seems the sweep is not sampling the best focus position you can change the `~.GuiderSet.focus` parameters, for example by passing ``guess=XXX``, or focus an individual telescope with `.Guider.focus`.
 
 At this point you should be ready to being science observations.
+
+
+Observing
+---------
+
+See the section about :ref:`tiles`.
+
 
 Misc
 ----
