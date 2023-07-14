@@ -51,6 +51,9 @@ class GortObserver:
 
         self.guide_task: asyncio.Future | None = None
 
+    def __repr__(self):
+        return f"<GortObserver (tile_id={self.tile.tile_id})>"
+
     async def slew(self):
         """Slew to the telescope fields."""
 

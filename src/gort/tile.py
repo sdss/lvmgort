@@ -269,7 +269,8 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
     def __repr__(self):
         return (
             "<Tile "
-            f"(science ra={self.sci_coords.ra:.6f}, dec={self.sci_coords.dec:.6f}; "
+            f"(tile_id={self.tile_id}, "
+            f"science ra={self.sci_coords.ra:.6f}, dec={self.sci_coords.dec:.6f}; "
             f"n_skies={len(self.sky_coords)}; n_standards={len(self.spec_coords)})>"
         )
 
