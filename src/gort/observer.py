@@ -324,22 +324,34 @@ class GortObserver:
         # TODO: record how long we exposed on each standard and save that
         # information somewhere.
 
-        spec_coords = self.tile.spec_coords
+        # Time to acquire a standard.
+        ACQ_PER_STD = 30
 
-        guider_named_pixels: dict[str, tuple[float, float]]
-        guider_named_pixels = self.gort.config["guiders"]["spec"]["named_pixels"]
+        spec_coords = self.tile.spec_coords
 
         # If we have zero or one standards, do nothing. The spec telescope
         # is already pointing to the first mask position.
         if len(spec_coords) <= 1:
             return
 
+        guider_pixels: dict[str, tuple[float, float]]
+        guider_pixels = self.gort.config["guiders"]["devices"]["spec"]["named_pixels"]
+
         # Time at which the exposure began.
         t0 = time()
 
         # Time to spend on each mask position.
         n_stds = len(spec_coords)
-        time_per_position = exposure_time / n_stds
+
+        # Calculate the time to actually be on target, taking into account
+        # how long we expect to take acquiring.
+        time_per_position = exposure_time / n_stds - ACQ_PER_STD
+        if time_per_position < 0:
+            self.write_to_log(
+                "Exposure time is too short to observe this "
+                "many standards. I will do what I can."
+            )
+            time_per_position = exposure_time / n_stds
 
         # Time at which we started observing the last standard.
         t0_last_std = t0
@@ -353,10 +365,10 @@ class GortObserver:
         while True:
             await asyncio.sleep(1)
 
-            # We consider than if there is less than 2 minutes left in the
+            # We consider than if there is less 2 * ACQ_PER_STD left in the
             # exposure there is no point in going to the next standard.
             t_now = time()
-            if t_now - t0 > exposure_time - 120:
+            if t_now - t0 > exposure_time - 2 * ACQ_PER_STD:
                 self.write_to_log("Exiting standard loop.")
                 self.write_to_log(f"Standards observed: {n_observed}/{n_stds}.", "info")
                 return
@@ -380,11 +392,12 @@ class GortObserver:
                 # offset_to_master_frame_pixel() because the latter coordinates
                 # are less precise as they do not include IFU rotation and more
                 # precise metrology.
-                new_guider_pixel = guider_named_pixels[new_mask_position]
+                new_guider_pixel = guider_pixels[new_mask_position]
 
                 self.write_to_log(
                     f"Moving to standard #{current_std_idx+1} ({new_coords}) "
-                    f"on fibre {new_mask_position}."
+                    f"on fibre {new_mask_position}.",
+                    "info",
                 )
 
                 # Finish guiding on spec telescope.
