@@ -186,16 +186,39 @@ class ScienceCoordinates(Coordinates):
         # The MF pixel on which to guide/centre the target.
         self._mf_pixel = self.set_mf_pixel(centre_on_fibre)
 
-    def set_mf_pixel(self, fibre_name: str | None = None):
-        """Calculates the MF pixel on which to centre the target."""
+    def set_mf_pixel(self, fibre_name: str | None = None, xz: CoordTuple | None = None):
+        """Calculates and sets the master frame pixel on which to centre the target.
 
-        if fibre_name is None:
+        If neither ``fibre_name`` or ``xz`` are passed, resets to centring
+        the target on the central fibre of the IFU.
+
+        Parameters
+        ----------
+        fibre_name
+            The fibre to which to centre the target, with the format
+            ``<ifulabel>-<finifu>``.
+        xz
+            The coordinates, in master frame pixels, on which to centre
+            the target.
+
+        Returns
+        -------
+        pixel
+            A tuple with the x and z coordinates of the pixel in the master frame,
+            or `None` if resetting to the central fibre.
+
+        """
+
+        if fibre_name is not None:
+            xmf, zmf = fibre_to_master_frame(fibre_name)
+        elif xz is not None:
+            xmf, zmf = xz
+        else:
             self._mf_pixel = None
             return None
 
-        xmf, zmf = fibre_to_master_frame(fibre_name)
-
         self._mf_pixel = (xmf, zmf)
+
         return (xmf, zmf)
 
 
