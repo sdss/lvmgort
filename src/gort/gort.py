@@ -486,5 +486,18 @@ class Gort(GortClient):
         # Create observer.
         observer = GortObserver(self, tile)
 
-        # Slew telescopes and move fibsel mask.
-        await observer.slew()
+        try:
+            # Slew telescopes and move fibsel mask.
+            await observer.slew()
+
+            # Start guiding.
+            await observer.acquire()
+
+            # Exposing
+            exposure = await observer.expose()
+
+        finally:
+            # Finish observation.
+            await observer.finish_observation()
+
+        return exposure
