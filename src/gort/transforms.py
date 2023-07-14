@@ -109,7 +109,7 @@ def offset_to_master_frame_pixel(
     ymm
         The y offset, in mm, with respect to the central fibre in the IFU.
     ra
-        The offset in RA, in arcsec. See `.xy_to_radec_offset` for the
+        The offset in RA, in arcsec. See :obj:`xy_to_radec_offset` for the
         caveats on this calculations.
     dec
         The offset in declination, in arcsec.
