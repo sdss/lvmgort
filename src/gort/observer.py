@@ -274,6 +274,17 @@ class GortObserver:
             await register_observation(registration_payload)
             self.write_to_log("Registration complete.")
 
+        return exposure
+
+    async def finish_observation(self):
+        """Finishes the observation, stops the guiders, etc."""
+
+        self.write_to_log("Finishing observation.", "info")
+
+        if self.guide_task is not None and not self.guide_task.done():
+            await self.gort.guiders.stop()
+            await self.guide_task
+
     def write_to_log(
         self,
         message: str,
