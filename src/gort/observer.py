@@ -176,6 +176,8 @@ class GortObserver:
         # Start guide loop.
         self.guide_task = asyncio.gather(*guide_coros)
 
+        await asyncio.sleep(5)
+
         # Wait until convergence.
         self.write_to_log("Waiting for guiders to converge.")
         guide_status = await asyncio.gather(
