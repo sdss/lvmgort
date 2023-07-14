@@ -440,7 +440,7 @@ class Gort(GortClient):
 
     async def observe_tile(
         self,
-        tile_id: int | None = None,
+        tile: Tile | int | None = None,
         ra: float | None = None,
         dec: float | None = None,
         use_scheduler: bool = False,
@@ -449,9 +449,10 @@ class Gort(GortClient):
 
         Parameters
         ----------
-        tile_id
-            The ``tile_id`` to observe. If not provided, observes the next tile
-            suggested by the scheduler (requires ``use_scheduler=True``).
+        tile
+            The ``tile_id`` to observe, or a `.Tile` object. If not provided,
+            observes the next tile suggested by the scheduler (requires
+            ``use_scheduler=True``).
         ra,dec
             The RA and Dec where to point the science telescopes. The other
             telescopes are pointed to calibrators that fit the science pointing.
@@ -463,9 +464,11 @@ class Gort(GortClient):
         """
 
         # Create tile.
-        if tile_id is not None or (tile_id is None and ra is None and dec is None):
+        if isinstance(tile, Tile):
+            pass
+        elif tile is not None or (tile is None and ra is None and dec is None):
             if use_scheduler:
-                tile = await run_in_executor(Tile.from_scheduler, tile_id=tile_id)
+                tile = await run_in_executor(Tile.from_scheduler, tile_id=tile)
             else:
                 raise GortError("Not enough information to create a tile.")
 
@@ -477,6 +480,8 @@ class Gort(GortClient):
 
         else:
             raise GortError("Not enough information to create a tile.")
+
+        assert isinstance(tile, Tile)
 
         # Create observer.
         observer = GortObserver(self, tile)
