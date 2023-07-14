@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING
 from gort.exceptions import GortObserverError
 from gort.tile import Coordinates
 from gort.tools import register_observation
-from gort.transforms import fibre_slew_coordinates
 
 
 if TYPE_CHECKING:
@@ -70,8 +69,11 @@ class GortObserver:
             # For spec we slew to the fibre with which we'll observe first.
             # This should save a bit of time converging.
             spec_target = (self.tile.spec_coords[0].ra, self.tile.spec_coords[0].dec)
-            spec = fibre_slew_coordinates(*spec_target, self.mask_positions[0])
-            self.write_to_log(f"Spec: {self.tile.spec_coords[0]}")
+            # spec = fibre_slew_coordinates(*spec_target, self.mask_positions[0])
+            spec = spec_target
+            self.write_to_log(
+                f"Spec: {self.tile.spec_coords[0]} on {self.mask_positions[0]}"
+            )
 
         sky = {}
         for skytel in ["SkyE", "SkyW"]:
@@ -397,12 +399,14 @@ class GortObserver:
 
                 # Slew to new coordinates. We actually slew to the coordinates
                 # that make the new star close to the fibre that will observe it.
-                slew_ra, slew_dec = fibre_slew_coordinates(
-                    new_coords.ra,
-                    new_coords.dec,
-                    new_mask_position,
-                )
-                await spec_tel.goto_coordinates(ra=slew_ra, dec=slew_dec)
+                # slew_ra, slew_dec = fibre_slew_coordinates(
+                #     new_coords.ra,
+                #     new_coords.dec,
+                #     new_mask_position,
+                # )
+                # await spec_tel.goto_coordinates(ra=slew_ra, dec=slew_dec)
+
+                await spec_tel.goto_coordinates(ra=new_coords.ra, dec=new_coords.dec)
 
                 # Start to guide. Note that here we use the original coordinates
                 # of the star along with the pixel on the master frame on which to
