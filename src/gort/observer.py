@@ -412,11 +412,13 @@ class GortObserver:
                 # of the star along with the pixel on the master frame on which to
                 # guide. See the note in fibre_slew_coordinates().
                 self.write_to_log("Starting to guide on spec telescope.")
-                await self.gort.guiders.spec.guide(
-                    ra=new_coords.ra,
-                    dec=new_coords.dec,
-                    guide_tolerance=5,
-                    pixel=new_guider_pixel,
+                asyncio.create_task(
+                    self.gort.guiders.spec.guide(
+                        ra=new_coords.ra,
+                        dec=new_coords.dec,
+                        guide_tolerance=5,
+                        pixel=new_guider_pixel,
+                    )
                 )
 
                 result = await self.gort.guiders.spec.wait_until_guiding(timeout=60)
