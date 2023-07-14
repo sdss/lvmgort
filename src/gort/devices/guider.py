@@ -238,7 +238,7 @@ class Guider(GortDevice):
         if wait_until_stopped:
             while True:
                 if self.status & GuiderStatus.IDLE:
-                    self.write_to_log("Guider is not IDLE.")
+                    self.write_to_log("Guider is idle.")
                     return
                 await asyncio.sleep(0.5)
 
