@@ -22,6 +22,7 @@ Contents
 
   getting-started
   observing
+  tiles
   troubleshooting
   Changelog <changelog>
   api
