@@ -216,9 +216,12 @@ class GortObserver:
                     error_code=801,
                 )
 
-        finally:
+        except Exception:
             self.write_to_log("Stopping guide loops.", "warning")
             await self.gort.guiders.stop()
+            raise
+
+        self.write_to_log("All telescopes are now guiding.")
 
     async def expose(
         self,
