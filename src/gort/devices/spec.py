@@ -350,7 +350,6 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                 error_code=3,
             )
 
-        exposure_time = kwargs.pop("exposure_time", 10)
         if kwargs.get("bias", False) or kwargs.get("flavour", "object") == "bias":
             exposure_time = 0.0
 
