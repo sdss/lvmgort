@@ -218,9 +218,6 @@ class Exposure(asyncio.Future["Exposure"]):
         # Set the Future.
         self.set_result(self)
 
-        # Reset this warning.
-        warnings.filterwarnings("default", message=".*cannot modify a done command.*")
-
 
 class Spectrograph(GortDevice):
     """Class representing an LVM spectrograph functionality."""
