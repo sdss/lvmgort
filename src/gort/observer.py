@@ -257,7 +257,9 @@ class GortObserver:
             "dpos": (dither_pos, "Dither position"),
         }
 
-        exp_nos = await self.gort.specs.expose(
+        self.write_to_log(f"Starting {exposure_time:.1f} s exposure.", "info")
+
+        exposure = await self.gort.specs.expose(
             exposure_time=exposure_time,
             tile_data=exp_tile_data,
             show_progress=show_progress,
@@ -268,10 +270,7 @@ class GortObserver:
             with suppress(asyncio.CancelledError):
                 await standard_task
 
-        if tile_id:
-            if len(exp_nos) < 1:
-                raise ValueError("No exposures to be registered.")
-
+        if tile_id is not None:
             self.write_to_log("Registering observation.")
             registration_payload = {
                 "dither": dither_pos,
@@ -280,7 +279,7 @@ class GortObserver:
                 "seeing": 10,
                 "standards": [],
                 "skies": [],
-                "exposure_no": exp_nos[0],
+                "exposure_no": exposure.exp_no,
             }
             self.write_to_log(f"Registration payload {registration_payload}")
             await register_observation(registration_payload)
