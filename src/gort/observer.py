@@ -164,8 +164,12 @@ class GortObserver:
                 )
             )
 
-        if require_spec and "spec" not in guide_on_telescopes:
-            raise GortObserverError("spec pointing not defined.", error_code=801)
+        if "spec" not in guide_on_telescopes:
+            if require_spec:
+                raise GortObserverError("spec pointing not defined.", error_code=801)
+            else:
+                self.write_to_log("No standards. Blocking fibre mask.", "warning")
+                await self.gort.telescopes.spec.fibsel.move_relative(500)
         if n_skies < min_skies:
             raise GortObserverError("Not enough sky positions defined.", error_code=801)
 
