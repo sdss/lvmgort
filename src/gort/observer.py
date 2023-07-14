@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from contextlib import suppress
 from time import time
 
 from typing import TYPE_CHECKING
@@ -254,7 +255,9 @@ class GortObserver:
         )
 
         if standard_task is not None and not standard_task.done():
-            await standard_task
+            standard_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await standard_task
 
         if tile_id:
             if len(exp_nos) < 1:
