@@ -9,7 +9,7 @@ from sdsstools import get_config, get_logger, get_package_version
 NAME = "lvmgort"
 
 # Loads config. config name is the package name.
-config = get_config(NAME)
+config = get_config(NAME, config_envvar="GORT_CONFIG_FILE")
 
 log = get_logger(NAME)
 log.sh.setLevel(logging.INFO)
