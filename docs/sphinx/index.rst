@@ -23,6 +23,7 @@ Contents
   getting-started
   observing
   tiles
+  configuration
   troubleshooting
   Changelog <changelog>
   api
