@@ -15,7 +15,7 @@
 
 ### 🚀 New
 
-* Initial versions. Bugs are likely but most features are functional.
+* Initial version. Bugs are likely but most features are functional.
 * `DeviceSet` classes for telescopes, AGs, guiders, enclosure, spectrographs, and NPS.
 * `Tile`, `GortObserver` classes to perform observations.
 * `Kubernetes` class to interact with the Kubernetes cluster.
