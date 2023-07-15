@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "type": "object",
+  "properties": {
+    "lamps": {
+      "type": "object",
+      "description": "Arcs and lamps to take. Must be the name of the lamp outlet in the NPS.",
+      "patternProperties": {
+        "[a-zA-Z]+": {
+          "type": "object",
+          "properties": {
+            "warmup": {
+              "type": "number",
+              "description": "The warm-up time for the lamp in seconds."
+            },
+            "exposure_times": {
+              "type": "array",
+              "description": "List of exposure times for the lamp.",
+              "items": { "type": "number" }
+            },
+            "flavour": {
+              "type": "string",
+              "description": "How to label this exposure type.",
+              "enum": ["arc", "flat"]
+            },
+            "fibsel": {
+              "type": "object",
+              "description": "If defined, moves the fibre selector during the exposure.",
+              "properties": {
+                "initial_position": {
+                  "type": "string",
+                  "description": "Initial fibre to expose."
+                },
+                "positions": {
+                  "type": "string",
+                  "description": "Regular expresion with the fibres to expose. Usually P1- or P2-."
+                },
+                "time_per_position": {
+                  "type": "number",
+                  "description": "How long to expose on each position/fibre."
+                }
+              },
+              "required": ["initial_position", "positions", "time_per_position"]
+            }
+          },
+          "required": ["warmup", "exposure_times", "flavour"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "biases": {
+      "type": "object",
+      "description": "Properties of the biases to take.",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "description": "How many biases to take."
+        }
+      },
+      "required": ["count"]
+    },
+    "darks": {
+      "type": "object",
+      "description": "Properties of the darks to take.",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "description": "How many darks to take."
+        },
+        "exposure_time": {
+          "type": "number",
+          "description": "The exposure time for each dark."
+        }
+      },
+      "required": ["count", "exposure_time"]
+    }
+  },
+  "additionalProperties": false
+}

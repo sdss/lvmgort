@@ -14,12 +14,14 @@ import pathlib
 import warnings
 from contextlib import suppress
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+import jsonschema
 
 from sdsstools.time import get_sjd
 
 from gort import config
-from gort.exceptions import GortSpecError
+from gort.exceptions import ErrorCodes, GortSpecError
 from gort.gort import GortDevice, GortDeviceSet
 from gort.tools import is_notebook, move_mask_interval
 
@@ -378,7 +380,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
     async def calibrate(
         self,
-        sequence: str = "normal",
+        sequence: str | dict = "normal",
         park_after: bool = True,
         show_progress: bool = False,
     ):
@@ -387,7 +389,9 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         Parameters
         ----------
         sequence
-            The calibration sequence to execute.
+            The name calibration sequence to execute. It can also be a
+            dictionary with the calibration sequence definition that
+            follows the :ref:`calibration schema <calibration-schema>`.
         park_after
             Park the telescopes after a successful calibration sequence.
         show_progress
@@ -395,21 +399,42 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         """
 
-        # TODO: add some checks. Confirm HDs are open, specs connected, etc.
+        # TODO: add some checks. Confirm HDs are open, enclosure is closed,
+        # specs connected, etc.
 
+        # Calibration sequence configuration. Includes the position where to
+        # point the telescopes, NPS to use, and sequences.
         cal_config = config["specs"]["calibration"]
 
-        if sequence not in cal_config["sequences"]:
-            raise GortSpecError(f"Unknown sequence {sequence!r}.", error_code=303)
-        sequence_config = cal_config["sequences"][sequence]
+        # Task that will move the fibre selector.
+        fibsel_task: asyncio.Task | None = None
 
-        self.write_to_log("Moving telescopes to position.", level="info")
-        await self.gort.telescopes.goto_named_position(cal_config["position"])
+        sequence_config: dict[str, Any]
+        if isinstance(sequence, dict):
+            sequence_config = sequence
+
+        else:
+            if sequence not in cal_config["sequences"]:
+                raise GortSpecError(f"Unknown sequence {sequence!r}.", error_code=303)
+            sequence_config = cal_config["sequences"][sequence]
+
+        # Validate sequence.
+        schema_file = pathlib.Path(__file__).parent / "../etc/calibration_schema.json"
+        schema = json.loads(open(schema_file).read())
+        try:
+            jsonschema.validate(sequence_config, schema)
+        except jsonschema.ValidationError:
+            raise GortSpecError(
+                "Calibration sequence does not match schema.",
+                error_code=ErrorCodes.INVALID_CALIBRATION_SEQUENCE,
+            )
 
         calib_nps = self.gort.nps[cal_config["lamps_nps"]]
         lamps_config = sequence_config.get("lamps", {})
 
-        fibsel_task: asyncio.Task | None = None
+        # Move the telescopes to point to the screen.
+        self.write_to_log("Moving telescopes to position.", level="info")
+        await self.gort.telescopes.goto_named_position(cal_config["position"])
 
         # Turn off all lamps.
         self.write_to_log("Checking that all lamps are off.", level="info")
@@ -451,7 +476,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                     fibsel = lamps_config[lamp].get("fibsel", None)
                     if fibsel:
                         initial_position = fibsel.get("initial_position", None)
-                        positions = fibsel.get("positions", "P1-*")
+                        positions = fibsel.get("positions", "P1-")
                         time_per_position = fibsel.get("time_per_position", None)
                         total_time = exp_time if time_per_position is None else None
 

@@ -70,7 +70,11 @@ class GortNotImplemented(GortError):
 class GortDeviceError(GortError):
     """A device error, which appends the name of the device to the error message."""
 
-    def __init__(self, message: str | None = None, error_code: int = 0) -> None:
+    def __init__(
+        self,
+        message: str | None = None,
+        error_code: int | ErrorCodes = 0,
+    ) -> None:
         from gort.gort import GortDevice
 
         if message is not None:

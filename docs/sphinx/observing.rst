@@ -60,7 +60,7 @@ Next, we take a spectrograph calibration sequence ::
 
     await g.spec.calibrate(sequence='normal')
 
-This will take calibration flats and arcs, and a series of biases and darks. The full sequence can take over an hour and the routine will output log messages indicating what it's doing. In the background, this sequence moves all the telescopes to point to the flat field screen, turns on the necessary lamps, and exposes the spectrographs.
+This will take calibration flats and arcs, and a series of biases and darks. The full sequence can take over an hour and the routine will output log messages indicating what it's doing. In the background, this sequence moves all the telescopes to point to the flat field screen, turns on the necessary lamps, and exposes the spectrographs. More details on running calibrations sequences can be found :ref:`here <calibrations>`.
 
 When the sequence finishes and we are ready to start observations, it's time to open the dome ::
 

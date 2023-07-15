@@ -14,6 +14,7 @@ This is the documentation for the SDSS Python product ``gort``. The current vers
   >>> __version__
   0.1.0a0
 
+
 Contents
 --------
 
@@ -23,10 +24,11 @@ Contents
   getting-started
   observing
   tiles
+  calibrations
   configuration
   troubleshooting
-  Changelog <changelog>
   api
+  Changelog <changelog>
 
 
 Links
