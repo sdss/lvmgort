@@ -15,15 +15,13 @@ from functools import partial
 from typing import TYPE_CHECKING, Callable, Coroutine
 
 from websockets.legacy.protocol import broadcast
-from websockets.server import serve
+from websockets.server import WebSocketServerProtocol, serve
 
 from gort import config, log
 from gort.gort import Gort
 
 
 if TYPE_CHECKING:
-    from websockets.server import WebSocketServerProtocol
-
     from clu import AMQPReply
 
 
