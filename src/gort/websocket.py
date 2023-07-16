@@ -172,7 +172,7 @@ class WebsocketServer:
         except Exception as err:
             log.warning(f"Failed replying to WS client: {err}.")
 
-    @route("get_enclosure_status")
+    @route("enclosure_status")
     async def enclosure_status(
         self,
         client: WebSocketServerProtocol,
@@ -183,3 +183,24 @@ class WebsocketServer:
 
         status = await self.gort.enclosure.status()
         await self.reply_to_client(client, command_id, status)
+
+    @route("enclosure_action")
+    async def enclosure_action(
+        self,
+        client: WebSocketServerProtocol,
+        command_id: str,
+        action: str | None = None,
+    ):
+        """Opens/closes/stops the enclosure."""
+
+        if action == "open":
+            await self.gort.enclosure.open()
+            await self.reply_to_client(client, command_id, {"text": "Dome open"})
+        elif action == "close":
+            await self.gort.enclosure.close()
+            await self.reply_to_client(client, command_id, {"text": "Dome closed"})
+        elif action == "stop":
+            await self.gort.enclosure.stop()
+            await self.reply_to_client(client, command_id, {"text": "Dome stopped"})
+        else:
+            await self.reply_to_client(client, command_id, {"error": "Invalid action"})
