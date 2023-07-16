@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import numpy
 
@@ -25,11 +25,28 @@ if TYPE_CHECKING:
     from gort.gort import GortClient
 
 
-__all__ = ["Telescope", "TelescopeSet", "KMirror", "FibSel", "Focuser"]
+__all__ = ["Telescope", "TelescopeSet", "KMirror", "FibSel", "Focuser", "MoTanDevice"]
 
 
-class KMirror(GortDevice):
+class MoTanDevice(GortDevice):
+    """A TwiceAsNice device."""
+
+    #: Artificial delay introduced to prevent all motors to slew at the same time.
+    SLEW_DELAY: ClassVar[float | dict[str, float]] = 0
+
+    async def slew_delay(self):
+        """Sleeps the :obj:`.SLEW_DELAY` amount."""
+
+        if isinstance(self.SLEW_DELAY, (float, int)):
+            await asyncio.sleep(self.SLEW_DELAY)
+        else:
+            await asyncio.sleep(self.SLEW_DELAY[self.name.split(".")[0]])
+
+
+class KMirror(MoTanDevice):
     """A device representing a K-mirror."""
+
+    SLEW_DELAY = {"sci": 1, "skye": 2, "skyw": 3}
 
     async def status(self):
         """Returns the status of the k-mirror."""
@@ -39,12 +56,16 @@ class KMirror(GortDevice):
     async def home(self):
         """Homes the k-mirror."""
 
+        await self.slew_delay()
+
         self.write_to_log("Homing k-mirror.", level="info")
         await self.actor.commands.moveToHome()
         self.write_to_log("k-mirror homing complete.")
 
     async def park(self):
         """Park the k-mirror at 90 degrees."""
+
+        await self.slew_delay()
 
         await self.actor.commands.slewStop()
         await self.move(90)
@@ -58,6 +79,8 @@ class KMirror(GortDevice):
             The position to which to move the k-mirror, in degrees.
 
         """
+
+        await self.slew_delay()
 
         self.write_to_log(f"Moving k-mirror to {degs:.3f} degrees.", level="info")
 
@@ -79,6 +102,8 @@ class KMirror(GortDevice):
 
         """
 
+        await self.slew_delay()
+
         self.write_to_log(
             f"Slewing k-mirror to ra={ra:.6f} dec={dec:.6f} and tracking.",
             level="info",
@@ -87,8 +112,10 @@ class KMirror(GortDevice):
         await self.actor.commands.slewStart(ra / 15.0, dec)
 
 
-class Focuser(GortDevice):
+class Focuser(MoTanDevice):
     """A device representing a focuser."""
+
+    SLEW_DELAY = {"spec": 0, "sci": 1, "skye": 2, "skyw": 3}
 
     async def status(self):
         """Returns the status of the focuser."""
@@ -98,6 +125,8 @@ class Focuser(GortDevice):
     async def home(self):
         """Homes the focuser."""
 
+        await self.slew_delay()
+
         self.write_to_log("Homing focuser.", level="info")
         await self.actor.commands.moveToHome()
         self.write_to_log("Focuser homing complete.")
@@ -105,12 +134,18 @@ class Focuser(GortDevice):
     async def move(self, dts: float):
         """Move the focuser to a position in DT."""
 
+        await self.slew_delay()
+
         self.write_to_log(f"Moving focuser to {dts:.3f} DT.", level="info")
         await self.actor.commands.moveAbsolute(dts, "DT")
 
 
-class FibSel(GortDevice):
+class FibSel(MoTanDevice):
     """A device representing the fibre mask in the spectrophotometric telescope."""
+
+    # We really don't want a delay here because it would slow down the acquisition
+    # of new standards, and anyway the fibre selector usually moves by itself.
+    SLEW_DELAY = 0
 
     async def status(self):
         """Returns the status of the fibre selector."""
@@ -119,6 +154,8 @@ class FibSel(GortDevice):
 
     async def home(self):
         """Homes the fibre selector."""
+
+        await self.slew_delay()
 
         self.write_to_log("Homing fibsel.", level="info")
         await self.actor.commands.moveToHome()
@@ -156,12 +193,15 @@ class FibSel(GortDevice):
             steps = position
             self.write_to_log(f"Moving mask to {steps} DT.", level="info")
 
+        await self.slew_delay()
         await self.actor.commands.moveAbsolute(steps)
 
     async def move_relative(self, steps: float):
         """Move the mask a number of motor steps relative to the current position."""
 
         self.write_to_log(f"Moving fibre mask {steps} steps.")
+
+        await self.slew_delay()
         await self.actor.commands.moveRelative(steps)
 
 
