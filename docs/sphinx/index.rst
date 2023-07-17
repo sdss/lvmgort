@@ -10,9 +10,11 @@ This is the documentation for the SDSS Python product ``gort``. The current vers
 
 ``lvmgort`` provides the library ``gort`` ::
 
-  >>> from gort import __version__
-  >>> __version__
-  0.1.0a0
+  >>> from gort import Gort
+  >>> g = await Gort(verbosity='info').init()
+  >>> await g.specs.expose(flavour='bias')
+  06:49:21 [INFO]: (SpectrographSet) Taking spectrograph exposure 1165.
+  <Exposure (exp_no=1165, error=False, reading=False, done=True)>
 
 
 Contents
