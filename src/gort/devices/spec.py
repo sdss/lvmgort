@@ -96,8 +96,8 @@ class Exposure(asyncio.Future["Exposure"]):
 
         """
 
-        if show_progress and exposure_time:
-            await self.start_timer(exposure_time)
+        if show_progress:
+            await self.start_timer(exposure_time or 0.0)
 
         if (
             exposure_time is None
