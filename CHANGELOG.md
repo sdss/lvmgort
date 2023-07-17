@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### 🚀 New
+
+* Added support for spectrograph IEBs.
+
+
 ## 0.1.1 - July 14, 2023
 
 ### ✨ Improved

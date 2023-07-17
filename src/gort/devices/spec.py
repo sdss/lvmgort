@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from gort.gort import GortClient
 
 
-__all__ = ["Spectrograph", "SpectrographSet", "Exposure", "READOUT_TIME"]
+__all__ = ["Spectrograph", "SpectrographSet", "Exposure", "IEB", "READOUT_TIME"]
 
 
 READOUT_TIME = 51
@@ -185,8 +185,6 @@ class Exposure(asyncio.Future["Exposure"]):
         """Cancels the timer."""
 
         if self._tqdm:
-            # sys.stdout = sys.__stdout__
-            # sys.stderr = sys.__stderr__
             self._tqdm.disable = True
             self._tqdm.close()
         self._tqdm = None
@@ -221,11 +219,203 @@ class Exposure(asyncio.Future["Exposure"]):
         self.set_result(self)
 
 
+class IEB(GortDevice):
+    """A class representing an Instrument Electronics Box."""
+
+    def __init__(self, gort: GortClient, name: str, actor: str):
+        super().__init__(gort, name, actor)
+
+        self.spec_name = self.name.split(".")[1]
+
+    async def status(self):
+        """Returns the status of the IEB."""
+
+        replies: list[ActorReply] = await asyncio.gather(
+            *[
+                self.actor.commands.shutter.commands.status(),
+                self.actor.commands.hartmann.commands.status(),
+                self.actor.commands.transducer.commands.status(),
+                self.actor.commands.wago.commands.status(),
+                self.actor.commands.wago.commands.getpower(),
+            ]
+        )
+
+        status = {}
+        for reply in replies:
+            flat_reply = reply.flatten()
+            if "transducer" in flat_reply:
+                flat_reply = {f"{self.spec_name}_pressures": flat_reply["transducer"]}
+            status.update(flat_reply)
+
+        return status
+
+    async def power(self, devices: str | list[str], on: bool = True):
+        """Powers on/off the shutter or Hartmann doors.
+
+        Parameters
+        ----------
+        device
+            The device to power on/off. Either ``'shutter'``, ``'hartmann_left'``,
+            or ``'hartmann_right'``. Can be a list of devices to modify.
+        on
+            If `True` powers on the device; otherwise powers it down.
+
+        """
+
+        if isinstance(devices, str):
+            devices = [devices]
+
+        tasks = []
+        for device in devices:
+            if device in ["hl", "left"]:
+                device = "hartmann_left"
+            elif device in ["hr", "right"]:
+                device = "hartmann_right"
+
+            if device not in ["shutter", "hartmann_left", "hartmann_right"]:
+                raise GortSpecError(
+                    f"Invalid device {device}.",
+                    error_code=ErrorCodes.USAGE_ERROR,
+                )
+
+            self.write_to_log(f"Powering {'on' if on else 'off'} {device}.", "info")
+
+            tasks.append(
+                self.actor.commands.wago.commands.setpower(
+                    device,
+                    action="ON" if on else "OFF",
+                )
+            )
+
+        await asyncio.gather(*tasks)
+
+    async def do(self, devices: str | list[str], action: str):
+        """Performs an action on a device. Powers the device if needed.
+
+        Parameters
+        ----------
+        device
+            The device to act on. Either ``'shutter'``, ``'hartmann_left'``,
+            or ``'hartmann_right'``. Can be a list of devices to modify.
+        action
+            The action to perform. Can be ``'open'``, ``'close'``, ``'home'``,
+            or ``'init'``.
+
+        """
+
+        if isinstance(devices, str):
+            devices = [devices]
+
+        if action not in ["open", "close", "home", "init"]:
+            raise GortSpecError(
+                f"Invalid action {action}.",
+                error_code=ErrorCodes.USAGE_ERROR,
+            )
+
+        status = await self.status()
+
+        tasks = []
+        hartmann_done = False
+        for device in devices:
+            if device in ["hl", "left"]:
+                device = "hartmann_left"
+            elif device in ["hr", "right"]:
+                device = "hartmann_right"
+
+            if device not in ["shutter", "hartmann_left", "hartmann_right"]:
+                raise GortSpecError(
+                    f"Invalid device {device}.",
+                    error_code=ErrorCodes.USAGE_ERROR,
+                )
+
+            self.write_to_log(f"Performing {action!r} on {device}.", "info")
+
+            if status[f"{self.spec_name}_relays"][device] is False:
+                self.write_to_log(f"Device {device} is off. Powering it on.", "warning")
+                await self.power(device)
+
+            if "hartmann" in device:
+                command = getattr(self.actor.commands.hartmann.commands, action)
+                if action in ["home", "init"]:
+                    if hartmann_done:
+                        # Avoid homing/initialising the HD twice.
+                        continue
+                    tasks.append(command())
+                    hartmann_done = True
+                else:
+                    tasks.append(command(side=device.split("_")[1]))
+            else:
+                command = getattr(self.actor.commands.shutter.commands, action)
+                tasks.append(command())
+
+        await asyncio.gather(*tasks)
+
+    async def open(self, devices: str | list[str]):
+        """Opens a device or list of devices.
+
+        Parameters
+        ----------
+        device
+            The device to act on. Either ``'shutter'``, ``'hartmann_left'``,
+            or ``'hartmann_right'``. Can be a list of devices to open.
+
+        """
+
+        await self.do(devices, "open")
+
+    async def close(self, devices: str | list[str]):
+        """Closes a device or list of devices.
+
+        Parameters
+        ----------
+        device
+            The device to act on. Either ``'shutter'``, ``'hartmann_left'``,
+            or ``'hartmann_right'``. Can be a list of devices to close.
+
+        """
+
+        await self.do(devices, "close")
+
+    async def home(self, devices: str | list[str]):
+        """Homes a device or list of devices.
+
+        Parameters
+        ----------
+        device
+            The device to act on. Either ``'shutter'``, ``'hartmann_left'``,
+            or ``'hartmann_right'``. Can be a list of devices to home.
+
+        """
+
+        await self.do(devices, "home")
+
+    async def init(self, devices: str | list[str], home: bool = True):
+        """Initialises a device or list of devices.
+
+        Parameters
+        ----------
+        device
+            The device to act on. Either ``'shutter'``, ``'hartmann_left'``,
+            or ``'hartmann_right'``. Can be a list of devices to initialise.
+        home
+            If `True` homes the devices after initialising them.
+
+        """
+
+        await self.do(devices, "init")
+
+        if home:
+            await self.do(devices, "home")
+
+
 class Spectrograph(GortDevice):
     """Class representing an LVM spectrograph functionality."""
 
     def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
+
+        self.nps = self.gort.nps[name]
+        self.ieb = IEB(gort, f"ieb.{self.name}", f"lvmieb.{self.name}")
 
     async def status(self):
         """Retrieves the status of the telescope."""
@@ -532,4 +722,5 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             raise
 
         finally:
+            await calib_nps.all_off()
             await calib_nps.all_off()
