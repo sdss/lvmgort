@@ -445,6 +445,8 @@ class Gort(GortClient):
         dec: float | None = None,
         use_scheduler: bool = False,
         exposure_time: float = 900.0,
+        guide_tolerance: float = 3.0,
+        acquisition_timeout: float = 180.0,
         show_progress: bool = False,
         min_skies: int = 1,
         require_spec: bool = False,
@@ -466,6 +468,14 @@ class Gort(GortClient):
             select calibrators.
         exposure_time
             The length of the exposure in seconds.
+        guide_tolerance
+            The guide tolerance in arcsec. A telescope will not be considered
+            to be guiding if its separation to the commanded field is larger
+            than this value.
+        acquisition_timeout
+            The maximum time allowed for acquisition. In case of timeout
+            the acquired fields are evaluated and an exception is
+            raised if the acquisition failed.
         show_progress
             Displays a progress bar with the elapsed exposure time.
         min_skies
@@ -503,7 +513,12 @@ class Gort(GortClient):
             await observer.slew()
 
             # Start guiding.
-            await observer.acquire(min_skies=min_skies, require_spec=require_spec)
+            await observer.acquire(
+                min_skies=min_skies,
+                require_spec=require_spec,
+                guide_tolerance=guide_tolerance,
+                timeout=acquisition_timeout,
+            )
 
             # Exposing
             exposure = await observer.expose(
