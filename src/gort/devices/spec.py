@@ -18,18 +18,17 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
 import jsonschema
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 
 from sdsstools.time import get_sjd
 
 from gort import config
 from gort.exceptions import ErrorCodes, GortSpecError
 from gort.gort import GortDevice, GortDeviceSet
-from gort.tools import is_notebook, move_mask_interval
+from gort.tools import is_interactive, is_notebook, move_mask_interval
 
 
 if TYPE_CHECKING:
-    from tqdm import tqdm as tqdm_type
-
     from gort.core import ActorReply
     from gort.gort import GortClient
 
@@ -60,7 +59,7 @@ class Exposure(asyncio.Future["Exposure"]):
         self.reading: bool = False
 
         self._timer_task: asyncio.Task | None = None
-        self._tqdm: tqdm_type | None = None
+        self._progress: Progress | None = None
 
         super().__init__()
 
@@ -171,48 +170,69 @@ class Exposure(asyncio.Future["Exposure"]):
     async def start_timer(
         self,
         exposure_time: float,
-        readout_time: float | None = READOUT_TIME,
+        readout_time: float = READOUT_TIME,
     ):
         """Starts the tqdm timer."""
 
-        if is_notebook():
-            from tqdm.notebook import tqdm
-        else:
-            from tqdm import tqdm
+        self._progress = Progress(
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(bar_width=None),
+            MofNCompleteColumn(),
+            TextColumn("s"),
+            expand=True,
+        )
 
-        async def update_timer(max_time: int):
+        exp_task = self._progress.add_task(
+            "[green]Integrating ...",
+            total=int(exposure_time),
+        )
+
+        self._progress.start()
+
+        async def update_timer():
+            readout_task = None
+            elapsed = 0
             while True:
-                if self._tqdm is None:
+                if elapsed > exposure_time + readout_time:
+                    break
+                elif self._progress is None:
                     return
-                if self._tqdm.n >= max_time:
-                    return
+                elif elapsed < exposure_time:
+                    self._progress.update(exp_task, advance=1)
+                else:
+                    if readout_task is None:
+                        readout_task = self._progress.add_task(
+                            "[red]Reading ...",
+                            total=int(readout_time),
+                        )
+                    self._progress.update(exp_task, completed=int(exposure_time))
+                    self._progress.update(readout_task, advance=1)
+
+                self._progress.refresh()
                 await asyncio.sleep(1)
-                self._tqdm.update()
+                elapsed += 1
+
+            if self._progress and readout_task:
+                self._progress.update(readout_task, completed=int(readout_time))
 
         def done_timer(*_):
-            if self._tqdm:
-                self._tqdm.close()
-                self._tqdm = None
-                self._timer_task = None
+            if self._progress:
+                self._progress.stop()
+                self._progress.console.clear_live()
+                self._progress = None
 
-        total_time = int(exposure_time + (readout_time or 0.0))
-        bar_format = "{l_bar}{bar}| {n_fmt}/{total_fmt}s"
-
-        self._tqdm = tqdm(total=total_time, bar_format=bar_format)
-        self._tqdm.refresh()
-
-        self._timer_task = asyncio.create_task(update_timer(total_time))
+        self._timer_task = asyncio.create_task(update_timer())
         self._timer_task.add_done_callback(done_timer)
 
-        return self._timer_task
+        return
 
     async def stop_timer(self):
         """Cancels the timer."""
 
-        if self._tqdm:
-            self._tqdm.disable = True
-            self._tqdm.close()
-        self._tqdm = None
+        if self._progress:
+            self._progress.stop()
+            self._progress.console.clear_live()
+            self._progress = None
 
         if self._timer_task and not self._timer_task.done():
             self._timer_task.cancel()
@@ -546,7 +566,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         self,
         exposure_time: float | None = None,
         tile_data: dict | None = None,
-        show_progress: bool = False,
+        show_progress: bool | None = None,
         async_readout: bool = False,
         **kwargs,
     ):
@@ -560,6 +580,8 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             Tile data to add to the headers.
         show_progress
             Displays a progress bar with the elapsed exposure time.
+            If `None` (the default), will show the progress bar only
+            in interactive sessions.
         async_readout
             Returns after integration completes. Readout is initiated
             but handled asynchronously and can be await by awaiting
@@ -602,6 +624,9 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             header = json.dumps(tile_data)
         else:
             header = None
+
+        if show_progress is None:
+            show_progress = is_interactive() or is_notebook()
 
         exposure = Exposure(seqno, self)
         await exposure.expose(

@@ -233,7 +233,7 @@ class GortObserver:
     async def expose(
         self,
         exposure_time: float = 900.0,
-        show_progress: bool = False,
+        show_progress: bool | None = None,
         iterate_over_standards: bool = True,
     ):
         """Starts exposing the spectrographs.
