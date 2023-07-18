@@ -190,6 +190,10 @@ class GortObserver:
             ]
         )
 
+        has_timedout = any([gs[3] for gs in guide_status])
+        if has_timedout:
+            self.write_to_log("Some acquisitions timed out.", "warnings")
+
         try:
             n_skies_guiding = 0
             for ii, tel in enumerate(guide_on_telescopes):

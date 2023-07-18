@@ -63,7 +63,7 @@ class Guider(GortDevice):
         self,
         guide_tolerance: float | None = None,
         timeout: float | None = None,
-    ) -> tuple[bool, GuiderStatus, float | None]:
+    ) -> tuple[bool, GuiderStatus, float | None, bool]:
         """Waits until the guider has converged.
 
         Parameters
@@ -85,6 +85,8 @@ class Guider(GortDevice):
             The current `.GS`.
         separation
             The current separation.
+        timedout
+            `True` if the acquisition timed out.
 
         """
 
@@ -101,11 +103,11 @@ class Guider(GortDevice):
                 and (guide_tolerance is None or self.separation < guide_tolerance)
             )
             if has_acquired:
-                return (True, self.status, self.separation)
+                return (True, self.status, self.separation, False)
 
             elapsed += 1
             if timeout is not None and elapsed > timeout:
-                return (False, self.status, self.separation)
+                return (False, self.status, self.separation, True)
 
             await asyncio.sleep(1)
 
