@@ -21,6 +21,10 @@ import httpx
 import peewee
 from astropy import units as uu
 from astropy.coordinates import angular_separation as astropy_angular_separation
+from rich.console import Console
+from rich.logging import RichHandler
+from rich.text import Text
+from rich.theme import Theme
 
 from gort import config
 
@@ -50,6 +54,8 @@ __all__ = [
     "angular_separation",
     "get_db_connection",
     "run_in_executor",
+    "is_interactive",
+    "is_notebook",
 ]
 
 CAMERAS = [
@@ -313,6 +319,14 @@ def is_notebook() -> bool:
         return False  # Probably standard Python interpreter
 
 
+def is_interactive():
+    """Returns `True` is we are in an interactive session."""
+
+    import __main__ as main
+
+    return not hasattr(main, "__file__")
+
+
 def tqdm_timer(seconds: float):
     """Creates a task qith a tqdm progress bar."""
 
@@ -530,3 +544,37 @@ async def run_in_executor(fn, *args, catch_warnings=False, executor="thread", **
             result = await asyncio.get_running_loop().run_in_executor(pool, fn)
 
     return result
+
+
+class CustomRichHandler(RichHandler):
+    """A slightly custom ``RichHandler`` logging handler."""
+
+    def get_level_text(self, record):
+        """Get the level name from the record."""
+
+        level_name = record.levelname
+        level_text = Text.styled(
+            f"[{level_name}]:",
+            f"logging.level.{level_name.lower()}",
+        )
+        return level_text
+
+
+def get_rich_hadler(verbosity_level):
+    """Returns a custom rich handler."""
+
+    return CustomRichHandler(
+        level=verbosity_level,
+        log_time_format="%X",
+        show_path=False,
+        console=Console(
+            theme=Theme(
+                {
+                    "logging.level.debug": "magenta",
+                    "logging.level.warning": "yellow",
+                    "logging.level.critical": "red",
+                    "logging.level.error": "red",
+                }
+            )
+        ),
+    )

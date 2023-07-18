@@ -24,7 +24,7 @@ from gort.exceptions import GortError
 from gort.kubernetes import Kubernetes
 from gort.observer import GortObserver
 from gort.tile import Tile
-from gort.tools import run_in_executor
+from gort.tools import CustomRichHandler, get_rich_hadler, run_in_executor
 
 
 __all__ = ["GortClient", "Gort", "GortDeviceSet", "GortDevice"]
@@ -153,16 +153,33 @@ class GortClient(AMQPClient):
         """
 
         verbosity = verbosity or "warning"
-
         if isinstance(verbosity, int):
-            self.log.sh.setLevel(verbosity)
-            return
+            verbosity = logging.getLevelName(verbosity)
+
+        assert isinstance(verbosity, str)
 
         verbosity = verbosity.lower()
         if verbosity not in ["debug", "info", "warning"]:
             raise ValueError("Invalid verbosity value.")
 
-        self.log.sh.setLevel(logging.getLevelName(verbosity.upper()))
+        verbosity_level = logging.getLevelName(verbosity.upper())
+
+        # Disable the normal console logger.
+        self.log.sh.setLevel(10000)
+
+        # Check if we have added a rich logger. If so, change the level.
+        has_rich_handler = False
+        for handler in self.log.handlers:
+            if isinstance(handler, CustomRichHandler):
+                handler.setLevel(verbosity_level)
+                has_rich_handler = True
+
+        # If not, add a RichHandler.
+        if not has_rich_handler:
+            handler = get_rich_hadler(verbosity_level)
+            self.log.addHandler(handler)
+            if self.log.warnings_logger:
+                self.log.warnings_logger.addHandler(handler)
 
 
 GortDeviceType = TypeVar("GortDeviceType", bound="GortDevice")
@@ -447,7 +464,7 @@ class Gort(GortClient):
         exposure_time: float = 900.0,
         guide_tolerance: float = 3.0,
         acquisition_timeout: float = 180.0,
-        show_progress: bool = False,
+        show_progress: bool | None = None,
         min_skies: int = 1,
         require_spec: bool = False,
     ):
