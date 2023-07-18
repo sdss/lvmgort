@@ -445,6 +445,9 @@ class Gort(GortClient):
         dec: float | None = None,
         use_scheduler: bool = False,
         exposure_time: float = 900.0,
+        show_progress: bool = False,
+        min_skies: int = 1,
+        require_spec: bool = False,
     ):
         """Performs all the operations necessary to observe a tile.
 
@@ -461,6 +464,14 @@ class Gort(GortClient):
         use_scheduler
             Whether to use the scheduler to determine the ``tile_id`` or
             select calibrators.
+        exposure_time
+            The lenght of the exposure in seconds.
+        show_progress
+            Displays a progress bar with the elapsed exposure time.
+        min_skies
+            Minimum number of skies required to consider acquisition successful.
+        require_spec
+            Whether to require the ``spec`` telescope to be guiding.
 
         """
 
@@ -492,12 +503,12 @@ class Gort(GortClient):
             await observer.slew()
 
             # Start guiding.
-            await observer.acquire()
+            await observer.acquire(min_skies=min_skies, require_spec=require_spec)
 
             # Exposing
             exposure = await observer.expose(
                 exposure_time=exposure_time,
-                show_progress=True,
+                show_progress=show_progress,
             )
 
         finally:

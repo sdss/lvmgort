@@ -124,7 +124,7 @@ class GortObserver:
         min_skies
             Minimum number of skies required to consider acquisition successful.
         require_spec
-            Whether to requiere the ``spec`` telescope to be guiding.
+            Whether to require the ``spec`` telescope to be guiding.
 
         Raises
         ------
