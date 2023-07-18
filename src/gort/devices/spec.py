@@ -97,6 +97,21 @@ class Exposure(asyncio.Future["Exposure"]):
 
         """
 
+        # Check that all specs are idle and not errored.
+        status = await self.spec_set.status(simple=True)
+        for spec_status in status.values():
+            if "IDLE" not in spec_status["status_names"]:
+                raise GortSpecError(
+                    "Some spectrographs are not IDLE.",
+                    error_code=ErrorCodes.SECTROGRAPH_NOT_IDLE,
+                )
+            if "ERROR" in spec_status["status_names"]:
+                raise GortSpecError(
+                    "Some spectrographs have ERROR status. "
+                    "Solve this manually before exposing.",
+                    error_code=ErrorCodes.SECTROGRAPH_NOT_IDLE,
+                )
+
         if show_progress:
             await self.start_timer(exposure_time or 0.0)
 
