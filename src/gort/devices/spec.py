@@ -210,7 +210,7 @@ class Exposure(asyncio.Future["Exposure"]):
         await self.spec_set._send_command_all("wait_until_idle", allow_errored=True)
 
         for spec in self.spec_set.values():
-            reply = await spec.status()
+            reply = await spec.status(simple=True)
             if "ERROR" in reply["status_names"]:
                 self.error = True
 
@@ -418,10 +418,17 @@ class Spectrograph(GortDevice):
         self.nps = self.gort.nps[name]
         self.ieb = IEB(gort, f"ieb.{self.name}", f"lvmieb.{self.name}")
 
-    async def status(self):
-        """Retrieves the status of the telescope."""
+    async def status(self, simple: bool = False):
+        """Retrieves the status of the telescope.
 
-        reply: ActorReply = await self.actor.commands.status()
+        Parameters
+        ----------
+        simple
+            If `True` returns a short version of the status.
+
+        """
+
+        reply: ActorReply = await self.actor.commands.status(simple=simple)
         flatten_reply = reply.flatten()
 
         return flatten_reply.get("status", {})
@@ -429,20 +436,20 @@ class Spectrograph(GortDevice):
     async def is_idle(self):
         """Returns `True` if the spectrograph is idle and ready to expose."""
 
-        status = await self.status()
+        status = await self.status(simple=True)
         names = status["status_names"]
         return "IDLE" in names and "READOUT_PENDING" not in names
 
     async def is_exposing(self):
         """Returns `True` if the spectrograph is exposing."""
 
-        status = await self.status()
+        status = await self.status(simple=True)
         return "EXPOSING" in status["status_names"]
 
     async def is_reading(self):
         """Returns `True` if the spectrograph is idle and ready to expose."""
 
-        status = await self.status()
+        status = await self.status(simple=True)
         return "READING" in status["status_names"]
 
     async def expose(self, **kwargs):
@@ -469,11 +476,18 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         self.last_exposure: Exposure | None = None
 
-    async def status(self) -> dict[str, dict]:
-        """Collects the status of each spectrograph."""
+    async def status(self, simple: bool = False) -> dict[str, dict]:
+        """Collects the status of each spectrograph.
+
+        Parameters
+        ----------
+        simple
+            If `True` returns a short version of the status.
+
+        """
 
         names = list(self)
-        statuses = await self.call_device_method(Spectrograph.status)
+        statuses = await self.call_device_method(Spectrograph.status, simple=simple)
 
         return dict(zip(names, statuses))
 
