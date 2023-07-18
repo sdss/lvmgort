@@ -5,14 +5,22 @@
 ### 🚀 New
 
 * Added support for spectrograph IEBs.
+* Added `SpectrographSet.get_calibration_sequence()`.`
+* Added `initialise`` (init) and `abort`` methods for the spectrographs.
 
 ### ✨ Improved
 
 * [#4](https://github.com/sdss/lvmgort/pull/4) Use the `rich` library for status bars. It provides better style and works better with stdout and logger outputs.
+* Expose various parameters in `Gort.observe_tile()`.
+* Various fixes and additional routes for the websockets server.
+* Allow to pass a calibration sequence as a dictionary, and validate against JSON schema.
+* Avoid having all MoTan devices moving at once by introducing a delay.
 
 ### ⚙️ Engineering
 
+* Update `unclick`` to 0.1.0b5.
 * Use the `rich` library logger but customise it to look like the usual console formatter.
+* Allow to define the configuration file to use as `$GORT_CONFIG_FILE`.
 
 
 ## 0.1.1 - July 14, 2023
