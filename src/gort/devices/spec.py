@@ -13,6 +13,7 @@ import json
 import pathlib
 import warnings
 from contextlib import suppress
+from copy import deepcopy
 
 from typing import TYPE_CHECKING, Any
 
@@ -724,3 +725,29 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         finally:
             await calib_nps.all_off()
             await calib_nps.all_off()
+
+    def get_calibration_sequence(self, sequence: str):
+        """Returns a dictionary with the configuration for a calibration sequence.
+
+        Parameters
+        ----------
+        sequence
+            The name calibration sequence.
+
+        Returns
+        -------
+        sequence_dict
+            The calibration sequence dictionary. This dictionary can be
+            altered and then passed to :obj:`.calibrate` to execute the
+            modified sequence. The returned dictionary if a deep copy of
+            the original sequence; modifying it won't modify the original
+            sequence.
+
+        """
+
+        sequences = config["specs"]["calibration"]["sequences"]
+
+        if sequence not in sequences:
+            raise ValueError(f"Sequence {sequence!r} not found in configuration file.")
+
+        return deepcopy(sequences[sequence])
