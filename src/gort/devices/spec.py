@@ -129,6 +129,8 @@ class Exposure(asyncio.Future["Exposure"]):
 
         self.spec_set.last_exposure = self
 
+        monitor_task: asyncio.Task | None = None
+
         try:
             await self.spec_set._send_command_all(
                 "expose",
@@ -153,8 +155,15 @@ class Exposure(asyncio.Future["Exposure"]):
                 self.spec_set.write_to_log("Returning with async readout ongoing.")
 
         except Exception as err:
+            # Cancel the monitor task
+            if monitor_task and not monitor_task.done():
+                monitor_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await monitor_task
+
             await self.stop_timer()
             self.error = True
+
             raise GortSpecError(f"Exposure failed with error {err}", error_code=301)
 
         return self
