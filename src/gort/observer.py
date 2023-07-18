@@ -107,7 +107,7 @@ class GortObserver:
         guide_tolerance: float = 3,
         timeout: float = 180,
         min_skies: int = 1,
-        require_spec: bool = True,
+        require_spec: bool = False,
     ):
         """Acquires the field in all the telescopes. Blocks until then.
 

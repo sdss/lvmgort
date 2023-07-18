@@ -444,6 +444,7 @@ class Gort(GortClient):
         ra: float | None = None,
         dec: float | None = None,
         use_scheduler: bool = False,
+        exposure_time: float = 900.0,
     ):
         """Performs all the operations necessary to observe a tile.
 
@@ -494,7 +495,10 @@ class Gort(GortClient):
             await observer.acquire()
 
             # Exposing
-            exposure = await observer.expose()
+            exposure = await observer.expose(
+                exposure_time=exposure_time,
+                show_progress=True,
+            )
 
         finally:
             # Finish observation.
