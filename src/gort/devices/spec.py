@@ -452,6 +452,18 @@ class Spectrograph(GortDevice):
         status = await self.status(simple=True)
         return "READING" in status["status_names"]
 
+    async def initialise(self):
+        """Initialises the spectrograph and flashes the ACF configuration file."""
+
+        self.write_to_log("Initialising spectrograph and flashing ACF.", "info")
+        await self.actor.commands.init()
+
+    async def abort(self):
+        """Aborts an ongoing exposure."""
+
+        self.write_to_log("Aborting exposures.", "warning")
+        await self.actor.commands.abort()
+
     async def expose(self, **kwargs):
         """Exposes the spectrograph."""
 
@@ -582,6 +594,17 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         """Reset the spectrographs."""
 
         await self._send_command_all("reset")
+
+    async def initialise(self):
+        """Initialises the spectrographs and flashes the ACF configuration file."""
+
+        await self.call_device_method(Spectrograph.initialise)
+
+    async def abort(self):
+        """Aborts an ongoing exposure."""
+
+        await self.call_device_method(Spectrograph.abort)
+        self.last_exposure = None
 
     async def calibrate(
         self,
