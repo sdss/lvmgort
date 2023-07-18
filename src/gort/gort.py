@@ -460,12 +460,12 @@ class Gort(GortClient):
         ra,dec
             The RA and Dec where to point the science telescopes. The other
             telescopes are pointed to calibrators that fit the science pointing.
-            Cannot be used with ``tile_id``.
+            Cannot be used with ``tile``.
         use_scheduler
             Whether to use the scheduler to determine the ``tile_id`` or
             select calibrators.
         exposure_time
-            The lenght of the exposure in seconds.
+            The length of the exposure in seconds.
         show_progress
             Displays a progress bar with the elapsed exposure time.
         min_skies
