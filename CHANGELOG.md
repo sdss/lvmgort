@@ -6,6 +6,14 @@
 
 * Added support for spectrograph IEBs.
 
+### ✨ Improved
+
+* [#4](https://github.com/sdss/lvmgort/pull/4) Use the `rich` library for status bars. It provides better style and works better with stdout and logger outputs.
+
+### ⚙️ Engineering
+
+* Use the `rich` library logger but customise it to look like the usual console formatter.
+
 
 ## 0.1.1 - July 14, 2023
 
