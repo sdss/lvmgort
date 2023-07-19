@@ -24,7 +24,7 @@ from gort.exceptions import GortError
 from gort.kubernetes import Kubernetes
 from gort.observer import GortObserver
 from gort.tile import Tile
-from gort.tools import CustomRichHandler, get_rich_logger, run_in_executor
+from gort.tools import get_rich_logger, run_in_executor
 
 
 __all__ = ["GortClient", "Gort", "GortDeviceSet", "GortDevice"]
