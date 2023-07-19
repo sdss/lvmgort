@@ -160,10 +160,12 @@ class Exposure(asyncio.Future["Exposure"]):
                 with suppress(asyncio.CancelledError):
                     await monitor_task
 
-            await self.stop_timer()
             self.error = True
 
             raise GortSpecError(f"Exposure failed with error {err}", error_code=301)
+
+        finally:
+            await self.stop_timer()
 
         return self
 
@@ -239,6 +241,7 @@ class Exposure(asyncio.Future["Exposure"]):
             self._timer_task.cancel()
             with suppress(asyncio.CancelledError):
                 await self._timer_task
+
         self._timer_task = None
 
     def get_files(self):
