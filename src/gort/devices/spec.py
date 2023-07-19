@@ -47,12 +47,15 @@ class Exposure(asyncio.Future["Exposure"]):
         The exposure sequence number.
     spec_set
         The `.SpectrographSet` commanding this exposure.
+    flavour
+        The image type.
 
     """
 
-    def __init__(self, exp_no: int, spec_set: SpectrographSet):
+    def __init__(self, exp_no: int, spec_set: SpectrographSet, flavour: str = "object"):
         self.spec_set = spec_set
         self.exp_no = exp_no
+        self.flavour=flavour
 
         self.error: bool = False
         self.reading: bool = False
@@ -64,8 +67,8 @@ class Exposure(asyncio.Future["Exposure"]):
 
     def __repr__(self):
         return (
-            f"<Exposure (exp_no={self.exp_no}, error={self.error}, "
-            f"reading={self.reading}, done={self.done()})>"
+            f"<Exposure (exp_no={self.exp_no}, flavour={self.flavour}, "
+            f"error={self.error}, reading={self.reading}, done={self.done()})>"
         )
 
     async def expose(
@@ -645,7 +648,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
             await self.reset()
 
-            exposure = Exposure(seqno, self)
+            exposure = Exposure(seqno, self, flavour=flavour)
             await exposure.expose(
                 exposure_time=exposure_time,
                 header=header,
