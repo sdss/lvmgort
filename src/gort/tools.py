@@ -14,6 +14,7 @@ import logging
 import pathlib
 import re
 import warnings
+from contextlib import suppress
 from functools import partial
 
 from typing import TYPE_CHECKING, Callable, Coroutine
@@ -599,3 +600,14 @@ def get_rich_logger(verbosity_level: int = logging.WARNING):
             log.warnings_logger.addHandler(rich_handler)
 
     return log
+
+
+async def cancel_task(task: asyncio.Task | None):
+    """Safely cancels a task."""
+
+    if task is None or task.done():
+        return
+
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task

@@ -12,7 +12,6 @@ import asyncio
 import json
 import pathlib
 import warnings
-from contextlib import suppress
 from copy import deepcopy
 
 from typing import TYPE_CHECKING, Any
@@ -155,10 +154,7 @@ class Exposure(asyncio.Future["Exposure"]):
 
         except Exception as err:
             # Cancel the monitor task
-            if monitor_task and not monitor_task.done():
-                monitor_task.cancel()
-                with suppress(asyncio.CancelledError):
-                    await monitor_task
+            await cancel_task(monitor_task)
 
             self.error = True
 
@@ -232,17 +228,13 @@ class Exposure(asyncio.Future["Exposure"]):
     async def stop_timer(self):
         """Cancels the timer."""
 
+        await cancel_task(self._timer_task)
+        self._timer_task = None
+
         if self._progress:
             self._progress.stop()
             self._progress.console.clear_live()
-            self._progress = None
-
-        if self._timer_task and not self._timer_task.done():
-            self._timer_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await self._timer_task
-
-        self._timer_task = None
+        self._progress = None
 
     def get_files(self):
         """Returns the files written by the exposure."""
@@ -814,8 +806,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                         async_readout=ietime == n_exp_times - 1,
                     )
 
-                    if fibsel_task:
-                        await fibsel_task
+                    await cancel_task(fibsel_task)
 
                 self.write_to_log(f"Turning off {lamp}.")
                 await calib_nps.off(lamp)
@@ -835,8 +826,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             )
 
             # Stop the mask iteration task.
-            if fibsel_task and not fibsel_task.done():
-                fibsel_task.cancel()
+            await cancel_task(fibsel_task)
 
             raise
 
