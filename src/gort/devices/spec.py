@@ -180,6 +180,7 @@ class Exposure(asyncio.Future["Exposure"]):
             MofNCompleteColumn(),
             TextColumn("s"),
             expand=True,
+            transient=True,
         )
 
         exp_task = self._progress.add_task(
