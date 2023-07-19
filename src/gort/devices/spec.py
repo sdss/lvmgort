@@ -55,7 +55,7 @@ class Exposure(asyncio.Future["Exposure"]):
     def __init__(self, exp_no: int, spec_set: SpectrographSet, flavour: str = "object"):
         self.spec_set = spec_set
         self.exp_no = exp_no
-        self.flavour=flavour
+        self.flavour = flavour
 
         self.error: bool = False
         self.reading: bool = False
