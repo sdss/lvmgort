@@ -756,7 +756,10 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                 await calib_nps.on(lamp)
                 await asyncio.sleep(warmup)
 
-                exp_times = lamps_config[lamp]["exposure_times"]
+                exp_times = lamps_config[lamp]["exposure_time"]
+                if isinstance(exp_times, (int, float)):
+                    exp_times = [exp_times]
+
                 n_exp_times = len(exp_times)
                 for ietime, exp_time in enumerate(exp_times):
                     flavour = lamps_config[lamp]["flavour"]

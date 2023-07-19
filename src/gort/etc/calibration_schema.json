@@ -13,10 +13,18 @@
               "type": "number",
               "description": "The warm-up time for the lamp in seconds."
             },
-            "exposure_times": {
-              "type": "array",
-              "description": "List of exposure times for the lamp.",
-              "items": { "type": "number" }
+            "exposure_time": {
+              "oneOf": [
+                {
+                  "type": "array",
+                  "description": "List of exposure times for the lamp.",
+                  "items": { "type": "number" }
+                },
+                {
+                  "type": "number",
+                  "description": "Exposure time for the lamp."
+                }
+              ]
             },
             "flavour": {
               "type": "string",
@@ -44,11 +52,14 @@
                   },
                   "required": []
                 },
-                { "type": "boolean" }
+                {
+                  "type": "boolean",
+                  "description": "Moves the fibre selector using default values."
+                }
               ]
             }
           },
-          "required": ["warmup", "exposure_times", "flavour"],
+          "required": ["warmup", "exposure_time", "flavour"],
           "additionalProperties": false
         }
       }

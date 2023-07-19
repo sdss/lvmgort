@@ -135,27 +135,27 @@ specs:
         lamps:
           LDLS:
             warmup: 300
-            exposure_times: [30, 90, 270]
+            exposure_time: [30, 90, 270]
             flavour: flat
           Quartz:
             warmup: 120
-            exposure_times: [30, 90, 270]
+            exposure_time: [30, 90, 270]
             flavour: flat
           Argon:
             warmup: 120
-            exposure_times: [30, 90, 270]
+            exposure_time: [30, 90, 270]
             flavour: arc
           Neon:
             warmup: 120
-            exposure_times: [30, 90, 270]
+            exposure_time: [30, 90, 270]
             flavour: arc
           HgNe:
             warmup: 120
-            exposure_times: [30, 90, 270]
+            exposure_time: [30, 90, 270]
             flavour: arc
           Xenon:
             warmup: 120
-            exposure_times: [30, 90, 270]
+            exposure_time: [30, 90, 270]
             flavour: arc
         biases:
           count: 5
@@ -166,11 +166,11 @@ specs:
         lamps:
           LDLS:
             warmup: 300
-            exposure_times: [90]
+            exposure_time: [90]
             flavour: flat
           Quartz:
             warmup: 120
-            exposure_times: [270]
+            exposure_time: [270]
             flavour: flat
             fibsel:
               initial_position: P1-2
@@ -178,19 +178,19 @@ specs:
               time_per_position: 20
           Argon:
             warmup: 120
-            exposure_times: [30]
+            exposure_time: [30]
             flavour: arc
           Neon:
             warmup: 120
-            exposure_times: [30]
+            exposure_time: [30]
             flavour: arc
           HgNe:
             warmup: 120
-            exposure_times: [30]
+            exposure_time: [30]
             flavour: arc
           Xenon:
             warmup: 120
-            exposure_times: [30]
+            exposure_time: [30]
             flavour: arc
         biases:
           count: 5
@@ -201,7 +201,7 @@ specs:
         lamps:
           Quartz:
             warmup: 20
-            exposure_times: [120]
+            exposure_time: [120]
             flavour: flat
             fibsel:
               initial_position: P1-2
