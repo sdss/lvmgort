@@ -130,6 +130,18 @@ specs:
   calibration:
     position: calibration
     lamps_nps: calib
+    defaults:
+      warmup: 120
+      fibsel:
+        positions: P1-
+        initial_position: P1-2
+      flavours:
+        ldls: flat
+        quartz: flat
+        argon: arc
+        neon: arc
+        hgne: arc
+        xenon: arc
     sequences:
       full:
         lamps:

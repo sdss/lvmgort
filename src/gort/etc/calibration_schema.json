@@ -42,8 +42,17 @@
                       "description": "Initial fibre to expose."
                     },
                     "positions": {
-                      "type": "string",
-                      "description": "Regular expresion with the fibres to expose. Usually P1- or P2-."
+                      "oneOff": [
+                        {
+                          "type": "string",
+                          "description": "Regular expresion with the fibres to expose. Usually P1- or P2-."
+                        },
+                        {
+                          "type": "array",
+                          "description": "List of fibres to expose.",
+                          "items": { "type": "string" }
+                        }
+                      ]
                     },
                     "time_per_position": {
                       "type": "number",
@@ -59,7 +68,7 @@
               ]
             }
           },
-          "required": ["warmup", "exposure_time", "flavour"],
+          "required": ["exposure_time"],
           "additionalProperties": false
         }
       }

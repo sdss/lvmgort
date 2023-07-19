@@ -748,18 +748,18 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         try:
             if "biases" in sequence_config:
-                self.write_to_log("Taking biases.", level="info")
                 nbias = sequence_config["biases"].get("count", 1)
+                self.write_to_log(f"Taking {nbias} biases.", level="info")
                 for _ in range(nbias):
                     await self.gort.specs.expose(flavour="bias")
 
             if "darks" in sequence_config:
-                self.write_to_log("Taking darks.", level="info")
                 ndarks = sequence_config["darks"].get("count", 1)
-
                 exp_times = sequence_config["darks"]["exposure_time"]
                 if isinstance(exp_times, (float, int)):
                     exp_times = [exp_times]
+
+                self.write_to_log(f"Taking {ndarks} x {exp_times} darks.", level="info")
 
                 total_darks = len(exp_times) * ndarks
                 idark = 1
@@ -768,12 +768,20 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                         await self.gort.specs.expose(
                             flavour="dark",
                             exposure_time=exp_time,
-                            async_readout=idark == total_darks,
+                            async_readout=(idark == total_darks) and has_lamps,
                         )
                         idark += 1
 
+            if slew_telescopes:
+                # Move the telescopes to point to the screen.
+                self.write_to_log("Pointing telescopes to FF screen.", level="info")
+                await self.gort.telescopes.goto_named_position(cal_config["position"])
+
             for lamp in lamps_config:
-                warmup = lamps_config[lamp]["warmup"]
+                warmup = lamps_config[lamp].get(
+                    "warmup",
+                    cal_config["defaults"]["warmup"],
+                )
 
                 self.write_to_log(f"Warming up lamp {lamp} ({warmup} s).", level="info")
                 await calib_nps.on(lamp)
@@ -785,39 +793,54 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
                 n_exp_times = len(exp_times)
                 for ietime, exp_time in enumerate(exp_times):
-                    flavour = lamps_config[lamp]["flavour"]
+                    flavour = lamps_config[lamp].get(
+                        "flavour",
+                        cal_config["defaults"]["flavours"][lamp.lower()],
+                    )
 
                     # Check if we are spinning the fibre selector and,
                     # if so, launch the task.
-                    fibsel = lamps_config[lamp].get("fibsel", None)
+                    fibsel = lamps_config[lamp].get("fibsel", False)
+                    fibsel_def = cal_config["defaults"]["fibsel"]
                     if isinstance(fibsel, dict) or fibsel is True:
                         # If it's True, just use defaults.
                         if fibsel is True:
                             fibsel = {}
 
-                        initial_position = fibsel.get("initial_position", "P1-2")
-                        positions = fibsel.get("positions", "P1-")
+                        positions = fibsel.get("positions", fibsel_def["positions"])
+                        order_by_steps = True
+
+                        if isinstance(positions, (list, str)):
+                            positions = list(positions)
+                            order_by_steps = False
+                            if "initial_position" in fibsel:
+                                initial_position = fibsel["initial_position"]
+                            else:
+                                initial_position = positions[0]
+                        else:
+                            initial_position = fibsel.get(
+                                "initial_position",
+                                fibsel_def["initial_position"],
+                            )
+
                         time_per_position = fibsel.get("time_per_position", None)
                         total_time = exp_time if time_per_position is None else None
 
-                        if initial_position:
-                            # Move to the initial position before starting the exposure.
-                            await self.gort.telescopes.spec.fibsel.move_to_position(
-                                initial_position
-                            )
+                        fibsel_device = self.gort.telescopes.spec.fibsel
+                        await fibsel_device.move_to_position(initial_position)
 
                         # Launch the task.
                         fibsel_task = asyncio.create_task(
                             move_mask_interval(
                                 self.gort,
                                 positions,
-                                order_by_steps=True,
+                                order_by_steps=order_by_steps,
                                 total_time=total_time,
                                 time_per_position=time_per_position,
                             )
                         )
 
-                    self.write_to_log(f"Exposing for {exp_time} s.", level="info")
+                    self.write_to_log(f"Exposing lamp for {exp_time} s.", level="info")
                     await self.gort.specs.expose(
                         flavour=flavour,
                         exposure_time=exp_time,
