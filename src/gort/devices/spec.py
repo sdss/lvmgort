@@ -811,7 +811,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                         positions = fibsel.get("positions", fibsel_def["positions"])
                         order_by_steps = True
 
-                        if isinstance(positions, (list, str)):
+                        if isinstance(positions, (list, tuple)):
                             positions = list(positions)
                             order_by_steps = False
                             if "initial_position" in fibsel:
