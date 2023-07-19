@@ -58,6 +58,7 @@ __all__ = [
     "run_in_executor",
     "is_interactive",
     "is_notebook",
+    "cancel_task",
 ]
 
 CAMERAS = [
