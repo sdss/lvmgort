@@ -25,19 +25,22 @@ See `~.SpectrographSet.calibrate` for details. Pre-defined calibration sequences
 An example of a very simple calibration sequence would be ::
 
     {
+        "biases": {
+            "count": 1
+        },
+        "darks": {
+            "exposure_time": [90, 900]
+        },
         "lamps": {
             "Quartz": {
                 "warmup": 20,
                 "exposure_time": 120,
                 "flavour": "flat"
             }
-        },
-        "biases": {
-            "count": 1
         }
     }
 
-which would take one bias and then warm up the quartz lamp for 20 seconds before taking a 120 second flat exposure. Additional lamps can be added with the same format and multiple exposures can be taken for each lamp.
+which would take one bias, two darks with 90 and 900 second exposures, and then warm up the quartz lamp for 20 seconds before taking a 120 second flat exposure. Additional lamps can be added with the same format and multiple exposures can be taken for each lamp. Calibrations are always taken in order of bias, darks, then lamps.
 
 In some cases one may want a series of fibres in the spectrophotometric mask to be exposed during a single exposure. We can define that with ::
 
@@ -46,7 +49,6 @@ In some cases one may want a series of fibres in the spectrophotometric mask to 
             "LDLS": {
                 "warmup": 300,
                 "exposure_time": 270,
-                "flavour": "flat",
                 "fibsel": {
                     "initial_position": "P1-2",
                     "positions": "P1-"
@@ -55,7 +57,18 @@ In some cases one may want a series of fibres in the spectrophotometric mask to 
             }
     }
 
-which will rotate the fibre mask to expose each fibre whose name begins with ``P1-`` for 10 seconds each, starting with ``P1-2``.
+which will rotate the fibre mask to expose each fibre whose name begins with ``P1-`` for 10 seconds each, starting with ``P1-2``. ``"positions"`` can also be a explicit list of fibre mask positions. It's possible to use the fibre selector with default parameters by setting ``"fibsel": True`` ::
+
+    {
+        "lamps":
+            "LDLS": {
+                "warmup": 300,
+                "exposure_time": [270, 300],
+                "fibsel": True
+            }
+    }
+
+In this case two LDLS exposures will be take with 270 and 300 second exposures, each one iterating over the default fibre mask positions.
 
 
 .. _calibration-schema:
