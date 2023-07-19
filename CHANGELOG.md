@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.2.1 - July 19, 2023
+
+### ✨ Improved
+
+* `SpectrographSet.expose()` now accepts a `count` parameters to expose multiple frames.
+* The parameter `flavour` for `SpectrographSet.expose()` is not explicitely exposed and documented.
+* `SpectrographSet.calibrate()` accepts a `slew_telescopes` parameters. Whether the telescopes are slewed is also determined by the type of calibrations to take.
+* Various improvements to the calibration schema. `flavour`, `warmup`, and the `fibsel` parameters now have defaults in the configuration file to which the calibration routine will revert to. If `fibsel: true`, a default mask iteration will be performed. Both darks and lamps now accept `exposure_time` which can be a float or a list of floats.
+
+### 🏷️ Changed
+
+* `SpectrographSet.calibrate()` does not park the telescope by default.
+
+### ⚙️ Engineering
+
+* Progress bars are now transient.
+
+
 ## 0.2.0 - July 18, 2023
 
 ### 🚀 New
