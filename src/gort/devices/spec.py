@@ -24,7 +24,7 @@ from sdsstools.time import get_sjd
 from gort import config
 from gort.exceptions import ErrorCodes, GortSpecError
 from gort.gort import GortDevice, GortDeviceSet
-from gort.tools import is_interactive, is_notebook, move_mask_interval
+from gort.tools import cancel_task, is_interactive, is_notebook, move_mask_interval
 
 
 if TYPE_CHECKING:
