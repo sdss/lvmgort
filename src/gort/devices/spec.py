@@ -568,8 +568,9 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         tile_data: dict | None = None,
         show_progress: bool | None = None,
         async_readout: bool = False,
+        count: int = 1,
         **kwargs,
-    ):
+    ) -> Exposure | list[Exposure]:
         """Exposes the spectrographs.
 
         Parameters
@@ -586,13 +587,16 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             Returns after integration completes. Readout is initiated
             but handled asynchronously and can be await by awaiting
             the returned `.Exposure` object.
+        count
+            The number of exposures to take.
         kwargs
             Keyword arguments to pass to ``lvmscp expose``.
 
         Returns
         -------
         exp_nos
-            The numbers of the exposed frames.
+            The numbers of the exposed frames. If ``count`` is greater than
+            one, returns a list of exposures.
 
         """
 
@@ -606,11 +610,8 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                 error_code=302,
             )
 
-        if "count" in kwargs:
-            raise GortSpecError(
-                "Count cannot be used here. Use a loop instead.",
-                error_code=3,
-            )
+        if count <= 0:
+            raise GortSpecError("Invalid count.", error_code=ErrorCodes.USAGE_ERROR)
 
         if kwargs.get("bias", False) or kwargs.get("flavour", "object") == "bias":
             exposure_time = 0.0
@@ -628,16 +629,23 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         if show_progress is None:
             show_progress = is_interactive() or is_notebook()
 
-        exposure = Exposure(seqno, self)
-        await exposure.expose(
-            exposure_time=exposure_time,
-            header=header,
-            async_readout=async_readout,
-            show_progress=show_progress,
-            **kwargs,
-        )
+        exposures: list[Exposure] = []
 
-        return exposure
+        for _ in range(int(count)):
+            exposure = Exposure(seqno, self)
+            await exposure.expose(
+                exposure_time=exposure_time,
+                header=header,
+                async_readout=async_readout,
+                show_progress=show_progress,
+                **kwargs,
+            )
+            exposures.append(exposure)
+
+        if len(exposures) == 1:
+            return exposures[0]
+
+        return exposures
 
     async def reset(self):
         """Reset the spectrographs."""
