@@ -186,6 +186,7 @@ class GortClient(AMQPClient):
             if isinstance(handler, CustomRichHandler):
                 handler.setLevel(verbosity_level)
                 has_rich_handler = True
+                self._rich_handler = handler
 
         # If not, add a RichHandler.
         if not has_rich_handler:
