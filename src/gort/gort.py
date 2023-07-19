@@ -18,13 +18,13 @@ from typing_extensions import Self
 
 from clu.client import AMQPClient
 
-from gort import config, log
+from gort import config
 from gort.core import RemoteActor
 from gort.exceptions import GortError
 from gort.kubernetes import Kubernetes
 from gort.observer import GortObserver
 from gort.tile import Tile
-from gort.tools import CustomRichHandler, get_rich_hadler, run_in_executor
+from gort.tools import CustomRichHandler, get_rich_logger, run_in_executor
 
 
 __all__ = ["GortClient", "Gort", "GortDeviceSet", "GortDevice"]
@@ -74,12 +74,8 @@ class GortClient(AMQPClient):
             port=port,
             user=user,
             password=password,
-            log=log,
+            log=get_rich_logger(),
         )
-
-        # Reset verbosity.
-        self._rich_handler: CustomRichHandler | None = None
-        self.set_verbosity()
 
         self.actors: dict[str, RemoteActor] = {}
         self.config = config.copy()
@@ -106,15 +102,12 @@ class GortClient(AMQPClient):
         if not self.connected:
             # Disable log temporarily while connecting to avoid
             # annoying connection message.
-            current_level = None
-            if self._rich_handler:
-                current_level = self._rich_handler.level
-                self._rich_handler.setLevel(logging.WARNING)
+            current_sh_level = self.log.sh.level
+            self.log.sh.setLevel(logging.WARNING)
 
             await self.start()
 
-            if current_level and self._rich_handler:
-                self._rich_handler.setLevel(current_level)
+            self.log.sh.setLevel(current_sh_level)
 
         await asyncio.gather(*[ractor.init() for ractor in self.actors.values()])
 
@@ -174,27 +167,7 @@ class GortClient(AMQPClient):
             raise ValueError("Invalid verbosity value.")
 
         verbosity_level = logging.getLevelName(verbosity.upper())
-
-        # Disable the normal console logger.
-        self.log.sh.setLevel(10000)
-
-        # Check if we have added a rich logger. If so, change the level.
-        # Do this to avoid adding multiple handlers if the client is
-        # reinitialised multiple times.
-        has_rich_handler = False
-        for handler in self.log.handlers:
-            if isinstance(handler, CustomRichHandler):
-                handler.setLevel(verbosity_level)
-                has_rich_handler = True
-                self._rich_handler = handler
-
-        # If not, add a RichHandler.
-        if not has_rich_handler:
-            handler = get_rich_hadler(verbosity_level)
-            self.log.addHandler(handler)
-            if self.log.warnings_logger:
-                self.log.warnings_logger.addHandler(handler)
-            self._rich_handler = handler
+        self.log.sh.setLevel(verbosity_level)
 
 
 GortDeviceType = TypeVar("GortDeviceType", bound="GortDevice")
@@ -427,7 +400,7 @@ class Gort(GortClient):
         super().__init__(*args, **kwargs)
 
         try:
-            self.kubernetes = Kubernetes()
+            self.kubernetes = Kubernetes(log=self.log)
         except Exception:
             self.log.warning(
                 "Gort cannot access the Kubernets cluster. "

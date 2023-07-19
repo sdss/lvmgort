@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Callable, Coroutine
 from websockets.legacy.protocol import broadcast
 from websockets.server import WebSocketServerProtocol, serve
 
-from gort import config, log
+from gort import config
 from gort.gort import Gort
 
 
@@ -170,7 +170,7 @@ class WebsocketServer:
         try:
             await client.send(json.dumps(final_message))
         except Exception as err:
-            log.warning(f"Failed replying to WS client: {err}.")
+            self.gort.log.warning(f"Failed replying to WS client: {err}.")
 
     @route("enclosure_status")
     async def enclosure_status(

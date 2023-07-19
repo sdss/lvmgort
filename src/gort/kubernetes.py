@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import datetime
+import logging
 import os
 import pathlib
 from time import sleep
@@ -18,15 +19,17 @@ from kubernetes.utils import create_from_yaml
 
 from sdsstools import read_yaml_file
 
-from gort import config, log
+from gort import config
 from gort.tools import is_notebook
 
 
 class Kubernetes:
     """Interface with the Kubernetes cluster."""
 
-    def __init__(self):
+    def __init__(self, log: logging.Logger | None = None):
         self.is_notebook = is_notebook()
+
+        self.log = log or logging.getLogger("gort.kubernetes")
 
         if os.getenv("KUBERNETES_SERVICE_HOST"):
             self.is_pod = True
@@ -117,7 +120,7 @@ class Kubernetes:
                 }
             }
 
-            log.debug(f"Rollout restarting deployment {deployment}.")
+            self.log.debug(f"Rollout restarting deployment {deployment}.")
             self.apps_v1.patch_namespaced_deployment(
                 deployment,
                 namespace,
@@ -130,11 +133,11 @@ class Kubernetes:
 
             if deployment in self.list_deployments():
                 namespace = self.get_deployment_namespace(deployment)
-                log.debug(f"Deleting deployment {deployment}.")
+                self.log.debug(f"Deleting deployment {deployment}.")
                 self.apps_v1.delete_namespaced_deployment(deployment, namespace)
                 sleep(5)  # Give some time for the pods to exit.
             else:
-                log.warning(f"{deployment!r} is not running.")
+                self.log.warning(f"{deployment!r} is not running.")
 
-            log.info(f"Starting deployment from YAML file {str(file_)}.")
+            self.log.info(f"Starting deployment from YAML file {str(file_)}.")
             create_from_yaml(kubernetes.client.ApiClient(), yaml_objects=[body])

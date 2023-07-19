@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import logging
 import pathlib
 import re
 import warnings
@@ -560,10 +561,19 @@ class CustomRichHandler(RichHandler):
         return level_text
 
 
-def get_rich_hadler(verbosity_level):
-    """Returns a custom rich handler."""
+def get_rich_logger(verbosity_level: int = logging.WARNING):
+    """Returns a logger with a custom rich handler."""
 
-    return CustomRichHandler(
+    from sdsstools.logger import get_logger
+
+    log = get_logger("gort")
+
+    # Remove normal console logger.
+    log.removeHandler(log.sh)
+    if log.warnings_logger:
+        log.warnings_logger.removeHandler(log.sh)
+
+    rich_handler = CustomRichHandler(
         level=verbosity_level,
         log_time_format="%X",
         show_path=False,
@@ -578,3 +588,14 @@ def get_rich_hadler(verbosity_level):
             )
         ),
     )
+    log.addHandler(rich_handler)
+
+    # Use the sh attribute for the rich handler.
+    log.sh = rich_handler  # type:ignore
+
+    # Connect handler with the warnings.
+    if log.warnings_logger:
+        if rich_handler not in log.warnings_logger.handlers:
+            log.warnings_logger.addHandler(rich_handler)
+
+    return log
