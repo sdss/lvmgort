@@ -93,7 +93,7 @@ class Kubernetes:
 
         return files[0], read_yaml_file(files[0])
 
-    def restart_deployment(self, deployment: str, from_file: bool = False):
+    def restart_deployment(self, deployment: str, from_file: bool = True):
         """Restarts a deployment.
 
         If the deployment is running, does a rollout restart. Otherwise looks
@@ -129,7 +129,14 @@ class Kubernetes:
             )
 
         else:
-            file_, body = self.get_yaml_file(deployment)
+            try:
+                file_, body = self.get_yaml_file(deployment)
+            except ValueError as err:
+                self.log.warning(
+                    f"Failed restarting from file: {err} "
+                    "Doing rollout restart instead."
+                )
+                return self.restart_deployment(deployment, from_file=False)
 
             if deployment in self.list_deployments():
                 namespace = self.get_deployment_namespace(deployment)
