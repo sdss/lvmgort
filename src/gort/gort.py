@@ -78,6 +78,7 @@ class GortClient(AMQPClient):
         )
 
         # Reset verbosity.
+        self._rich_handler: CustomRichHandler | None = None
         self.set_verbosity()
 
         self.actors: dict[str, RemoteActor] = {}
@@ -103,7 +104,17 @@ class GortClient(AMQPClient):
         """
 
         if not self.connected:
+            # Disable log temporarily while connecting to avoid
+            # annoying connection message.
+            current_level = None
+            if self._rich_handler:
+                current_level = self._rich_handler.level
+                self._rich_handler.setLevel(logging.WARNING)
+
             await self.start()
+
+            if current_level and self._rich_handler:
+                self._rich_handler.setLevel(current_level)
 
         await asyncio.gather(*[ractor.init() for ractor in self.actors.values()])
 
@@ -168,18 +179,14 @@ class GortClient(AMQPClient):
         self.log.sh.setLevel(10000)
 
         # Check if we have added a rich logger. If so, change the level.
-        has_rich_handler = False
-        for handler in self.log.handlers:
-            if isinstance(handler, CustomRichHandler):
-                handler.setLevel(verbosity_level)
-                has_rich_handler = True
-
         # If not, add a RichHandler.
-        if not has_rich_handler:
-            handler = get_rich_hadler(verbosity_level)
-            self.log.addHandler(handler)
+        if self._rich_handler is not None:
+            self._rich_handler.setLevel(verbosity_level)
+        else:
+            self._rich_handler = get_rich_hadler(verbosity_level)
+            self.log.addHandler(self._rich_handler)
             if self.log.warnings_logger:
-                self.log.warnings_logger.addHandler(handler)
+                self.log.warnings_logger.addHandler(self._rich_handler)
 
 
 GortDeviceType = TypeVar("GortDeviceType", bound="GortDevice")
