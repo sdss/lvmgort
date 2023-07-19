@@ -664,7 +664,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         sequence: str | dict = "normal",
         slew_telescopes: bool = True,
         park_after: bool = False,
-        show_progress: bool = False,
+        show_progress: bool | None = None,
     ):
         """Runs the calibration sequence.
 
