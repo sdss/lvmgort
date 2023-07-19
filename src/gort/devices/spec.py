@@ -567,7 +567,6 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         show_progress: bool | None = None,
         async_readout: bool = False,
         count: int = 1,
-        **kwargs,
     ) -> Exposure | list[Exposure]:
         """Exposes the spectrographs.
 
@@ -591,8 +590,6 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             the returned `.Exposure` object.
         count
             The number of exposures to take.
-        kwargs
-            Keyword arguments to pass to ``lvmscp expose``.
 
         Returns
         -------
@@ -619,22 +616,12 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             flavour = "bias"
             exposure_time = 0.0
 
+        flavour = flavour or "object"
         if flavour not in ["arc", "object", "flat", "bias", "dark"]:
             raise GortSpecError(
                 "Invalid flavour type.",
                 error_code=ErrorCodes.USAGE_ERROR,
             )
-
-        seqno = self.get_seqno()
-
-        log_msg = f"Taking spectrograph exposure {seqno} "
-        if flavour == "bias":
-            log_msg += f"({flavour})."
-        else:
-            log_msg += f"({flavour}, {exposure_time:.1f} s)."
-        self.write_to_log(log_msg, "info")
-
-        await self.reset()
 
         if tile_data is not None:
             header = json.dumps(tile_data)
@@ -647,13 +634,24 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         exposures: list[Exposure] = []
 
         for _ in range(int(count)):
+            seqno = self.get_seqno()
+
+            log_msg = f"Taking spectrograph exposure {seqno} "
+            if flavour == "bias":
+                log_msg += f"({flavour})."
+            else:
+                log_msg += f"({flavour}, {exposure_time:.1f} s)."
+            self.write_to_log(log_msg, "info")
+
+            await self.reset()
+
             exposure = Exposure(seqno, self)
             await exposure.expose(
                 exposure_time=exposure_time,
                 header=header,
                 async_readout=async_readout,
                 show_progress=show_progress,
-                **kwargs,
+                flavour=flavour,
             )
             exposures.append(exposure)
 
