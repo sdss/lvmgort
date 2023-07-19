@@ -179,14 +179,21 @@ class GortClient(AMQPClient):
         self.log.sh.setLevel(10000)
 
         # Check if we have added a rich logger. If so, change the level.
+        # Do this to avoid adding multiple handlers if the client is
+        # reinitialised multiple times.
+        has_rich_handler = False
+        for handler in self.log.handlers:
+            if isinstance(handler, CustomRichHandler):
+                handler.setLevel(verbosity_level)
+                has_rich_handler = True
+
         # If not, add a RichHandler.
-        if self._rich_handler is not None:
-            self._rich_handler.setLevel(verbosity_level)
-        else:
-            self._rich_handler = get_rich_hadler(verbosity_level)
-            self.log.addHandler(self._rich_handler)
+        if not has_rich_handler:
+            handler = get_rich_hadler(verbosity_level)
+            self.log.addHandler(handler)
             if self.log.warnings_logger:
-                self.log.warnings_logger.addHandler(self._rich_handler)
+                self.log.warnings_logger.addHandler(handler)
+            self._rich_handler = handler
 
 
 GortDeviceType = TypeVar("GortDeviceType", bound="GortDevice")
