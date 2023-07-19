@@ -561,6 +561,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
     async def expose(
         self,
         exposure_time: float | None = None,
+        flavour: str | None = None,
         tile_data: dict | None = None,
         show_progress: bool | None = None,
         async_readout: bool = False,
@@ -572,7 +573,11 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         Parameters
         ----------
         exposure_time
-            The exposure time.
+            The exposure time. If not set, assumes this must
+            be a bias.
+        flavour
+            The exposure type, either ``'object'``, ``'arc'``,
+            ``'flat'``, ``'dark'``, or ``'bias'``
         tile_data
             Tile data to add to the headers.
         show_progress
@@ -609,11 +614,24 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         if count <= 0:
             raise GortSpecError("Invalid count.", error_code=ErrorCodes.USAGE_ERROR)
 
-        if kwargs.get("bias", False) or kwargs.get("flavour", "object") == "bias":
+        if exposure_time is None and flavour is None:
+            flavour = "bias"
             exposure_time = 0.0
 
+        if flavour not in ["arc", "object", "flat", "bias", "dark"]:
+            raise GortSpecError(
+                "Invalid flavour type.",
+                error_code=ErrorCodes.USAGE_ERROR,
+            )
+
         seqno = self.get_seqno()
-        self.write_to_log(f"Taking spectrograph exposure {seqno}.", level="info")
+
+        log_msg = f"Taking spectrograph exposure {seqno} "
+        if flavour == "bias":
+            log_msg += f"({flavour})."
+        else:
+            log_msg += f"({flavour}, {exposure_time:.1f} s)."
+        self.write_to_log(log_msg, "info")
 
         await self.reset()
 
