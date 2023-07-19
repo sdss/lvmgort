@@ -11,14 +11,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from contextlib import suppress
 from time import time
 
 from typing import TYPE_CHECKING
 
 from gort.exceptions import GortObserverError
 from gort.tile import Coordinates
-from gort.tools import register_observation
+from gort.tools import cancel_task, register_observation
 
 
 if TYPE_CHECKING:
@@ -275,10 +274,7 @@ class GortObserver:
         # Count is 1, so this will be a single exposure.
         assert not isinstance(exposure, list)
 
-        if standard_task is not None and not standard_task.done():
-            standard_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await standard_task
+        await cancel_task(standard_task)
 
         if tile_id is not None:
             self.write_to_log("Registering observation.")
