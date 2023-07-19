@@ -741,13 +741,22 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
             if "darks" in sequence_config:
                 self.write_to_log("Taking darks.", level="info")
-                ndarks = sequence_config["darks"].get("count")
-                for idark in range(ndarks):
-                    await self.gort.specs.expose(
-                        flavour="dark",
-                        exposure_time=sequence_config["darks"]["exposure_time"],
-                        async_readout=idark == ndarks - 1,
-                    )
+                ndarks = sequence_config["darks"].get("count", 1)
+
+                exp_times = sequence_config["darks"]["exposure_time"]
+                if isinstance(exp_times, (float, int)):
+                    exp_times = [exp_times]
+
+                total_darks = len(exp_times) * ndarks
+                idark = 1
+                for exp_time in exp_times:
+                    for _ in range(ndarks):
+                        await self.gort.specs.expose(
+                            flavour="dark",
+                            exposure_time=exp_time,
+                            async_readout=idark == total_darks,
+                        )
+                        idark += 1
 
             for lamp in lamps_config:
                 warmup = lamps_config[lamp]["warmup"]

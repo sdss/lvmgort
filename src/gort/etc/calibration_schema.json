@@ -81,14 +81,23 @@
       "properties": {
         "count": {
           "type": "integer",
-          "description": "How many darks to take."
+          "description": "How many darks to take of each exposure time."
         },
         "exposure_time": {
-          "type": "number",
-          "description": "The exposure time for each dark."
+          "oneOf": [
+            {
+              "type": "array",
+              "description": "List of exposure times for darks.",
+              "items": { "type": "number" }
+            },
+            {
+              "type": "number",
+              "description": "Exposure time for the lamp."
+            }
+          ]
         }
       },
-      "required": ["count", "exposure_time"]
+      "required": ["exposure_time"]
     }
   },
   "additionalProperties": false
