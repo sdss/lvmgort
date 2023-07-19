@@ -764,8 +764,12 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                     # Check if we are spinning the fibre selector and,
                     # if so, launch the task.
                     fibsel = lamps_config[lamp].get("fibsel", None)
-                    if fibsel:
-                        initial_position = fibsel.get("initial_position", None)
+                    if isinstance(fibsel, dict) or fibsel is True:
+                        # If it's True, just use defaults.
+                        if fibsel is True:
+                            fibsel = {}
+
+                        initial_position = fibsel.get("initial_position", "P1-2")
                         positions = fibsel.get("positions", "P1-")
                         time_per_position = fibsel.get("time_per_position", None)
                         total_time = exp_time if time_per_position is None else None

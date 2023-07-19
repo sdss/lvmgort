@@ -24,23 +24,28 @@
               "enum": ["arc", "flat"]
             },
             "fibsel": {
-              "type": "object",
-              "description": "If defined, moves the fibre selector during the exposure.",
-              "properties": {
-                "initial_position": {
-                  "type": "string",
-                  "description": "Initial fibre to expose."
+              "oneOf": [
+                {
+                  "type": "object",
+                  "description": "If defined, moves the fibre selector during the exposure.",
+                  "properties": {
+                    "initial_position": {
+                      "type": "string",
+                      "description": "Initial fibre to expose."
+                    },
+                    "positions": {
+                      "type": "string",
+                      "description": "Regular expresion with the fibres to expose. Usually P1- or P2-."
+                    },
+                    "time_per_position": {
+                      "type": "number",
+                      "description": "How long to expose on each position/fibre."
+                    }
+                  },
+                  "required": []
                 },
-                "positions": {
-                  "type": "string",
-                  "description": "Regular expresion with the fibres to expose. Usually P1- or P2-."
-                },
-                "time_per_position": {
-                  "type": "number",
-                  "description": "How long to expose on each position/fibre."
-                }
-              },
-              "required": ["initial_position", "positions", "time_per_position"]
+                { "type": "boolean" }
+              ]
             }
           },
           "required": ["warmup", "exposure_times", "flavour"],
