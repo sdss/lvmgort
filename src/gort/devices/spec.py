@@ -667,6 +667,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
     async def calibrate(
         self,
         sequence: str | dict = "normal",
+        slew_telescopes: bool = True,
         park_after: bool = False,
         show_progress: bool = False,
     ):
@@ -678,6 +679,8 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             The name calibration sequence to execute. It can also be a
             dictionary with the calibration sequence definition that
             follows the :ref:`calibration schema <calibration-schema>`.
+        slew_telescopes
+            Whether to move the telescopes to point to the FF screen.
         park_after
             Park the telescopes after a successful calibration sequence.
         show_progress
@@ -718,9 +721,10 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         calib_nps = self.gort.nps[cal_config["lamps_nps"]]
         lamps_config = sequence_config.get("lamps", {})
 
-        # Move the telescopes to point to the screen.
-        self.write_to_log("Moving telescopes to position.", level="info")
-        await self.gort.telescopes.goto_named_position(cal_config["position"])
+        if slew_telescopes:
+            # Move the telescopes to point to the screen.
+            self.write_to_log("Moving telescopes to position.", level="info")
+            await self.gort.telescopes.goto_named_position(cal_config["position"])
 
         # Turn off all lamps.
         self.write_to_log("Checking that all lamps are off.", level="info")
