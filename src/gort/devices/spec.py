@@ -714,12 +714,12 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             )
 
         calib_nps = self.gort.nps[cal_config["lamps_nps"]]
-        lamps_config = sequence_config.get("lamps", {})
 
-        if slew_telescopes:
-            # Move the telescopes to point to the screen.
-            self.write_to_log("Moving telescopes to position.", level="info")
-            await self.gort.telescopes.goto_named_position(cal_config["position"])
+        lamps_config = sequence_config.get("lamps", {})
+        has_lamps = len(lamps_config) != 0
+        if not has_lamps:
+            # No point in slewing if we are only taking bias and darks.
+            slew_telescopes = False
 
         # Turn off all lamps.
         self.write_to_log("Checking that all lamps are off.", level="info")
@@ -831,8 +831,9 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             raise
 
         finally:
-            await calib_nps.all_off()
-            await calib_nps.all_off()
+            # If there are no lamps there is no way we turned them on.
+            if has_lamps:
+                await calib_nps.all_off()
 
     def get_calibration_sequence(self, sequence: str):
         """Returns a dictionary with the configuration for a calibration sequence.
