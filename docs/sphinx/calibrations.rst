@@ -28,7 +28,7 @@ An example of a very simple calibration sequence would be ::
         "lamps": {
             "Quartz": {
                 "warmup": 20,
-                "exposure_times": [120],
+                "exposure_time": 120,
                 "flavour": "flat"
             }
         },
@@ -45,7 +45,7 @@ In some cases one may want a series of fibres in the spectrophotometric mask to 
         "lamps":
             "LDLS": {
                 "warmup": 300,
-                "exposure_times": [270],
+                "exposure_time": 270,
                 "flavour": "flat",
                 "fibsel": {
                     "initial_position": "P1-2",
