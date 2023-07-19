@@ -11,6 +11,7 @@ import logging
 import signal
 import sys
 import uuid
+from copy import deepcopy
 
 from typing import Any, Callable, ClassVar, Generic, Type, TypeVar
 
@@ -78,7 +79,7 @@ class GortClient(AMQPClient):
         )
 
         self.actors: dict[str, RemoteActor] = {}
-        self.config = config.copy()
+        self.config = deepcopy(config)
 
         self.__device_sets = []
 
