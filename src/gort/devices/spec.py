@@ -667,7 +667,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
     async def calibrate(
         self,
         sequence: str | dict = "normal",
-        park_after: bool = True,
+        park_after: bool = False,
         show_progress: bool = False,
     ):
         """Runs the calibration sequence.
