@@ -16,7 +16,6 @@ from time import time
 
 from typing import TYPE_CHECKING
 
-from gort.devices.spec import Exposure
 from gort.exceptions import GortObserverError
 from gort.tile import Coordinates
 from gort.tools import register_observation
@@ -274,7 +273,7 @@ class GortObserver:
         )
 
         # Count is 1, so this will be a single exposure.
-        assert isinstance(exposure, Exposure)
+        assert not isinstance(exposure, list)
 
         if standard_task is not None and not standard_task.done():
             standard_task.cancel()
