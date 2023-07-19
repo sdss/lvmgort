@@ -557,7 +557,7 @@ class CustomRichHandler(RichHandler):
 
         level_name = record.levelname
         level_text = Text.styled(
-            f"[{level_name}]:",
+            f"[{level_name}]".ljust(9),
             f"logging.level.{level_name.lower()}",
         )
         return level_text
