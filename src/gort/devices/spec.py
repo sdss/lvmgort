@@ -150,6 +150,7 @@ class Exposure(asyncio.Future["Exposure"]):
             if not async_readout:
                 await monitor_task
             else:
+                await self.stop_timer()
                 self.spec_set.write_to_log("Returning with async readout ongoing.")
 
         except Exception as err:
