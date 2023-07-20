@@ -23,7 +23,7 @@
 ### 🚀 New
 
 * Added support for spectrograph IEBs.
-* Added `SpectrographSet.get_calibration_sequence()`.`
+* Added `SpectrographSet.get_calibration_sequence()`.
 * Added `initialise`` (init) and `abort`` methods for the spectrographs.
 
 ### ✨ Improved
