@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import warnings
 from dataclasses import dataclass, field
 from types import SimpleNamespace
@@ -25,8 +24,10 @@ from .tools import get_valid_variable_name
 
 
 if TYPE_CHECKING:
-    from clu.client import AMQPClient, AMQPReply
+    from clu.client import AMQPReply
     from clu.command import Command
+
+    from .gort import GortClient
 
 
 __all__ = ["RemoteActor", "RemoteCommand", "ActorReply"]
@@ -44,14 +45,12 @@ class CommandSet(dict[str, "RemoteCommand"]):
 class RemoteActor:
     """A programmatic representation of a remote actor."""
 
-    def __init__(self, client: AMQPClient, name: str):
+    def __init__(self, client: GortClient, name: str):
         self.client = client
 
         self.name = name
         self.model: dict = {}
         self.commands = CommandSet()
-
-        self._connect_lock = asyncio.Lock()
 
     def __repr__(self):
         return f"<RemoteActor (name={self.name})>"
@@ -91,8 +90,8 @@ class RemoteActor:
         """
 
         # This lock prevents that if the client has disconnected we get multiple
-        # reconnections. We need to not await here to prevent blocking.
-        async with self._connect_lock:
+        # reconnections.
+        async with self.client._connect_lock:
             try:
                 cmd = await self.client.send_command(
                     self.name,
@@ -104,6 +103,9 @@ class RemoteActor:
                 # Client has disconnected. This should only happen if running Gort
                 # in an ipython terminal where the event loop only runs while a command
                 # is executing. See https://tinyurl.com/4kcwxzx9
+
+                self.client.log.warning("Client has disconnected. Reconnecting.")
+
                 await self.client.start()
 
                 cmd = await self.client.send_command(

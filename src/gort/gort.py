@@ -72,6 +72,8 @@ class GortClient(AMQPClient):
 
         log, self._console = get_rich_logger()
 
+        self._connect_lock = asyncio.Lock()
+
         super().__init__(
             f"Gort-client-{client_uuid}",
             host=host,
@@ -105,7 +107,8 @@ class GortClient(AMQPClient):
         """
 
         if not self.connected:
-            await self.start()
+            async with self._connect_lock:
+                await self.start()
 
         await asyncio.gather(*[ractor.init() for ractor in self.actors.values()])
 
