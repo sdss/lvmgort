@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from gort import config
 from gort.exceptions import GortEnclosureError
 from gort.gort import GortDevice
 
@@ -69,7 +68,7 @@ class Enclosure(GortDevice):
 
         # This should generally not be on, but it's useful as a way of disabling
         # the local mode when the lock or door are not working.
-        if config["enclosure"].get("bypass_local_mode", False) is True:
+        if self.gort.config["enclosure"].get("bypass_local_mode", False) is True:
             return False
 
         return "LOCAL" in safety_status_labels

@@ -453,7 +453,7 @@ async def move_mask_interval(
     if total_time is None and time_per_position is None:
         raise ValueError("One of total_time or time_per_position needs to be passed.")
 
-    mask_config = config["telescopes"]["mask_positions"]
+    mask_config = gort.config["telescopes"]["mask_positions"]
     all_positions = list(mask_config)
 
     if isinstance(positions, str):

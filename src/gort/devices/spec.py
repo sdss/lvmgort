@@ -21,7 +21,6 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 
 from sdsstools.time import get_sjd
 
-from gort import config
 from gort.exceptions import ErrorCodes, GortSpecError
 from gort.gort import GortDevice, GortDeviceSet
 from gort.tools import cancel_task, is_interactive, is_notebook, move_mask_interval
@@ -244,6 +243,7 @@ class Exposure(asyncio.Future["Exposure"]):
         """Returns the files written by the exposure."""
 
         sjd = get_sjd("LCO")
+        config = self.spec_set.config
         data_path = pathlib.Path(config["specs"]["data_path"].format(SJD=sjd))
 
         return list(data_path.glob(f"*-[0]*{self.exp_no}.fits.gz"))
@@ -550,7 +550,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
     def get_seqno(self):
         """Returns the next exposure sequence number."""
 
-        next_exposure_number_path = config["specs"]["nextExposureNumber"]
+        next_exposure_number_path = self.gort.config["specs"]["nextExposureNumber"]
         with open(next_exposure_number_path, "r") as fd:
             data = fd.read().strip()
             seqno = int(data) if data != "" else 1
@@ -708,7 +708,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         # Calibration sequence configuration. Includes the position where to
         # point the telescopes, NPS to use, and sequences.
-        cal_config = config["specs"]["calibration"]
+        cal_config = self.gort.config["specs"]["calibration"]
 
         # Task that will move the fibre selector.
         fibsel_task: asyncio.Task | None = None
@@ -897,7 +897,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         """
 
-        sequences = config["specs"]["calibration"]["sequences"]
+        sequences = self.gort.config["specs"]["calibration"]["sequences"]
 
         if sequence not in sequences:
             raise ValueError(f"Sequence {sequence!r} not found in configuration file.")

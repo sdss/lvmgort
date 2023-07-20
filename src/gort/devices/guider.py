@@ -12,7 +12,6 @@ import asyncio
 
 from typing import TYPE_CHECKING
 
-from gort import config
 from gort.exceptions import GortError, GortGuiderError
 from gort.gort import GortDevice, GortDeviceSet
 from gort.maskbits import GuiderStatus
@@ -203,6 +202,7 @@ class Guider(GortDevice):
             ra = ra if ra is not None else ra_status
             dec = dec if dec is not None else dec_status
 
+        config = self.gort.config
         if isinstance(pixel, str):
             if pixel not in config["guiders"]["devices"][self.name]["named_pixels"]:
                 raise GortGuiderError(f"Invalid pixel name {pixel!r}.", error_code=610)
@@ -259,6 +259,7 @@ class Guider(GortDevice):
 
         """
 
+        config = self.gort.config
         if isinstance(pixel, str):
             if pixel not in config["guiders"]["devices"][self.name]["named_pixels"]:
                 raise GortGuiderError(f"Invalid pixel name {pixel!r}.", error_code=610)

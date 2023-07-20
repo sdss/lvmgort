@@ -37,8 +37,9 @@ DevType = TypeVar("DevType", bound="GortDeviceSet | GortDevice")
 class GortClient(AMQPClient):
     """The main ``gort`` client, used to communicate with the actor system.
 
-    A subclass of `~clu.client.AMQPClient` with defaults for host and logging,
-    it loads the `.GortDeviceSet` and `.RemoteActor` instances for the LVM system.
+    A subclass of :obj:`~clu.client.AMQPClient` with defaults for host and logging,
+    it loads the :obj:`.GortDeviceSet` and :obj:`.RemoteActor` instances
+    for the LVM system.
 
     Parameters
     ----------
@@ -65,7 +66,7 @@ class GortClient(AMQPClient):
         from gort.devices.guider import GuiderSet
         from gort.devices.nps import NPSSet
         from gort.devices.spec import SpectrographSet
-        from gort.devices.telescope import TelescopeSet
+        from gort.devices.telescope import TelescopeSet as TelSet
 
         client_uuid = str(uuid.uuid4()).split("-")[1]
 
@@ -79,15 +80,16 @@ class GortClient(AMQPClient):
         )
 
         self.actors: dict[str, RemoteActor] = {}
+
         self.config = deepcopy(config)
 
         self.__device_sets = []
 
-        self.ags = self.add_device(AGSet, config["ags"]["devices"])
-        self.guiders = self.add_device(GuiderSet, config["guiders"]["devices"])
-        self.telescopes = self.add_device(TelescopeSet, config["telescopes"]["devices"])
-        self.nps = self.add_device(NPSSet, config["nps"]["devices"])
-        self.specs = self.add_device(SpectrographSet, config["specs"]["devices"])
+        self.ags = self.add_device(AGSet, self.config["ags"]["devices"])
+        self.guiders = self.add_device(GuiderSet, self.config["guiders"]["devices"])
+        self.telescopes = self.add_device(TelSet, self.config["telescopes"]["devices"])
+        self.nps = self.add_device(NPSSet, self.config["nps"]["devices"])
+        self.specs = self.add_device(SpectrographSet, self.config["specs"]["devices"])
         self.enclosure = self.add_device(Enclosure, name="enclosure", actor="lvmecp")
 
     async def init(self) -> Self:
