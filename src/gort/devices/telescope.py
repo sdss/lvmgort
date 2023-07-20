@@ -547,13 +547,13 @@ class Telescope(GortDevice):
                 error_code=101,
             )
 
-        if name not in self.config["telescopes"]["named_positions"]:
+        if name not in self.config["named_positions"]:
             raise GortTelescopeError(
                 f"Invalid named position {name!r}.",
                 error_code=103,
             )
 
-        position_data = self.config["telescopes"]["named_positions"][name]
+        position_data = self.config["named_positions"][name]
 
         if self.name in position_data:
             coords = position_data[self.name]
@@ -765,7 +765,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
 
         await self._check_local(force)
 
-        if name not in self.config["telescopes"]["named_positions"]:
+        if name not in self.gort.config["telescopes"]["named_positions"]:
             raise GortTelescopeError(
                 f"Invalid named position {name!r}.",
                 error_code=103,
