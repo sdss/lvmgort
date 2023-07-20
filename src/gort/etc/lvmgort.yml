@@ -143,6 +143,36 @@ specs:
         hgne: arc
         xenon: arc
     sequences:
+      testcal:
+        lamps:
+          LDLS:
+            warmup: 300
+            exposure_time: [150, 150] # b channel well exposed
+            flavour: flat
+          Quartz:
+            warmup: 120
+            exposure_time: [10, 10] # r and z channels well exposed
+            flavour: flat
+          Argon:
+            warmup: 120
+            exposure_time: [10, 10, 50, 50]
+            flavour: arc
+          Neon:
+            warmup: 120
+            exposure_time: [10, 10, 150, 150]
+            flavour: arc
+          HgNe:
+            exposure_time: [10, 10, 150, 150]
+            flavour: arc
+          Xenon:
+            warmup: 120
+            exposure_time: [150, 150]
+            flavour: arc
+        biases:
+          count: 9
+        darks:
+          count: 3
+          exposure_time: 300
       full:
         lamps:
           LDLS:
