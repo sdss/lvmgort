@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import warnings
 from dataclasses import dataclass, field
 from types import SimpleNamespace
@@ -105,12 +104,7 @@ class RemoteActor:
                 # Client has disconnected. This should only happen if running Gort
                 # in an ipython terminal where the event loop only runs while a command
                 # is executing. See https://tinyurl.com/4kcwxzx9
-                current_level = self.client.log.sh.level
-                self.client.log.sh.setLevel(logging.WARNING)
-
                 await self.client.start()
-
-                self.client.log.sh.setLevel(current_level)
 
                 cmd = await self.client.send_command(
                     self.name,

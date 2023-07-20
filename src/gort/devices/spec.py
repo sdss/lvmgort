@@ -615,7 +615,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         if count <= 0:
             raise GortSpecError("Invalid count.", error_code=ErrorCodes.USAGE_ERROR)
 
-        if exposure_time is None or flavour is None:
+        if exposure_time is None:
             flavour = "bias"
             exposure_time = 0.0
 

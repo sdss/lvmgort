@@ -103,14 +103,7 @@ class GortClient(AMQPClient):
         """
 
         if not self.connected:
-            # Disable log temporarily while connecting to avoid
-            # annoying connection message.
-            current_sh_level = self.log.sh.level
-            self.log.sh.setLevel(logging.WARNING)
-
             await self.start()
-
-            self.log.sh.setLevel(current_sh_level)
 
         await asyncio.gather(*[ractor.init() for ractor in self.actors.values()])
 
