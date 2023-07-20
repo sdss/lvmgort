@@ -244,7 +244,7 @@ class Exposure(asyncio.Future["Exposure"]):
         """Returns the files written by the exposure."""
 
         sjd = get_sjd("LCO")
-        config = self.spec_set.config
+        config = self.spec_set.gort.config
         data_path = pathlib.Path(config["specs"]["data_path"].format(SJD=sjd))
 
         return list(data_path.glob(f"*-[0]*{self.exp_no}.fits.gz"))
