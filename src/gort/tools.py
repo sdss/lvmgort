@@ -575,20 +575,23 @@ def get_rich_logger(verbosity_level: int = logging.WARNING):
     if log.warnings_logger:
         log.warnings_logger.removeHandler(log.sh)
 
+    # Create a new console with modified log level colours.
+    console = Console(
+        theme=Theme(
+            {
+                "logging.level.debug": "magenta",
+                "logging.level.warning": "yellow",
+                "logging.level.critical": "red",
+                "logging.level.error": "red",
+            }
+        )
+    )
+
     rich_handler = CustomRichHandler(
         level=verbosity_level,
         log_time_format="%X",
         show_path=False,
-        console=Console(
-            theme=Theme(
-                {
-                    "logging.level.debug": "magenta",
-                    "logging.level.warning": "yellow",
-                    "logging.level.critical": "red",
-                    "logging.level.error": "red",
-                }
-            )
-        ),
+        console=console,
     )
     log.addHandler(rich_handler)
 
@@ -600,7 +603,7 @@ def get_rich_logger(verbosity_level: int = logging.WARNING):
         if rich_handler not in log.warnings_logger.handlers:
             log.warnings_logger.addHandler(rich_handler)
 
-    return log
+    return log, console
 
 
 async def cancel_task(task: asyncio.Task | None):

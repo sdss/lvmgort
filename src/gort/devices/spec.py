@@ -182,6 +182,8 @@ class Exposure(asyncio.Future["Exposure"]):
             TextColumn("s"),
             expand=True,
             transient=True,
+            auto_refresh=True,
+            console=self.spec_set.gort._console,  # Need to use same console as logger.
         )
 
         exp_task = self._progress.add_task(
@@ -210,7 +212,6 @@ class Exposure(asyncio.Future["Exposure"]):
                     self._progress.update(exp_task, completed=int(exposure_time))
                     self._progress.update(readout_task, advance=1)
 
-                self._progress.refresh()
                 await asyncio.sleep(1)
                 elapsed += 1
 

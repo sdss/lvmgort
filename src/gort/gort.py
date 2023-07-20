@@ -70,13 +70,15 @@ class GortClient(AMQPClient):
 
         client_uuid = str(uuid.uuid4()).split("-")[1]
 
+        log, self._console = get_rich_logger()
+
         super().__init__(
             f"Gort-client-{client_uuid}",
             host=host,
             port=port,
             user=user,
             password=password,
-            log=get_rich_logger(),
+            log=log,
         )
 
         self.actors: dict[str, RemoteActor] = {}
