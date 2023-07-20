@@ -197,7 +197,7 @@ class ActorReply:
     Attributes
     ----------
     actor
-        The `.RemoteActor` that generated the reply.
+        The :obj:`.RemoteActor` that generated the reply.
     command
         The CLU command instance.
     replies

@@ -98,7 +98,7 @@ class GortClient(AMQPClient):
         Returns
         -------
         object
-            The same instance of `.GortClient` after initialisation.
+            The same instance of :obj:`.GortClient` after initialisation.
 
         """
 
