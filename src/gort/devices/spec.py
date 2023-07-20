@@ -571,6 +571,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         show_progress: bool | None = None,
         async_readout: bool = False,
         count: int = 1,
+        object: str | None = None,
     ) -> Exposure | list[Exposure]:
         """Exposes the spectrographs.
 
@@ -594,6 +595,9 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             the returned :obj:`.Exposure` object.
         count
             The number of exposures to take.
+        object
+            A string that will be stored in the ``OBJECT`` header
+            keyword.
 
         Returns
         -------
@@ -627,10 +631,15 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                 error_code=ErrorCodes.USAGE_ERROR,
             )
 
+        header = {}
+
+        if object is not None:
+            header.update({"OBJECT": object})
+        elif flavour != "object":
+            header.update({"OBJECT": flavour})
+
         if tile_data is not None:
-            header = json.dumps(tile_data)
-        else:
-            header = None
+            header.update(tile_data)
 
         if show_progress is None:
             show_progress = is_interactive() or is_notebook()
@@ -652,7 +661,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             exposure = Exposure(seqno, self, flavour=flavour)
             await exposure.expose(
                 exposure_time=exposure_time,
-                header=header,
+                header=json.dumps(header),
                 async_readout=async_readout,
                 show_progress=show_progress,
                 flavour=flavour,
@@ -753,7 +762,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                 nbias = sequence_config["biases"].get("count", 1)
                 self.write_to_log(f"Taking {nbias} biases.", level="info")
                 for _ in range(nbias):
-                    await self.gort.specs.expose(flavour="bias")
+                    await self.gort.specs.expose(flavour="bias", object="bias")
 
             if "darks" in sequence_config:
                 ndarks = sequence_config["darks"].get("count", 1)
@@ -771,6 +780,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                             flavour="dark",
                             exposure_time=exp_time,
                             async_readout=(idark == total_darks) and has_lamps,
+                            object="dark",
                         )
                         idark += 1
 
@@ -848,6 +858,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                         exposure_time=exp_time,
                         show_progress=show_progress,
                         async_readout=ietime == n_exp_times - 1,
+                        object=lamp,
                     )
 
                     await cancel_task(fibsel_task)
