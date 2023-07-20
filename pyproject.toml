@@ -30,7 +30,7 @@ gort = "gort.__main__:main"
 [tool.poetry.dependencies]
 python = "^3.10,<4.0"
 sdsstools = "^1.1.0"
-sdss-clu = "^2.0.1"
+sdss-clu = "^2.1.2"
 click-default-group = "^1.2.2"
 setuptools = "^67.6.0"
 typing-extensions = "^4.5.0"
