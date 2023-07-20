@@ -179,17 +179,17 @@ GortDeviceType = TypeVar("GortDeviceType", bound="GortDevice")
 class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
     """A set to gort-managed devices.
 
-    Devices can be accessed as items of the `.GortDeviceSet` dictionary
-    or ussing dot notation, as attributes.
+    Devices can be accessed as items of the :obj:`.GortDeviceSet` dictionary
+    or using dot notation, as attributes.
 
     Parameters
     ----------
     gort
-        The `.GortClient` instance.
+        The :obj:`.GortClient` instance.
     data
         A mapping of device to device info. Each device must at least include
         an ``actor`` key with the actor to use to communicated with the device.
-        Any other information is passed to the `.GortDevice` on instantiation.
+        Any other information is passed to the :obj:`.GortDevice` on instantiation.
     kwargs
         Other keyword arguments to pass wo the device class.
 
@@ -262,7 +262,7 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
         command
             The command to call.
         args, kwargs
-            Arguments to pass to the `.RemoteCommand`.
+            Arguments to pass to the :obj:`.RemoteCommand`.
 
         """
 
@@ -310,12 +310,12 @@ class GortDevice:
     Parameters
     ----------
     gort
-        The `.GortClient` instance.
+        The :obj:`.GortClient` instance.
     name
         The name of the device.
     actor
         The name of the actor used to interface with this device. The actor is
-        added to the list of `.RemoteActor` in the `.GortClient`.
+        added to the list of :obj:`.RemoteActor` in the :obj:`.GortClient`.
 
 
     """
@@ -328,8 +328,8 @@ class GortDevice:
     async def init(self):
         """Runs asynchronous tasks that must be executed on init.
 
-        If the device is part of a `.DeviceSet`, this method is called
-        by `.DeviceSet.init`.
+        If the device is part of a :obj:`.DeviceSet`, this method is called
+        by :obj:`.DeviceSet.init`.
 
         """
 
@@ -375,14 +375,14 @@ class GortDevice:
 class Gort(GortClient):
     """Gort's robotic functionality.
 
-    `.Gort` is subclass of `.GortClient` that implements higher-level robotic
-    functionality. This is the class a user will normally instantiate and
+    :obj:`.Gort` is subclass of :obj:`.GortClient` that implements higher-level
+    robotic functionality. This is the class a user will normally instantiate and
     interact with.
 
     Parameters
     ----------
     args, kwargs
-        Arguments to pass to `.GortClient`.
+        Arguments to pass to :obj:`.GortClient`.
     verbosity
         The level of logging verbosity.
     on_interrupt
@@ -464,9 +464,9 @@ class Gort(GortClient):
         Parameters
         ----------
         tile
-            The ``tile_id`` to observe, or a `.Tile` object. If not provided,
-            observes the next tile suggested by the scheduler (requires
-            ``use_scheduler=True``).
+            The ``tile_id`` to observe, or a :obj:`.Tile` object. If not
+            provided, observes the next tile suggested by the scheduler
+            (requires ``use_scheduler=True``).
         ra,dec
             The RA and Dec where to point the science telescopes. The other
             telescopes are pointed to calibrators that fit the science pointing.

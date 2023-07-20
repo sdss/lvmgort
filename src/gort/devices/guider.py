@@ -39,13 +39,13 @@ class Guider(GortDevice):
 
     @property
     def ag(self):
-        """Gets the `.AG` device associated with this guider."""
+        """Gets the :obj:`.AG` device associated with this guider."""
 
         return self.gort.ags[self.name]
 
     @property
     def telescope(self):
-        """Gets the `.Telescope` device associated with this guider."""
+        """Gets the :obj:`.Telescope` device associated with this guider."""
 
         return self.gort.telescopes[self.name]
 
@@ -81,7 +81,7 @@ class Guider(GortDevice):
         reached
             Whether the desired minimum separation was reached.
         status
-            The current `.GS`.
+            The current :obj:`.GS`.
         separation
             The current separation.
         timedout
@@ -282,7 +282,7 @@ class GuiderSet(GortDeviceSet[Guider]):
         Parameters
         ----------
         args,kwargs
-            Arguments to be passed to `.Guider.expose`.
+            Arguments to be passed to :obj:`.Guider.expose`.
         continuous
             Whether to expose the camera continuously. If `False`
             it takes a single exposure.
@@ -348,7 +348,7 @@ class GuiderSet(GortDeviceSet[Guider]):
         Parameters
         ----------
         args,kwargs
-            Arguments to be passed to `.Guider.guide`.
+            Arguments to be passed to :obj:`.Guider.guide`.
 
         """
 
@@ -394,8 +394,8 @@ class GuiderSet(GortDeviceSet[Guider]):
         -------
         status
             A dictionary with the telescope names and a tuple indicating whether
-            the desired minimum separation was reached. the current `.GuiderStatus`,
-            and the current separation for that telescope.
+            the desired minimum separation was reached. the current
+            :obj:`.GuiderStatus`, and the current separation for that telescope.
 
         """
 

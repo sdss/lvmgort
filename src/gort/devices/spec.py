@@ -38,14 +38,14 @@ READOUT_TIME = 51
 
 
 class Exposure(asyncio.Future["Exposure"]):
-    """A class representing an exposure taken by a `.SpectrographSet`.
+    """A class representing an exposure taken by a :obj:`.SpectrographSet`.
 
     Parameters
     ----------
     exp_no
         The exposure sequence number.
     spec_set
-        The `.SpectrographSet` commanding this exposure.
+        The :obj:`.SpectrographSet` commanding this exposure.
     flavour
         The image type.
 
@@ -89,7 +89,7 @@ class Exposure(asyncio.Future["Exposure"]):
         async_readout
             Returns after integration completes. Readout is initiated
             but handled asynchronously and can be await by awaiting
-            the returned `.Exposure` object.
+            the returned :obj:`.Exposure` object.
         show_progress
             Displays a progress bar with the elapsed exposure time.
         kwargs
@@ -590,7 +590,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         async_readout
             Returns after integration completes. Readout is initiated
             but handled asynchronously and can be await by awaiting
-            the returned `.Exposure` object.
+            the returned :obj:`.Exposure` object.
         count
             The number of exposures to take.
 

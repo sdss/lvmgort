@@ -238,7 +238,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
     """A representation of a science pointing with associated calibrators.
 
     This class is most usually initialised from a classmethod like
-    `.from_scheduler`.
+    :obj:`.from_scheduler`.
 
     Parameters
     ----------
@@ -358,13 +358,13 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         ra: float | None = None,
         dec: float | None = None,
     ):
-        """Creates a new instance of `.Tile` with data from the scheduler.
+        """Creates a new instance of :obj:`.Tile` with data from the scheduler.
 
         Parameters
         ----------
         tile_id
-            The ``tile_id`` for which to create a new `.Tile`. If `None`, and
-            ``ra`` and ``dec`` are also `None`, the best ``tile_id`` selected
+            The ``tile_id`` for which to create a new :obj:`.Tile`. If `None`,
+            and ``ra`` and ``dec`` are also `None`, the best ``tile_id`` selected
             by the scheduler will be used.
         ra
             Right ascension coordinates of the science telescope pointing.
@@ -427,8 +427,8 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         Parameters
         ----------
         sci_coords
-            A `.ScienceCoordinates` object or a tuple with RA/Dec coordinates
-            for the science telescope.
+            A :obj:`.ScienceCoordinates` object or a tuple with RA/Dec
+            coordinates for the science telescope.
 
         """
 
@@ -450,7 +450,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         ----------
         sky_coords
             A dictionary of ``skye`` and ``skyw`` coordinates. Each value must
-            be a `.SkyCoordinates` object or a tuple of RA/Dec coordinates.
+            be a :obj:`.SkyCoordinates` object or a tuple of RA/Dec coordinates.
         allow_replacement
             If `True`, allows the replacement of empty, invalid or low altitude
             targets.

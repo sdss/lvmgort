@@ -34,9 +34,9 @@ class GortObserver:
     Parameters
     ----------
     gort
-        The instance of `.Gort` used to communicate with the devices.
+        The instance of :obj:`.Gort` used to communicate with the devices.
     tile
-        The `.Tile` with the information about the observation.
+        The :obj:`.Tile` with the information about the observation.
     mask_positions_pattern
         The ``spec`` fibre mask positions to use.
 

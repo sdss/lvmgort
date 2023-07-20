@@ -416,7 +416,7 @@ async def move_mask_interval(
     Parameters
     ----------
     gort
-        The instance of `.Gort` to communicate with the actor system.
+        The instance of :obj:`.Gort` to communicate with the actor system.
     positions
         The positions to iterate over. It can be a string in which case it will
         be treated as a regular expression and any mask position that matches the
