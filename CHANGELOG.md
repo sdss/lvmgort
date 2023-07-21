@@ -1,5 +1,24 @@
 # Changelog
 
+## Next version
+
+### 🚀 New
+
+* Added the `testcal` calibration sequence.
+
+### ✨ Improved
+
+* Updated the calibrations section in the documentation.
+* Prevent multiple devices reconnecting to RabbitMQ at the same time.
+* Set the `OBJECT` header keyword in spectrograph exposures.
+
+### 🔧 Fixed
+
+* Fixed an issue that would cause object exposures to be taken as biases.
+* Fixed progress bar being affected by stdout and logs by setting the same `rich` `Console` object for logs and progress bars.
+* Fixed accessing the configuration from an `Exposure` object.
+
+
 ## 0.2.1 - July 19, 2023
 
 ### ✨ Improved
