@@ -210,6 +210,8 @@ class Telescope(GortDevice):
     def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
 
+        self.is_homed: bool = False
+
         self.config = self.gort.config["telescopes"]
         self.pwi = self.actor
 
@@ -233,6 +235,13 @@ class Telescope(GortDevice):
             self.guider = self.gort.guiders[name]
         else:
             self.guider = None
+
+    async def init(self):
+        """Determines the initial state of the telescope."""
+
+        # If the axes are enabled, we assume the telescope is homed.
+        if not self.is_homed and (await self.is_ready()):
+            self.is_homed = True
 
     async def status(self):
         """Retrieves the status of the telescope."""
@@ -308,6 +317,8 @@ class Telescope(GortDevice):
         if home_subdevices_task is not None and not home_subdevices_task.done():
             await home_subdevices_task
 
+        self.is_homed = True
+
     async def park(
         self,
         disable=True,
@@ -372,6 +383,8 @@ class Telescope(GortDevice):
             self.write_to_log("Parking k-mirror.", level="info")
             await self.km.park()
 
+        self.is_homed = False
+
     async def stop(self):
         """Stops the mount."""
 
@@ -432,11 +445,15 @@ class Telescope(GortDevice):
         commanded: tuple[float, float]
         reported: tuple[float, float]
 
+        await self.initialise()
+
+        if not self.is_homed:
+            self.write_to_log("Telescope is not homed. Homing now.", "warning")
+            await self.home()
+
         if ra is not None and dec is not None:
             is_radec = ra is not None and dec is not None and not alt and not az
             assert is_radec, "Invalid input parameters"
-
-            await self.initialise()
 
             self.write_to_log(f"Moving to ra={ra:.6f} dec={dec:.6f}.", level="info")
 
@@ -464,8 +481,6 @@ class Telescope(GortDevice):
         elif alt is not None and az is not None:
             is_altaz = alt is not None and az is not None and not ra and not dec
             assert is_altaz, "Invalid input parameters"
-
-            await self.initialise()
 
             self.write_to_log(f"Moving to alt={alt:.6f} az={az:.6f}.", level="info")
             await self.pwi.commands.gotoAltAzJ2000(alt, az)
