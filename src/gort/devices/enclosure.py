@@ -35,15 +35,49 @@ class Enclosure(GortDevice):
 
         return reply.flatten()
 
-    async def open(self):
-        """Open the enclosure dome."""
+    async def _prepare_telescopes(self):
+        """Moves telescopes to park position before opening/closing the enclosure."""
+
+        self.write_to_log(
+            "Moving telescopes to park before operating the dome.",
+            "warning",
+        )
+        await self.gort.telescopes.goto_named_position("park")
+
+    async def open(self, park_telescopes: bool = True):
+        """Open the enclosure dome.
+
+        Parameters
+        ----------
+        park_telescopes
+            Move the telescopes to the park position before opening the
+            enclosure to prevent dust or other debris falling on them.
+
+        """
+
+        if park_telescopes:
+            await self._prepare_telescopes()
 
         self.write_to_log("Opening the enclosure ...", level="info")
         await self.actor.commands.dome.commands.open()
         self.write_to_log("Enclosure is now open.", level="info")
 
-    async def close(self, force: bool = False):
-        """Close the enclosure dome."""
+    async def close(self, park_telescopes: bool = True, force: bool = False):
+        """Close the enclosure dome.
+
+        Parameters
+        ----------
+        park_telescopes
+            Move the telescopes to the park position before closing the
+            enclosure to prevent dust or other debris falling on them.
+        force
+            Tries to closes the dome even if the system believes it is
+            already closed.
+
+        """
+
+        if park_telescopes:
+            await self._prepare_telescopes()
 
         self.write_to_log("Closing the enclosure ...", level="info")
         await self.actor.commands.dome.commands.close(force=force)

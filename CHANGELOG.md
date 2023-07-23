@@ -12,6 +12,7 @@
 * Prevent multiple devices reconnecting to RabbitMQ at the same time.
 * Set the `OBJECT` header keyword in spectrograph exposures.
 * Telescopes keep track of whether they have been homed.
+* Telescopes will move to park automatically when trying to open or close the dome.
 
 ### 🔧 Fixed
 
