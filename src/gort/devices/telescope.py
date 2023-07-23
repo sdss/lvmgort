@@ -303,7 +303,7 @@ class Telescope(GortDevice):
         await self.pwi.commands.findHome()
 
         # findHome does not block, so wait a reasonable amount of time.
-        await asyncio.sleep(30)
+        await asyncio.sleep(15)
 
         if home_subdevices_task is not None and not home_subdevices_task.done():
             await home_subdevices_task
