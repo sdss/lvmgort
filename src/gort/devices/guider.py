@@ -222,7 +222,12 @@ class Guider(GortDevice):
             **guide_kwargs,
         )
 
-    async def stop(self, now: bool = False, wait_until_stopped: bool = True):
+    async def stop(
+        self,
+        now: bool = False,
+        wait_until_stopped: bool = True,
+        timeout: float | None = 30,
+    ):
         """Stops the guide loop.
 
         Parameters
@@ -231,18 +236,32 @@ class Guider(GortDevice):
             Aggressively stops the guide loop.
         wait_until_stopped
             Blocks until the guider is idle.
+        timeout
+            How long to wait for the guider to become idle before
+            forcibly stop it. Ignored if ``now=True``.
 
         """
 
         self.write_to_log(f"Stopping guider with now={now}.", "info")
         await self.actor.commands.stop(now=now)
 
-        if wait_until_stopped:
+        if not now and wait_until_stopped:
+            elapsed = 0.0
             while True:
                 if self.status & GuiderStatus.IDLE:
                     self.write_to_log("Guider is idle.")
                     return
+
                 await asyncio.sleep(0.5)
+                elapsed += 0.5
+
+                if timeout is not None and elapsed > timeout:
+                    self.write_to_log(
+                        "The guider is not yet idle. Stopping with now=True.",
+                        "warning",
+                    )
+                    await self.stop(now=True)
+                    return
 
     async def set_pixel(
         self,
