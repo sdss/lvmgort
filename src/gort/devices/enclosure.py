@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from typing import TYPE_CHECKING
 
 from gort.exceptions import GortEnclosureError
@@ -46,11 +48,26 @@ class Enclosure(GortDevice):
     async def _prepare_telescopes(self):
         """Moves telescopes to park position before opening/closing the enclosure."""
 
+        telescopes = list(self.gort.telescopes)
+        is_parked = await asyncio.gather(
+            *[self.gort.telescopes[tel].is_parked() for tel in telescopes]
+        )
+
+        if all(is_parked):
+            return True
+
         self.write_to_log(
             "Moving telescopes to park before operating the dome.",
             "warning",
         )
-        await self.gort.telescopes.goto_named_position("park")
+
+        park_coros = [
+            self.gort.telescopes[tel].goto_named_position('park')
+            for itel, tel in enumerate(telescopes)
+            if not is_parked[itel]
+        ]
+
+        await asyncio.gather(*park_coros)
 
     async def open(self, park_telescopes: bool = True):
         """Open the enclosure dome.
@@ -85,7 +102,20 @@ class Enclosure(GortDevice):
         """
 
         if park_telescopes:
-            await self._prepare_telescopes()
+            try:
+                await self._prepare_telescopes()
+            except Exception as err:
+                self.write_to_log(
+                    f"Failed determining the status of the telescopes: {err}",
+                    "warning",
+                )
+                if force is False:
+                    raise GortEnclosureError(
+                        "Not closing without knowing where the telescopes are. "
+                        "If you really need to close call again with force=True."
+                    )
+                else:
+                    self.write_to_log("Closing anyway because force=True", "warning")
 
         self.write_to_log("Closing the enclosure ...", level="info")
         await self.actor.commands.dome.commands.close(force=force)

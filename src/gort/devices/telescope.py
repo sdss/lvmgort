@@ -249,6 +249,23 @@ class Telescope(GortDevice):
         reply: ActorReply = await self.pwi.commands.status()
         return reply.flatten()
 
+    async def is_parked(self):
+        """Is the telescope parked?"""
+
+        park_position = self.gort.config["telescopes"]["named_positions"]["park"]["all"]
+
+        status = await self.status()
+        if status["is_enabled"] or status["is_tracking"] or status["is_slewing"]:
+            return False
+
+        alt_diff = numpy.abs(status["altitude_degs"] - park_position["alt"])
+        az_diff = numpy.abs(status["azimuth_degs"] - park_position["az"])
+
+        if alt_diff > 1 or az_diff > 1:
+            return False
+
+        return True
+
     async def is_ready(self):
         """Checks if the telescope is ready to be moved."""
 
