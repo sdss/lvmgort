@@ -393,6 +393,7 @@ class GuiderSet(GortDeviceSet[Guider]):
 
     async def wait_until_guiding(
         self,
+        names: list[str] | None = None,
         guide_tolerance: float | None = None,
         timeout: float | None = None,
     ):
@@ -400,6 +401,8 @@ class GuiderSet(GortDeviceSet[Guider]):
 
         Parameters
         ----------
+        names
+            List of telescopes to wait for convergence.
         guide_tolerance
             The minimum separation, in arcsec, between the measured and desired
             positions that needs to be reached before returning. If `None`,
@@ -418,7 +421,7 @@ class GuiderSet(GortDeviceSet[Guider]):
 
         """
 
-        names = list(self)
+        names = names or list(self)
         results = await asyncio.gather(
             *[
                 self[name].wait_until_guiding(
