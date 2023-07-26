@@ -194,6 +194,7 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
     """
 
     __DEVICE_CLASS__: ClassVar[Type["GortDevice"]]
+    __DEPLOYMENTS__: ClassVar[list[str]] = []
 
     def __init__(self, gort: GortClient, data: dict[str, dict], **kwargs):
         self.gort = gort
@@ -300,6 +301,25 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
         assert isinstance(level, int)
 
         self.gort.log.log(level, message)
+
+    async def restart(self):
+        """Restarts the set deployments and resets all controllers."""
+
+        if not isinstance(self.gort, Gort):
+            raise GortError("Client is not a Gort instance.")
+
+        if self.gort.kubernetes is None:
+            raise GortError("The Kubernetes cluster is not accessible.")
+
+        for deployment in self.__DEPLOYMENTS__:
+            self.gort.kubernetes.restart_deployment(deployment, from_file=True)
+
+        await asyncio.sleep(5)
+
+        running_deployments = self.gort.kubernetes.list_deployments()
+        for deployment in self.__DEPLOYMENTS__:
+            if deployment not in running_deployments:
+                self.write_to_log(f"Deployment {deployment} did not restart.", "error")
 
 
 class GortDevice:

@@ -55,3 +55,4 @@ class NPSSet(GortDeviceSet[NPS]):
     """A set of networked power switches."""
 
     __DEVICE_CLASS__ = NPS
+    __DEPLOYMENTS__ = ["lvmnps"]

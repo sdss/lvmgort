@@ -142,7 +142,7 @@ class Kubernetes:
                 namespace = self.get_deployment_namespace(deployment)
                 self.log.debug(f"Deleting deployment {deployment}.")
                 self.apps_v1.delete_namespaced_deployment(deployment, namespace)
-                sleep(5)  # Give some time for the pods to exit.
+                sleep(3)  # Give some time for the pods to exit.
             else:
                 self.log.warning(f"{deployment!r} is not running.")
 

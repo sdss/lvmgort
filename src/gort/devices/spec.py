@@ -529,6 +529,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
     """A set of LVM spectrographs."""
 
     __DEVICE_CLASS__ = Spectrograph
+    __DEPLOYMENTS__ = ["lvmscp"]
 
     def __init__(self, gort: GortClient, data: dict[str, dict], **kwargs):
         super().__init__(gort, data, **kwargs)

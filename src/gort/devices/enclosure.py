@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from gort.exceptions import GortEnclosureError
-from gort.gort import GortDevice
+from gort.gort import GortDevice, GortDeviceSet
 
 
 if TYPE_CHECKING:
@@ -25,8 +25,16 @@ __all__ = ["Enclosure"]
 class Enclosure(GortDevice):
     """Class representing the LVM enclosure."""
 
+    __DEPLOYMENTS__ = ["lvmecp"]
+
     def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
+
+    async def restart(self):
+        """Restarts the ``lvmecp`` deployment."""
+
+        # HACK: GortDevice has the everything that is needed to run restart.
+        await GortDeviceSet.restart(self)  # type: ignore
 
     async def status(self):
         """Retrieves the status of the power outlet."""

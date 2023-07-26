@@ -655,6 +655,13 @@ class TelescopeSet(GortDeviceSet[Telescope]):
     """A representation of a set of telescopes."""
 
     __DEVICE_CLASS__ = Telescope
+    __DEPLOYMENTS__ = [
+        "lvm-sci-pwi",
+        "lvm-spec-pwi",
+        "lvm-skye-pwi",
+        "lvm-skyw-pwi",
+        "lvmtan",
+    ]
 
     def __init__(self, gort: GortClient, data: dict[str, dict]):
         super().__init__(gort, data)
@@ -665,6 +672,14 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         """Initialise all telescopes."""
 
         await asyncio.gather(*[tel.initialise() for tel in self.values()])
+
+    async def restart(self):
+        """Restarts the ``lvmpwi`` and ``lvmtan`` deployments and re-homes."""
+
+        await super().restart()
+
+        self.write_to_log("Homing all devices after a restart.")
+        await self.home(home_subdevices=True)
 
     async def home(self, home_subdevices: bool = False):
         """Initialises and homes all telescopes.
