@@ -294,6 +294,7 @@ class GuiderSet(GortDeviceSet[Guider]):
     """A set of telescope guiders."""
 
     __DEVICE_CLASS__ = Guider
+    __DEPLOYMENTS__ = ["lvmguider"]
 
     async def expose(self, *args, continuous: bool = False, **kwargs):
         """Exposes all the cameras using the guider.

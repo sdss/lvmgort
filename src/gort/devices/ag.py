@@ -70,6 +70,7 @@ class AGSet(GortDeviceSet[AG]):
     """A set of auto-guiders."""
 
     __DEVICE_CLASS__ = AG
+    __DEPLOYMENTS__ = ["lvmagcam"]
 
     async def reconnect(self):
         """Reconnects all the AG cameras.
