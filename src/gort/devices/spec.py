@@ -68,7 +68,7 @@ class Exposure(asyncio.Future["Exposure"]):
     def __repr__(self):
         return (
             f"<Exposure (exp_no={self.exp_no}, flavour={self.flavour}, "
-            f"object={self.object} error={self.error}, reading={self.reading}, "
+            f"object={self.object!r} error={self.error}, reading={self.reading}, "
             f"done={self.done()})>"
         )
 
