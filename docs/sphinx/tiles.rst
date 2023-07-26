@@ -131,3 +131,80 @@ To offset a target by an arbitrary RA and Dec offset in arcsec one can use :obj:
 
 .. warning::
     :obj:`.offset_to_master_frame_pixel` provides approximate conversion that assumes the IFU is perfectly aligned with the AG cameras in the focal plane and that the field de-rotation is perfect.
+
+
+Dithering
+---------
+
+Sometimes you may want to dither on several positions around a central pointing. Here is a full example that shoes how to do a 100 point dither by defining a tile, starting an observation, and then changing the guide pixel and waiting for it to converge. ::
+
+    import asyncio
+
+    import numpy
+
+    from gort import Gort, Tile, GortObserver
+    from gort.transforms import offset_to_master_frame_pixel
+
+    g = await Gort(verbosity="debug").init()
+    g.log.start_file_logger("dither_sequence_v2.log", mode="w", rotating=False)
+
+    ra = 308.9774561
+    dec = -26.77331719
+
+    dithscale = 4  # Dither step in arcsec
+    dra, ddec = numpy.meshgrid(numpy.arange(10) - 1, numpy.arange(10) - 1)
+
+    # Absolute offsets in degrees
+    offsetra_deg = dra.flatten() * dithscale / 3600 / numpy.cos(dec * numpy.pi / 180.0)
+    offsetdec_deg = ddec.flatten() * dithscale / 3600
+
+    # Absolute offsets in arcsec
+    offsetra_arcsec = offsetra_deg * 60 * 60
+    offsetdec_arcsec = offsetdec_deg * 60 * 60
+
+    exp_time = 20.0
+
+    tile = Tile.from_coordinates(
+        ra=ra,
+        dec=dec,
+        sky_coords={
+            "skye": (ra, dec),
+            "skyw": (ra, dec),
+        },
+        spec_coords=[],
+    )
+
+    observer = GortObserver(g, tile)
+
+    # Start guiding at the central pointing.
+    await observer.slew()
+    await observer.acquire()
+
+    # Take exposure at central position.
+    await observer.expose(exp_time, show_progress=True)
+
+    # Iterate over the dither positions, change the guide pixel, and expose.
+    for n in range(100):
+        g.log.warning(f"Doing dither {n+1}: ({offsetra_arcsec[n]:.6f}, {offsetdec_arcsec[n]:.6f})")
+
+        xz = offset_to_master_frame_pixel(ra=offsetra_arcsec[n], dec=offsetdec_arcsec[n])
+
+        await g.guiders.sci.set_pixel(xz)
+        await g.guiders.skye.set_pixel(xz)
+        await g.guiders.skyw.set_pixel(xz)
+
+        # Wait a few seconds to be sure the guiders have changed to drifting.
+        await asyncio.sleep(5)
+
+        # Wait for the guider to converge
+        result  await g.guiders.wait_until_guiding(guide_tolerance=3, timeout=120, names=['sci', 'skye', 'skyw'])
+
+        # Check if we reached the timeout for any of the guiders.
+        if not all(results.values()):
+            raise RuntimeError("Some guiders timed out waiting to converge.")
+
+        # Expose for this dither position.
+        await observer.expose(exp_time, show_progress=True)
+
+    # Finish the observation
+    await observer.finish_observation()
