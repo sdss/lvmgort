@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### 🚀 New
+
+* [#5](https://github.com/sdss/lvmgort/pull/5) Add option to restart deployments associated with a device set as `GortDeviceSet.restart()`.
+
+
 ## 0.2.2 - July 23, 2023
 
 ### 🚀 New
