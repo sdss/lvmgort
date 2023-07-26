@@ -55,6 +55,7 @@ class Exposure(asyncio.Future["Exposure"]):
         self.spec_set = spec_set
         self.exp_no = exp_no
         self.flavour = flavour
+        self.object: str = ""
 
         self.error: bool = False
         self.reading: bool = False
@@ -67,7 +68,8 @@ class Exposure(asyncio.Future["Exposure"]):
     def __repr__(self):
         return (
             f"<Exposure (exp_no={self.exp_no}, flavour={self.flavour}, "
-            f"error={self.error}, reading={self.reading}, done={self.done()})>"
+            f"object={self.object} error={self.error}, reading={self.reading}, "
+            f"done={self.done()})>"
         )
 
     async def expose(
@@ -659,6 +661,8 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             await self.reset()
 
             exposure = Exposure(seqno, self, flavour=flavour)
+            exposure.object = object or ""
+
             await exposure.expose(
                 exposure_time=exposure_time,
                 header=json.dumps(header),
