@@ -35,6 +35,8 @@ class Guider(GortDevice):
         self.separation: float | None = None
         self.status: GuiderStatus = GuiderStatus.IDLE
 
+        self._best_focus: tuple[float, float] = (-999.0, -999.0)
+
         self.gort.add_reply_callback(self._status_cb)
 
     @property
@@ -143,6 +145,8 @@ class Guider(GortDevice):
     ):
         """Focus the telescope."""
 
+        self._best_focus = (-999, -999)
+
         # Send telescopes to zenith.
         if not inplace:
             self.write_to_log("Moving telescope to zenith.")
@@ -152,6 +156,7 @@ class Guider(GortDevice):
             )
 
         try:
+            self.write_to_log(f"Focusing telescope {self.name}.", "info")
             await self.actor.commands.focus(
                 reply_callback=self.print_reply,
                 guess=guess,
@@ -163,6 +168,27 @@ class Guider(GortDevice):
             self.write_to_log(f"Failed focusing with error {err}", level="error")
         finally:
             self.separation = None
+            self.write_to_log(
+                f"Best focus: {self._best_focus[1]} arcsec "
+                f"at {self._best_focus[0]} DT",
+                "info"
+            )
+
+        return self._best_focus
+
+    async def _parse_focus(self, reply: AMQPReply):
+        """Parses replies from the guider command."""
+
+        if not reply.body:
+            return
+
+        self.write_to_log(str(reply.body))
+
+        if "best_focus" in reply.body:
+            self._best_focus = (
+                reply.body["best_focus"]["focus"],
+                reply.body["best_focus"]["fwhm"],
+            )
 
     async def guide(
         self,
@@ -350,17 +376,23 @@ class GuiderSet(GortDeviceSet[Guider]):
     ):
         """Focus all the telescopes."""
 
+        self.write_to_log("Running focus sequence.", "info")
+
         jobs = [
-            ag.focus(
+            guider.focus(
                 inplace=inplace,
                 guess=guess,
                 step_size=step_size,
                 steps=steps,
                 exposure_time=exposure_time,
             )
-            for ag in self.values()
+            for guider in self.values()
         ]
-        await asyncio.gather(*jobs)
+        results = await asyncio.gather(*jobs)
+
+        best_focus = [f'{name}: {results[itel][1]}' for itel, name in enumerate(self)]
+
+        self.write_to_log('Best focus: ' + ', '.join(best_focus), 'info')
 
     async def guide(self, *args, **kwargs):
         """Guide on all telescopes.
