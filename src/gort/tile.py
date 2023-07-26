@@ -42,16 +42,22 @@ class Coordinates:
         The RA coordinate, in degrees. FK5 frame at the epoch of observation.
     dec
         The Dec coordinate, in degrees.
+    centre_on_fibre
+        The name of the fibre on which to centre the target, with the format
+        ``<ifulabel>-<finufu>``. By default, acquires the target on the central
+        fibre of the science IFU.
 
     """
 
-    def __init__(self, ra: float, dec: float):
+    def __init__(self, ra: float, dec: float, centre_on_fibre: str | None = None):
         self.ra = ra
         self.dec = dec
         self.skycoord = SkyCoord(ra=ra, dec=dec, unit="deg", frame="fk5")
 
+        self.centre_on_fibre = centre_on_fibre
+
         # The MF pixel on which to guide/centre the target.
-        self._mf_pixel: tuple[float, float] | None = None
+        self._mf_pixel = self.set_mf_pixel(centre_on_fibre)
 
     def __repr__(self):
         return f"<{self.__class__.__name__} (ra={self.ra:.6f}, dec={self.dec:.6f})>"
@@ -76,6 +82,41 @@ class Coordinates:
         """Determines whether a target is observable."""
 
         return self.calculate_altitude() > 30
+
+    def set_mf_pixel(self, fibre_name: str | None = None, xz: CoordTuple | None = None):
+        """Calculates and sets the master frame pixel on which to centre the target.
+
+        If neither ``fibre_name`` or ``xz`` are passed, resets to centring
+        the target on the central fibre of the IFU.
+
+        Parameters
+        ----------
+        fibre_name
+            The fibre to which to centre the target, with the format
+            ``<ifulabel>-<finifu>``.
+        xz
+            The coordinates, in master frame pixels, on which to centre
+            the target.
+
+        Returns
+        -------
+        pixel
+            A tuple with the x and z coordinates of the pixel in the master frame,
+            or `None` if resetting to the central fibre.
+
+        """
+
+        if fibre_name is not None:
+            xmf, zmf = fibre_to_master_frame(fibre_name)
+        elif xz is not None:
+            xmf, zmf = xz
+        else:
+            self._mf_pixel = None
+            return None
+
+        self._mf_pixel = (xmf, zmf)
+
+        return (xmf, zmf)
 
 
 class QuerableCoordinates(Coordinates):
@@ -171,55 +212,7 @@ class ScienceCoordinates(Coordinates):
         The RA coordinate, in degrees. FK5 frame at the epoch of observation.
     dec
         The Dec coordinate, in degrees.
-    centre_on_fibre
-        The name of the fibre on which to centre the target, with the format
-        ``<ifulabel>-<finufu>``. By default, acquires the target on the central
-        fibre of the science IFU.
-
     """
-
-    def __init__(self, ra: float, dec: float, centre_on_fibre: str | None = None):
-        super().__init__(ra, dec)
-
-        self.centre_on_fibre = centre_on_fibre
-
-        # The MF pixel on which to guide/centre the target.
-        self._mf_pixel = self.set_mf_pixel(centre_on_fibre)
-
-    def set_mf_pixel(self, fibre_name: str | None = None, xz: CoordTuple | None = None):
-        """Calculates and sets the master frame pixel on which to centre the target.
-
-        If neither ``fibre_name`` or ``xz`` are passed, resets to centring
-        the target on the central fibre of the IFU.
-
-        Parameters
-        ----------
-        fibre_name
-            The fibre to which to centre the target, with the format
-            ``<ifulabel>-<finifu>``.
-        xz
-            The coordinates, in master frame pixels, on which to centre
-            the target.
-
-        Returns
-        -------
-        pixel
-            A tuple with the x and z coordinates of the pixel in the master frame,
-            or `None` if resetting to the central fibre.
-
-        """
-
-        if fibre_name is not None:
-            xmf, zmf = fibre_to_master_frame(fibre_name)
-        elif xz is not None:
-            xmf, zmf = xz
-        else:
-            self._mf_pixel = None
-            return None
-
-        self._mf_pixel = (xmf, zmf)
-
-        return (xmf, zmf)
 
 
 class SkyCoordinates(QuerableCoordinates):
