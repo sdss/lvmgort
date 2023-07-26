@@ -1,0 +1,18 @@
+Deployment,Function,When to restart
+lvm-sci-pwi,Science telescope PlaneWave mount control,Science mount not responding
+lvm-spec-pwi,Spec telescope PlaneWave mount control,Spec mount not responding
+lvm-skye-pwi,SkyE telescope PlaneWave mount control,SkyE mount not responding
+lvm-skyw-pwi,SkyW telescope PlaneWave mount control,SkyW mount not responding
+lvmtan,"K-mirror, focuser, and fibre mask controller","K-mirror, focuser, or mask not responding or stuck"
+lvmagcam,Auto-guider camera control,Cameras not exposing or not present
+lvmguider,Guiding and focusing,"Guider not working, guiders won't change to idle, focus routine failing"
+lvmnps,Network power switches control,Calibration lamps not working
+lvmecp,Enclosure control,"Any enclosure related issue (dome not moving, lights, etc.)"
+lvmscp,Spectrograph control,Spectrographs not taking exposures
+lvmieb,Spectrograph motor controllers and electronics,Shutter or hartmann doors not working
+cerebro,Collects information from actors and services and stores it in InfluxDB,Data in InfluxDB/Grafana not updating
+lvm-jupyter,Jupyter Lab server,Jupyter Lab notebooks not working
+lvmtelemetry,Monitors optical table temperatures,Focus-temperature relationship failing
+lvm-spec-pressure-sp1,Spec 1 pressure reporting,Spec 1 pressure not showing in Grafana
+lvm-spec-pressure-sp2,Spec 2 pressure reporting,Spec 2 pressure not showing in Grafana
+lvm-spec-pressure-sp3,Spec 3 pressure reporting,Spec 3 pressure not showing in Grafana
