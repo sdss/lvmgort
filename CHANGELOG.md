@@ -6,6 +6,15 @@
 
 * [#5](https://github.com/sdss/lvmgort/pull/5) Add option to restart deployments associated with a device set as `GortDeviceSet.restart()`.
 
+### ✨ Improved
+
+* Stop the guiders with `now=True` after 60 seconds.
+* The object keyword values is set as an attribute in `Exposure` and shown in the `__repr__`.
+* `Coordinates.set_mf_pixel()` is now available for all coordinates.
+* Allow to wait only for some telescopes to converge guiding.
+* Check if telescopes are already parked before opening/closing the dome.
+* Report summary of best focus in `focus()` command as INFO level.
+
 
 ## 0.2.2 - July 23, 2023
 
