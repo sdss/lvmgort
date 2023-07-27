@@ -158,7 +158,7 @@ class Guider(GortDevice):
         try:
             self.write_to_log(f"Focusing telescope {self.name}.", "info")
             await self.actor.commands.focus(
-                reply_callback=self.print_reply,
+                reply_callback=self._parse_focus,
                 guess=guess,
                 step_size=step_size,
                 steps=steps,
@@ -171,12 +171,12 @@ class Guider(GortDevice):
             self.write_to_log(
                 f"Best focus: {self._best_focus[1]} arcsec "
                 f"at {self._best_focus[0]} DT",
-                "info"
+                "info",
             )
 
         return self._best_focus
 
-    async def _parse_focus(self, reply: AMQPReply):
+    def _parse_focus(self, reply: AMQPReply):
         """Parses replies from the guider command."""
 
         if not reply.body:
@@ -390,9 +390,9 @@ class GuiderSet(GortDeviceSet[Guider]):
         ]
         results = await asyncio.gather(*jobs)
 
-        best_focus = [f'{name}: {results[itel][1]}' for itel, name in enumerate(self)]
+        best_focus = [f"{name}: {results[itel][1]}" for itel, name in enumerate(self)]
 
-        self.write_to_log('Best focus: ' + ', '.join(best_focus), 'info')
+        self.write_to_log("Best focus: " + ", ".join(best_focus), "info")
 
     async def guide(self, *args, **kwargs):
         """Guide on all telescopes.
