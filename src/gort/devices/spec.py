@@ -30,6 +30,7 @@ from gort.tools import (
     is_interactive,
     is_notebook,
     move_mask_interval,
+    register_observation,
 )
 
 
@@ -320,6 +321,35 @@ class Exposure(asyncio.Future["Exposure"]):
 
         # Set the Future.
         self.set_result(self)
+
+    async def register_observation(
+        self,
+        tile_id: int | None = None,
+        dither_pos: int = 0,
+    ):
+        """Registers the exposure in the database."""
+
+        if self.flavour != "object":
+            return
+
+        if self.guider_data is not None and len(self.guider_data.dropna()) > 0:
+            seeing = self.guider_data.dropna().fwhm.mean()
+        else:
+            seeing = -999
+
+        self.spec_set.write_to_log("Registering observation.", "info")
+        registration_payload = {
+            "dither": dither_pos,
+            "tile_id": tile_id,
+            "jd": 0,
+            "seeing": seeing,
+            "standards": [],
+            "skies": [],
+            "exposure_no": self.exp_no,
+        }
+        self.spec_set.write_to_log(f"Registration payload {registration_payload}")
+        await register_observation(registration_payload)
+        self.spec_set.write_to_log("Registration complete.")
 
 
 class IEB(GortDevice):

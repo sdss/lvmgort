@@ -254,7 +254,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         sci_coords: ScienceCoordinates,
         sky_coords: dict[str, SkyCoordinates | CoordTuple] | None = None,
         spec_coords: list[StandardCoordinates | CoordTuple] | None = None,
-        dither_position: str = "C",
+        dither_position: int = 0,
         allow_replacement: bool = True,
     ):
         self.allow_replacement = allow_replacement
@@ -375,7 +375,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
 
             tile_id = tile_id_data["tile_id"]
             sci_pos = tile_id_data["tile_pos"][:2]
-            dither_pos = "C"
+            dither_pos = 0
 
         elif tile_id is not None:
             raise GortNotImplemented("Initialising from a tile_id is not supported.")
@@ -383,7 +383,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         elif tile_id is None and (ra is not None and dec is not None):
             tile_id = None
             sci_pos = (ra, dec)
-            dither_pos = "C"
+            dither_pos = 0
 
         else:
             raise TileError("Invalid inputs.")
