@@ -659,14 +659,27 @@ async def build_guider_reply_list(
                 }
             )
         elif "measured_pointing" in body:
-            current_data.append(body["measured_pointing"])
-        elif "correction_applied" in body:
-            current_data.append(body["correction_applied"])
-
-            telescope = str(reply.sender).split(".")[1]
+            measured_pointing = body["measured_pointing"]
             current_data.append(
                 {
-                    "frameno": body["correction_applied"]["frameno"],
+                    "frameno": measured_pointing["frameno"],
+                    "ra": measured_pointing["ra"],
+                    "dec": measured_pointing["dec"],
+                    "ra_offset": measured_pointing["radec_offset"][0],
+                    "dec_offset": measured_pointing["radec_offset"][1],
+                    "separation": measured_pointing["separation"],
+                    "mode": measured_pointing["mode"],
+                }
+            )
+        elif "correction_applied" in body:
+            correction_applied = body["correction_applied"]
+            telescope = str(reply.sender).split(".")[1]
+
+            current_data.append(
+                {
+                    "frameno": correction_applied["frameno"],
+                    "ax0_applied": correction_applied["motax_applied"][0],
+                    "ax1_applied": correction_applied["motax_applied"][1],
                     "telescope": telescope,
                 }
             )
