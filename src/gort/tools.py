@@ -639,7 +639,7 @@ async def build_guider_reply_list(
 
     """
 
-    async def handle_guider_reply(current_data: list, reply: AMQPReply):
+    async def handle_guider_reply(reply: AMQPReply):
         if actor is not None:
             if actor not in str(reply.sender):
                 return
@@ -650,7 +650,7 @@ async def build_guider_reply_list(
         body = reply.body
         if "frame" in body:
             frame = body["frame"]
-            current_data.append(
+            reply_list.append(
                 {
                     "frameno": frame["seqno"],
                     "n_sources": frame["n_sources"],
@@ -660,7 +660,7 @@ async def build_guider_reply_list(
             )
         elif "measured_pointing" in body:
             measured_pointing = body["measured_pointing"]
-            current_data.append(
+            reply_list.append(
                 {
                     "frameno": measured_pointing["frameno"],
                     "ra": measured_pointing["ra"],
@@ -675,7 +675,7 @@ async def build_guider_reply_list(
             correction_applied = body["correction_applied"]
             telescope = str(reply.sender).split(".")[1]
 
-            current_data.append(
+            reply_list.append(
                 {
                     "frameno": correction_applied["frameno"],
                     "ax0_applied": correction_applied["motax_applied"][0],
@@ -686,8 +686,15 @@ async def build_guider_reply_list(
         else:
             return
 
-    handle_reply_coro = partial(handle_guider_reply, reply_list)
     try:
-        gort.remove_reply_callback(handle_reply_coro)
+        gort.add_reply_callback(handle_guider_reply)
+
+        # If the list does not expand every 30s, clean and exit.
+        while True:
+            nlist = len(reply_list)
+            await asyncio.sleep(30)
+            if len(reply_list) == nlist:
+                return
+
     finally:
-        gort.add_reply_callback(handle_reply_coro)
+        gort.remove_reply_callback(handle_guider_reply)
