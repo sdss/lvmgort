@@ -300,7 +300,7 @@ async def register_observation(payload: dict):
         )
 
         if resp.status_code != 200 or not resp.json()["success"]:
-            raise RuntimeError("Failed registering observation.")
+            raise RuntimeError(f"Failed registering observation: {resp.text}.")
 
 
 def is_notebook() -> bool:

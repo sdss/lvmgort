@@ -340,7 +340,7 @@ class Exposure(asyncio.Future["Exposure"]):
         self.spec_set.write_to_log("Registering observation.", "info")
         registration_payload = {
             "dither": dither_pos,
-            "tile_id": tile_id,
+            "tile_id": tile_id or -999,
             "jd": 0,
             "seeing": seeing,
             "standards": [],
