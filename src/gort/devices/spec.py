@@ -142,7 +142,11 @@ class Exposure(asyncio.Future["Exposure"]):
         self.spec_set.last_exposure = self
 
         monitor_task: asyncio.Task | None = None
-        guider_task = asyncio.create_task(self._guider_monitor())
+
+        if self.flavour == "object":
+            guider_task = asyncio.create_task(self._guider_monitor())
+        else:
+            guider_task = None
 
         try:
             await self.spec_set._send_command_all(
@@ -202,21 +206,22 @@ class Exposure(asyncio.Future["Exposure"]):
         except asyncio.CancelledError:
             await cancel_task(task)
 
-            # Build DF with all the frames.
-            df = pandas.DataFrame.from_records(current_data)
+            if len(current_data) > 0:
+                # Build DF with all the frames.
+                df = pandas.DataFrame.from_records(current_data)
 
-            # Group by frameno, keep only non-NaN values.
-            df = df.groupby("frameno", as_index=False).apply(
-                lambda g: g.fillna(method="bfill", axis=0).iloc[0, :]
-            )
+                # Group by frameno, keep only non-NaN values.
+                df = df.groupby("frameno", as_index=False).apply(
+                    lambda g: g.fillna(method="bfill", axis=0).iloc[0, :]
+                )
 
-            # Remove NaN rows.
-            df = df.dropna()
+                # Remove NaN rows.
+                df = df.dropna()
 
-            # Sort by frameno.
-            df = df.sort_values("frameno")
+                # Sort by frameno.
+                df = df.sort_values("frameno")
 
-            self.guider_data = df
+                self.guider_data = df
 
             return
 
