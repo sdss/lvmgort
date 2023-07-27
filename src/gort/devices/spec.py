@@ -17,13 +17,20 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
 import jsonschema
+import pandas
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 
 from sdsstools.time import get_sjd
 
 from gort.exceptions import ErrorCodes, GortSpecError
 from gort.gort import GortDevice, GortDeviceSet
-from gort.tools import cancel_task, is_interactive, is_notebook, move_mask_interval
+from gort.tools import (
+    build_guider_reply_list,
+    cancel_task,
+    is_interactive,
+    is_notebook,
+    move_mask_interval,
+)
 
 
 if TYPE_CHECKING:
@@ -62,6 +69,9 @@ class Exposure(asyncio.Future["Exposure"]):
 
         self._timer_task: asyncio.Task | None = None
         self._progress: Progress | None = None
+
+        self._guider_task: asyncio.Task | None = None
+        self.guider_data: pandas.DataFrame | None = None
 
         super().__init__()
 
@@ -132,6 +142,7 @@ class Exposure(asyncio.Future["Exposure"]):
         self.spec_set.last_exposure = self
 
         monitor_task: asyncio.Task | None = None
+        guider_task = asyncio.create_task(self._guider_monitor())
 
         try:
             await self.spec_set._send_command_all(
@@ -167,8 +178,47 @@ class Exposure(asyncio.Future["Exposure"]):
 
         finally:
             await self.stop_timer()
+            await cancel_task(guider_task)
 
         return self
+
+    async def _guider_monitor(self):
+        """Monitors the guider data and build a data frame."""
+
+        current_data = []
+
+        task = asyncio.create_task(
+            build_guider_reply_list(
+                self.spec_set.gort,
+                current_data,
+            )
+        )
+
+        try:
+            while True:
+                # Just keep the task running.
+                await asyncio.sleep(1)
+
+        except asyncio.CancelledError:
+            await cancel_task(task)
+
+            # Build DF with all the frames.
+            df = pandas.DataFrame.from_records(current_data)
+
+            # Group by frameno, keep only non-NaN values.
+            df = df.groupby("frameno", as_index=False).apply(
+                lambda g: g.fillna(method="bfill", axis=0).iloc[0, :]
+            )
+
+            # Remove NaN rows.
+            df = df.dropna()
+
+            # Sort by frameno.
+            df = df.sort_values("frameno")
+
+            self.guider_data = df
+
+            return
 
     async def start_timer(
         self,
