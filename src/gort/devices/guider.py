@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 import pandas
 
-from gort.exceptions import GortError, GortGuiderError
+from gort.exceptions import ErrorCodes, GortError, GortGuiderError
 from gort.gort import GortDevice, GortDeviceSet
 from gort.maskbits import GuiderStatus
 from gort.tools import build_guider_reply_list, cancel_task
@@ -223,6 +223,12 @@ class Guider(GortDevice):
         """
 
         self.separation = None
+
+        if not self.status & GuiderStatus.IDLE:
+            raise GortGuiderError(
+                "Guider is not IDLE",
+                error_code=ErrorCodes.COMMAND_FAILED,
+            )
 
         if ra is None or dec is None:
             status = await self.telescope.status()

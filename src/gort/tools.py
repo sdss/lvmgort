@@ -50,7 +50,6 @@ __all__ = [
     "get_next_tile_id_sync",
     "get_calibrators_sync",
     "register_observation",
-    "tqdm_timer",
     "get_ccd_frame_path",
     "move_mask_interval",
     "angular_separation",
@@ -329,23 +328,6 @@ def is_interactive():
     import __main__ as main
 
     return not hasattr(main, "__file__")
-
-
-def tqdm_timer(seconds: float):
-    """Creates a task qith a tqdm progress bar."""
-
-    if is_notebook():
-        from tqdm.notebook import tqdm
-    else:
-        from tqdm import tqdm
-
-    bar_format = "{l_bar}{bar}| {n_fmt}/{total_fmt}s"
-
-    async def _progress():
-        for _ in tqdm(range(int(seconds)), bar_format=bar_format):
-            await asyncio.sleep(1)
-
-    return asyncio.create_task(_progress())
 
 
 def get_ccd_frame_path(
