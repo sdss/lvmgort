@@ -12,9 +12,12 @@ import asyncio
 
 from typing import TYPE_CHECKING
 
+import pandas
+
 from gort.exceptions import GortError, GortGuiderError
 from gort.gort import GortDevice, GortDeviceSet
 from gort.maskbits import GuiderStatus
+from gort.tools import build_guider_reply_list, cancel_task
 
 
 if TYPE_CHECKING:
@@ -35,6 +38,7 @@ class Guider(GortDevice):
         self.separation: float | None = None
         self.status: GuiderStatus = GuiderStatus.IDLE
 
+        self.guide_monitor_task: asyncio.Task | None = None
         self._best_focus: tuple[float, float] = (-999.0, -999.0)
 
         self.gort.add_reply_callback(self._status_cb)
@@ -171,7 +175,7 @@ class Guider(GortDevice):
             self.write_to_log(
                 f"Best focus: {self._best_focus[1]} arcsec "
                 f"at {self._best_focus[0]} DT",
-                "info"
+                "info",
             )
 
         return self._best_focus
@@ -239,14 +243,69 @@ class Guider(GortDevice):
             log_msg += f", pixel=({pixel[0]:.1f}, {pixel[1]:.1f})."
         self.write_to_log(log_msg, level="info")
 
-        await self.actor.commands.guide(
-            reply_callback=self.print_reply,
-            ra=ra,
-            dec=dec,
-            exposure_time=exposure_time,
-            reference_pixel=pixel,
-            **guide_kwargs,
+        try:
+            self.guide_monitor_task = asyncio.create_task(self._monitor_task())
+            await self.actor.commands.guide(
+                reply_callback=self.print_reply,
+                ra=ra,
+                dec=dec,
+                exposure_time=exposure_time,
+                reference_pixel=pixel,
+                **guide_kwargs,
+            )
+        finally:
+            await cancel_task(self.guide_monitor_task)
+
+    async def _monitor_task(self, timeout: float = 30):
+        """Monitors guiding and reports average and last guide metrics."""
+
+        current_data = []
+
+        task = asyncio.create_task(
+            build_guider_reply_list(
+                self.gort,
+                current_data,
+                actor=self.actor.name,
+            )
         )
+
+        try:
+            while True:
+                await asyncio.sleep(timeout)
+
+                # Build DF with all the frames.
+                df = pandas.DataFrame.from_records(current_data)
+
+                # Group by frameno, keep only non-NaN values.
+                df = df.groupby("frameno", as_index=False).apply(
+                    lambda g: g.fillna(method="bfill", axis=0).iloc[0, :]
+                )
+
+                # Remove NaN rows.
+                df = df.dropna()
+
+                # Sort by frameno.
+                df = df.sort_values("frameno")
+
+                # Calculate and report averages.
+                avg = df.mean()
+                self.write_to_log(
+                    f"Average ({timeout} s): sep={avg.sep.values[0]} arcsec; "
+                    f"fwhm={avg.fwhm.values[0]} arcsec",
+                    "info",
+                )
+
+                # Calculate and report last.
+                last = df.tail(1)
+                self.write_to_log(
+                    f"Last: sep={last.sep.values[0]} arcsec; "
+                    f"fwhm={last.fwhm.values[0]} arcsec",
+                    "info",
+                )
+
+        except asyncio.CancelledError:
+            await cancel_task(task)
+            return
 
     async def stop(
         self,
@@ -390,9 +449,9 @@ class GuiderSet(GortDeviceSet[Guider]):
         ]
         results = await asyncio.gather(*jobs)
 
-        best_focus = [f'{name}: {results[itel][1]}' for itel, name in enumerate(self)]
+        best_focus = [f"{name}: {results[itel][1]}" for itel, name in enumerate(self)]
 
-        self.write_to_log('Best focus: ' + ', '.join(best_focus), 'info')
+        self.write_to_log("Best focus: " + ", ".join(best_focus), "info")
 
     async def guide(self, *args, **kwargs):
         """Guide on all telescopes.

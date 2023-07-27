@@ -59,6 +59,7 @@ __all__ = [
     "is_interactive",
     "is_notebook",
     "cancel_task",
+    "build_guider_reply_list",
 ]
 
 CAMERAS = [
@@ -615,3 +616,65 @@ async def cancel_task(task: asyncio.Task | None):
     task.cancel()
     with suppress(asyncio.CancelledError):
         await task
+
+
+async def build_guider_reply_list(
+    gort: GortClient,
+    reply_list: list[dict],
+    actor: str | None = None,
+):
+    """Tasks that monitors the guider output and builds a list of replies.
+
+    This coroutine is meant to be run as a task. When the task is cancelled it
+    will clean itself by removing the callback in the client.
+
+    Parameters
+    ----------
+    gort
+        The Gort client to connect to the actor system.
+    reply_list
+        A list (usually empty) to which the task will append the replies.
+    actor
+        The actor to listen to. If `None`, listens to all the guider actors.
+
+    """
+
+    async def handle_guider_reply(current_data: list, reply: AMQPReply):
+        if actor is not None:
+            if actor not in str(reply.sender):
+                return
+        else:
+            if ".guider" not in str(reply.sender):
+                return
+
+        body = reply.body
+        if "frame" in body:
+            frame = body["frame"]
+            current_data.append(
+                {
+                    "frameno": frame["seqno"],
+                    "n_sources": frame["n_sources"],
+                    "focus_position": frame["focus_position"],
+                    "fwhm": frame["fwhm"],
+                }
+            )
+        elif "measured_pointing" in body:
+            current_data.append(body["measured_pointing"])
+        elif "correction_applied" in body:
+            current_data.append(body["correction_applied"])
+
+            telescope = str(reply.sender).split(".")[1]
+            current_data.append(
+                {
+                    "frameno": body["correction_applied"]["frameno"],
+                    "telescope": telescope,
+                }
+            )
+        else:
+            return
+
+    handle_reply_coro = partial(handle_guider_reply, reply_list)
+    try:
+        gort.remove_reply_callback(handle_reply_coro)
+    finally:
+        gort.add_reply_callback(handle_reply_coro)
