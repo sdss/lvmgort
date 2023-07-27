@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 import jsonschema
 import pandas
+from astropy.time import Time
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 
 from sdsstools.time import get_sjd
@@ -64,6 +65,7 @@ class Exposure(asyncio.Future["Exposure"]):
         self.exp_no = exp_no
         self.flavour = flavour
         self.object: str = ""
+        self.start_time = Time.now()
 
         self.error: bool = False
         self.reading: bool = False
@@ -150,6 +152,8 @@ class Exposure(asyncio.Future["Exposure"]):
             guider_task = None
 
         try:
+            self.start_time = Time.now()
+
             await self.spec_set._send_command_all(
                 "expose",
                 exposure_time=exposure_time,
@@ -341,7 +345,7 @@ class Exposure(asyncio.Future["Exposure"]):
         registration_payload = {
             "dither": dither_pos,
             "tile_id": tile_id or -999,
-            "jd": 0,
+            "jd": self.start_time.jd,
             "seeing": seeing,
             "standards": [],
             "skies": [],
