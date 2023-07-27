@@ -287,19 +287,26 @@ class Guider(GortDevice):
                 # Sort by frameno.
                 df = df.sort_values("frameno")
 
+                if "fwhm" not in df or "separation" not in df:
+                    continue
+
                 # Calculate and report averages.
-                avg = df.mean()
+                sep_avg = round(df.separation.mean(), 3)
+                fwhm_avg = round(df.fwhm.mean(), 2)
                 self.write_to_log(
-                    f"Average ({timeout} s): sep={avg.sep.values[0]} arcsec; "
-                    f"fwhm={avg.fwhm.values[0]} arcsec",
+                    f"Average ({timeout} s): sep={sep_avg} arcsec; "
+                    f"fwhm={fwhm_avg} arcsec",
                     "info",
                 )
 
                 # Calculate and report last.
                 last = df.tail(1)
+                sep_last = round(last.separation.values[0], 3)
+                fwhm_last = round(last.fwhm.values[0], 2)
+                mode_last = last["mode"].values[0]
                 self.write_to_log(
-                    f"Last: sep={last.sep.values[0]} arcsec; "
-                    f"fwhm={last.fwhm.values[0]} arcsec",
+                    f"Last: sep={sep_last} arcsec; fwhm={fwhm_last} arcsec; "
+                    f"mode={mode_last!r}",
                     "info",
                 )
 
