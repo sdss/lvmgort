@@ -695,6 +695,9 @@ class TelescopeSet(GortDeviceSet[Telescope]):
 
         await super().restart()
 
+        self.write_to_log("Waiting 10 seconds for devices to reconnect.")
+        await asyncio.sleep(10)
+
         self.write_to_log("Homing all devices after a restart.")
         await self.home(home_subdevices=True)
 
