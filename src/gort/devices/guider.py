@@ -162,7 +162,7 @@ class Guider(GortDevice):
         try:
             self.write_to_log(f"Focusing telescope {self.name}.", "info")
             await self.actor.commands.focus(
-                reply_callback=self.print_reply,
+                reply_callback=self._parse_focus,
                 guess=guess,
                 step_size=step_size,
                 steps=steps,
@@ -180,7 +180,7 @@ class Guider(GortDevice):
 
         return self._best_focus
 
-    async def _parse_focus(self, reply: AMQPReply):
+    def _parse_focus(self, reply: AMQPReply):
         """Parses replies from the guider command."""
 
         if not reply.body:

@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 import jsonschema
 import pandas
+from astropy.io import fits
 from astropy.time import Time
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 
@@ -182,12 +183,16 @@ class Exposure(asyncio.Future["Exposure"]):
             await cancel_task(monitor_task)
 
             self.error = True
+            self.set_result(self)
 
             raise GortSpecError(f"Exposure failed with error {err}", error_code=301)
 
         finally:
             await self.stop_timer()
             await cancel_task(guider_task)
+
+            if self.done() and not self.error:
+                self.verify_files()
 
         return self
 
@@ -301,6 +306,45 @@ class Exposure(asyncio.Future["Exposure"]):
             self._progress.stop()
             self._progress.console.clear_live()
         self._progress = None
+
+    def verify_files(self):
+        """Checks that the files have been written and have the right contents."""
+
+        HEADERS_CRITICAL = [
+            "TILE_ID",
+            "DPOS",
+            "ARGON",
+            "NEON",
+            "LDLS",
+            "QUARTZ",
+            "HGNE",
+            "XENON",
+            "HARTMANN",
+            "TESCIRA",
+            "TESCIDE",
+            "TESKYERA",
+            "TESKYEDE",
+            "TESKYWRA",
+            "TESKYWDE",
+            "TESPECRA",
+            "TESPECDE",
+        ]
+
+        HEADERS_WARNING = []
+
+        for file in self.get_files():
+            header = fits.getheader(str(file))
+
+            for key in HEADERS_CRITICAL:
+                if key not in header:
+                    raise GortSpecError(f"Keyword {key} not present in {file!s}")
+
+            for key in HEADERS_WARNING:
+                if key not in header:
+                    self.spec_set.write_to_log(
+                        f"Keyword {key} not present in {file!s}",
+                        "warning",
+                    )
 
     def get_files(self):
         """Returns the files written by the exposure."""
@@ -708,6 +752,8 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                 "Spectrographs are not idle. Cannot expose.",
                 error_code=302,
             )
+
+        await self.reset()
 
         if count <= 0:
             raise GortSpecError("Invalid count.", error_code=ErrorCodes.USAGE_ERROR)
