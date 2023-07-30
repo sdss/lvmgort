@@ -15,11 +15,13 @@ import pathlib
 import re
 import warnings
 from contextlib import suppress
+from datetime import datetime
 from functools import partial
 
 from typing import TYPE_CHECKING, Callable, Coroutine
 
 import httpx
+import pandas
 import peewee
 from astropy import units as uu
 from astropy.coordinates import angular_separation as astropy_angular_separation
@@ -630,14 +632,18 @@ async def build_guider_reply_list(
                 return
 
         body = reply.body
+        telescope = str(reply.sender).split(".")[1]
+
         if "frame" in body:
             frame = body["frame"]
             reply_list.append(
                 {
                     "frameno": frame["seqno"],
+                    "time": pandas.to_datetime(datetime.now()),
                     "n_sources": frame["n_sources"],
                     "focus_position": frame["focus_position"],
                     "fwhm": frame["fwhm"],
+                    "telescope": telescope,
                 }
             )
         elif "measured_pointing" in body:
@@ -651,11 +657,11 @@ async def build_guider_reply_list(
                     "dec_offset": measured_pointing["radec_offset"][1],
                     "separation": measured_pointing["separation"],
                     "mode": measured_pointing["mode"],
+                    "telescope": telescope,
                 }
             )
         elif "correction_applied" in body:
             correction_applied = body["correction_applied"]
-            telescope = str(reply.sender).split(".")[1]
 
             reply_list.append(
                 {
