@@ -243,6 +243,8 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         A list of coordinates to observe with the spectrophotometric telescope.
     dither_position
         The dither position to obseve (not yet functional).
+    object
+        The name of the object.
     allow_replacement
         If `True`, allows the replacement of empty, invalid or low altitude sky
         and standard targets.
@@ -255,12 +257,15 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         sky_coords: dict[str, SkyCoordinates | CoordTuple] | None = None,
         spec_coords: list[StandardCoordinates | CoordTuple] | None = None,
         dither_position: int = 0,
+        object: str | None = None,
         allow_replacement: bool = True,
     ):
         self.allow_replacement = allow_replacement
 
         self.tile_id: int | None = None
         self.dither_position = dither_position
+
+        self.object = object or (f"Tile {self.tile_id}" if self.tile_id else None)
 
         self.sci_coords = self.set_sci_coords(sci_coords)
         self.sky_coords = self.set_sky_coords(

@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+from functools import partial
 
 from typing import TYPE_CHECKING
 
@@ -130,11 +131,7 @@ class Guider(GortDevice):
         """
 
         while True:
-            await self.actor.commands.expose(
-                reply_callback=self.print_reply,
-                *args,
-                **kwargs,
-            )
+            await self.actor.commands.expose(*args, **kwargs)
 
             if not continuous:
                 return
@@ -186,7 +183,7 @@ class Guider(GortDevice):
         if not reply.body:
             return
 
-        self.write_to_log(str(reply.body))
+        self.log_replies(reply, skip_debug=False)
 
         if "best_focus" in reply.body:
             self._best_focus = (
@@ -252,7 +249,7 @@ class Guider(GortDevice):
         try:
             self.guide_monitor_task = asyncio.create_task(self._monitor_task())
             await self.actor.commands.guide(
-                reply_callback=self.print_reply,
+                reply_callback=partial(self.log_replies, skip_debug=False),
                 ra=ra,
                 dec=dec,
                 exposure_time=exposure_time,
@@ -427,11 +424,11 @@ class GuiderSet(GortDeviceSet[Guider]):
         self.write_to_log("Taking darks.", level="info")
 
         cmds = []
-        for ag in self.values():
+        for guider in self.values():
             cmds.append(
-                ag.actor.commands.expose(
+                guider.actor.commands.expose(
                     flavour="dark",
-                    reply_callback=ag.print_reply,
+                    reply_callback=partial(guider.log_replies, skip_debug=False),
                 )
             )
 

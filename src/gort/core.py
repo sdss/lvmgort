@@ -12,7 +12,7 @@ import warnings
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Literal
 
 import unclick
 from aiormq import AMQPConnectionError, ChannelInvalidStateError
@@ -26,6 +26,8 @@ from .tools import get_valid_variable_name
 if TYPE_CHECKING:
     from clu.client import AMQPReply
     from clu.command import Command
+
+    from gort.gort import GortDevice
 
     from .gort import GortClient
 
@@ -45,12 +47,13 @@ class CommandSet(dict[str, "RemoteCommand"]):
 class RemoteActor:
     """A programmatic representation of a remote actor."""
 
-    def __init__(self, client: GortClient, name: str):
+    def __init__(self, client: GortClient, name: str, device: GortDevice | None = None):
         self.client = client
 
         self.name = name
         self.model: dict = {}
         self.commands = CommandSet()
+        self.device = device
 
     def __repr__(self):
         return f"<RemoteActor (name={self.name})>"
@@ -154,7 +157,7 @@ class RemoteCommand:
     async def __call__(
         self,
         *args,
-        reply_callback: Callable[[AMQPReply], None] | None = None,
+        reply_callback: Callable[[AMQPReply], None] | None | Literal[False] = None,
         **kwargs,
     ):
         """Executes the remote command with some given arguments."""
@@ -164,6 +167,9 @@ class RemoteCommand:
             # Call parent chain without arguments. This is not bullet-proof for all
             # cases, but probably good enough for now.
             parent_string = self._parent.get_command_string() + " "
+
+        if reply_callback is None and self._remote_actor.device is not None:
+            reply_callback = self._remote_actor.device.log_replies
 
         cmd = await self._remote_actor.send_raw_command(
             parent_string + self.get_command_string(*args, **kwargs),

@@ -6,6 +6,8 @@
 # @Filename: gort.py
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import signal
@@ -17,7 +19,7 @@ from typing import Any, Callable, ClassVar, Generic, Type, TypeVar
 
 from typing_extensions import Self
 
-from clu.client import AMQPClient
+from clu.client import AMQPClient, AMQPReply
 
 from gort import config
 from gort.core import RemoteActor
@@ -131,18 +133,20 @@ class GortClient(AMQPClient):
 
         return self.connection and self.connection.connection is not None
 
-    def add_actor(self, actor: str):
+    def add_actor(self, actor: str, device: "GortDevice" | None = None):
         """Adds an actor to the programmatic API.
 
         Parameters
         ----------
         actor
             The name of the actor to add.
+        device
+            A device associated with this actor.
 
         """
 
         if actor not in self.actors:
-            self.actors[actor] = RemoteActor(self, actor)
+            self.actors[actor] = RemoteActor(self, actor, device=device)
 
         return self.actors[actor]
 
@@ -341,7 +345,7 @@ class GortDevice:
     def __init__(self, gort: GortClient, name: str, actor: str):
         self.gort = gort
         self.name = name
-        self.actor = gort.add_actor(actor)
+        self.actor = gort.add_actor(actor, device=self)
 
     async def init(self):
         """Runs asynchronous tasks that must be executed on init.
@@ -383,11 +387,20 @@ class GortDevice:
 
         self.gort.log.log(level, message)
 
-    def print_reply(self, reply):
+    def log_replies(self, reply: AMQPReply, skip_debug: bool = True):
         """Outputs command replies."""
 
         if reply.body:
-            self.write_to_log(str(reply.body))
+            if reply.message_code in ["w"]:
+                level = "warning"
+            elif reply.message_code in ["e", "f", "!"]:
+                level = "error"
+            else:
+                level = "debug"
+                if skip_debug:
+                    return
+
+            self.write_to_log(str(reply.body), level)
 
 
 class Gort(GortClient):

@@ -234,18 +234,21 @@ class GortObserver:
         exposure_time: float = 900.0,
         show_progress: bool | None = None,
         iterate_over_standards: bool = True,
+        **kwargs,
     ):
         """Starts exposing the spectrographs.
 
         Parameters
         ----------
         exposure_time
-            The lenght of the exposure in seconds.
+            The length of the exposure in seconds.
         show_progress
             Displays a progress bar with the elapsed exposure time.
         iterate_over_standards
             Whether to move the spec telescope during intergration
             to observe various standard stars in different fibres.
+        kwargs
+            Other arguments to pass to :obj:`.SpectrographSet.expose`.
 
         """
 
@@ -258,6 +261,9 @@ class GortObserver:
         tile_id = self.tile.tile_id
         dither_pos = self.tile.dither_position
 
+        if 'object' not in kwargs:
+            kwargs['object'] = self.tile.object
+
         exp_tile_data = {
             "tile_id": (tile_id or -999, "The tile_id of this observation"),
             "dpos": (dither_pos, "Dither position"),
@@ -269,6 +275,7 @@ class GortObserver:
             exposure_time=exposure_time,
             tile_data=exp_tile_data,
             show_progress=show_progress,
+            **kwargs,
         )
 
         # Count is 1, so this will be a single exposure.
