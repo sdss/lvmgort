@@ -5,6 +5,7 @@
 ### 🚀 New
 
 * [#5](https://github.com/sdss/lvmgort/pull/5) Add option to restart deployments associated with a device set as `GortDeviceSet.restart()`.
+* [#7](https://github.com/sdss/lvmgort/pull/7) If guiding during an `Exposure`, a Pandas DataFrame is created with a summary of the guider data. The guider outputs summary guider information as INFO level messages.
 
 ### ✨ Improved
 
