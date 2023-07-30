@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 from gort.exceptions import GortObserverError
 from gort.tile import Coordinates
-from gort.tools import cancel_task, register_observation
+from gort.tools import cancel_task
 
 
 if TYPE_CHECKING:
@@ -191,7 +191,8 @@ class GortObserver:
 
         has_timedout = any([gs[3] for gs in guide_status])
         if has_timedout:
-            self.write_to_log("Some acquisitions timed out.", "warnings")
+            self.write_to_log("Some acquisitions timed out.", "warning")
+            # TODO: we need to stop guiders that timed out.
 
         try:
             n_skies_guiding = 0
@@ -261,8 +262,8 @@ class GortObserver:
         tile_id = self.tile.tile_id
         dither_pos = self.tile.dither_position
 
-        if 'object' not in kwargs:
-            kwargs['object'] = self.tile.object
+        if "object" not in kwargs:
+            kwargs["object"] = self.tile.object
 
         exp_tile_data = {
             "tile_id": (tile_id or -999, "The tile_id of this observation"),
@@ -283,20 +284,7 @@ class GortObserver:
 
         await cancel_task(standard_task)
 
-        if tile_id is not None:
-            self.write_to_log("Registering observation.")
-            registration_payload = {
-                "dither": dither_pos,
-                "tile_id": tile_id,
-                "jd": 0,
-                "seeing": 10,
-                "standards": [],
-                "skies": [],
-                "exposure_no": exposure.exp_no,
-            }
-            self.write_to_log(f"Registration payload {registration_payload}")
-            await register_observation(registration_payload)
-            self.write_to_log("Registration complete.")
+        await exposure.register_observation(tile_id=tile_id, dither_pos=dither_pos)
 
         return exposure
 

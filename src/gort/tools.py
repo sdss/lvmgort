@@ -15,11 +15,13 @@ import pathlib
 import re
 import warnings
 from contextlib import suppress
+from datetime import datetime
 from functools import partial
 
 from typing import TYPE_CHECKING, Callable, Coroutine
 
 import httpx
+import pandas
 import peewee
 from astropy import units as uu
 from astropy.coordinates import angular_separation as astropy_angular_separation
@@ -50,7 +52,6 @@ __all__ = [
     "get_next_tile_id_sync",
     "get_calibrators_sync",
     "register_observation",
-    "tqdm_timer",
     "get_ccd_frame_path",
     "move_mask_interval",
     "angular_separation",
@@ -59,6 +60,7 @@ __all__ = [
     "is_interactive",
     "is_notebook",
     "cancel_task",
+    "build_guider_reply_list",
 ]
 
 CAMERAS = [
@@ -300,7 +302,7 @@ async def register_observation(payload: dict):
         )
 
         if resp.status_code != 200 or not resp.json()["success"]:
-            raise RuntimeError("Failed registering observation.")
+            raise RuntimeError(f"Failed registering observation: {resp.text}.")
 
 
 def is_notebook() -> bool:
@@ -328,23 +330,6 @@ def is_interactive():
     import __main__ as main
 
     return not hasattr(main, "__file__")
-
-
-def tqdm_timer(seconds: float):
-    """Creates a task qith a tqdm progress bar."""
-
-    if is_notebook():
-        from tqdm.notebook import tqdm
-    else:
-        from tqdm import tqdm
-
-    bar_format = "{l_bar}{bar}| {n_fmt}/{total_fmt}s"
-
-    async def _progress():
-        for _ in tqdm(range(int(seconds)), bar_format=bar_format):
-            await asyncio.sleep(1)
-
-    return asyncio.create_task(_progress())
 
 
 def get_ccd_frame_path(
@@ -615,3 +600,89 @@ async def cancel_task(task: asyncio.Task | None):
     task.cancel()
     with suppress(asyncio.CancelledError):
         await task
+
+
+async def build_guider_reply_list(
+    gort: GortClient,
+    reply_list: list[dict],
+    actor: str | None = None,
+):
+    """Tasks that monitors the guider output and builds a list of replies.
+
+    This coroutine is meant to be run as a task. When the task is cancelled it
+    will clean itself by removing the callback in the client.
+
+    Parameters
+    ----------
+    gort
+        The Gort client to connect to the actor system.
+    reply_list
+        A list (usually empty) to which the task will append the replies.
+    actor
+        The actor to listen to. If `None`, listens to all the guider actors.
+
+    """
+
+    async def handle_guider_reply(reply: AMQPReply):
+        if actor is not None:
+            if actor not in str(reply.sender):
+                return
+        else:
+            if ".guider" not in str(reply.sender):
+                return
+
+        body = reply.body
+        telescope = str(reply.sender).split(".")[1]
+
+        if "frame" in body:
+            frame = body["frame"]
+            reply_list.append(
+                {
+                    "frameno": frame["seqno"],
+                    "time": pandas.to_datetime(datetime.now()),
+                    "n_sources": frame["n_sources"],
+                    "focus_position": frame["focus_position"],
+                    "fwhm": frame["fwhm"],
+                    "telescope": telescope,
+                }
+            )
+        elif "measured_pointing" in body:
+            measured_pointing = body["measured_pointing"]
+            reply_list.append(
+                {
+                    "frameno": measured_pointing["frameno"],
+                    "ra": measured_pointing["ra"],
+                    "dec": measured_pointing["dec"],
+                    "ra_offset": measured_pointing["radec_offset"][0],
+                    "dec_offset": measured_pointing["radec_offset"][1],
+                    "separation": measured_pointing["separation"],
+                    "mode": measured_pointing["mode"],
+                    "telescope": telescope,
+                }
+            )
+        elif "correction_applied" in body:
+            correction_applied = body["correction_applied"]
+
+            reply_list.append(
+                {
+                    "frameno": correction_applied["frameno"],
+                    "ax0_applied": correction_applied["motax_applied"][0],
+                    "ax1_applied": correction_applied["motax_applied"][1],
+                    "telescope": telescope,
+                }
+            )
+        else:
+            return
+
+    try:
+        gort.add_reply_callback(handle_guider_reply)
+
+        # If the list does not expand every 30s, clean and exit.
+        while True:
+            nlist = len(reply_list)
+            await asyncio.sleep(30)
+            if len(reply_list) == nlist:
+                return
+
+    finally:
+        gort.remove_reply_callback(handle_guider_reply)

@@ -62,7 +62,7 @@ class Enclosure(GortDevice):
         )
 
         park_coros = [
-            self.gort.telescopes[tel].goto_named_position('park')
+            self.gort.telescopes[tel].goto_named_position("park")
             for itel, tel in enumerate(telescopes)
             if not is_parked[itel]
         ]

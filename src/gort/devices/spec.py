@@ -17,14 +17,23 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
 import jsonschema
+import pandas
 from astropy.io import fits
+from astropy.time import Time
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 
 from sdsstools.time import get_sjd
 
-from gort.exceptions import ErrorCodes, GortSpecError
+from gort.exceptions import ErrorCodes, GortError, GortSpecError
 from gort.gort import GortDevice, GortDeviceSet
-from gort.tools import cancel_task, is_interactive, is_notebook, move_mask_interval
+from gort.tools import (
+    build_guider_reply_list,
+    cancel_task,
+    is_interactive,
+    is_notebook,
+    move_mask_interval,
+    register_observation,
+)
 
 
 if TYPE_CHECKING:
@@ -57,12 +66,16 @@ class Exposure(asyncio.Future["Exposure"]):
         self.exp_no = exp_no
         self.flavour = flavour
         self.object: str = ""
+        self.start_time = Time.now()
 
         self.error: bool = False
         self.reading: bool = False
 
         self._timer_task: asyncio.Task | None = None
         self._progress: Progress | None = None
+
+        self._guider_task: asyncio.Task | None = None
+        self.guider_data: pandas.DataFrame | None = None
 
         super().__init__()
 
@@ -134,7 +147,14 @@ class Exposure(asyncio.Future["Exposure"]):
 
         monitor_task: asyncio.Task | None = None
 
+        if self.flavour == "object":
+            guider_task = asyncio.create_task(self._guider_monitor())
+        else:
+            guider_task = None
+
         try:
+            self.start_time = Time.now()
+
             await self.spec_set._send_command_all(
                 "expose",
                 exposure_time=exposure_time,
@@ -169,11 +189,51 @@ class Exposure(asyncio.Future["Exposure"]):
 
         finally:
             await self.stop_timer()
+            await cancel_task(guider_task)
 
             if self.done() and not self.error:
                 self.verify_files()
 
         return self
+
+    async def _guider_monitor(self):
+        """Monitors the guider data and build a data frame."""
+
+        current_data = []
+
+        task = asyncio.create_task(
+            build_guider_reply_list(
+                self.spec_set.gort,
+                current_data,
+            )
+        )
+
+        try:
+            while True:
+                # Just keep the task running.
+                await asyncio.sleep(1)
+
+        except asyncio.CancelledError:
+            await cancel_task(task)
+
+            if len(current_data) > 0:
+                # Build DF with all the frames.
+                df = pandas.DataFrame.from_records(current_data)
+
+                # Group by frameno, keep only non-NaN values.
+                df = df.groupby(["frameno", "telescope"], as_index=False).apply(
+                    lambda g: g.fillna(method="bfill", axis=0).iloc[0, :]
+                )
+
+                # Remove NaN rows.
+                df = df.dropna()
+
+                # Sort by frameno.
+                df = df.sort_values("frameno")
+
+                self.guider_data = df
+
+            return
 
     async def start_timer(
         self,
@@ -309,6 +369,35 @@ class Exposure(asyncio.Future["Exposure"]):
 
         # Set the Future.
         self.set_result(self)
+
+    async def register_observation(
+        self,
+        tile_id: int | None = None,
+        dither_pos: int = 0,
+    ):
+        """Registers the exposure in the database."""
+
+        if self.flavour != "object":
+            return
+
+        if self.guider_data is not None and len(self.guider_data.dropna()) > 0:
+            seeing = self.guider_data.dropna().fwhm.mean()
+        else:
+            seeing = -999
+
+        self.spec_set.write_to_log("Registering observation.", "info")
+        registration_payload = {
+            "dither": dither_pos,
+            "tile_id": tile_id or -999,
+            "jd": self.start_time.jd,
+            "seeing": seeing,
+            "standards": [],
+            "skies": [],
+            "exposure_no": self.exp_no,
+        }
+        self.spec_set.write_to_log(f"Registration payload {registration_payload}")
+        await register_observation(registration_payload)
+        self.spec_set.write_to_log("Registration complete.")
 
 
 class IEB(GortDevice):
@@ -553,7 +642,15 @@ class Spectrograph(GortDevice):
         """Aborts an ongoing exposure."""
 
         self.write_to_log("Aborting exposures.", "warning")
-        await self.actor.commands.abort()
+        try:
+            await self.actor.commands.abort()
+        except GortError:
+            pass
+
+        await self.actor.commands.reset()
+
+        self.write_to_log("Closing shutter.")
+        await self.ieb.close("shutter")
 
     async def expose(self, **kwargs):
         """Exposes the spectrograph."""
