@@ -280,7 +280,7 @@ class Guider(GortDevice):
                 df = pandas.DataFrame.from_records(current_data)
 
                 # Group by frameno, keep only non-NaN values.
-                df = df.groupby("frameno", as_index=False).apply(
+                df = df.groupby(["frameno", "telescope"], as_index=False).apply(
                     lambda g: g.fillna(method="bfill", axis=0).iloc[0, :]
                 )
 
