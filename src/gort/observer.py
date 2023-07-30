@@ -191,7 +191,8 @@ class GortObserver:
 
         has_timedout = any([gs[3] for gs in guide_status])
         if has_timedout:
-            self.write_to_log("Some acquisitions timed out.", "warnings")
+            self.write_to_log("Some acquisitions timed out.", "warning")
+            # TODO: we need to stop guiders that timed out.
 
         try:
             n_skies_guiding = 0
@@ -261,8 +262,8 @@ class GortObserver:
         tile_id = self.tile.tile_id
         dither_pos = self.tile.dither_position
 
-        if 'object' not in kwargs:
-            kwargs['object'] = self.tile.object
+        if "object" not in kwargs:
+            kwargs["object"] = self.tile.object
 
         exp_tile_data = {
             "tile_id": (tile_id or -999, "The tile_id of this observation"),
