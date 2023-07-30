@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
 from functools import partial
 
 from typing import TYPE_CHECKING
@@ -294,8 +295,11 @@ class Guider(GortDevice):
                     continue
 
                 # Calculate and report averages.
-                sep_avg = round(df.separation.mean(), 3)
-                fwhm_avg = round(df.fwhm.mean(), 2)
+                now = datetime.datetime.utcnow()
+                time_range = now - pandas.Timedelta(f"{timeout} seconds")
+                time_data = df.loc[df.time > time_range, :]
+                sep_avg = round(time_data.separation.mean(), 3)
+                fwhm_avg = round(time_data.fwhm.mean(), 2)
                 self.write_to_log(
                     f"Average ({timeout} s): sep={sep_avg} arcsec; "
                     f"fwhm={fwhm_avg} arcsec",
