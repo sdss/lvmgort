@@ -24,7 +24,7 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 
 from sdsstools.time import get_sjd
 
-from gort.exceptions import ErrorCodes, GortSpecError
+from gort.exceptions import ErrorCodes, GortError, GortSpecError
 from gort.gort import GortDevice, GortDeviceSet
 from gort.tools import (
     build_guider_reply_list,
@@ -642,7 +642,15 @@ class Spectrograph(GortDevice):
         """Aborts an ongoing exposure."""
 
         self.write_to_log("Aborting exposures.", "warning")
-        await self.actor.commands.abort()
+        try:
+            await self.actor.commands.abort()
+        except GortError:
+            pass
+
+        await self.actor.commands.reset()
+
+        self.write_to_log("Closing shutter.")
+        await self.ieb.close("shutter")
 
     async def expose(self, **kwargs):
         """Exposes the spectrograph."""
