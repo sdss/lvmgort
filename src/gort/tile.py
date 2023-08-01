@@ -302,6 +302,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         dec: float,
         sky_coords: dict[str, SkyCoordinates | CoordTuple] | None = None,
         spec_coords: list[StandardCoordinates | CoordTuple] | None = None,
+        **kwargs,
     ):
         """Creates an instance from coordinates, allowing autocompletion.
 
@@ -315,6 +316,8 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         spec_coords
             A list of coordinates to observe with the spectrophotometric telescope.
             If `None`, selects the 12 closest standard stars.
+        kwargs
+            Arguments to be passed to the initialiser.
 
         """
 
@@ -347,6 +350,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             spec_coords=spec_coords,
             sky_coords=sky_coords,
             allow_replacement=False,
+            **kwargs,
         )
 
     @classmethod
@@ -355,6 +359,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         tile_id: int | None = None,
         ra: float | None = None,
         dec: float | None = None,
+        **kwargs,
     ):
         """Creates a new instance of :obj:`.Tile` with data from the scheduler.
 
@@ -369,6 +374,8 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             Calibrators will be selected from the scheduler.
         dec
             Declination coordinates of the science telescope pointing.
+        kwargs
+            Arguments to be passed to the initialiser.
 
         """
 
@@ -411,6 +418,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             sky_coords=sky_coords,
             spec_coords=spec_coords,
             dither_position=dither_pos,
+            **kwargs,
         )
         new_obj.tile_id = tile_id
 
