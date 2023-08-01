@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import warnings
 
+from typing import cast
+
 import pandas
 from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.time import Time
@@ -267,25 +269,11 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
 
         self.object = object or (f"Tile {self.tile_id}" if self.tile_id else None)
 
-        self.sci_coords = self.set_sci_coords(sci_coords)
-        self.sky_coords = self.set_sky_coords(
-            sky_coords,
-            allow_replacement=allow_replacement,
-        )
-        self.spec_coords = self.set_spec_coords(
-            spec_coords,
-            reject_invisible=allow_replacement,
-        )
+        dict.__init__(self, {})
 
-        dict.__init__(
-            self,
-            {
-                "sci": self.sci_coords,
-                "skye": self.sky_coords.get("skye", None),
-                "skyw": self.sky_coords.get("skyw", None),
-                "spec": self.spec_coords,
-            },
-        )
+        self.set_sci_coords(sci_coords)
+        self.set_sky_coords(sky_coords, allow_replacement=allow_replacement)
+        self.set_spec_coords(spec_coords, reject_invisible=allow_replacement)
 
     def __repr__(self):
         return (
@@ -294,6 +282,59 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             f"science ra={self.sci_coords.ra:.6f}, dec={self.sci_coords.dec:.6f}; "
             f"n_skies={len(self.sky_coords)}; n_standards={len(self.spec_coords)})>"
         )
+
+    @property
+    def sci_coords(self):
+        """Returns the science coordinates."""
+
+        return cast(ScienceCoordinates, self["sci"])
+
+    @sci_coords.setter
+    def sci_coords(self, new_coords: ScienceCoordinates):
+        """Sets the science coordinates."""
+
+        if isinstance(new_coords, (list, tuple)):
+            new_coords = ScienceCoordinates(*new_coords)
+
+        self["sci"] = new_coords
+
+    @property
+    def sky_coords(self) -> dict[str, SkyCoordinates]:
+        """Returns the sky coordinates."""
+
+        skyw = cast(SkyCoordinates, self["skyw"])
+        skye = cast(SkyCoordinates, self["skye"])
+
+        return {"skye": skye, "skyw": skyw}
+
+    @sky_coords.setter
+    def sky_coords(self, new_coords: dict[str, SkyCoordinates]):
+        """Returns the sky coordinates."""
+
+        for tel in ["skye", "skyw"]:
+            sky = new_coords.get(tel, None)
+            if isinstance(sky, (tuple, list)):
+                sky = SkyCoordinates(*sky)
+            self[tel] = sky
+
+    @property
+    def spec_coords(self):
+        """Returns the Spec coordinates."""
+
+        return cast(list[StandardCoordinates], self["spec"])
+
+    @spec_coords.setter
+    def spec_coords(self, new_coords: list[StandardCoordinates]):
+        """Sets the SkyW coordinates."""
+
+        parsed_coords: list[Coordinates] = []
+        for coords in new_coords:
+            if isinstance(coords, (list, tuple)):
+                parsed_coords.append(StandardCoordinates(*coords))
+            else:
+                parsed_coords.append(coords)
+
+        self["spec"] = parsed_coords
 
     @classmethod
     def from_coordinates(
