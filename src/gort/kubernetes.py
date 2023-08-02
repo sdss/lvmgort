@@ -17,8 +17,6 @@ from time import sleep
 import kubernetes
 from kubernetes.utils import create_from_yaml
 
-from sdsstools import read_yaml_file
-
 from gort import config
 from gort.tools import is_notebook
 
