@@ -672,13 +672,16 @@ class TelescopeSet(GortDeviceSet[Telescope]):
     """A representation of a set of telescopes."""
 
     __DEVICE_CLASS__ = Telescope
-    __DEPLOYMENTS__ = [
-        "lvm-sci-pwi",
-        "lvm-spec-pwi",
-        "lvm-skye-pwi",
-        "lvm-skyw-pwi",
-        "lvmtan",
-    ]
+    __DEPLOYMENTS__ = {
+        "delete": [
+            "lvm-sci-pwi",
+            "lvm-spec-pwi",
+            "lvm-skye-pwi",
+            "lvm-skyw-pwi",
+            "lvmtan",
+        ],
+        "create": ["lvmpwi", "lvmtan"],
+    }
 
     def __init__(self, gort: GortClient, data: dict[str, dict]):
         super().__init__(gort, data)

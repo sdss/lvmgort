@@ -198,7 +198,7 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
     """
 
     __DEVICE_CLASS__: ClassVar[Type["GortDevice"]]
-    __DEPLOYMENTS__: ClassVar[list[str]] = []
+    __DEPLOYMENTS__: ClassVar[list[str] | dict[str, list[str]]] = []
 
     def __init__(self, gort: GortClient, data: dict[str, dict], **kwargs):
         self.gort = gort
@@ -315,15 +315,34 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
         if self.gort.kubernetes is None:
             raise GortError("The Kubernetes cluster is not accessible.")
 
-        for deployment in self.__DEPLOYMENTS__:
-            self.gort.kubernetes.restart_deployment(deployment, from_file=True)
+        new_deployments = []
+        if isinstance(self.__DEPLOYMENTS__, list):
+            for deployment in self.__DEPLOYMENTS__:
+                self.gort.kubernetes.restart_deployment(deployment, from_file=True)
+            new_deployments += self.__DEPLOYMENTS__
+        else:
+            delete = self.__DEPLOYMENTS__.get("delete", [])
+            for deployment in delete:
+                self.write_to_log(f"Delete deployment {deployment}.", "info")
+                try:
+                    self.gort.kubernetes.delete_deployment(deployment)
+                except ValueError:
+                    pass
 
-        await asyncio.sleep(5)
+            create = self.__DEPLOYMENTS__.get("create", [])
+            for file_ in create:
+                self.write_to_log(f"Applying file {file_}.", "info")
+                new_deployments += self.gort.kubernetes.apply_from_file(file_)
+
+        await asyncio.sleep(15)
 
         running_deployments = self.gort.kubernetes.list_deployments()
-        for deployment in self.__DEPLOYMENTS__:
+
+        for deployment in new_deployments:
             if deployment not in running_deployments:
                 self.write_to_log(f"Deployment {deployment} did not restart.", "error")
+
+        await asyncio.gather(*[actor.init() for actor in self.gort.actors.values()])
 
 
 class GortDevice:

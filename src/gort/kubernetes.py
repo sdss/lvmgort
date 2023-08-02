@@ -91,7 +91,47 @@ class Kubernetes:
         elif len(files) > 1:
             raise ValueError(f"Multiple YAML files found for {name!r}.")
 
-        return files[0], read_yaml_file(files[0])
+        return files[0]
+
+    def apply_from_file(self, name: str | pathlib.Path):
+        """Applies a YAML file.
+
+        Parameters
+        ----------
+        name
+            The full path to the file to apply. If the path is relative,
+            the file will be searched in the directory for YAML files
+            defined in the configuration.
+
+        """
+
+        if isinstance(name, pathlib.Path) or os.path.isabs(name):
+            path = pathlib.Path(name)
+        else:
+            path = self.get_yaml_file(name)
+
+        deployments = create_from_yaml(
+            kubernetes.client.ApiClient(),
+            yaml_file=str(path),
+        )
+
+        return [dep[0].metadata.name for dep in deployments]
+
+    def delete_deployment(self, deployment: str):
+        """Deletes resources from a YAML file.
+
+        Parameters
+        ----------
+        deployment
+            The deployment to delete.
+
+        """
+
+        namespace = self.get_deployment_namespace(deployment)
+        if namespace is None:
+            raise ValueError(f"Deployment {deployment!r} not found.")
+
+        self.apps_v1.delete_namespaced_deployment(deployment, namespace)
 
     def restart_deployment(self, deployment: str, from_file: bool = True):
         """Restarts a deployment.
@@ -130,7 +170,7 @@ class Kubernetes:
 
         else:
             try:
-                file_, body = self.get_yaml_file(deployment)
+                file_ = self.get_yaml_file(deployment)
             except ValueError as err:
                 self.log.warning(
                     f"Failed restarting from file: {err} "
@@ -139,12 +179,10 @@ class Kubernetes:
                 return self.restart_deployment(deployment, from_file=False)
 
             if deployment in self.list_deployments():
-                namespace = self.get_deployment_namespace(deployment)
-                self.log.debug(f"Deleting deployment {deployment}.")
-                self.apps_v1.delete_namespaced_deployment(deployment, namespace)
+                self.delete_deployment(deployment)
                 sleep(3)  # Give some time for the pods to exit.
             else:
                 self.log.warning(f"{deployment!r} is not running.")
 
             self.log.info(f"Starting deployment from YAML file {str(file_)}.")
-            create_from_yaml(kubernetes.client.ApiClient(), yaml_objects=[body])
+            self.apply_from_file(file_)
