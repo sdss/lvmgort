@@ -98,6 +98,15 @@ class GortClient(AMQPClient):
         self.specs = self.add_device(SpectrographSet, self.config["specs"]["devices"])
         self.enclosure = self.add_device(Enclosure, name="enclosure", actor="lvmecp")
 
+        try:
+            self.kubernetes = Kubernetes(log=self.log)
+        except Exception:
+            self.log.warning(
+                "Gort cannot access the Kubernets cluster. "
+                "The Kubernetes module won't be available."
+            )
+            self.kubernetes = None
+
     async def init(self) -> Self:
         """Initialises the client.
 
@@ -198,7 +207,7 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
     """
 
     __DEVICE_CLASS__: ClassVar[Type["GortDevice"]]
-    __DEPLOYMENTS__: ClassVar[list[str] | dict[str, list[str]]] = []
+    __DEPLOYMENTS__: ClassVar[list[str]] = []
 
     def __init__(self, gort: GortClient, data: dict[str, dict], **kwargs):
         self.gort = gort
@@ -221,7 +230,18 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
         """Runs asynchronous tasks that must be executed on init."""
 
         # Run devices init methods.
-        await asyncio.gather(*[dev.init() for dev in self.values()])
+        results = await asyncio.gather(
+            *[dev.init() for dev in self.values()],
+            return_exceptions=True,
+        )
+
+        for idev, result in enumerate(results):
+            if isinstance(result, Exception):
+                self.write_to_log(
+                    f"Failed initialising device {list(self)[idev]} "
+                    f"with error {str(result)}",
+                    "error",
+                )
 
         return
 
@@ -309,40 +329,25 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
     async def restart(self):
         """Restarts the set deployments and resets all controllers."""
 
-        if not isinstance(self.gort, Gort):
-            raise GortError("Client is not a Gort instance.")
-
         if self.gort.kubernetes is None:
             raise GortError("The Kubernetes cluster is not accessible.")
 
-        new_deployments = []
-        if isinstance(self.__DEPLOYMENTS__, list):
-            for deployment in self.__DEPLOYMENTS__:
-                self.gort.kubernetes.restart_deployment(deployment, from_file=True)
-            new_deployments += self.__DEPLOYMENTS__
-        else:
-            delete = self.__DEPLOYMENTS__.get("delete", [])
-            for deployment in delete:
-                self.write_to_log(f"Delete deployment {deployment}.", "info")
-                try:
-                    self.gort.kubernetes.delete_deployment(deployment)
-                except ValueError:
-                    pass
-
-            create = self.__DEPLOYMENTS__.get("create", [])
-            for file_ in create:
-                self.write_to_log(f"Applying file {file_}.", "info")
-                new_deployments += self.gort.kubernetes.apply_from_file(file_)
+        for deployment in self.__DEPLOYMENTS__:
+            self.gort.kubernetes.restart_deployment(deployment, from_file=True)
 
         await asyncio.sleep(15)
 
+        # Check that deployments are running.
         running_deployments = self.gort.kubernetes.list_deployments()
-
-        for deployment in new_deployments:
+        for deployment in self.__DEPLOYMENTS__:
             if deployment not in running_deployments:
                 self.write_to_log(f"Deployment {deployment} did not restart.", "error")
 
-        await asyncio.gather(*[actor.init() for actor in self.gort.actors.values()])
+        # Refresh the command models for all the actors.
+        await asyncio.gather(*[actor.refresh() for actor in self.gort.actors.values()])
+
+        # Refresh the device set.
+        await self.init()
 
 
 class GortDevice:
@@ -451,15 +456,6 @@ class Gort(GortClient):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-
-        try:
-            self.kubernetes = Kubernetes(log=self.log)
-        except Exception:
-            self.log.warning(
-                "Gort cannot access the Kubernets cluster. "
-                "The Kubernetes module won't be available."
-            )
-            self.kubernetes = None
 
         if verbosity:
             self.set_verbosity(verbosity)
