@@ -8,7 +8,9 @@ The standard unit of LVM observation is a *tile*, which includes a patch on the 
 
 In `gort` the information from a tile is defined as an instance of the `.Tile` class. A `.Tile` is mainly a set of coordinates for and observation with each one of the telescopes. `.Tile` objects can be instantiated manually, but usually they are created using one of the class methods that provide access to the scheduler and target database.
 
-The simplest way to define a `.Tile` is by requesting the scheduler to provide the next tile to observe ::
+The simplest way to define a `.Tile` is by requesting the scheduler to provide the next tile to observe
+
+.. code:: python
 
     >>> from gort import Tile
     >>> tile = Tile.from_scheduler()
@@ -36,7 +38,9 @@ The simplest way to define a `.Tile` is by requesting the scheduler to provide t
 
 The ``tile_id`` attribute identifies the science tile uniquely and allows to register an observation of that tile. In addition to the science pointing, the scheduler also provides the sky and spectrophotometric targets from a list of valid calibrators. The ``spec_coords`` attribute contains a list of standards that will be observed in order, while ``sky_coords`` is a dictionary of sky positions for the East and West sky telescopes.
 
-A tile can also be defined from coordinates. Normally this includes only the RA and Dec of the science field, in which case the scheduler is used to find appropriate calibrators ::
+A tile can also be defined from coordinates. Normally this includes only the RA and Dec of the science field, in which case the scheduler is used to find appropriate calibrators
+
+.. code:: python
 
     >>> tile = Tile.from_coordinates(ra=250.1, dec=-5.2)
     >>> tile
@@ -44,12 +48,16 @@ A tile can also be defined from coordinates. Normally this includes only the RA 
     >>> tile["skye"]
     <SkyCoordinates (ra=223.224052, dec=-13.400939)>
 
-The last example shows that it's possible to access the coordinates of a given telescope as a dictionary. It's also possible to specify the calibrators ::
+The last example shows that it's possible to access the coordinates of a given telescope as a dictionary. It's also possible to specify the calibrators
+
+.. code:: python
 
     >>> tile = Tile.from_coordinates(ra=250.1, dec=-5.2, sky_coords={'skye': (240.5, -10)})
     <Tile (tile_id=None, science ra=250.100000, dec=-5.200000; n_skies=1; n_standards=12)>
 
-Each coordinate is an instance of the `.Coordinate` class which includes the RA, Dec, and an astropy ``SkyCoord`` object ::
+Each coordinate is an instance of the `.Coordinate` class which includes the RA, Dec, and an astropy ``SkyCoord`` object
+
+.. code:: python
 
     >>> tile.sci_coords.skycoord
     <SkyCoord (FK5: equinox=J2000.000): (ra, dec) in deg
@@ -63,7 +71,9 @@ Observing a tile
 
 Observing tiles is a task for the `.GortObserver` class, which receives a `.Tile` with the pointing information and performs the tasks of slewing all telescopes, acquiring the fields, exposing, keeping the guider engaged, and rotate over the various standard stars. `.GortObserver` is the highest-level class in `gort` and handles as much automatic troubleshooting as possible.
 
-To instantiate an observer object ::
+To instantiate an observer object
+
+.. code:: python
 
     >>> from gort import Gort, GortObserver, Tile
     >>> g = await Gort().init()
@@ -72,14 +82,18 @@ To instantiate an observer object ::
     >>> observer
     <GortObserver (tile_id=1026052)>
 
-A normal sequence of observation with `.GortObserver` would be ::
+A normal sequence of observation with `.GortObserver` would be
+
+.. code:: python
 
     await observer.slew()
     await observer.acquire()
     await observer.expose(900)
     await observer.finish_observation()
 
-These commands are wrapped in the `.Gort.observe_tile` method so one can simply do ::
+These commands are wrapped in the `.Gort.observe_tile` method so one can simply do
+
+.. code:: python
 
     g = await Gort().init()
     tile = Tile.from_scheduler()
@@ -106,22 +120,30 @@ To introduce an offset to a target there are two basic options:
 1) Offset the target coordinates with the usual :math:`\alpha'=\alpha+\alpha_{\rm off}/\cos(\delta);\quad \delta'=\delta+\delta_{\rm off}`.
 2) Maintain the nominal coordinates of the target and define an offset in master frame coordinates (currently this is only available for the science target).
 
-`gort` provides some tools to determine the master frame coordinates of a fibre or a RA/Dec offset. To offset a target to a given fibre one can use :obj:`.fibre_to_master_frame` ::
+`gort` provides some tools to determine the master frame coordinates of a fibre or a RA/Dec offset. To offset a target to a given fibre one can use :obj:`.fibre_to_master_frame`
+
+.. code:: python
 
     >>> from gort.transforms import fibre_to_master_frame
     >>> fibre_to_master_frame("S2-324")
     (2436.4, 1220.0)
 
-where ``"S2-324"`` is the name of the fibre as a combination of the ``ifulabel`` and ``finifu`` from the ``lvmcore`` fibre map. Alternatively one can set this in the `.ScienceCoordinates` object in a `.Tile` ::
+where ``"S2-324"`` is the name of the fibre as a combination of the ``ifulabel`` and ``finifu`` from the ``lvmcore`` fibre map. Alternatively one can set this in the `.ScienceCoordinates` object in a `.Tile`
+
+.. code:: python
 
     >>> tile.sci_coords.set_mf_pixel('S2-324')
     (2436.4, 1220.0)
 
-which is equivalent to ::
+which is equivalent to
+
+.. code:: python
 
     tile.sci_coords.set_mf_pixel(xz=(2436.4, 1220.0))
 
-To offset a target by an arbitrary RA and Dec offset in arcsec one can use :obj:`.offset_to_master_frame_pixel` ::
+To offset a target by an arbitrary RA and Dec offset in arcsec one can use :obj:`.offset_to_master_frame_pixel`
+
+.. code:: python
 
     >>> from gort.transforms import offset_to_master_frame_pixel
     >>> xz = offset_to_master_frame_pixel(ra=10, dec=-5)
@@ -136,7 +158,9 @@ To offset a target by an arbitrary RA and Dec offset in arcsec one can use :obj:
 Dithering
 ---------
 
-Sometimes you may want to dither on several positions around a central pointing. Here is a full example that shoes how to do a 100 point dither by defining a tile, starting an observation, and then changing the guide pixel and waiting for it to converge. ::
+Sometimes you may want to dither on several positions around a central pointing. Here is a full example that shoes how to do a 100 point dither by defining a tile, starting an observation, and then changing the guide pixel and waiting for it to converge.
+
+.. code:: python
 
     import asyncio
 

@@ -4,11 +4,13 @@ GORT's documentation
 
 This is the documentation for the SDSS Python product ``gort``. The current version is |lvmgort_version|. You can install the package by doing
 
-.. code-block:: console
+.. code:: console
 
   $ pip install lvmgort
 
-``lvmgort`` provides the library ``gort`` ::
+``lvmgort`` provides the library ``gort``
+
+.. code:: python
 
   >>> from gort import Gort
   >>> g = await Gort(verbosity='info').init()

@@ -4,25 +4,35 @@
 Taking calibration data
 =======================
 
-Calibration data can be taken manually by commanding the individual components. For example, we would start by pointing all the telescopes to the flat field screen ::
+Calibration data can be taken manually by commanding the individual components. For example, we would start by pointing all the telescopes to the flat field screen
+
+.. code::python
 
     await g.telescopes.goto_named_position("calibration")
 
-Then we can turn of the argon lamp ::
+Then we can turn of the argon lamp
+
+.. code::python
 
     await g.nps.calib.on('argon')
 
-And finally expose the spectrographs ::
+And finally expose the spectrographs
+
+.. code::python
 
     await g.specs.expose(60, flavour='arc')
 
-`gort` provides some tools to simplify this procedure and define and run long calibration sequences requiring minimal human supervision. To launch a standard calibration sequence ::
+`gort` provides some tools to simplify this procedure and define and run long calibration sequences requiring minimal human supervision. To launch a standard calibration sequence
+
+.. code::python
 
     await g.specs.calibrate(sequence="normal")
 
 See `~.SpectrographSet.calibrate` for details. Pre-defined calibration sequences are defined in the :ref:`configuration file <configuration-file>` under ``specs.calibration.sequences``. Alternatively one can pass `~.SpectrographSet.calibrate` a dictionary with the calibration sequence details; such dictionary must match the model defined :ref:`below <calibration-schema>`.
 
-An example of a very simple calibration sequence would be ::
+An example of a very simple calibration sequence would be
+
+.. code::python
 
     {
         "biases": {
@@ -42,7 +52,9 @@ An example of a very simple calibration sequence would be ::
 
 which would take one bias, two darks with 90 and 900 second exposures, and then warm up the quartz lamp for 20 seconds before taking a 120 second flat exposure. Additional lamps can be added with the same format and multiple exposures can be taken for each lamp. Calibrations are always taken in order of bias, darks, then lamps.
 
-In some cases one may want a series of fibres in the spectrophotometric mask to be exposed during a single exposure. We can define that with ::
+In some cases one may want a series of fibres in the spectrophotometric mask to be exposed during a single exposure. We can define that with
+
+.. code::python
 
     {
         "lamps":
@@ -57,7 +69,9 @@ In some cases one may want a series of fibres in the spectrophotometric mask to 
             }
     }
 
-which will rotate the fibre mask to expose each fibre whose name begins with ``P1-`` for 10 seconds each, starting with ``P1-2``. ``"positions"`` can also be a explicit list of fibre mask positions. It's possible to use the fibre selector with default parameters by setting ``"fibsel": True`` ::
+which will rotate the fibre mask to expose each fibre whose name begins with ``P1-`` for 10 seconds each, starting with ``P1-2``. ``"positions"`` can also be a explicit list of fibre mask positions. It's possible to use the fibre selector with default parameters by setting ``"fibsel": True``
+
+.. code::python
 
     {
         "lamps":
