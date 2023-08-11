@@ -43,13 +43,11 @@ class IEB(GortDevice):
         """Returns the status of the IEB."""
 
         replies: list[ActorReply] = await asyncio.gather(
-            *[
-                self.actor.commands.shutter.commands.status(),
-                self.actor.commands.hartmann.commands.status(),
-                self.actor.commands.transducer.commands.status(),
-                self.actor.commands.wago.commands.status(),
-                self.actor.commands.wago.commands.getpower(),
-            ]
+            self.actor.commands.shutter.commands.status(),
+            self.actor.commands.hartmann.commands.status(),
+            self.actor.commands.transducer.commands.status(),
+            self.actor.commands.wago.commands.status(),
+            self.actor.commands.wago.commands.getpower(),
         )
 
         status = {}
