@@ -21,6 +21,7 @@ from gort.tools import cancel_task
 
 
 if TYPE_CHECKING:
+    from gort.exposure import Exposure
     from gort.gort import Gort
     from gort.tile import Tile
 
@@ -235,6 +236,7 @@ class GortObserver:
         exposure_time: float = 900.0,
         show_progress: bool | None = None,
         iterate_over_standards: bool = True,
+        count: int = 1,
         **kwargs,
     ):
         """Starts exposing the spectrographs.
@@ -248,16 +250,14 @@ class GortObserver:
         iterate_over_standards
             Whether to move the spec telescope during intergration
             to observe various standard stars in different fibres.
+        count
+            Number of exposures. If ``iterate_over_standards=True``, a
+            full sequence of standards will be observed during each
+            exposure.
         kwargs
             Other arguments to pass to :obj:`.SpectrographSet.expose`.
 
         """
-
-        standard_task: asyncio.Task | None = None
-        if iterate_over_standards:
-            standard_task = asyncio.create_task(
-                self._iterate_over_mask_positions(exposure_time)
-            )
 
         tile_id = self.tile.tile_id
         dither_pos = self.tile.dither_position
@@ -270,23 +270,38 @@ class GortObserver:
             "dpos": (dither_pos, "Dither position"),
         }
 
-        self.write_to_log(f"Starting {exposure_time:.1f} s exposure.", "info")
+        exposures: list[Exposure] = []
+        standard_task: asyncio.Task | None = None
 
-        exposure = await self.gort.specs.expose(
-            exposure_time=exposure_time,
-            tile_data=exp_tile_data,
-            show_progress=show_progress,
-            **kwargs,
-        )
+        for nexp in range(1, count + 1):
+            self.write_to_log(
+                f"Starting {exposure_time:.1f} s exposure ({nexp}/{count}).",
+                "info",
+            )
 
-        # Count is 1, so this will be a single exposure.
-        assert not isinstance(exposure, list)
+            if iterate_over_standards:
+                standard_task = asyncio.create_task(
+                    self._iterate_over_mask_positions(exposure_time)
+                )
 
-        await cancel_task(standard_task)
+            exposure = await self.gort.specs.expose(
+                exposure_time=exposure_time,
+                tile_data=exp_tile_data,
+                show_progress=show_progress,
+                count=1,
+                **kwargs,
+            )
+            assert not isinstance(exposure, list)
 
-        await exposure.register_observation(tile_id=tile_id, dither_pos=dither_pos)
+            exposures.append(exposure)
 
-        return exposure
+            await cancel_task(standard_task)
+            await exposure.register_observation(tile_id=tile_id, dither_pos=dither_pos)
+
+        if len(exposures) == 1:
+            return exposures[0]
+        else:
+            return exposures
 
     async def finish_observation(self):
         """Finishes the observation, stops the guiders, etc."""
