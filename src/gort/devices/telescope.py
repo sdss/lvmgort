@@ -723,7 +723,14 @@ class TelescopeSet(GortDeviceSet[Telescope]):
     async def restart(self):
         """Restarts the ``lvmpwi`` and ``lvmtan`` deployments and re-homes."""
 
-        await super().restart()
+        result = await super().restart()
+
+        if result is False:
+            self.write_to_log(
+                "Some deployments failed to restart. Not homing devices.",
+                "error",
+            )
+            return
 
         self.write_to_log("Waiting 10 seconds for devices to reconnect.")
         await asyncio.sleep(10)

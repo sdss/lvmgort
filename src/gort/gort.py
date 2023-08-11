@@ -327,20 +327,32 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
         self.gort.log.log(level, message)
 
     async def restart(self):
-        """Restarts the set deployments and resets all controllers."""
+        """Restarts the set deployments and resets all controllers.
+
+        Returns
+        -------
+        result
+            A boolean indicting if the entire restart procedure succeeded.
+
+        """
+
+        failed: bool = False
 
         if self.gort.kubernetes is None:
             raise GortError("The Kubernetes cluster is not accessible.")
 
+        self.write_to_log("Restarting Kubernetes deployments.", "info")
         for deployment in self.__DEPLOYMENTS__:
             self.gort.kubernetes.restart_deployment(deployment, from_file=True)
 
+        self.write_to_log("Waiting 15 seconds for deployments to be ready.", "info")
         await asyncio.sleep(15)
 
         # Check that deployments are running.
         running_deployments = self.gort.kubernetes.list_deployments()
         for deployment in self.__DEPLOYMENTS__:
             if deployment not in running_deployments:
+                failed = True
                 self.write_to_log(f"Deployment {deployment} did not restart.", "error")
 
         # Refresh the command models for all the actors.
@@ -348,6 +360,8 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
 
         # Refresh the device set.
         await self.init()
+
+        return not failed
 
 
 class GortDevice:
