@@ -513,6 +513,7 @@ class Gort(GortClient):
         dec: float | None = None,
         use_scheduler: bool = False,
         exposure_time: float = 900.0,
+        n_exposures: int = 1,
         guide_tolerance: float = 3.0,
         acquisition_timeout: float = 180.0,
         show_progress: bool | None = None,
@@ -536,6 +537,8 @@ class Gort(GortClient):
             select calibrators.
         exposure_time
             The length of the exposure in seconds.
+        n_exposures
+            Number of exposures to take while guiding.
         guide_tolerance
             The guide tolerance in arcsec. A telescope will not be considered
             to be guiding if its separation to the commanded field is larger
@@ -592,6 +595,7 @@ class Gort(GortClient):
             exposure = await observer.expose(
                 exposure_time=exposure_time,
                 show_progress=show_progress,
+                count=n_exposures,
             )
 
         finally:
