@@ -15,6 +15,7 @@ __version__ = get_package_version(path=__file__, package_name=NAME)
 
 from .core import *
 from .devices import *
+from .exposure import *
 from .gort import *
 from .observer import *
 from .tile import *
