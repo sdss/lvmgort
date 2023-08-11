@@ -124,14 +124,29 @@ class Focuser(MoTanDevice):
 
         return await self.actor.commands.status()
 
-    async def home(self):
-        """Homes the focuser."""
+    async def home(self, restore_position: bool = True):
+        """Homes the focuser.
+
+        Parameters
+        ----------
+        restore_position
+            Whether to restore the previous focuser position after homing.
+
+        """
+
+        # Store current position to restore it later.
+        status = await self.status()
+        current_position = status.get("Position")
 
         await self.slew_delay()
 
         self.write_to_log("Homing focuser.", level="info")
         await self.actor.commands.moveToHome()
         self.write_to_log("Focuser homing complete.")
+
+        if current_position is not None and not numpy.isnan(current_position):
+            self.write_to_log(f"Restoring position {current_position} DT.")
+            await self.move(current_position)
 
     async def move(self, dts: float):
         """Move the focuser to a position in DT."""
