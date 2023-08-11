@@ -732,7 +732,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
             )
             return
 
-        self.write_to_log("Waiting 10 seconds for devices to reconnect.")
+        self.write_to_log("Waiting 10 seconds for devices to reconnect.", "info")
         await asyncio.sleep(10)
 
         self.write_to_log("Homing telescope a restart.")
@@ -749,9 +749,9 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         if not self.gort.kubernetes:
             raise GortTelescopeError("Kubernetes cluster cannot be accessed.")
 
-        self.write_to_log("Restarting deployment lvmtan and waiting 15 s.", "info")
+        self.write_to_log("Restarting deployment lvmtan and waiting 25 s.", "info")
         self.gort.kubernetes.restart_deployment("lvmtan")
-        await asyncio.sleep(15)
+        await asyncio.sleep(25)
 
         await self.home(
             home_telescopes=False,
