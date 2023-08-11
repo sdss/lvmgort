@@ -729,8 +729,25 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         await asyncio.sleep(10)
 
         self.write_to_log("Homing telescope a restart.")
-        await self.home()
+        await self.home(home_kms=True, home_focusers=True, home_fibsel=True)
 
+    async def restart_lvmtan(self):
+        """Restarts and rehomes Twice-As-Nice controller.
+
+        After the actor has been restarted the K-mirrors, focuser, and fibre selector
+        are rehomed. The focuser positions are preserved.
+
+        """
+
+        if not self.gort.kubernetes:
+            raise GortTelescopeError("Kubernetes cluster cannot be accessed.")
+
+        await self.home(
+            home_telescopes=False,
+            home_kms=True,
+            home_focusers=True,
+            home_fibsel=True,
+        )
 
     async def home(
         self,
