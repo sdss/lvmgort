@@ -742,6 +742,10 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         if not self.gort.kubernetes:
             raise GortTelescopeError("Kubernetes cluster cannot be accessed.")
 
+        self.write_to_log("Restarting deployment lvmtan and waiting 15 s.", "info")
+        self.gort.kubernetes.restart_deployment("lvmtan")
+        await asyncio.sleep(15)
+
         await self.home(
             home_telescopes=False,
             home_kms=True,
@@ -770,6 +774,8 @@ class TelescopeSet(GortDeviceSet[Telescope]):
             Homes the fibre selector, if present. Defaults to `False`.
 
         """
+
+        self.write_to_log("Rehoming all telescopes.", "info")
 
         await self.call_device_method(
             Telescope.home,
