@@ -396,8 +396,13 @@ class Exposure(asyncio.Future["Exposure"]):
             "exposure_no": self.exp_no,
         }
         self.spec_set.write_to_log(f"Registration payload {registration_payload}")
-        await register_observation(registration_payload)
-        self.spec_set.write_to_log("Registration complete.")
+
+        try:
+            await register_observation(registration_payload)
+        except Exception as err:
+            self.spec_set.write_to_log(f"Failed registering exposure: {err}", "error")
+        else:
+            self.spec_set.write_to_log("Registration complete.")
 
 
 class IEB(GortDevice):
