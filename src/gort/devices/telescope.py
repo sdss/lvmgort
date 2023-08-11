@@ -716,23 +716,24 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         self.write_to_log("Homing telescope a restart.")
         await self.home()
 
+
     async def home(
         self,
-        home_telescope: bool = True,
-        home_km: bool = False,
-        home_focuser: bool = False,
+        home_telescopes: bool = True,
+        home_kms: bool = False,
+        home_focusers: bool = False,
         home_fibsel: bool = False,
     ):
         """Initialises and homes the telescope.
 
         Parameters
         ---------
-        home_telescope
-            Homes the telescope. Defaults to `True`.
-        home_km
-            Homes the K-mirror, if present. Defaults to `False`.
-        home_focuser
-            Homes the focuser. Defaults to `False`.
+        home_telescopes
+            Homes the telescopes. Defaults to `True`.
+        home_kms
+            Homes the K-mirrors, if present. Defaults to `False`.
+        home_focusers
+            Homes the focusers. Defaults to `False`.
         home_fibsel
             Homes the fibre selector, if present. Defaults to `False`.
 
@@ -740,9 +741,9 @@ class TelescopeSet(GortDeviceSet[Telescope]):
 
         await self.call_device_method(
             Telescope.home,
-            home_telescope=home_telescope,
-            home_km=home_km,
-            home_focuser=home_focuser,
+            home_telescope=home_telescopes,
+            home_km=home_kms,
+            home_focuser=home_focusers,
             home_fibsel=home_fibsel,
         )
 
