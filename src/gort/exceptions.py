@@ -6,8 +6,18 @@
 # @Filename: exceptions.py
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
+from __future__ import annotations
+
 import inspect
 from enum import Enum
+
+from typing import TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from clu import Command
+
+    from gort.core import RemoteCommand
 
 
 def decapitalize_first_letter(s, upper_rest=False):
@@ -50,6 +60,22 @@ class GortError(Exception):
             super().__init__(f"Error {error_code} ({self.error_code.name}): {message}")
         else:
             super().__init__(f"Error {error_code} ({self.error_code.name})")
+
+
+class RemoteCommandError(GortError):
+    """An error in a remote command to an actor."""
+
+    def __init__(
+        self,
+        message: str | None,
+        command: Command,
+        remote_command: RemoteCommand,
+    ):
+        self.command = command
+        self.remote_command = remote_command
+        self.actor = remote_command._remote_actor.name
+
+        super().__init__(message, error_code=ErrorCodes.COMMAND_FAILED)
 
 
 class GortTimeout(GortError):

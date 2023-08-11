@@ -18,7 +18,7 @@ import unclick
 from aiormq import AMQPConnectionError, ChannelInvalidStateError
 from typing_extensions import Self
 
-from gort.exceptions import GortError, GortWarning
+from gort.exceptions import GortWarning, RemoteCommandError
 
 from .tools import get_valid_variable_name
 
@@ -183,10 +183,12 @@ class RemoteCommand:
 
         if not cmd.status.did_succeed:
             error = actor_reply.get("error")
-            error = str(error) if error is not None else ""
-            raise GortError(
-                f"Failed executing command {self._name}. {error}",
-                error_code=2,
+            error = f" {error!s}" if error is not None else ""
+            raise RemoteCommandError(
+                f"Actor {self._remote_actor.name!r} failed executing "
+                f"command {self._name!r}.{error}",
+                command=cmd,
+                remote_command=self,
             )
 
         return actor_reply
