@@ -6,6 +6,7 @@
 
 * [#5](https://github.com/sdss/lvmgort/pull/5) Add option to restart deployments associated with a device set as `GortDeviceSet.restart()`.
 * [#7](https://github.com/sdss/lvmgort/pull/7) If guiding during an `Exposure`, a Pandas DataFrame is created with a summary of the guider data. The guider outputs summary guider information as INFO level messages.
+* Add `TelescopeSet.restart_lvmtan()` to restart Twice-As-Nice controller.
 
 ### ✨ Improved
 
@@ -15,7 +16,16 @@
 * Allow to wait only for some telescopes to converge guiding.
 * Check if telescopes are already parked before opening/closing the dome.
 * Report summary of best focus in `focus()` command as INFO level.
+* Print last guider measurement before removing NaNs.
+* Better control of which TAN devices to home during `Telescope.home()` or `TelescopeSet.home()`.
+* Restore previous focuser positions after homing.
+* Allow multiple exposures in `GortObserver.expose()`
 
+### ⚙️ Engineering
+
+* Lint using `ruff`.
+* Improve style of the documentation.
+* Move `Exposure`` to its own file.
 
 ## 0.2.2 - July 23, 2023
 
