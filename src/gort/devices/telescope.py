@@ -297,47 +297,59 @@ class Telescope(GortDevice):
         if home is True:
             await self.home()
 
-    async def home(self, home_subdevices: bool = False):
+    async def home(
+        self,
+        home_telescope: bool = True,
+        home_km: bool = False,
+        home_focuser: bool = False,
+        home_fibsel: bool = False,
+    ):
         """Initialises and homes the telescope.
 
         Parameters
         ---------
-        home_subdevices
-            Homes telecope k-mirror, focuser, and fibre selector (if
-            applicable).
+        home_telescope
+            Homes the telescope. Defaults to `True`.
+        home_km
+            Homes the K-mirror, if present. Defaults to `False`.
+        home_focuser
+            Homes the focuser. Defaults to `False`.
+        home_fibsel
+            Homes the fibre selector, if present. Defaults to `False`.
 
         """
 
         home_subdevices_task: asyncio.Future | None = None
-        if home_subdevices:
-            subdev_tasks = []
-            if self.km is not None:
-                subdev_tasks.append(self.km.home())
-            if self.fibsel is not None:
-                subdev_tasks.append(self.fibsel.home())
-            if self.focuser is not None:
-                subdev_tasks.append(self.focuser.home())
 
-            home_subdevices_task = asyncio.gather(*subdev_tasks)
+        subdev_tasks = []
+        if self.km is not None and home_km:
+            subdev_tasks.append(self.km.home())
+        if self.fibsel is not None and home_fibsel:
+            subdev_tasks.append(self.fibsel.home())
+        if self.focuser is not None and home_focuser:
+            subdev_tasks.append(self.focuser.home())
 
-        if await self.gort.enclosure.is_local():
-            raise GortTelescopeError("Cannot home in local mode.", error_code=101)
+        home_subdevices_task = asyncio.gather(*subdev_tasks)
 
-        self.write_to_log("Homing telescope.", level="info")
+        if home_telescope:
+            if await self.gort.enclosure.is_local():
+                raise GortTelescopeError("Cannot home in local mode.", error_code=101)
 
-        if not (await self.is_ready()):
-            await self.pwi.commands.setConnected(True)
-            await self.pwi.commands.setEnabled(True)
+            self.write_to_log("Homing telescope.", level="info")
 
-        await self.pwi.commands.findHome()
+            if not (await self.is_ready()):
+                await self.pwi.commands.setConnected(True)
+                await self.pwi.commands.setEnabled(True)
 
-        # findHome does not block, so wait a reasonable amount of time.
-        await asyncio.sleep(15)
+            await self.pwi.commands.findHome()
+
+            # findHome does not block, so wait a reasonable amount of time.
+            await asyncio.sleep(15)
+
+            self.is_homed = True
 
         if home_subdevices_task is not None and not home_subdevices_task.done():
             await home_subdevices_task
-
-        self.is_homed = True
 
     async def park(
         self,
@@ -701,21 +713,38 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         self.write_to_log("Waiting 10 seconds for devices to reconnect.")
         await asyncio.sleep(10)
 
-        self.write_to_log("Homing all devices after a restart.")
-        await self.home(home_subdevices=True)
+        self.write_to_log("Homing telescope a restart.")
+        await self.home()
 
-    async def home(self, home_subdevices: bool = False):
-        """Initialises and homes all telescopes.
+    async def home(
+        self,
+        home_telescope: bool = True,
+        home_km: bool = False,
+        home_focuser: bool = False,
+        home_fibsel: bool = False,
+    ):
+        """Initialises and homes the telescope.
 
         Parameters
         ---------
-        home_subdevices
-            Homes telecope k-mirror, focuser, and fibre selector (if
-            applicable).
+        home_telescope
+            Homes the telescope. Defaults to `True`.
+        home_km
+            Homes the K-mirror, if present. Defaults to `False`.
+        home_focuser
+            Homes the focuser. Defaults to `False`.
+        home_fibsel
+            Homes the fibre selector, if present. Defaults to `False`.
 
         """
 
-        await self.call_device_method(Telescope.home, home_subdevices=home_subdevices)
+        await self.call_device_method(
+            Telescope.home,
+            home_telescope=home_telescope,
+            home_km=home_km,
+            home_focuser=home_focuser,
+            home_fibsel=home_fibsel,
+        )
 
     async def park(
         self,
