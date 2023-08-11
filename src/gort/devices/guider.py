@@ -285,14 +285,25 @@ class Guider(GortDevice):
                     lambda g: g.fillna(method="bfill", axis=0).iloc[0, :]
                 )
 
-                # Remove NaN rows.
-                df = df.dropna()
-
                 # Sort by frameno.
                 df = df.sort_values("frameno")
 
                 if "fwhm" not in df or "separation" not in df:
                     continue
+
+                # Calculate and report last.
+                last = df.tail(1)
+                sep_last = round(last.separation.values[0], 3)
+                fwhm_last = round(last.fwhm.values[0], 2)
+                mode_last = last["mode"].values[0]
+                self.write_to_log(
+                    f"Last: sep={sep_last} arcsec; fwhm={fwhm_last} arcsec; "
+                    f"mode={mode_last!r}",
+                    "info",
+                )
+
+                # Remove NaN rows.
+                df = df.dropna()
 
                 # Calculate and report averages.
                 now = datetime.datetime.utcnow()
@@ -303,17 +314,6 @@ class Guider(GortDevice):
                 self.write_to_log(
                     f"Average ({timeout} s): sep={sep_avg} arcsec; "
                     f"fwhm={fwhm_avg} arcsec",
-                    "info",
-                )
-
-                # Calculate and report last.
-                last = df.tail(1)
-                sep_last = round(last.separation.values[0], 3)
-                fwhm_last = round(last.fwhm.values[0], 2)
-                mode_last = last["mode"].values[0]
-                self.write_to_log(
-                    f"Last: sep={sep_last} arcsec; fwhm={fwhm_last} arcsec; "
-                    f"mode={mode_last!r}",
                     "info",
                 )
 
