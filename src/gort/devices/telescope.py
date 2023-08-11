@@ -264,7 +264,7 @@ class Telescope(GortDevice):
         alt_diff = numpy.abs(status["altitude_degs"] - park_position["alt"])
         az_diff = numpy.abs(status["azimuth_degs"] - park_position["az"])
 
-        if alt_diff > 1 or az_diff > 1:
+        if alt_diff > 5 or az_diff > 5:
             return False
 
         return True
