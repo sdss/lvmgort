@@ -101,6 +101,9 @@ class KMirror(MoTanDevice):
 
         """
 
+        self.write_to_log("Stopping slew.")
+        await self.actor.commands.slewStop()
+
         await self.slew_delay()
 
         self.write_to_log(
