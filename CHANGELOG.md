@@ -27,6 +27,7 @@
 * Improve style of the documentation.
 * Move `Exposure`` to its own file.
 
+
 ## 0.2.2 - July 23, 2023
 
 ### 🚀 New
