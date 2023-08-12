@@ -87,7 +87,7 @@ def read_fibermap(
             fibers[col] = fibers[col].str.lower()
 
     # Add a new column with the full name of the fibre, as ifulabel-finifu
-    fibers["fibername"] = fibers["orig_ifulabel"] + "-" + fibers["finifu"].astype(str)
+    fibers["fibername"] = fibers["orig_ifulabel"]
 
     _FIBERMAP_CACHE = fibers
 
