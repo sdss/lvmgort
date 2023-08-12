@@ -9,19 +9,19 @@
 from __future__ import annotations
 
 import asyncio
+from collections import defaultdict
 
 from typing import TYPE_CHECKING, ClassVar
 
 import numpy
 
 from gort.exceptions import GortTelescopeError
-from gort.gort import GortDevice, GortDeviceSet
+from gort.gort import GortClient, GortDevice, GortDeviceSet
 from gort.tools import angular_separation
 
 
 if TYPE_CHECKING:
     from gort.core import ActorReply
-    from gort.gort import GortClient
 
 
 __all__ = ["Telescope", "TelescopeSet", "KMirror", "FibSel", "Focuser", "MoTanDevice"]
@@ -32,6 +32,16 @@ class MoTanDevice(GortDevice):
 
     #: Artificial delay introduced to prevent all motors to slew at the same time.
     SLEW_DELAY: ClassVar[float | dict[str, float]] = 0
+
+    def __init__(self, gort: GortClient, name: str, actor: str):
+        super().__init__(gort, name, actor)
+
+        class_name = self.__class__.__name__
+
+        timeouts = self.gort.config["telescopes"]["timeouts"].get(class_name.lower())
+
+        self.timeouts: defaultdict[str, float | None]
+        self.timeouts = defaultdict(lambda: None, timeouts)
 
     async def slew_delay(self):
         """Sleeps the :obj:`.SLEW_DELAY` amount."""
@@ -58,7 +68,7 @@ class KMirror(MoTanDevice):
         await self.slew_delay()
 
         self.write_to_log("Homing k-mirror.", level="info")
-        await self.actor.commands.moveToHome()
+        await self.actor.commands.moveToHome(timeout=self.timeouts["moveToHome"])
         self.write_to_log("k-mirror homing complete.")
 
     async def park(self):
@@ -66,7 +76,7 @@ class KMirror(MoTanDevice):
 
         await self.slew_delay()
 
-        await self.actor.commands.slewStop()
+        await self.actor.commands.slewStop(timeout=self.timeouts["slewStop"])
         await self.move(90)
 
     async def move(self, degs: float):
@@ -84,10 +94,14 @@ class KMirror(MoTanDevice):
         self.write_to_log(f"Moving k-mirror to {degs:.3f} degrees.", level="info")
 
         self.write_to_log("Stopping slew.")
-        await self.actor.commands.slewStop()
+        await self.actor.commands.slewStop(timeout=self.timeouts["slewStop"])
 
         self.write_to_log("Moving k-mirror to absolute position.")
-        await self.actor.commands.moveAbsolute(degs, "deg")
+        await self.actor.commands.moveAbsolute(
+            degs,
+            "deg",
+            timeout=self.timeouts["moveAbsolute"],
+        )
 
     async def slew(self, ra: float, dec: float):
         """Moves the mirror to the position for ``ra, dec`` and starts slewing.
@@ -102,7 +116,7 @@ class KMirror(MoTanDevice):
         """
 
         self.write_to_log("Stopping slew.")
-        await self.actor.commands.slewStop()
+        await self.actor.commands.slewStop(timeout=self.timeouts["slewStop"])
 
         await self.slew_delay()
 
@@ -111,7 +125,11 @@ class KMirror(MoTanDevice):
             level="info",
         )
 
-        await self.actor.commands.slewStart(ra / 15.0, dec)
+        await self.actor.commands.slewStart(
+            ra / 15.0,
+            dec,
+            timeout=self.timeouts["slewStart"],
+        )
 
 
 class Focuser(MoTanDevice):
@@ -141,7 +159,7 @@ class Focuser(MoTanDevice):
         await self.slew_delay()
 
         self.write_to_log("Homing focuser.", level="info")
-        await self.actor.commands.moveToHome()
+        await self.actor.commands.moveToHome(timeout=self.timeouts["moveToHome"])
         self.write_to_log("Focuser homing complete.")
 
         if current_position is not None and not numpy.isnan(current_position):
@@ -154,7 +172,11 @@ class Focuser(MoTanDevice):
         await self.slew_delay()
 
         self.write_to_log(f"Moving focuser to {dts:.3f} DT.", level="info")
-        await self.actor.commands.moveAbsolute(dts, "DT")
+        await self.actor.commands.moveAbsolute(
+            dts,
+            "DT",
+            timeout=self.timeouts["moveAbsolute"],
+        )
 
 
 class FibSel(MoTanDevice):
@@ -175,7 +197,7 @@ class FibSel(MoTanDevice):
         await self.slew_delay()
 
         self.write_to_log("Homing fibsel.", level="info")
-        await self.actor.commands.moveToHome()
+        await self.actor.commands.moveToHome(timeout=self.timeouts["moveToHome"])
         self.write_to_log("Fibsel homing complete.")
 
     def list_positions(self) -> list[str]:
@@ -211,7 +233,10 @@ class FibSel(MoTanDevice):
             self.write_to_log(f"Moving mask to {steps} DT.", level="info")
 
         await self.slew_delay()
-        await self.actor.commands.moveAbsolute(steps)
+        await self.actor.commands.moveAbsolute(
+            steps,
+            timeout=self.timeouts["moveAbsolute"],
+        )
 
     async def move_relative(self, steps: float):
         """Move the mask a number of motor steps relative to the current position."""
@@ -219,7 +244,10 @@ class FibSel(MoTanDevice):
         self.write_to_log(f"Moving fibre mask {steps} steps.")
 
         await self.slew_delay()
-        await self.actor.commands.moveRelative(steps)
+        await self.actor.commands.moveRelative(
+            steps,
+            timeout=self.timeouts["moveRelative"],
+        )
 
 
 class Telescope(GortDevice):

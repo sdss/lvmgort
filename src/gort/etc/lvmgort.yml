@@ -17,6 +17,20 @@ telescopes:
       actor: lvm.skyw.pwi
       kmirror: lvm.skyw.km
       focuser: lvm.skyw.foc
+  timeouts:
+    kmirror:
+      slewStart: 60
+      slewStop: 5
+      moveAbsolute: 60
+      moveToHome: 60
+    focuser:
+      moveAbsolute: 60
+      moveToHome: 60
+    fibsel:
+      moveAbsolute: 60
+      moveRelative: 30
+      moveToHome: 60
+
   pointing_offsets:
     sci: [-1618, -848]
     skye: [-251, -15]
