@@ -103,13 +103,7 @@ class GortObserver:
         # Execute.
         await asyncio.gather(*cotasks)
 
-    async def acquire(
-        self,
-        guide_tolerance: float = 3,
-        timeout: float = 180,
-        min_skies: int = 1,
-        require_spec: bool = False,
-    ):
+    async def acquire(self, guide_tolerance: float = 3, timeout: float = 180):
         """Acquires the field in all the telescopes. Blocks until then.
 
         Parameters
@@ -122,10 +116,6 @@ class GortObserver:
             The maximum time allowed for acquisition. In case of timeout
             the acquired fields are evaluated and an exception is
             raised if the acquisition failed.
-        min_skies
-            Minimum number of skies required to consider acquisition successful.
-        require_spec
-            Whether to require the ``spec`` telescope to be guiding.
 
         Raises
         ------
@@ -169,13 +159,11 @@ class GortObserver:
             )
 
         if "spec" not in guide_on_telescopes:
-            if require_spec:
-                raise GortObserverError("spec pointing not defined.", error_code=801)
-            else:
-                self.write_to_log("No standards. Blocking fibre mask.", "warning")
-                await self.gort.telescopes.spec.fibsel.move_relative(500)
-        if n_skies < min_skies:
-            raise GortObserverError("Not enough sky positions defined.", error_code=801)
+            self.write_to_log("No standards defined. Blocking fibre mask.", "warning")
+            await self.gort.telescopes.spec.fibsel.move_relative(500)
+
+        if n_skies == 0:
+            self.write_to_log("No sky positions defined.", "warning")
 
         # Start guide loop.
         self.guide_task = asyncio.gather(*guide_coros)

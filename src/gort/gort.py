@@ -517,8 +517,6 @@ class Gort(GortClient):
         guide_tolerance: float = 3.0,
         acquisition_timeout: float = 180.0,
         show_progress: bool | None = None,
-        min_skies: int = 1,
-        require_spec: bool = False,
     ):
         """Performs all the operations necessary to observe a tile.
 
@@ -549,10 +547,6 @@ class Gort(GortClient):
             raised if the acquisition failed.
         show_progress
             Displays a progress bar with the elapsed exposure time.
-        min_skies
-            Minimum number of skies required to consider acquisition successful.
-        require_spec
-            Whether to require the ``spec`` telescope to be guiding.
 
         """
 
@@ -585,8 +579,6 @@ class Gort(GortClient):
 
             # Start guiding.
             await observer.acquire(
-                min_skies=min_skies,
-                require_spec=require_spec,
                 guide_tolerance=guide_tolerance,
                 timeout=acquisition_timeout,
             )

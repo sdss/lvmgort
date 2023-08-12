@@ -22,6 +22,10 @@
 * Restore previous focuser positions after homing.
 * Allow multiple exposures in `GortObserver.expose()`
 
+### 🏷️ Changed
+
+* Removed the options `min_skies` and `require_spec` for `GortObserver.acquire()` and `Gort.observe_tile()`. If no skies or standards are defined a warning is issued but the code will not fail.
+
 ### ⚙️ Engineering
 
 * Lint using `ruff`.
