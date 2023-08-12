@@ -83,8 +83,9 @@ class GortObserver:
         for skytel in ["SkyE", "SkyW"]:
             if skytel.lower() in self.tile.sky_coords:
                 sky_coords_tel = self.tile.sky_coords[skytel.lower()]
-                sky[skytel.lower()] = (sky_coords_tel.ra, sky_coords_tel.dec)
-                self.write_to_log(f"{skytel}: {sky_coords_tel}")
+                if sky_coords_tel is not None:
+                    sky[skytel.lower()] = (sky_coords_tel.ra, sky_coords_tel.dec)
+                    self.write_to_log(f"{skytel}: {sky_coords_tel}")
 
         cotasks.append(
             self.gort.telescopes.goto(
