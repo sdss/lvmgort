@@ -66,6 +66,7 @@ class KMirror(MoTanDevice):
         """Homes the k-mirror."""
 
         await self.slew_delay()
+        await self.actor.commands.slewStop(timeout=self.timeouts["slewStop"])
 
         self.write_to_log("Homing k-mirror.", level="info")
         await self.actor.commands.moveToHome(timeout=self.timeouts["moveToHome"])
@@ -76,7 +77,6 @@ class KMirror(MoTanDevice):
 
         await self.slew_delay()
 
-        await self.actor.commands.slewStop(timeout=self.timeouts["slewStop"])
         await self.move(90)
 
     async def move(self, degs: float):
@@ -114,9 +114,6 @@ class KMirror(MoTanDevice):
             Declination of the field to track, in degrees.
 
         """
-
-        self.write_to_log("Stopping slew.")
-        await self.actor.commands.slewStop(timeout=self.timeouts["slewStop"])
 
         await self.slew_delay()
 
