@@ -17,7 +17,6 @@ import yaml
 
 from gort import config
 
-
 __all__ = [
     "read_fibermap",
     "offset_to_master_frame_pixel",
@@ -88,7 +87,7 @@ def read_fibermap(
             fibers[col] = fibers[col].str.lower()
 
     # Add a new column with the full name of the fibre, as ifulabel-finifu
-    fibers["fibername"] = fibers["ifulabel"] + "-" + fibers["finifu"].astype(str)
+    fibers["fibername"] = fibers["orig_ifulabel"] + "-" + fibers["finifu"].astype(str)
 
     _FIBERMAP_CACHE = fibers
 
