@@ -340,7 +340,7 @@ class Telescope(GortDevice):
     async def home(
         self,
         home_telescope: bool = True,
-        home_km: bool = False,
+        home_km: bool = True,
         home_focuser: bool = False,
         home_fibsel: bool = False,
     ):
@@ -351,7 +351,7 @@ class Telescope(GortDevice):
         home_telescope
             Homes the telescope. Defaults to `True`.
         home_km
-            Homes the K-mirror, if present. Defaults to `False`.
+            Homes the K-mirror, if present. Defaults to `True`.
         home_focuser
             Homes the focuser. Defaults to `False`.
         home_fibsel
@@ -788,7 +788,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
     async def home(
         self,
         home_telescopes: bool = True,
-        home_kms: bool = False,
+        home_kms: bool = True,
         home_focusers: bool = False,
         home_fibsel: bool = False,
     ):
@@ -799,7 +799,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         home_telescopes
             Homes the telescopes. Defaults to `True`.
         home_kms
-            Homes the K-mirrors, if present. Defaults to `False`.
+            Homes the K-mirrors, if present. Defaults to `True`.
         home_focusers
             Homes the focusers. Defaults to `False`.
         home_fibsel
