@@ -185,7 +185,6 @@ class GortObserver:
             # TODO: we need to stop guiders that timed out.
 
         try:
-            n_skies_guiding = 0
             for ii, tel in enumerate(guide_on_telescopes):
                 is_guiding = guide_status[ii][0]
                 if tel == "sci" and not is_guiding:
@@ -194,24 +193,12 @@ class GortObserver:
                         error_code=801,
                     )
                 if tel == "spec" and not is_guiding:
-                    if require_spec:
-                        raise GortObserverError(
-                            "Spec telescope is not guiding.",
-                            error_code=801,
-                        )
-                    else:
-                        self.write_to_log("Spec telescope is not guiding", "warning")
-                if "sky" in tel:
-                    if is_guiding:
-                        n_skies_guiding += 1
-                    else:
-                        self.write_to_log(f"{tel} telescope is not guiding.", "warning")
-
-            if n_skies_guiding < min_skies:
-                raise GortObserverError(
-                    "Not enough sky telescopes guiding.",
-                    error_code=801,
-                )
+                    raise GortObserverError(
+                        "Spec telescope is not guiding.",
+                        error_code=801,
+                    )
+                if "sky" in tel and not is_guiding:
+                    self.write_to_log(f"{tel} telescope is not guiding.", "warning")
 
         except Exception:
             self.write_to_log("Stopping guide loops.", "warning")
