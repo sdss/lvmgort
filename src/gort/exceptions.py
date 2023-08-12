@@ -30,7 +30,9 @@ class ErrorCodes(Enum):
     UNCATEGORISED_ERROR = 0
     NOT_IMPLEMENTED = 1
     COMMAND_FAILED = 2
-    USAGE_ERROR = 3
+    COMMAND_TIMEDOUT = 3
+    USAGE_ERROR = 4
+    TIMEOUT = 5
     CANNOT_MOVE_LOCAL_MODE = 101
     FAILED_REACHING_COMMANDED_POSITION = 102
     INVALID_TELESCOPE_POSITION = 103
@@ -76,6 +78,27 @@ class RemoteCommandError(GortError):
         self.actor = remote_command._remote_actor.name
 
         super().__init__(message, error_code=ErrorCodes.COMMAND_FAILED)
+
+
+class GortTimeoutError(GortError):
+    """A timeout error, potentially associated with a timed out remote command."""
+
+    def __init__(
+        self,
+        message: str | None,
+        command: Command | None = None,
+        remote_command: RemoteCommand | None = None,
+    ):
+        self.command = command
+        self.remote_command = remote_command
+        self.actor = remote_command._remote_actor.name if remote_command else None
+
+        if self.remote_command:
+            error_code = ErrorCodes.COMMAND_TIMEDOUT
+        else:
+            error_code = ErrorCodes.TIMEOUT
+
+        super().__init__(message, error_code=error_code)
 
 
 class GortTimeout(GortError):

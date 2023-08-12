@@ -18,7 +18,9 @@ import unclick
 from aiormq import AMQPConnectionError, ChannelInvalidStateError
 from typing_extensions import Self
 
-from gort.exceptions import GortWarning, RemoteCommandError
+from clu.tools import CommandStatus
+
+from gort.exceptions import GortTimeoutError, GortWarning, RemoteCommandError
 
 from .tools import get_valid_variable_name
 
@@ -158,6 +160,7 @@ class RemoteCommand:
         self,
         *args,
         reply_callback: Callable[[AMQPReply], None] | None | Literal[False] = None,
+        timeout: float | None = None,
         **kwargs,
     ):
         """Executes the remote command with some given arguments."""
@@ -174,6 +177,7 @@ class RemoteCommand:
         cmd = await self._remote_actor.send_raw_command(
             parent_string + self.get_command_string(*args, **kwargs),
             callback=reply_callback,
+            time_limit=timeout,
         )
 
         actor_reply = ActorReply(self._remote_actor, cmd)
@@ -181,12 +185,21 @@ class RemoteCommand:
             if len(reply.body) > 0:
                 actor_reply.replies.append(reply.body)
 
+        actor = self._remote_actor.name
+        command_name = self._name
+
+        if cmd.status & CommandStatus.TIMEDOUT:
+            raise GortTimeoutError(
+                f"Actor {actor!r} timed out executing command {command_name!r}.",
+                command=cmd,
+                remote_command=self,
+            )
+
         if not cmd.status.did_succeed:
             error = actor_reply.get("error")
             error = f" {error!s}" if error is not None else ""
             raise RemoteCommandError(
-                f"Actor {self._remote_actor.name!r} failed executing "
-                f"command {self._name!r}.{error}",
+                f"Actor {actor!r} failed executing command {command_name!r}.{error}",
                 command=cmd,
                 remote_command=self,
             )

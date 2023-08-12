@@ -126,7 +126,7 @@ class Exposure(asyncio.Future["Exposure"]):
         ):
             raise GortSpecError(
                 "Exposure time required for all flavours except bias.",
-                error_code=3,
+                error_code=ErrorCodes.USAGE_ERROR,
             )
 
         warnings.filterwarnings("ignore", message=".*cannot modify a done command.*")
