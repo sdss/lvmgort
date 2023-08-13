@@ -58,6 +58,21 @@ Tile
    :members:
    :show-inheritance:
 
+Recipes
+-------
+
+.. automodule:: gort.recipes.base
+   :members:
+   :show-inheritance:
+
+.. automodule:: gort.recipes.calibrations
+   :members:
+   :show-inheritance:
+
+.. automodule:: gort.recipes.operations
+   :members:
+   :show-inheritance:
+
 Kubernetes
 ----------
 

@@ -23,23 +23,7 @@ __all__ = ["StartupRecipe"]
 
 
 class StartupRecipe(BaseRecipe):
-    """Starts the telescopes, runs the calibration sequence, and opens the enclosure.
-
-    Parameters
-    ----------
-    gort
-        The `.Gort` instance to use.
-    calibration_sequence
-        The name of the calibration sequence to use. If `None`, uses the default
-        sequence from the configuration. If `False`, skips the calibration sequence.
-    open_enclosure
-        Whether to open the enclosure.
-    confirm_open
-        If `True`, asks the user to confirm opening the enclosure.
-    focus
-        Whether to focus after the enclosure has open.
-
-    """
+    """Starts the telescopes, runs the calibration sequence, and opens the enclosure."""
 
     name = "startup"
 
@@ -50,6 +34,24 @@ class StartupRecipe(BaseRecipe):
         confirm_open: bool = True,
         focus: bool = True,
     ):
+        """Runs the startup sequence.
+
+        Parameters
+        ----------
+        gort
+            The `.Gort` instance to use.
+        calibration_sequence
+            The name of the calibration sequence to use. If `None`, uses the default
+            sequence from the configuration. If `False`, skips the calibration sequence.
+        open_enclosure
+            Whether to open the enclosure.
+        confirm_open
+            If `True`, asks the user to confirm opening the enclosure.
+        focus
+            Whether to focus after the enclosure has open.
+
+        """
+
         rconfig = self.gort.config["recipes"]["startup"]
 
         self.gort.log.warning("Running startup sequence.")
