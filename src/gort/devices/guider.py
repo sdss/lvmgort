@@ -140,12 +140,29 @@ class Guider(GortDevice):
     async def focus(
         self,
         inplace=False,
-        guess: float = 40,
+        guess: float | None = None,
         step_size: float = 0.5,
         steps: int = 7,
         exposure_time: float = 5.0,
     ):
-        """Focus the telescope."""
+        """Focus the telescope.
+
+        Parameters
+        ----------
+        inplace
+            If `True`, focuses the telescope where it is pointing at. Otherwise
+            points to zenith.
+        guess
+            The initial guess for the focuser position. If `None`, the default value
+            from the configuration file is used.
+        step_size
+            The size, in focuser units, of each step.
+        steps
+            The total number of step points. Must be an odd number.
+        exposure_time
+            The exposure time for each step.
+
+        """
 
         self._best_focus = (-999, -999)
 
@@ -156,6 +173,9 @@ class Guider(GortDevice):
                 "zenith",
                 altaz_tracking=True,
             )
+
+        if guess is None:
+            guess = self.gort.config["guiders"]["focus"]["guess"][self.name]
 
         try:
             self.write_to_log(f"Focusing telescope {self.name}.", "info")
@@ -367,10 +387,7 @@ class Guider(GortDevice):
                     await self.stop(now=True)
                     return
 
-    async def set_pixel(
-        self,
-        pixel: tuple[float, float] | str | None = None,
-    ):
+    async def set_pixel(self, pixel: tuple[float, float] | str | None = None):
         """Sets the master frame pixel on which to guide.
 
         Parameters
@@ -447,24 +464,50 @@ class GuiderSet(GortDeviceSet[Guider]):
     async def focus(
         self,
         inplace=False,
-        guess: float = 40,
+        guess: float | dict[str, float] | None = None,
         step_size: float = 0.5,
         steps: int = 7,
         exposure_time: float = 5.0,
     ):
-        """Focus all the telescopes."""
+        """Focus all the telescopes.
+
+        Parameters
+        ----------
+        inplace
+            If `True`, focuses the telescopes where they are pointing at. Otherwise
+            points to zenith.
+        guess
+            The initial guesses for focuser position. If `None`, the default values
+            from the configuration file are used. It can also be a float value,
+            which will be used for all telescopes, or a mapping of telescope name
+            to guess value. Missing values will default to the configuration value.
+        step_size
+            The size, in focuser units, of each step.
+        steps
+            The total number of step points. Must be an odd number.
+        exposure_time
+            The exposure time for each step.
+
+        """
 
         self.write_to_log("Running focus sequence.", "info")
 
+        if isinstance(guess, float):
+            guess_dict = {guider_name: guess for guider_name in self}
+        elif guess is None:
+            guess_dict = {}
+        else:
+            guess_dict = guess
+
         jobs = [
-            guider.focus(
+            self[guider_name].focus(
                 inplace=inplace,
-                guess=guess,
+                guess=guess_dict.get(guider_name, None),
                 step_size=step_size,
                 steps=steps,
                 exposure_time=exposure_time,
             )
-            for guider in self.values()
+            for guider_name in self
         ]
         results = await asyncio.gather(*jobs)
 

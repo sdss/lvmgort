@@ -30,7 +30,6 @@ telescopes:
       moveAbsolute: 60
       moveRelative: 30
       moveToHome: 60
-
   pointing_offsets:
     sci: [-1618, -848]
     skye: [-251, -15]
@@ -119,6 +118,12 @@ guiders:
       actor: lvm.skye.guider
     skyw:
       actor: lvm.skyw.guider
+  focus:
+    guess:
+      sci: 36
+      skye: 36
+      skyw: 36
+      spec: 37
 
 nps:
   devices:

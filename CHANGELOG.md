@@ -22,6 +22,7 @@
 * Better control of which TAN devices to home during `Telescope.home()` or `TelescopeSet.home()`.
 * Restore previous focuser positions after homing.
 * Allow multiple exposures in `GortObserver.expose()`
+* Focus initial guesses are now included in the configuration. If `Gort.guiders.focus()` is called without a guess, the configuration values are used. The guess can now also be a dictionary of telescope name to guess value.
 
 ### 🏷️ Changed
 
