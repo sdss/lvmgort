@@ -288,11 +288,22 @@ class Guider(GortDevice):
                 # Sort by frameno.
                 df = df.sort_values("frameno")
 
-                if "fwhm" not in df or "separation" not in df:
+                # Remove NaN rows.
+                df = df.dropna()
+
+                now = datetime.datetime.utcnow()
+                time_range = now - pandas.Timedelta(f"{timeout} seconds")
+                time_data = df.loc[df.time > time_range, :]
+
+                if (
+                    len(time_data) == 0
+                    or "fwhm" not in time_data
+                    or "separation" not in time_data
+                ):
                     continue
 
                 # Calculate and report last.
-                last = df.tail(1)
+                last = time_data.tail(1)
                 sep_last = round(last.separation.values[0], 3)
                 fwhm_last = round(last.fwhm.values[0], 2)
                 mode_last = last["mode"].values[0]
@@ -302,13 +313,7 @@ class Guider(GortDevice):
                     "info",
                 )
 
-                # Remove NaN rows.
-                df = df.dropna()
-
                 # Calculate and report averages.
-                now = datetime.datetime.utcnow()
-                time_range = now - pandas.Timedelta(f"{timeout} seconds")
-                time_data = df.loc[df.time > time_range, :]
                 sep_avg = round(time_data.separation.mean(), 3)
                 fwhm_avg = round(time_data.fwhm.mean(), 2)
                 self.write_to_log(
