@@ -1,8 +1,8 @@
 Deployment,Function,When to restart
-lvm-sci-pwi,Science telescope PlaneWave mount control,Science mount not responding
-lvm-spec-pwi,Spec telescope PlaneWave mount control,Spec mount not responding
-lvm-skye-pwi,SkyE telescope PlaneWave mount control,SkyE mount not responding
-lvm-skyw-pwi,SkyW telescope PlaneWave mount control,SkyW mount not responding
+lvmpwi-sci,Science telescope PlaneWave mount control,Science mount not responding
+lvmpwi-spec,Spec telescope PlaneWave mount control,Spec mount not responding
+lvmpwi-skye,SkyE telescope PlaneWave mount control,SkyE mount not responding
+lvmpwi-skyw,SkyW telescope PlaneWave mount control,SkyW mount not responding
 lvmtan,"K-mirror, focuser, and fibre mask controller","K-mirror, focuser, or mask not responding or stuck"
 lvmagcam,Auto-guider camera control,Cameras not exposing or not present
 lvmguider,Guiding and focusing,"Guider not working, guiders won't change to idle, focus routine failing"

@@ -72,6 +72,8 @@ To run it, you can access it directly from `.Gort` ::
 
     await g.startup(calibration_sequence=False, confirm_open=False)
 
+.. _recipes-shutdown:
+
 ``shutdown``
 ^^^^^^^^^^^^
 

@@ -1,3 +1,5 @@
+.. _troubleshooting:
+
 Troubleshooting
 ===============
 
@@ -13,6 +15,25 @@ When a subsystem fails it is possible to restart the underlying software and con
     03:45:06 [INFO]    Starting deployment from YAML file /home/sdss5/config/kube/actors/lvmagcam.yml.
 
 This restart command is generally safe to use, but there may be simpler and faster troubleshooting that the user can try before resorting it.
+
+Restarting lvmtan
+-----------------
+
+The Twice-As-Nice devices (K-mirrors, focusers, fibre selector) may hang up at times. In this case you can try restarting the telescope subsystem with ::
+
+    await g.telescopes.restart()
+
+Or do a more focused restart of the TAN system with ::
+
+    await g.telescopes.restart_lvmtan()
+
+If this does not work you may need to use the GUI. In `lvmweb <http://lvm-hub:8080/lvmweb/motan>` go to the Motor Controllers secion. There should be eight elements in the interface (three K-mirrors, four focusers, on fibre selector). Each one of them has a small circular "LED" that can be red (not working) or green (connected). Make sure all the devices have green circles. If some of them do now, try restarting the deployment ::
+
+    g.kubernetes.restart_deployment('lvmtan')
+
+then reload the controllers page and wait until all the LEDs are green. You'll also see some green checkmarks. If they are red crosses that means that the device is in a bad state. Try stopping and aborting the invalid devices and then home them. When you home them you should see the motor numbers/degrees change and a progress bar. The progress bar and numbers must at some point stop (K-mirrors will home at -135 degrees, fibre selector at 0, focusers at 40).
+
+It may requires a few stop/abort/home and even various restarts of the controller to get things to work again.
 
 Restarting a deployment
 -----------------------
@@ -34,32 +55,37 @@ If the deployment was not running you may see a message indicating that the depl
 
     >>> g.kubernetes.list_deployments()
     ['local-path-provisioner',
-     'kubernetes-dashboard',
+     'rabbitmq',
+     'lvmnps',
+     'gort-websocket',
+     'lvmieb',
+     'lvmtelemetry',
+     'restapi',
+     'kubernetes-dashboard-metrics-scraper',
+     'metrics-server',
+     'kubernetes-dashboard-cert-manager-webhook',
+     'kubernetes-dashboard-nginx-controller',
+     'kubernetes-dashboard-metrics-server',
+     'kubernetes-dashboard-api',
+     'kubernetes-dashboard-web',
+     'kubernetes-dashboard-cert-manager-cainjector',
+     'kubernetes-dashboard-cert-manager',
      'coredns',
      'traefik',
-     'metrics-server',
-     'rabbitmq',
-     'dashboard-metrics-scraper',
-     'lvm-skyw-pwi',
-     'lvm-sci-pwi',
-     'lvm-spec-pwi',
-     'lvmecp',
      'lvm-spec-pressure-sp2',
-     'lvm-spec-pressure-sp3',
      'lvm-spec-pressure-sp1',
-     'lvm-skyw-ag',
-     'lvmtel',
-     'lvm-skye-ag',
-     'lvm-spec-ag',
-     'lvm-sci-ag',
-     'lvmieb',
-     'lvmnps',
-     'lvm-skye-pwi',
-     'lvmtan',
+     'lvm-spec-pressure-sp3',
      'lvm-jupyter',
-     'cerebro',
+     'lvmecp',
      'lvmscp',
-     'lvmguider']
+     'lvmguider',
+     'lvmagcam',
+     'lvmpwi-sci',
+     'lvmpwi-spec',
+     'lvmpwi-skye',
+     'lvmpwi-skyw',
+     'lvmtan',
+     'cerebro']
 
 .. warning::
     This feature requires running ``gort`` in a machine that has access to the Kubernetes cluster. While you can (but is not recommended) to run ``gort`` locally and access the RabbitMQ exchange by forwarding its access port, you won't be able to do the same to access the Kubernetes API.

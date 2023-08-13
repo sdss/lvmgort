@@ -116,11 +116,21 @@ Observing
 
 See the section about :ref:`tiles`.
 
+Shutdown
+--------
+
+When you are ready to shut down for the night (or temporarily close the dome due to weather), you can use the :ref:`shutdown recipe <recipes-shutdown>` ::
+
+    await g.shutdown()
+
+which will close the dome and put everything to sleep. If you're closing temporarily and don't want to park the telescopes you can use ::
+
+    await g.shutdown(park_telescopes=False)
 
 Misc
 ----
 
-The following is an unsorted list of operations and troubleshooting using ``gort``.
+The following is an unsorted list of useful snippets for operations. For troubleshooting see :ref:`this section <troubleshooting>`.
 
 Moving the k-mirror to any position
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
