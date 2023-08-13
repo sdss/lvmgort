@@ -141,6 +141,24 @@ specs:
       actor: lvmscp.sp3
   data_path: /data/spectro/{SJD}
   nextExposureNumber: /data/spectro/nextExposureNumber
+
+ags:
+  devices:
+    sci:
+      actor: lvm.sci.agcam
+    spec:
+      actor: lvm.spec.agcam
+    skye:
+      actor: lvm.skye.agcam
+    skyw:
+      actor: lvm.skyw.agcam
+
+enclosure:
+  bypass_local_mode: True
+
+recipes:
+  startup:
+    calibration_sequence: testcal
   calibration:
     position: calibration
     lamps_nps: calib
@@ -257,32 +275,10 @@ specs:
         lamps:
           Quartz:
             warmup: 20
-            exposure_time: [120]
+            exposure_time: [20]
             flavour: flat
-            fibsel:
-              initial_position: P1-2
-              positions: P1-
-              time_per_position: 10
         biases:
           count: 1
-
-ags:
-  devices:
-    sci:
-      actor: lvm.sci.agcam
-    spec:
-      actor: lvm.spec.agcam
-    skye:
-      actor: lvm.skye.agcam
-    skyw:
-      actor: lvm.skyw.agcam
-
-enclosure:
-  bypass_local_mode: True
-
-recipes:
-  startup:
-    calibration_sequence: testcal
 
 scheduler:
   host: 10.8.38.26

@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Type
 
 
 if TYPE_CHECKING:
-    from gort.gort import Gort
+    from gort.gort import Gort, GortClient
 
 
 __all__ = ["recipes", "BaseRecipe"]
@@ -50,7 +50,7 @@ class BaseRecipe(object, metaclass=RegisterRecipe):
 
     name: str | None = None
 
-    def __init__(self, gort: Gort):
+    def __init__(self, gort: Gort | GortClient):
         self.gort = gort
 
     async def recipe(self, *args, **kwargs):
