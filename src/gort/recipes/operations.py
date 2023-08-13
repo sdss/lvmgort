@@ -22,6 +22,21 @@ if TYPE_CHECKING:
 __all__ = ["StartupRecipe"]
 
 
+OPEN_DOME_MESSAGE = """Do not open the dome if you have not checked the following:
+* Humidity is below 80%
+* Dew point is below the temperature by > 5 degrees (?)
+* Wind is below 35 mph
+* There is no-one inside the enclosure
+* No rain/good conditions confirmed with the Du Pont observers
+
+Du Pont control room:
+   (US) +1 626-310-0436
+   (Chile) +56 51-2203-609
+Slack:
+  #lvm-dupont-observing
+"""
+
+
 class StartupRecipe(BaseRecipe):
     """Starts the telescopes, runs the calibration sequence, and opens the enclosure."""
 
@@ -76,6 +91,7 @@ class StartupRecipe(BaseRecipe):
 
         if open_enclosure:
             if confirm_open:
+                self.gort.log.warning(OPEN_DOME_MESSAGE)
                 if not Confirm.ask(
                     "Open the dome?",
                     default=False,
