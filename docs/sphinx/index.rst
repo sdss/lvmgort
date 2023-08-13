@@ -28,6 +28,7 @@ Contents
   getting-started
   observing
   tiles
+  recipes
   calibrations
   configuration
   troubleshooting

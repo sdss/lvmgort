@@ -19,6 +19,9 @@ We assume you'll be running this code in an LVM server, most likely in a Jupyter
 Afternoon checkouts
 -------------------
 
+.. note::
+    All these steps can be automated using the :ref:`startup <recipes-startup>` recipe.
+
 As usual, we start by creating an instance of `.Gort`. Multiple instance can run at the same time as the client name is unique.
 
 .. code:: python
@@ -38,13 +41,21 @@ A first good step every afternoon is to home the telescopes, which may have lost
 
 .. code:: python
 
-    >>> await g.telescopes.home(home_subdevices=True)
-    02:31:17 [INFO]: (sci) Homing telescope.
-    02:31:17 [INFO]: (spec) Homing telescope.
-    02:31:17 [INFO]: (skye) Homing telescope.
-    02:31:17 [INFO]: (skyw) Homing telescope.
+    >>> await g.telescopes.home()
+    17:32:49 [INFO]    (TelescopeSet) Rehoming all telescopes.
+             [INFO]    (sci) Homing telescope.
+             [INFO]    (spec) Homing telescope.
+    17:32:50 [INFO]    (skye) Homing telescope.
+             [INFO]    (skyw) Homing telescope.
+             [INFO]    (sci.km) Homing k-mirror.
+    17:32:51 [INFO]    (skye.km) Homing k-mirror.
+    17:32:52 [INFO]    (skyw.km) Homing k-mirror.
 
-Note that we are commanding all four telescopes at the same time. This routine connects and energises the axes of the mounts and runs a homing routine, which may take up one minute. If during the night it seems the telescopes are not pointing correctly, it's useful to re-home them. The ``home_subdevices=True`` option also homes the k-mirrors, focusers, and fibre selector.
+Note that we are commanding all four telescopes at the same time. This routine connects and energises the axes of the mounts and runs a homing routine, which may take up one minute. It will also home the K-mirrors. If during the night it seems the telescopes are not pointing correctly, it's useful to re-home them.
+
+If you want to control what devices get homed, or home the focusers or fibre selector, you can run ::
+
+    await g.telescopes.home(home_telescopes=True, home_kms=True, home_focusers=True, home_fibsel=True)
 
 We can now take a set of autoguider dark frames with `~.GuiderSet.take_darks`. The telescopes will be pointed to the ground (since the AG cameras don't have shutters) and an exposure will be taken with each one of them.
 
@@ -70,7 +81,7 @@ Next, we take a spectrograph calibration sequence
 
 .. code:: python
 
-    await g.spec.calibrate(sequence='normal')
+    await g.spec.calibrate(sequence='testcal')
 
 This will take calibration flats and arcs, and a series of biases and darks. The full sequence can take over an hour and the routine will output log messages indicating what it's doing. In the background, this sequence moves all the telescopes to point to the flat field screen, turns on the necessary lamps, and exposes the spectrographs. More details on running calibrations sequences can be found :ref:`here <calibrations>`.
 

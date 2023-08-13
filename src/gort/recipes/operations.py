@@ -33,7 +33,7 @@ Du Pont control room:
    (US) +1 626-310-0436
    (Chile) +56 51-2203-609
 Slack:
-  #lvm-dupont-observing
+   #lvm-dupont-observing
 """
 
 
