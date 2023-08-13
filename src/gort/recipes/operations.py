@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     pass
 
 
-__all__ = ["StartupRecipe"]
+__all__ = ["StartupRecipe", "ShutdownRecipe"]
 
 
 OPEN_DOME_MESSAGE = """Do not open the dome if you have not checked the following:
@@ -69,7 +69,7 @@ class StartupRecipe(BaseRecipe):
 
         rconfig = self.gort.config["recipes"]["startup"]
 
-        self.gort.log.warning("Running startup sequence.")
+        self.gort.log.warning("Running the startup sequence.")
 
         await self.gort.telescopes.home(
             home_telescopes=True,
@@ -107,3 +107,34 @@ class StartupRecipe(BaseRecipe):
             await self.gort.guiders.focus()
 
         self.gort.log.info("The startup recipe has completed.")
+
+
+class ShutdownRecipe(BaseRecipe):
+    """Closes the telescope for the night."""
+
+    name = "shutdown"
+
+    async def recipe(self, park_telescopes: bool = True):
+        """Shutdown the telescope, closes the dome, etc.
+
+        Parameters
+        ----------
+        park_telescopes
+            Park telescopes (and disables axes). Set to `False` if only
+            closing for a brief period of time.
+
+        """
+
+        self.gort.log.warning("Running the shutdown sequence.")
+
+        self.gort.log.info("Turning off all lamps.")
+        await self.gort.nps.calib.all_off()
+
+        self.gort.log.info("Making sure guiders are idle.")
+        await self.gort.guiders.stop(now=True)
+
+        await self.gort.enclosure.close()
+
+        if park_telescopes:
+            self.gort.log.info("Parking telescopes for the night.")
+            await self.gort.telescopes.park()

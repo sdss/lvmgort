@@ -617,6 +617,11 @@ class Gort(GortClient):
         return await Recipe(self)(**kwargs)
 
     async def startup(self, **kwargs):
-        """Excutes the `startup <.StartupRecipe>` sequence."""
+        """Executes the `startup <.StartupRecipe>` sequence."""
 
         return await self.execute_recipe("startup", **kwargs)
+
+    async def shutdown(self, **kwargs):
+        """Executes the `shutdown <.ShutdownRecipe>` sequence."""
+
+        return await self.execute_recipe("shutdown", **kwargs)
