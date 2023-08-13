@@ -26,6 +26,7 @@ from gort.core import RemoteActor
 from gort.exceptions import GortError
 from gort.kubernetes import Kubernetes
 from gort.observer import GortObserver
+from gort.recipes import recipes as recipe_to_class
 from gort.tile import Tile
 from gort.tools import get_rich_logger, run_in_executor
 
@@ -595,3 +596,32 @@ class Gort(GortClient):
             await observer.finish_observation()
 
         return exposure
+
+    async def execute_recipe(self, recipe: str, **kwargs):
+        """Executes a recipe.
+
+        Parameters
+        ----------
+        recipe
+            The name of the recipe to execute.
+        kwargs
+            Arguments to be passed to the recipe.
+
+        """
+
+        if recipe not in recipe_to_class:
+            raise ValueError(f"Cannot find recipe {recipe!r}.")
+
+        Recipe = recipe_to_class[recipe]
+
+        return await Recipe(self)(**kwargs)
+
+    async def startup(self, **kwargs):
+        """Executes the `startup <.StartupRecipe>` sequence."""
+
+        return await self.execute_recipe("startup", **kwargs)
+
+    async def shutdown(self, **kwargs):
+        """Executes the `shutdown <.ShutdownRecipe>` sequence."""
+
+        return await self.execute_recipe("shutdown", **kwargs)

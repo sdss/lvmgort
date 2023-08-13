@@ -28,7 +28,7 @@ And finally expose the spectrographs
 
     await g.specs.calibrate(sequence="normal")
 
-See `~.SpectrographSet.calibrate` for details. Pre-defined calibration sequences are defined in the :ref:`configuration file <configuration-file>` under ``specs.calibration.sequences``. Alternatively one can pass `~.SpectrographSet.calibrate` a dictionary with the calibration sequence details; such dictionary must match the model defined :ref:`below <calibration-schema>`.
+See `~.SpectrographSet.calibrate` for details. Pre-defined calibration sequences are defined in the :ref:`configuration file <configuration-file>` under ``recipes.calibration.sequences``. Alternatively one can pass `~.SpectrographSet.calibrate` a dictionary with the calibration sequence details; such dictionary must match the model defined :ref:`below <calibration-schema>`.
 
 An example of a very simple calibration sequence would be
 

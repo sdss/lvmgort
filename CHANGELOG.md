@@ -6,6 +6,7 @@
 
 * [#5](https://github.com/sdss/lvmgort/pull/5) Add option to restart deployments associated with a device set as `GortDeviceSet.restart()`.
 * [#7](https://github.com/sdss/lvmgort/pull/7) If guiding during an `Exposure`, a Pandas DataFrame is created with a summary of the guider data. The guider outputs summary guider information as INFO level messages.
+* [#8](https://github.com/sdss/lvmgort/pull/8) Added framework for recipes along recipes for startup, shutdown, and calibration.
 * Add `TelescopeSet.restart_lvmtan()` to restart Twice-As-Nice controller.
 * TAN devices will timeout when homing or moving.
 
@@ -30,7 +31,7 @@
 
 * Lint using `ruff`.
 * Improve style of the documentation.
-* Move `Exposure`` to its own file.
+* Move `Exposure` to its own file.
 
 
 ## 0.2.2 - July 23, 2023
@@ -78,7 +79,7 @@
 
 * Added support for spectrograph IEBs.
 * Added `SpectrographSet.get_calibration_sequence()`.
-* Added `initialise`` (init) and `abort`` methods for the spectrographs.
+* Added `initialise` (init) and `abort` methods for the spectrographs.
 
 ### ✨ Improved
 
@@ -90,7 +91,7 @@
 
 ### ⚙️ Engineering
 
-* Update `unclick`` to 0.1.0b5.
+* Update `unclick` to 0.1.0b5.
 * Use the `rich` library logger but customise it to look like the usual console formatter.
 * Allow to define the configuration file to use as `$GORT_CONFIG_FILE`.
 
