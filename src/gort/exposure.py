@@ -9,10 +9,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import pathlib
 import warnings
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pandas
 from astropy.io import fits
@@ -77,7 +78,7 @@ class Exposure(asyncio.Future["Exposure"]):
     async def expose(
         self,
         exposure_time: float | None = None,
-        header: str | None = None,
+        header: dict | None = None,
         async_readout: bool = False,
         show_progress: bool = False,
         **kwargs,
@@ -89,7 +90,7 @@ class Exposure(asyncio.Future["Exposure"]):
         exposure_time
             The exposure time.
         header
-            The header JSON string to pass to the ``lvmscp expose`` command.
+            A dictionary with the extra header values..
         async_readout
             Returns after integration completes. Readout is initiated
             but handled asynchronously and can be await by awaiting
@@ -147,12 +148,25 @@ class Exposure(asyncio.Future["Exposure"]):
                 "expose",
                 exposure_time=exposure_time,
                 seqno=self.exp_no,
-                header=(header or "{}"),
-                async_readout=async_readout,
+                readout=False,
                 **kwargs,
             )
 
+            # At this point we have integrated and are ready to read.
+
             self.reading = True
+
+            await cancel_task(guider_task)
+
+            header = header or {}
+            await self._update_header(header)
+
+            readout_task = asyncio.create_task(
+                self.spec_set._send_command_all(
+                    "read",
+                    header=json.dumps(header),
+                )
+            )
 
             # Now launch the task that marks the Future done when the spec
             # is IDLE. If async_readout=False then that will return immediately
@@ -161,6 +175,7 @@ class Exposure(asyncio.Future["Exposure"]):
             # complete (readout is ongoing and does not need to be launched).
             monitor_task = asyncio.create_task(self._done_monitor())
             if not async_readout:
+                await readout_task
                 await monitor_task
             else:
                 await self.stop_timer()
@@ -177,7 +192,6 @@ class Exposure(asyncio.Future["Exposure"]):
 
         finally:
             await self.stop_timer()
-            await cancel_task(guider_task)
 
             if self.done() and not self.error:
                 self.verify_files()
@@ -394,3 +408,8 @@ class Exposure(asyncio.Future["Exposure"]):
             self.spec_set.write_to_log(f"Failed registering exposure: {err}", "error")
         else:
             self.spec_set.write_to_log("Registration complete.")
+
+    async def _update_header(self, header: dict[str, Any]):
+        """Updates the exposure header with pointing and guiding information."""
+
+        return

@@ -242,10 +242,7 @@ class GortObserver:
         if "object" not in kwargs:
             kwargs["object"] = self.tile.object
 
-        exp_tile_data = {
-            "tile_id": (tile_id or -999, "The tile_id of this observation"),
-            "dpos": (dither_pos, "Dither position"),
-        }
+        header = await self._get_header()
 
         exposures: list[Exposure] = []
         standard_task: asyncio.Task | None = None
@@ -263,7 +260,7 @@ class GortObserver:
 
             exposure = await self.gort.specs.expose(
                 exposure_time=exposure_time,
-                tile_data=exp_tile_data,
+                header=header,
                 show_progress=show_progress,
                 count=1,
                 **kwargs,
@@ -464,3 +461,34 @@ class GortObserver:
 
                 n_observed += 1
                 t0_last_std = time()
+
+    async def _get_header(self):
+        """Returns the extra header dictionary from the tile data."""
+
+        tile_id = self.tile.tile_id
+        dither_pos = self.tile.dither_position
+
+        header = {
+            "tile_id": (tile_id or -999, "The tile_id of this observation"),
+            "dpos": (dither_pos, "Dither position"),
+            "poscira": round(self.tile.sci_coords.ra, 6),
+            "poscide": round(self.tile.sci_coords.dec, 6),
+        }
+
+        if self.tile["skye"]:
+            header.update(
+                {
+                    "poskyera": round(self.tile.sky_coords["skye"].ra, 6),
+                    "poskyede": round(self.tile.sky_coords["skye"].dec, 6),
+                }
+            )
+
+        if self.tile["skyw"]:
+            header.update(
+                {
+                    "poskywra": round(self.tile.sky_coords["skyw"].ra, 6),
+                    "poskywde": round(self.tile.sky_coords["skyw"].dec, 6),
+                }
+            )
+
+        return header.copy()

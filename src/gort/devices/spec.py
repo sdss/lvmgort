@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 
 from typing import TYPE_CHECKING
 
@@ -337,7 +336,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         self,
         exposure_time: float | None = None,
         flavour: str | None = None,
-        tile_data: dict | None = None,
+        header: dict | None = None,
         show_progress: bool | None = None,
         async_readout: bool = False,
         count: int = 1,
@@ -353,8 +352,8 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         flavour
             The exposure type, either ``'object'``, ``'arc'``,
             ``'flat'``, ``'dark'``, or ``'bias'``
-        tile_data
-            Tile data to add to the headers.
+        header
+            Additional data to add to the headers.
         show_progress
             Displays a progress bar with the elapsed exposure time.
             If `None` (the default), will show the progress bar only
@@ -403,15 +402,12 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                 error_code=ErrorCodes.USAGE_ERROR,
             )
 
-        header = {}
+        header = header or {}
 
         if object is not None:
             header.update({"OBJECT": object})
         elif flavour != "object":
             header.update({"OBJECT": flavour})
-
-        if tile_data is not None:
-            header.update(tile_data)
 
         if show_progress is None:
             show_progress = is_interactive() or is_notebook()
@@ -435,7 +431,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
             await exposure.expose(
                 exposure_time=exposure_time,
-                header=json.dumps(header),
+                header=header,
                 async_readout=async_readout,
                 show_progress=show_progress,
                 flavour=flavour,
