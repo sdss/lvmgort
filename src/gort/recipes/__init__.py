@@ -9,5 +9,5 @@
 from __future__ import annotations
 
 from .base import *
-from .calibrations import *
+from .calibration import *
 from .operations import *

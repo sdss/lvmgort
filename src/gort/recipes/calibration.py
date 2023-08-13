@@ -3,7 +3,7 @@
 #
 # @Author: José Sánchez-Gallego (gallegoj@uw.edu)
 # @Date: 2023-08-13
-# @Filename: calibrations.py
+# @Filename: calibration.py
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ __all__ = ["CalibrationRecipe"]
 class CalibrationRecipe(BaseRecipe):
     """Runs a calibration sequence."""
 
-    name = "calibrate"
+    name = "calibration"
 
     async def recipe(
         self,

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from gort.exceptions import ErrorCodes, GortError, GortSpecError
 from gort.exposure import Exposure
 from gort.gort import GortDevice, GortDeviceSet
-from gort.recipes.calibrations import CalibrationRecipe
+from gort.recipes.calibration import CalibrationRecipe
 from gort.tools import is_interactive, is_notebook
 
 

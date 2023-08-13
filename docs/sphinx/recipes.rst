@@ -32,7 +32,7 @@ A list of available recipes can be retrieved as ::
 
     >>> from gort.recipes import recipes
     >>> recipes
-    {'calibrate': gort.recipes.calibrations.CalibrationRecipe,
+    {'calibration': gort.recipes.calibration.CalibrationRecipe,
      'startup': gort.recipes.operations.StartupRecipe,
      'shutdown': gort.recipes.operations.ShutdownRecipe
      ...
@@ -81,7 +81,7 @@ If you are closing the dome temporarily, you may not want to disable the telesco
 
     await g.shutdown(park_telescopes=False)
 
-``calibrate``
-^^^^^^^^^^^^^
+``calibration``
+^^^^^^^^^^^^^^^
 
 Runs spectrograph calibration sequences. See :ref:`calibrations`.
