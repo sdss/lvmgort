@@ -43,6 +43,13 @@ class MoTanDevice(GortDevice):
         self.timeouts: defaultdict[str, float | None]
         self.timeouts = defaultdict(lambda: None, timeouts)
 
+    async def is_reachable(self):
+        """Is the device reachable?"""
+
+        is_reachable = await self.actor.commands.isReachable()
+
+        return bool(is_reachable.get("Reachable"))
+
     async def slew_delay(self):
         """Sleeps the :obj:`.SLEW_DELAY` amount."""
 
@@ -65,6 +72,9 @@ class KMirror(MoTanDevice):
     async def home(self):
         """Homes the k-mirror."""
 
+        if not (await self.is_reachable()):
+            raise GortTelescopeError("Device is not reachable.")
+
         await self.slew_delay()
         await self.actor.commands.slewStop(timeout=self.timeouts["slewStop"])
 
@@ -74,6 +84,9 @@ class KMirror(MoTanDevice):
 
     async def park(self):
         """Park the k-mirror at 90 degrees."""
+
+        if not (await self.is_reachable()):
+            raise GortTelescopeError("Device is not reachable.")
 
         await self.slew_delay()
 
@@ -88,6 +101,9 @@ class KMirror(MoTanDevice):
             The position to which to move the k-mirror, in degrees.
 
         """
+
+        if not (await self.is_reachable()):
+            raise GortTelescopeError("Device is not reachable.")
 
         await self.slew_delay()
 
@@ -114,6 +130,9 @@ class KMirror(MoTanDevice):
             Declination of the field to track, in degrees.
 
         """
+
+        if not (await self.is_reachable()):
+            raise GortTelescopeError("Device is not reachable.")
 
         await self.slew_delay()
 
@@ -149,6 +168,9 @@ class Focuser(MoTanDevice):
 
         """
 
+        if not (await self.is_reachable()):
+            raise GortTelescopeError("Device is not reachable.")
+
         # Store current position to restore it later.
         status = await self.status()
         current_position = status.get("Position")
@@ -165,6 +187,9 @@ class Focuser(MoTanDevice):
 
     async def move(self, dts: float):
         """Move the focuser to a position in DT."""
+
+        if not (await self.is_reachable()):
+            raise GortTelescopeError("Device is not reachable.")
 
         await self.slew_delay()
 
@@ -191,6 +216,9 @@ class FibSel(MoTanDevice):
     async def home(self):
         """Homes the fibre selector."""
 
+        if not (await self.is_reachable()):
+            raise GortTelescopeError("Device is not reachable.")
+
         await self.slew_delay()
 
         self.write_to_log("Homing fibsel.", level="info")
@@ -213,6 +241,9 @@ class FibSel(MoTanDevice):
             ``position`` is a number, moves the mask to that value.
 
         """
+
+        if not (await self.is_reachable()):
+            raise GortTelescopeError("Device is not reachable.")
 
         if isinstance(position, str):
             mask_positions = self.gort.config["telescopes"]["mask_positions"]
@@ -237,6 +268,9 @@ class FibSel(MoTanDevice):
 
     async def move_relative(self, steps: float):
         """Move the mask a number of motor steps relative to the current position."""
+
+        if not (await self.is_reachable()):
+            raise GortTelescopeError("Device is not reachable.")
 
         self.write_to_log(f"Moving fibre mask {steps} steps.")
 
