@@ -280,6 +280,10 @@ ags:
 enclosure:
   bypass_local_mode: True
 
+recipes:
+  startup:
+    calibration_sequence: testcal
+
 scheduler:
   host: 10.8.38.26
   port: 5100
