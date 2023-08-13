@@ -70,14 +70,15 @@ class GortObserver:
 
         spec = None
         if self.tile.spec_coords and len(self.tile.spec_coords) > 0:
+            first_spec = self.tile.spec_coords[0]
+
             # For spec we slew to the fibre with which we'll observe first.
             # This should save a bit of time converging.
-            spec_target = (self.tile.spec_coords[0].ra, self.tile.spec_coords[0].dec)
+            spec_target = (first_spec.ra, first_spec.dec)
             # spec = fibre_slew_coordinates(*spec_target, self.mask_positions[0])
             spec = spec_target
-            self.write_to_log(
-                f"Spec: {self.tile.spec_coords[0]} on {self.mask_positions[0]}"
-            )
+
+            self.write_to_log(f"Spec: {first_spec} on {self.mask_positions[0]}")
 
         sky = {}
         for skytel in ["SkyE", "SkyW"]:
