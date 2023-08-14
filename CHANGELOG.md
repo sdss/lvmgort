@@ -9,6 +9,9 @@
 * [#8](https://github.com/sdss/lvmgort/pull/8) Added framework for recipes along recipes for startup, shutdown, and calibration.
 * Add `TelescopeSet.restart_lvmtan()` to restart Twice-As-Nice controller.
 * TAN devices will timeout when homing or moving.
+* Add pointing information to the exposure.
+* Add `TelemetrySet` and `Telemetry` devices.
+* Use the focus-temperature relationship to determine the initial guess for focusing.
 
 ### ✨ Improved
 
@@ -19,10 +22,15 @@
 * Check if telescopes are already parked before opening/closing the dome.
 * Report summary of best focus in `focus()` command as INFO level.
 * Print last guider measurement before removing NaNs.
-* Better control of which TAN devices to home during `Telescope.home()` or `TelescopeSet.home()`.
+* Better control of which TAN devices to home during `Telescope.home()` or `TelescopeSet.home()`. The previous `home_subdevices` argument has been replaced by `home_kms`, `home_telescopes`, `home_focusers`, and `home_fibsel`.
 * Restore previous focuser positions after homing.
 * Allow multiple exposures in `GortObserver.expose()`
 * Focus initial guesses are now included in the configuration. If `Gort.guiders.focus()` is called without a guess, the configuration values are used. The guess can now also be a dictionary of telescope name to guess value.
+* `set_mf_pixel()` can now be used with all coordinates.
+* Better logging of remote actor command warnings and errors.
+* Spec telescope will now slew to coordinates such that the target falls on the selected fibre.
+* Check if TAN devices are reachable.
+* Improvements to the documentation.
 
 ### 🏷️ Changed
 
