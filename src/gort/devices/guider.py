@@ -176,9 +176,16 @@ class Guider(GortDevice):
 
         if guess is None:
             guess = self.gort.config["guiders"]["focus"]["guess"][self.name]
+            if isinstance(guess, (list, tuple)):
+                sensor_data = await self.gort.telemetry[self.name].status()
+                temp = sensor_data["sensor1"]["temperature"]
+                guess = guess[0] * temp + guess[1]
 
         try:
-            self.write_to_log(f"Focusing telescope {self.name}.", "info")
+            self.write_to_log(
+                f"Focusing telescope {self.name} with initial guess {guess:.1f}.",
+                "info",
+            )
             await self.actor.commands.focus(
                 reply_callback=self._parse_focus,
                 guess=guess,

@@ -604,7 +604,7 @@ class Telescope(GortDevice):
 
         # Check if we reached the position. If not retry once or fail.
         separation = angular_separation(*commanded, *reported)
-        if separation > 0.1:
+        if separation > 0.5:
             if retry:
                 self.write_to_log(
                     "Telescope failed to reach the desired position. Retrying",
