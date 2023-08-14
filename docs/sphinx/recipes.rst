@@ -68,7 +68,7 @@ To run it, you can access it directly from `.Gort` ::
     >>> await g.startup()
     ...
 
- `startup <.StartupRecipe.recipe>` accepts arguments to determine whether to run the calibration sequence (and which one), open the dome, focus, and whether to ask for confirmation for opening the dome. To skip the calibration sequence and do not ask for confirmation for opening the dome ::
+`startup <.StartupRecipe.recipe>` accepts arguments to determine whether to run the calibration sequence (and which one), open the dome, focus, and whether to ask for confirmation for opening the dome. To skip the calibration sequence and do not ask for confirmation for opening the dome ::
 
     await g.startup(calibration_sequence=False, confirm_open=False)
 
