@@ -36,6 +36,10 @@ Devices
    :members:
    :show-inheritance:
 
+.. automodule:: gort.devices.telemetry
+   :members:
+   :show-inheritance:
+
 .. automodule:: gort.devices.spec
    :members:
    :show-inheritance:
