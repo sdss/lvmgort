@@ -136,6 +136,17 @@ nps:
     calib:
       actor: lvmnps.calib
 
+telemetry:
+  devices:
+    sci:
+      actor: lvm.sci.telemetry
+    skye:
+      actor: lvm.skye.telemetry
+    skyw:
+      actor: lvm.skyw.telemetry
+    spec:
+      actor: lvm.spec.telemetry
+
 specs:
   devices:
     sp1:

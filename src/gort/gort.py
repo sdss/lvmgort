@@ -69,6 +69,7 @@ class GortClient(AMQPClient):
         from gort.devices.guider import GuiderSet
         from gort.devices.nps import NPSSet
         from gort.devices.spec import SpectrographSet
+        from gort.devices.telemetry import TelemetrySet as TelemSet
         from gort.devices.telescope import TelescopeSet as TelSet
 
         client_uuid = str(uuid.uuid4()).split("-")[1]
@@ -98,6 +99,7 @@ class GortClient(AMQPClient):
         self.nps = self.add_device(NPSSet, self.config["nps"]["devices"])
         self.specs = self.add_device(SpectrographSet, self.config["specs"]["devices"])
         self.enclosure = self.add_device(Enclosure, name="enclosure", actor="lvmecp")
+        self.telemetry = self.add_device(TelemSet, self.config["telemetry"]["devices"])
 
         try:
             self.kubernetes = Kubernetes(log=self.log)

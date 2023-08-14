@@ -13,4 +13,5 @@ from .enclosure import *
 from .guider import *
 from .nps import *
 from .spec import *
+from .telemetry import *
 from .telescope import *
