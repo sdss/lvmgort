@@ -499,12 +499,12 @@ class GuiderSet(GortDeviceSet[Guider]):
 
         self.write_to_log("Running focus sequence.", "info")
 
-        if isinstance(guess, float):
-            guess_dict = {guider_name: guess for guider_name in self}
-        elif guess is None:
+        if guess is None:
             guess_dict = {}
-        else:
+        elif isinstance(guess, dict):
             guess_dict = guess
+        else:
+            guess_dict = {guider_name: guess for guider_name in self}
 
         jobs = [
             self[guider_name].focus(
