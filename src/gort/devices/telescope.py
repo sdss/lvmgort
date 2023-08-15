@@ -83,7 +83,7 @@ class KMirror(MoTanDevice):
             raise GortTelescopeError("Device is not reachable.")
 
         await self.slew_delay()
-        await self.actor.commands.slewStop(timeout=self.timeouts["slewStop"])
+        # await self.actor.commands.slewStop(timeout=self.timeouts["slewStop"])
 
         self.write_to_log("Homing k-mirror.", level="info")
         await self.actor.commands.moveToHome(timeout=self.timeouts["moveToHome"])
