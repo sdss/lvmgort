@@ -218,9 +218,9 @@ recipes:
             flavour: arc
         biases:
           count: 9
-        darks:
-          count: 3
-          exposure_time: 300
+        # darks:
+        #   count: 3
+        #   exposure_time: 300
       full:
         lamps:
           LDLS:
