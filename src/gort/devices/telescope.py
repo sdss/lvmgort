@@ -50,6 +50,13 @@ class MoTanDevice(GortDevice):
 
         return bool(is_reachable.get("Reachable"))
 
+    async def is_moving(self):
+        """Is the device moving."""
+
+        is_moving = await self.actor.commands.isMoving()
+
+        return bool(is_moving.get("Moving"))
+
     async def slew_delay(self):
         """Sleeps the :obj:`.SLEW_DELAY` amount."""
 
