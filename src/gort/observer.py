@@ -301,6 +301,8 @@ class GortObserver:
     async def kmirror_monitor(self):
         """HACK: Monitors the k-mirrors and reissues the slew command if needed."""
 
+        await asyncio.sleep(30)
+
         while True:
             for tel in ["sci", "skye", "skyw"]:
                 if self.tile[tel] is None:
