@@ -420,8 +420,8 @@ class Exposure(asyncio.Future["Exposure"]):
                         frame0 = None
                         framen = None
                     else:
-                        frame0 = tel_data.frameno.min()
-                        framen = tel_data.frameno.max()
+                        frame0 = float(tel_data.frameno.min())
+                        framen = float(tel_data.frameno.max())
 
                     header.update(
                         {
