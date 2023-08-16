@@ -70,7 +70,8 @@ class Coordinates:
     def calculate_altitude(self, time: Time | None = None):
         """Returns the current altitude of the target."""
 
-        time = time or Time.now()
+        if time is None:
+            time = Time.now()
         location = EarthLocation.of_site("Las Campanas Observatory")
 
         sc = self.skycoord.copy()
