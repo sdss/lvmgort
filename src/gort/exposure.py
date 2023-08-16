@@ -412,7 +412,7 @@ class Exposure(asyncio.Future["Exposure"]):
     async def _update_header(self, header: dict[str, Any]):
         """Updates the exposure header with pointing and guiding information."""
 
-        if self.guider_data:
+        if self.guider_data is not None:
             for tel in ["sci", "spec", "skye", "skyw"]:
                 try:
                     tel_data = self.guider_data.loc[self.guider_data.telescope == tel]
