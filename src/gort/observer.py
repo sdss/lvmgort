@@ -280,8 +280,6 @@ class GortObserver:
             await cancel_task(standard_task)
             await exposure.register_observation(tile_id=tile_id, dither_pos=dither_pos)
 
-        await cancel_task(self.kmirror_monitor_task)
-
         if len(exposures) == 1:
             return exposures[0]
         else:
