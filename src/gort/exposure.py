@@ -412,4 +412,27 @@ class Exposure(asyncio.Future["Exposure"]):
     async def _update_header(self, header: dict[str, Any]):
         """Updates the exposure header with pointing and guiding information."""
 
-        return
+        if self.guider_data is not None:
+            for tel in ["sci", "spec", "skye", "skyw"]:
+                try:
+                    tel_data = self.guider_data.loc[self.guider_data.telescope == tel]
+                    if len(tel_data) < 2:
+                        frame0 = None
+                        framen = None
+                    else:
+                        frame0 = int(tel_data.frameno.min())
+                        framen = int(tel_data.frameno.max())
+
+                    header.update(
+                        {
+                            f"G{tel.upper()}FR0": (frame0, f"{tel} first guider frame"),
+                            f"G{tel.upper()}FRN": (framen, f"{tel} last guider frame"),
+                        }
+                    )
+
+                except Exception as err:
+                    self.spec_set.write_to_log(
+                        f"Failed updating guider header information for {tel}: {err}",
+                        "warning",
+                    )
+                    continue

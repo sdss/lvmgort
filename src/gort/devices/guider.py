@@ -14,6 +14,7 @@ from functools import partial
 
 from typing import TYPE_CHECKING
 
+import numpy
 import pandas
 
 from gort.exceptions import ErrorCodes, GortError, GortGuiderError
@@ -202,6 +203,9 @@ class Guider(GortDevice):
                 f"at {self._best_focus[0]} DT",
                 "info",
             )
+
+            if self._best_focus[1] < 0.3:
+                self.write_to_log("Focus value is invalid.", "error")
 
         return self._best_focus
 
@@ -499,12 +503,12 @@ class GuiderSet(GortDeviceSet[Guider]):
 
         self.write_to_log("Running focus sequence.", "info")
 
-        if isinstance(guess, float):
-            guess_dict = {guider_name: guess for guider_name in self}
-        elif guess is None:
+        if guess is None:
             guess_dict = {}
-        else:
+        elif isinstance(guess, dict):
             guess_dict = guess
+        else:
+            guess_dict = {guider_name: guess for guider_name in self}
 
         jobs = [
             self[guider_name].focus(
@@ -521,6 +525,10 @@ class GuiderSet(GortDeviceSet[Guider]):
         best_focus = [f"{name}: {results[itel][1]}" for itel, name in enumerate(self)]
 
         self.write_to_log("Best focus: " + ", ".join(best_focus), "info")
+
+        fwhms = numpy.array([fwhm for _, fwhm in results])
+        if numpy.any(fwhms < 0.3):
+            self.write_to_log("One or more focus values are invalid.", "error")
 
     async def guide(self, *args, **kwargs):
         """Guide on all telescopes.
