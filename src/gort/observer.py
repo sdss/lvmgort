@@ -455,11 +455,6 @@ class GortObserver:
                     "info",
                 )
 
-                # Finish guiding on spec telescope.
-                self.write_to_log("Stopping guiding on spec telescope.")
-                await self.gort.guiders["spec"].stop()
-
-                # TODO: some of these things can be concurrent.
                 spec_tel = self.gort.telescopes.spec
 
                 # Moving the mask to an intermediate position while we move around.
@@ -472,7 +467,15 @@ class GortObserver:
                     new_coords.dec,
                     new_mask_position,
                 )
-                await spec_tel.goto_coordinates(ra=slew_ra, dec=slew_dec)
+
+                # Finish guiding on spec telescope.
+                self.write_to_log("Stopping guiding on spec and reslewing.")
+
+                cotasks = [
+                    self.gort.guiders["spec"].stop(),
+                    spec_tel.goto_coordinates(ra=slew_ra, dec=slew_dec),
+                ]
+                await asyncio.gather(*cotasks)
 
                 # Start to guide. Note that here we use the original coordinates
                 # of the star along with the pixel on the master frame on which to
@@ -482,7 +485,7 @@ class GortObserver:
                     self.gort.guiders.spec.guide(
                         ra=new_coords.ra,
                         dec=new_coords.dec,
-                        guide_tolerance=5,
+                        guide_tolerance=3,
                         pixel=new_guider_pixel,
                     )
                 )
