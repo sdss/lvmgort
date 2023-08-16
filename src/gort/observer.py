@@ -318,6 +318,7 @@ class GortObserver:
                             f"{tel} k-mirror is not moving. Reslewing.",
                             "warning",
                         )
+                        await km.actor.commands.slewStop(timeout=20)
                         await km.slew(ra=coords.ra, dec=coords.dec)
                 except Exception as err:
                     self.write_to_log(
@@ -327,7 +328,7 @@ class GortObserver:
 
                 await asyncio.sleep(2)
 
-            await asyncio.sleep(15)
+            await asyncio.sleep(30)
 
     def write_to_log(
         self,
