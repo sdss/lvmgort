@@ -106,8 +106,8 @@ class GortObserver:
         await asyncio.gather(*cotasks)
 
         # Start monitoring the k-mirrors
-        # self.write_to_log("Starting the k-mirror monitor task.")
-        # self.kmirror_monitor_task = asyncio.create_task(self.kmirror_monitor())
+        self.write_to_log("Starting the k-mirror monitor task.")
+        self.kmirror_monitor_task = asyncio.create_task(self.kmirror_monitor())
 
     async def acquire(self, guide_tolerance: float = 3, timeout: float = 180):
         """Acquires the field in all the telescopes. Blocks until then.
@@ -313,22 +313,16 @@ class GortObserver:
                 assert km is not None
 
                 try:
-                    if not (await km.is_moving()):
-                        self.write_to_log(
-                            f"{tel} k-mirror is not moving. Reslewing.",
-                            "warning",
-                        )
-                        await km.actor.commands.slewStop(timeout=20)
-                        await km.slew(ra=coords.ra, dec=coords.dec)
+                    await km.slew(ra=coords.ra, dec=coords.dec)
                 except Exception as err:
                     self.write_to_log(
                         f"Failed checking {tel} km status: {err}",
                         "warning",
                     )
 
-                await asyncio.sleep(2)
+                await asyncio.sleep(5)
 
-            await asyncio.sleep(30)
+            await asyncio.sleep(60)
 
     def write_to_log(
         self,
