@@ -106,8 +106,8 @@ class GortObserver:
         await asyncio.gather(*cotasks)
 
         # Start monitoring the k-mirrors
-        self.write_to_log("Starting the k-mirror monitor task.")
-        self.kmirror_monitor_task = asyncio.create_task(self.kmirror_monitor())
+        # self.write_to_log("Starting the k-mirror monitor task.")
+        # self.kmirror_monitor_task = asyncio.create_task(self.kmirror_monitor())
 
     async def acquire(self, guide_tolerance: float = 3, timeout: float = 180):
         """Acquires the field in all the telescopes. Blocks until then.
