@@ -552,7 +552,7 @@ class Telescope(GortDevice):
             )
 
         kmirror_task: asyncio.Task | None = None
-        if kmirror and self.km and ra and dec:
+        if kmirror and self.km and ra is not None and dec is not None:
             kmirror_task = asyncio.create_task(self.km.slew(ra, dec))
 
         # Commanded and reported coordinates. To be used to check if we reached
