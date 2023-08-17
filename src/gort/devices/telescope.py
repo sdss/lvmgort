@@ -151,6 +151,8 @@ class KMirror(MoTanDevice):
         await self.actor.commands.slewStart(
             ra / 15.0,
             dec,
+            seg_time=self.gort.config['telescopes']['kmirror']['seg_time'],
+            seg_min_num=self.gort.config['telescopes']['kmirror']['seg_min_num'],
             timeout=self.timeouts["slewStart"],
         )
 
