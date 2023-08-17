@@ -20,7 +20,7 @@ telescopes:
   timeouts:
     kmirror:
       slewStart: 60
-      slewStop: 5
+      slewStop: 30
       moveAbsolute: 60
       moveToHome: 60
     focuser:
