@@ -8,12 +8,17 @@
 
 from __future__ import annotations
 
+import math
 import pathlib
 import re
 
+import astropy.coordinates
+import astropy.time
+import astropy.units
 import numpy
 import pandas
 import yaml
+from astropy.coordinates import Angle
 
 from gort import config
 
@@ -25,6 +30,11 @@ __all__ = [
     "fibre_slew_coordinates",
     "radec_sexagesimal_to_decimal",
     "fibre_to_master_frame",
+    "calculate_position_angle",
+    "calculate_field_angle",
+    "Siderostat",
+    "HomTrans",
+    "Mirror",
 ]
 
 
@@ -194,9 +204,7 @@ def xy_to_radec_offset(xpmm: float, ypmm: float):
 
 
 def fibre_slew_coordinates(
-    ra: float,
-    dec: float,
-    fibre_name: str,
+    ra: float, dec: float, fibre_name: str, derotated: bool = True
 ) -> tuple[float, float]:
     """Determines the slew coordinates for a fibre.
 
@@ -214,6 +222,9 @@ def fibre_slew_coordinates(
     fibre_name
         The fibre to which to slew the target, with the format
         ``<ifulabel>-<finifu>``.
+    derotated
+        Whether a k-mirror is derotating the field. If `False`, the
+        field rotation for the current time will be used.
 
     Returns
     -------
@@ -233,10 +244,21 @@ def fibre_slew_coordinates(
 
     ra_off, dec_off = xy_to_radec_offset(xpmm, ypmm)
 
-    ra_slew = ra + ra_off / 3600.0 / numpy.cos(numpy.radians(dec))
-    dec_slew = dec + dec_off / 3600.0
+    ra_off = ra_off / 3600.0 / numpy.cos(numpy.radians(dec))
+    dec_off = dec_off / 3600.0
 
-    return (ra_slew, dec_slew)
+    if not derotated:
+        field_angle = calculate_field_angle(ra, dec, obstime=None)
+        fa_r = numpy.radians(field_angle)
+        rotm = numpy.array(
+            [
+                [numpy.cos(fa_r), -numpy.sin(fa_r)],
+                [numpy.sin(fa_r), numpy.cos(fa_r)],
+            ]
+        )
+        ra_off, dec_off = rotm @ numpy.array([ra_off, dec_off]).T
+
+    return ra + ra_off, dec + dec_off
 
 
 def radec_sexagesimal_to_decimal(ra: str, dec: str, ra_is_hours: bool = True):
@@ -304,3 +326,443 @@ def fibre_to_master_frame(fibre_name: str):
         raise ValueError("Pixel is out of bounds.")
 
     return (round(x_mf, 1), round(z_mf, 1))
+
+
+def calculate_position_angle(ra: float, dec: float, obstime: astropy.time.Time | str):
+    """Calculates the position angle seen for a set of coordinates.
+
+    Parameters
+    ---------
+    ra
+        The RA of the centre of the field.
+    dec
+        The Dec of the centre of the field.
+    obstime
+        The time of the observation. Either an ISOT string or an astropy time
+        object.
+
+    Returns
+    -------
+    ph
+        The position angle. In an image this is the angle between North and the
+        y direction, with positive angles being CCW.
+
+    """
+
+    site = astropy.coordinates.EarthLocation.of_site("Las Campanas Observatory")
+
+    if isinstance(obstime, str):
+        obstime = astropy.time.Time(obstime, format="isot")
+
+    assert isinstance(obstime, astropy.time.Time)
+
+    obstime.location = site
+
+    lst = obstime.sidereal_time("mean")
+
+    ha = lst.deg - ra
+
+    ha_r = numpy.radians(ha)
+    lat_r = numpy.radians(site.lat.deg)
+    dec_r = numpy.radians(dec)
+
+    par = numpy.arctan2(
+        numpy.sin(ha_r),
+        numpy.cos(dec_r) * numpy.tan(lat_r) - numpy.sin(dec_r) * numpy.cos(ha_r),
+    )
+
+    return numpy.degrees(par)
+
+
+def calculate_field_angle(
+    ra: float,
+    dec: float,
+    obstime: str | astropy.time.Time | None = None,
+):
+    """Returns the field angle for a set of coordinates.
+
+    Parameters
+    ---------
+    ra
+        The RA of the centre of the field.
+    dec
+        The Dec of the centre of the field.
+    obstime
+        The time of the observation. Either an ISOT string or an astropy time
+        object.
+
+    Returns
+    -------
+    fa
+        The field angle. See `.Siderostat.field_angle` for details.
+
+    """
+
+    if isinstance(obstime, str):
+        obstime = astropy.time.Time(obstime, format="isot")
+    elif obstime is None:
+        obstime = astropy.time.Time.now()
+
+    assert isinstance(obstime, astropy.time.Time)
+    print(obstime)
+
+    siderostat = Siderostat()
+    target = astropy.coordinates.SkyCoord(ra=ra, dec=dec, unit="deg", frame="icrs")
+
+    return siderostat.field_angle(target, time=obstime)
+
+
+class Siderostat:
+    """A siderostat of 2 mirrors.
+
+    Adapted from https://github.com/sdss/lvmtipo/blob/main/python/lvmtipo/siderostat.py
+
+    Parameters
+    ----------
+
+    zenang
+        Zenith angle of the direction of the exit beam (degrees) in the range
+        0..180. Default is the design value of the LVMT: horizontal
+    azang
+        Azimuth angle of the direction of the exit beam (degrees) in the range
+        -180..360 degrees, N=0, E=90.
+        Ought to be zero for the LCO LVMT where the FP is north of the
+        siderostat and 180 for the MPIA test setup where the FP is
+        south of the siderostat. The default is the angle for LCO.
+    medSign
+        Sign of the meridian flip design of the mechanics.
+        Must be either +1 or -1. Default is the LCO LVMT design as build (in newer
+        but not the older documentation).
+    m1m2dist
+        Distance between the centers of M1 and M2 in millimeter.
+        The default value is taken from ``LVM-0098_Sky Baffle Design``
+        of 2022-04-18 by subracting the 84 and 60 cm distance of the
+        output pupils to M1 and M2.
+    om2_off_ang
+        The offset angle which aligns PW motor angle of the M2 axis,
+        which is ax0 of the PW GUI, to the angles of the manuscript.
+    om1_off_ang
+        The offset angle which aligns PW motor angle of the M1 axis,
+        which is ax1 of the PW GUI, to the angles of the manuscript, degrees.
+        ``om1_off_ang`` and ``om2_off_ang`` are either angles in degrees or
+        both ``astropy.coordinates.Angle``.
+
+    """
+
+    def __init__(
+        self,
+        zenang: float = 90.0,
+        azang: float = 0.0,
+        medSign: int = -1,
+        m1m2dist: float = 240.0,
+        om1_off_ang: float | Angle = 118.969,
+        om2_off_ang: float | Angle = -169.752,
+    ):
+        # the vector b[0..2] is the three cartesian coordinates
+        # of the beam after leaving M2 in the topocentric horizontal system.
+        # b[0] is the coordinate along E, b[1] along N and b[2] up.
+        if isinstance(zenang, (int, float)) and isinstance(azang, (int, float)):
+            self.b = numpy.zeros((3))
+            self.b[0] = math.sin(math.radians(azang)) * math.sin(math.radians(zenang))
+            self.b[1] = math.cos(math.radians(azang)) * math.sin(math.radians(zenang))
+            self.b[2] = math.cos(math.radians(zenang))
+        else:
+            raise TypeError("Invalid data types.")
+
+        self.m1m2len = m1m2dist
+
+        if isinstance(medSign, int):
+            if medSign in (1, -1):
+                self.sign = medSign
+            else:
+                raise ValueError("Invalid medSign value.")
+        else:
+            raise TypeError("Invalid medSign data type.")
+
+        # axes orthogonal to beam. box points essentially to the zenith
+        # and boy essentially to the East (at LCO) resp West (at MPIA)
+        self.box = numpy.zeros((3))
+        self.box[0] = 0.0
+        self.box[1] = -self.b[2]
+        self.box[2] = self.b[1]
+        self.boy = numpy.cross(self.b, self.box)
+
+        # The 3x3 B-matrix converts a (x,y,z) vector on the unit spehre
+        # which is a direction from the observer to the star in alt-az (horizontal)
+        # coordinates (x points East, y to the North and z to the zenith)
+        # into a vector on the unit sphere where the two PW motor angles (and offsets)
+        # play the role of the azimuth and polar angles.
+        # See https://www.mpia.de/~mathar/public/mathar20201208.pdf
+
+        bproj = math.hypot(self.b[1], self.b[2])  # sqrt(by^2+bz^2)
+
+        self.B = numpy.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=numpy.double)
+        self.B[0][0] = -self.sign * bproj
+        self.B[0][1] = self.sign * self.b[0] * self.b[1] / bproj
+        self.B[0][2] = self.sign * self.b[0] * self.b[2] / bproj
+        self.B[1][0] = 0
+        self.B[1][1] = -self.sign * self.b[2] / bproj
+        self.B[1][2] = self.sign * self.b[1] / bproj
+        self.B[2][0] = self.b[0]
+        self.B[2][1] = self.b[1]
+        self.B[2][2] = self.b[2]
+
+        if isinstance(om1_off_ang, Angle) and isinstance(om2_off_ang, Angle):
+            self.pw_ax_off = [om1_off_ang.radian, om2_off_ang.radian]  # type: ignore
+        else:
+            self.pw_ax_off = [math.radians(om1_off_ang), math.radians(om2_off_ang)]
+
+    def field_angle(
+        self,
+        target: astropy.coordinates.SkyCoord,
+        time: astropy.time.Time | str | None = None,
+    ):
+        """Determines the field angle (direction to NCP).
+
+        Parameters
+        ----------
+        target
+            Sidereal target in ra/dec.
+        time
+            Time of the observation.
+
+        Returns
+        -------
+        field_angle
+            Field angle (direction to NCP) in degrees.
+
+        """
+
+        if isinstance(time, astropy.time.Time):
+            pass
+        elif isinstance(time, str):
+            time = astropy.time.Time(time, format="isot", scale="utc")
+        elif time is None:
+            time = astropy.time.Time.now()
+
+        # Compute mirror positions
+        site = astropy.coordinates.EarthLocation.of_site("Las Campanas Observatory")
+
+        assert isinstance(astropy.units.Pa, astropy.units.Unit)
+        assert isinstance(astropy.units.um, astropy.units.Unit)
+
+        pres = 101300 * math.exp(-site.height.value / 8135.0) * astropy.units.Pa
+
+        altaz = astropy.coordinates.AltAz(
+            location=site,
+            obstime=time,
+            pressure=pres,
+            temperature=15 * astropy.units.deg_C,
+            relative_humidity=0.5,
+            obswl=0.5 * astropy.units.um,
+        )
+
+        horiz = target.transform_to(altaz)
+
+        assert isinstance(horiz.az, astropy.coordinates.Angle)
+        assert isinstance(horiz.alt, astropy.coordinates.Angle)
+
+        star = numpy.zeros((3))
+
+        # Same procedure as in the construction of b in the Sider ctor,
+        # but with 90-zenang=alt
+        star[0] = math.sin(horiz.az.radian) * math.cos(horiz.alt.radian)
+        star[1] = math.cos(horiz.az.radian) * math.cos(horiz.alt.radian)
+        star[2] = math.sin(horiz.alt.radian)
+
+        # unit vector from M2 to M1
+        # we're not normalizing to self.m1m2len but keeping the vector
+        # m2tom1 at length 1 to simplify the later subtractions to compute
+        # normal vectors from other unit vector
+        m2tom1 = numpy.cross(star, self.b)
+        vlen = numpy.linalg.norm(m2tom1)
+        m2tom1 /= self.sign * vlen
+
+        # surface normal to M1 (not normalized to 1)
+        m1norm = star - m2tom1
+        # the orthogonal distance of the points of M1 to the origin
+        # of coordinates are implied by the m1norm direction and
+        # the fact that m2tom1 is on the surface. So the homogeneous
+        # coordinate equation applied to m2tom1 should yield m2tom1 itself.
+        # This requires (m2tom1 . m1norm -d) * n1morm=0 where dots are dot products.
+        # the latter dot product actually requires a normalized m1norm
+        vlen = numpy.linalg.norm(m1norm)
+        m1norm /= vlen
+        m1 = Mirror(m1norm, numpy.dot(m2tom1, m1norm))
+
+        # surface normal to M2 (not normalized to 1)
+        m2norm = self.b + m2tom1
+        m2 = Mirror(m2norm, 0.0)
+
+        # transformation matrix for the 2 reflections individually and in series
+        m1trans = m1.to_hom_trans()
+        m2trans = m2.to_hom_trans()
+        trans = m2trans.multiply(m1trans)
+
+        # for the field angle need a target that is just a little bit
+        # more north (but not too little to avoid loss of precision)
+        # 10 arcmin = 0.16 deg further to NCP
+        targNcp = target.spherical_offsets_by(Angle("0deg"), Angle("0.16deg"))
+        horizNcp = targNcp.transform_to(altaz)
+
+        starNcp = numpy.zeros((3))
+
+        # same procedure as in the construction of b in the Sider ctor,
+        # but with 90 minus zenith angle=altitude
+
+        assert isinstance(horizNcp.az, astropy.coordinates.Angle)
+        assert isinstance(horizNcp.alt, astropy.coordinates.Angle)
+
+        starNcp[0] = math.sin(horizNcp.az.radian) * math.cos(horizNcp.alt.radian)
+        starNcp[1] = math.cos(horizNcp.az.radian) * math.cos(horizNcp.alt.radian)
+        starNcp[2] = math.sin(horizNcp.alt.radian)
+
+        # image of targNcp while hitting M1
+        m1img = trans.apply(m2tom1)
+
+        # image of targNcp before arriving at M1
+        star_off_m1 = m2tom1 + starNcp
+
+        starimg = trans.apply(star_off_m1)
+
+        # virtual direction of ray as seen from point after M2
+        # no need to normalize this because the atan2 will do...
+        # sign was wrong until 2022-11-19: we need to take the direction
+        # from the on-axis star (m1img) to the off-axis start (starimg).
+        starvirt = starimg - m1img
+
+        # project in a plane orthogonal to  self.b
+        cos_fang = numpy.dot(starvirt, self.box)
+        sin_fang = numpy.dot(starvirt, self.boy)
+
+        return numpy.degrees(math.atan2(sin_fang, cos_fang))
+
+
+class HomTrans:
+    """A single affine coordinate transformation.
+
+    Represented internally by a 4x4 matrix as a projective.
+
+    From https://github.com/sdss/lvmtipo/blob/main/python/lvmtipo/homtrans.py
+
+    """
+
+    def __init__(self, entries: numpy.ndarray):
+        if isinstance(entries, numpy.ndarray):
+            self.matr = entries
+        else:
+            self.matr = numpy.array(entries, numpy.double)
+
+    def multiply(self, rhs: HomTrans | numpy.ndarray):
+        """Multiplies by another transformation.
+
+        Parameters
+        ----------
+        rhs
+            The transformation to the right of the multiplication
+            sign. So rhs is applied before this transformation.
+
+        Returns
+        -------
+        hom_trans
+         The homogeneous transformation which is the (non-communtative)
+         product of self with rhs, representing the consecutive
+         application of rhs, then self.
+
+        """
+
+        if isinstance(rhs, HomTrans):
+            prod = numpy.matmul(self.matr, rhs.matr)
+            return HomTrans(prod)
+        elif isinstance(rhs, numpy.ndarray):
+            prod = numpy.matmul(self.matr, rhs)
+            return HomTrans(prod)
+
+        raise TypeError("Invalid data types")
+
+    def apply(self, rhs: numpy.ndarray):
+        """Apply self transformation to a vector of coordinates.
+        Parameters
+        ----------
+        rhs
+            The vector. If it has only the standard 3 coordinates,
+            a virtual 1 is appended before applying the transformation.
+
+        Returns
+        -------
+        vector
+            A vector of 3 (standard, projected) Cartesian coordinates.
+
+        """
+
+        if isinstance(rhs, numpy.ndarray):
+            if rhs.ndim == 1:
+                if rhs.shape[0] == 4:
+                    prod = numpy.dot(self.matr, rhs)
+                elif rhs.shape[0] == 3:
+                    w = numpy.append(rhs, [1])
+                    prod = numpy.dot(self.matr, w)
+                else:
+                    raise TypeError("Vector has invalid length.")
+
+                prod /= prod[3]
+
+                return numpy.array([prod[0], prod[1], prod[2]], numpy.double)
+
+            raise TypeError("rhs not  a vector")
+        raise TypeError("rhs not numpy array")
+
+
+class Mirror:
+    """A flat mirror.
+
+    This represents an infintely large flat plane. The internal representation is the
+    surface normal and the standard equation that the dot product of points on the
+    surface by the surface normal equals the distance (of the plane to the origin of
+    coordinates).
+
+    From https://github.com/sdss/lvmtipo/blob/main/python/lvmtipo/mirror.py
+
+    Parameters
+    ----------
+    normal
+        The 3 Cartesian coordinates of the surface normal. It must have nonzero
+        length, but does not need to be normalized to unit length.
+    disttoorg
+        The distance of the mirror to the origin of coordinates.
+        As in usual geometry, the distance is the shortest distance of the origin
+        to the infinitely extended mirror plane.
+
+    """
+
+    def __init__(self, normal: numpy.ndarray, disttoorg: float):
+        if isinstance(normal, numpy.ndarray) and isinstance(disttoorg, (int, float)):
+            self.d = float(disttoorg)
+            if normal.ndim == 1 and normal.shape[0] == 3:
+                vlen = numpy.linalg.norm(normal)
+                normal /= vlen
+                self.n = normal
+            else:
+                raise TypeError("invalid data types")
+        else:
+            raise TypeError("invalid data types")
+
+    def to_hom_trans(self):
+        """The homogeneous transformation that represents the reflection
+        of rays off this mirror surface.
+
+        """
+
+        matr = numpy.zeros((4, 4))
+
+        for r in range(4):
+            for c in range(4):
+                if r == c:
+                    matr[r, c] += 1.0
+                if r < 3:
+                    if c < 3:
+                        matr[r, c] -= 2.0 * self.n[r] * self.n[c]
+                    else:
+                        matr[r, c] = 2.0 * self.d * self.n[r]
+
+        return HomTrans(matr)
