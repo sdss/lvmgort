@@ -50,7 +50,6 @@ class GortObserver:
         self.mask_positions = self._get_mask_positions(mask_positions_pattern)
 
         self.guide_task: asyncio.Future | None = None
-        self.kmirror_monitor_task: asyncio.Task | None = None
 
     def __repr__(self):
         return f"<GortObserver (tile_id={self.tile.tile_id})>"
@@ -104,10 +103,6 @@ class GortObserver:
 
         # Execute.
         await asyncio.gather(*cotasks)
-
-        # Start monitoring the k-mirrors
-        self.write_to_log("Starting the k-mirror monitor task.")
-        self.kmirror_monitor_task = asyncio.create_task(self.kmirror_monitor())
 
     async def acquire(self, guide_tolerance: float = 3, timeout: float = 180):
         """Acquires the field in all the telescopes. Blocks until then.
@@ -210,8 +205,6 @@ class GortObserver:
             self.write_to_log("Stopping guide loops.", "warning")
             await self.gort.guiders.stop()
 
-            await cancel_task(self.kmirror_monitor_task)
-
             raise
 
         self.write_to_log("All telescopes are now guiding.")
@@ -293,36 +286,6 @@ class GortObserver:
         if self.guide_task is not None and not self.guide_task.done():
             await self.gort.guiders.stop()
             await self.guide_task
-
-        await cancel_task(self.kmirror_monitor_task)
-
-    async def kmirror_monitor(self):
-        """HACK: Monitors the k-mirrors and reissues the slew command if needed."""
-
-        await asyncio.sleep(30)
-
-        while True:
-            for tel in ["sci", "skye", "skyw"]:
-                if self.tile[tel] is None:
-                    continue
-
-                coords = self.tile[tel]
-                assert coords is not None and isinstance(coords, Coordinates)
-
-                km = self.gort.telescopes[tel].km
-                assert km is not None
-
-                try:
-                    await km.slew(ra=coords.ra, dec=coords.dec)
-                except Exception as err:
-                    self.write_to_log(
-                        f"Failed checking {tel} km status: {err}",
-                        "warning",
-                    )
-
-                await asyncio.sleep(5)
-
-            await asyncio.sleep(60)
 
     def write_to_log(
         self,
