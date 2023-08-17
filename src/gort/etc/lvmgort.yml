@@ -31,7 +31,7 @@ telescopes:
       moveRelative: 30
       moveToHome: 60
   kmirror:
-    seg_time: 1
+    seg_time: 5
     seg_min_num: 20
   pointing_offsets:
     sci: [0, 0]
