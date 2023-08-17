@@ -627,3 +627,8 @@ class Gort(GortClient):
         """Executes the `shutdown <.ShutdownRecipe>` sequence."""
 
         return await self.execute_recipe("shutdown", **kwargs)
+
+    async def cleanup(self, readout: bool = True):
+        """Executes the `shutdown <.CleanupRecipe>` sequence."""
+
+        return await self.execute_recipe("cleanup", readout=readout)

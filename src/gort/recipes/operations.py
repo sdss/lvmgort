@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from typing import TYPE_CHECKING, Literal
 
 from rich.prompt import Confirm
@@ -16,10 +18,10 @@ from .base import BaseRecipe
 
 
 if TYPE_CHECKING:
-    pass
+    from gort.devices.spec import Spectrograph
 
 
-__all__ = ["StartupRecipe", "ShutdownRecipe"]
+__all__ = ["StartupRecipe", "ShutdownRecipe", "CleanupRecipe"]
 
 
 OPEN_DOME_MESSAGE = """Do not open the dome if you have not checked the following:
@@ -138,3 +140,57 @@ class ShutdownRecipe(BaseRecipe):
         if park_telescopes:
             self.gort.log.info("Parking telescopes for the night.")
             await self.gort.telescopes.park()
+
+
+class CleanupRecipe(BaseRecipe):
+    """Stops guiders, aborts exposures, and makes sure the system is ready to go."""
+
+    name = "cleanup"
+
+    async def recipe(self, readout: bool = True):
+        """Runs the cleanup recipe.
+
+        Parameters
+        ----------
+        readout
+            If the spectrographs are idle and with a readout pending,
+            reads the spectrographs.
+
+        """
+
+        self.gort.log.info("Stopping the guiders.")
+        await self.gort.guiders.stop(now=True)
+
+        if not self.gort.specs.are_idle():
+            cotasks = []
+
+            for spec in self.gort.specs.values():
+                status = await spec.status()
+                names = status["status_names"]
+
+                if await spec.is_reading():
+                    self.gort.log.warning(f"{spec.name} is reading. Waiting.")
+                    cotasks.append(self._wait_until_spec_is_idle(spec))
+                elif await spec.is_exposing():
+                    self.gort.log.warning(f"{spec.name} is exposing. Aborting.")
+                    cotasks.append(spec.abort())
+                elif "IDLE" in names and "READOUT_PENDING" in names:
+                    msg = f"{spec.name} has a pending exposure."
+                    if readout is False:
+                        self.gort.log.warning(f"{msg} Aborting it.")
+                        cotasks.append(spec.abort())
+                    else:
+                        self.gort.log.warning(f"{msg} Reading it.")
+                        cotasks.append(spec.actor.commands.read())
+                        cotasks.append(self._wait_until_spec_is_idle(spec))
+
+            await asyncio.gather(*cotasks)
+
+    async def _wait_until_spec_is_idle(self, spec: Spectrograph):
+        """Waits until an spectrograph is idle."""
+
+        while True:
+            if await spec.is_idle():
+                return
+
+            await asyncio.sleep(3)

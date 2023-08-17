@@ -398,6 +398,8 @@ class Guider(GortDevice):
                     await self.stop(now=True)
                     return
 
+        self.status = GuiderStatus.IDLE
+
     async def set_pixel(self, pixel: tuple[float, float] | str | None = None):
         """Sets the master frame pixel on which to guide.
 
