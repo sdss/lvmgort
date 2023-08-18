@@ -404,7 +404,6 @@ def calculate_field_angle(
         obstime = astropy.time.Time.now()
 
     assert isinstance(obstime, astropy.time.Time)
-    print(obstime)
 
     siderostat = Siderostat()
     target = astropy.coordinates.SkyCoord(ra=ra, dec=dec, unit="deg", frame="icrs")
