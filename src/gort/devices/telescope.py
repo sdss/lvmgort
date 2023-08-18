@@ -151,8 +151,8 @@ class KMirror(MoTanDevice):
         await self.actor.commands.slewStart(
             ra / 15.0,
             dec,
-            seg_time=self.gort.config['telescopes']['kmirror']['seg_time'],
-            seg_min_num=self.gort.config['telescopes']['kmirror']['seg_min_num'],
+            seg_time=self.gort.config["telescopes"]["kmirror"]["seg_time"],
+            seg_min_num=self.gort.config["telescopes"]["kmirror"]["seg_min_num"],
             timeout=self.timeouts["slewStart"],
         )
 
@@ -552,7 +552,7 @@ class Telescope(GortDevice):
             )
 
         kmirror_task: asyncio.Task | None = None
-        if kmirror and self.km and ra and dec:
+        if kmirror and self.km and ra is not None and dec is not None:
             kmirror_task = asyncio.create_task(self.km.slew(ra, dec))
 
         # Commanded and reported coordinates. To be used to check if we reached
