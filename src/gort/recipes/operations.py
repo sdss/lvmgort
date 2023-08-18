@@ -159,7 +159,7 @@ class CleanupRecipe(BaseRecipe):
         """
 
         self.gort.log.info("Stopping the guiders.")
-        await self.gort.guiders.stop(now=True)
+        await self.gort.guiders.stop(now=False)
 
         if not (await self.gort.specs.are_idle()):
             cotasks = []
