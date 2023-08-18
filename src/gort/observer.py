@@ -75,9 +75,9 @@ class GortObserver:
 
             # For spec we slew to the fibre with which we'll observe first.
             # This should save a bit of time converging.
-            spec_target = (first_spec.ra, first_spec.dec)
             spec = fibre_slew_coordinates(
-                *spec_target,
+                first_spec.ra,
+                first_spec.dec,
                 self.mask_positions[0],
                 derotated=False,
             )
