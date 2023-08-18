@@ -576,6 +576,9 @@ class Gort(GortClient):
         # Create observer.
         observer = GortObserver(self, tile)
 
+        # Run the cleanup routine to be extra sure.
+        await self.cleanup()
+
         try:
             # Slew telescopes and move fibsel mask.
             await observer.slew()
