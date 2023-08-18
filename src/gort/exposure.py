@@ -177,6 +177,7 @@ class Exposure(asyncio.Future["Exposure"]):
             if not async_readout:
                 await readout_task
                 await monitor_task
+                self.spec_set.write_to_log(f"Exposure {self.exp_no} completed.")
             else:
                 await self.stop_timer()
                 self.spec_set.write_to_log("Returning with async readout ongoing.")
@@ -242,9 +243,10 @@ class Exposure(asyncio.Future["Exposure"]):
         exposure_time: float,
         readout_time: float = READOUT_TIME,
     ):
-        """Starts the tqdm timer."""
+        """Starts the rich timer."""
 
         self._progress = Progress(
+            TextColumn(f"[yellow]({self.exp_no})"),
             TextColumn("[progress.description]{task.description}"),
             BarColumn(bar_width=None),
             MofNCompleteColumn(),
@@ -256,14 +258,19 @@ class Exposure(asyncio.Future["Exposure"]):
         )
 
         exp_task = self._progress.add_task(
-            "[green]Integrating ...",
+            "[blue] Integrating ...",
             total=int(exposure_time),
+        )
+
+        readout_task = self._progress.add_task(
+            "[blue] Reading ...",
+            total=int(readout_time),
+            visible=False,
         )
 
         self._progress.start()
 
         async def update_timer():
-            readout_task = None
             elapsed = 0
             while True:
                 if elapsed > exposure_time + readout_time:
@@ -273,19 +280,22 @@ class Exposure(asyncio.Future["Exposure"]):
                 elif elapsed < exposure_time:
                     self._progress.update(exp_task, advance=1)
                 else:
-                    if readout_task is None:
-                        readout_task = self._progress.add_task(
-                            "[red]Reading ...",
-                            total=int(readout_time),
-                        )
-                    self._progress.update(exp_task, completed=int(exposure_time))
-                    self._progress.update(readout_task, advance=1)
+                    self._progress.update(
+                        exp_task,
+                        description="[green] Integration complete",
+                        completed=int(exposure_time),
+                    )
+                    self._progress.update(readout_task, advance=1, visible=True)
 
                 await asyncio.sleep(1)
                 elapsed += 1
 
             if self._progress and readout_task:
-                self._progress.update(readout_task, completed=int(readout_time))
+                self._progress.update(
+                    readout_task,
+                    completed=int(readout_time),
+                    description="[green] Readout complete",
+                )
 
         def done_timer(*_):
             if self._progress:
