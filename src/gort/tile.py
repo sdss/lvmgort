@@ -17,6 +17,7 @@ from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.time import Time
 from httpx import RequestError
 
+from gort import config
 from gort.exceptions import GortNotImplemented, GortWarning, TileError
 from gort.tools import get_calibrators_sync, get_db_connection, get_next_tile_id_sync
 from gort.transforms import fibre_to_master_frame
@@ -72,7 +73,8 @@ class Coordinates:
 
         if time is None:
             time = Time.now()
-        location = EarthLocation.of_site("Las Campanas Observatory")
+
+        location = EarthLocation.from_geodetic(**config["site"])
 
         sc = self.skycoord.copy()
         sc.obstime = time
@@ -172,7 +174,8 @@ class QuerableCoordinates(Coordinates):
 
         # Exclude targets that are too low.
         if exclude_invisible:
-            skycoords.location = EarthLocation.of_site("Las Campanas Observatory")
+            skycoords.location = EarthLocation.from_geodetic(**config["site"])
+
             skycoords.obstime = Time.now()
             altaz_skycoords = skycoords.transform_to("altaz")
             skycoords = skycoords[altaz_skycoords.alt.deg > 30]
