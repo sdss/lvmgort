@@ -83,7 +83,6 @@ class KMirror(MoTanDevice):
             raise GortTelescopeError("Device is not reachable.")
 
         await self.slew_delay()
-        # await self.actor.commands.slewStop(timeout=self.timeouts["slewStop"])
 
         self.write_to_log("Homing k-mirror.", level="info")
         await self.actor.commands.moveToHome(timeout=self.timeouts["moveToHome"])
@@ -126,7 +125,7 @@ class KMirror(MoTanDevice):
             timeout=self.timeouts["moveAbsolute"],
         )
 
-    async def slew(self, ra: float, dec: float):
+    async def slew(self, ra: float, dec: float, offset_angle: float = 0.0):
         """Moves the mirror to the position for ``ra, dec`` and starts slewing.
 
         Parameters
@@ -135,6 +134,8 @@ class KMirror(MoTanDevice):
             Right ascension of the field to track, in degrees.
         dec
             Declination of the field to track, in degrees.
+        offset_angle
+            Derotation offset in degrees.
 
         """
 
@@ -153,6 +154,7 @@ class KMirror(MoTanDevice):
             dec,
             seg_time=self.gort.config["telescopes"]["kmirror"]["seg_time"],
             seg_min_num=self.gort.config["telescopes"]["kmirror"]["seg_min_num"],
+            offset_angle=offset_angle,
             timeout=self.timeouts["slewStart"],
         )
 
