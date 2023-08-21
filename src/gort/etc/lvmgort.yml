@@ -173,7 +173,7 @@ ags:
       actor: lvm.skyw.agcam
 
 enclosure:
-  bypass_local_mode: True
+  bypass_local_mode: False
 
 recipes:
   startup:
