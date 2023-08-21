@@ -45,6 +45,8 @@ class Coordinates:
         The RA coordinate, in degrees. FK5 frame at the epoch of observation.
     dec
         The Dec coordinate, in degrees.
+    pa
+        Position angle of the IFU. Defaults to PA=0.
     centre_on_fibre
         The name of the fibre on which to centre the target, with the format
         ``<ifulabel>-<finufu>``. By default, acquires the target on the central
@@ -52,9 +54,17 @@ class Coordinates:
 
     """
 
-    def __init__(self, ra: float, dec: float, centre_on_fibre: str | None = None):
+    def __init__(
+        self,
+        ra: float,
+        dec: float,
+        pa: float | None = None,
+        centre_on_fibre: str | None = None,
+    ):
         self.ra = ra
         self.dec = dec
+        self.pa = pa if pa is not None else 0.0
+
         self.skycoord = SkyCoord(ra=ra, dec=dec, unit="deg", frame="fk5")
 
         self.centre_on_fibre = centre_on_fibre
@@ -63,10 +73,13 @@ class Coordinates:
         self._mf_pixel = self.set_mf_pixel(centre_on_fibre)
 
     def __repr__(self):
-        return f"<{self.__class__.__name__} (ra={self.ra:.6f}, dec={self.dec:.6f})>"
+        return (
+            f"<{self.__class__.__name__} "
+            f"(ra={self.ra:.6f}, dec={self.dec:.6f}, pa={self.pa:.3f})>"
+        )
 
     def __str__(self):
-        return f"{self.ra:.6f}, {self.dec:.6f}"
+        return f"{self.ra:.6f}, {self.dec:.6f}, {self.pa:.3f}"
 
     def calculate_altitude(self, time: Time | None = None):
         """Returns the current altitude of the target."""
@@ -218,6 +231,13 @@ class ScienceCoordinates(Coordinates):
         The RA coordinate, in degrees. FK5 frame at the epoch of observation.
     dec
         The Dec coordinate, in degrees.
+    pa
+        Position angle of the IFU. Defaults to PA=0.
+    centre_on_fibre
+        The name of the fibre on which to centre the target, with the format
+        ``<ifulabel>-<finufu>``. By default, acquires the target on the central
+        fibre of the science IFU.
+
     """
 
 
@@ -283,8 +303,11 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         return (
             "<Tile "
             f"(tile_id={self.tile_id}, "
-            f"science ra={self.sci_coords.ra:.6f}, dec={self.sci_coords.dec:.6f}; "
-            f"n_skies={len(self.sky_coords)}; n_standards={len(self.spec_coords)})>"
+            f"science ra={self.sci_coords.ra:.6f}, "
+            f"dec={self.sci_coords.dec:.6f}, "
+            f"pa={self.sci_coords.pa:.3f}; "
+            f"n_skies={len(self.sky_coords)}; "
+            f"n_standards={len(self.spec_coords)})>"
         )
 
     @property
@@ -345,6 +368,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         cls,
         ra: float,
         dec: float,
+        pa: float = 0.0,
         sky_coords: dict[str, SkyCoordinates | CoordTuple] | None = None,
         spec_coords: list[StandardCoordinates | CoordTuple] | None = None,
         **kwargs,
@@ -353,8 +377,10 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
 
         Parameters
         ----------
-        sci_coords
+        ra,dec
             The science telescope pointing.
+        pa
+            Position angle of the science IFU. Defaults to PA=0.
         sky_coords
             A dictionary of ``skye`` and ``skyw`` coordinates. If `None`,
             autocompleted from the closest available regions.
@@ -366,7 +392,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
 
         """
 
-        sci_coords = ScienceCoordinates(ra, dec)
+        sci_coords = ScienceCoordinates(ra, dec, pa=pa)
 
         if sky_coords is None:
             exclude_coordinates: list[CoordTuple] = []
@@ -404,6 +430,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         tile_id: int | None = None,
         ra: float | None = None,
         dec: float | None = None,
+        pa: float = 0.0,
         **kwargs,
     ):
         """Creates a new instance of :obj:`.Tile` with data from the scheduler.
@@ -419,6 +446,8 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             Calibrators will be selected from the scheduler.
         dec
             Declination coordinates of the science telescope pointing.
+        pa
+            Position angle of the science IFU. Defaults to PA=0.
         kwargs
             Arguments to be passed to the initialiser.
 
@@ -437,9 +466,9 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         elif tile_id is not None:
             raise GortNotImplemented("Initialising from a tile_id is not supported.")
 
-        elif tile_id is None and (ra is not None and dec is not None):
+        elif not tile_id and (ra is not None and dec is not None):
             tile_id = None
-            sci_pos = (ra, dec)
+            sci_pos = (ra, dec, pa)
             dither_pos = 0
 
         else:

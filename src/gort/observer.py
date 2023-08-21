@@ -57,20 +57,22 @@ class GortObserver:
     async def slew(self):
         """Slew to the telescope fields."""
 
+        tile = self.tile
+
         cotasks = []
 
         # Stops guiders.
         await self.gort.guiders.stop()
 
         # Slew telescopes.
-        self.write_to_log(f"Slewing to tile_id={self.tile.tile_id}.", level="info")
+        self.write_to_log(f"Slewing to tile_id={tile.tile_id}.", level="info")
 
-        sci = (self.tile.sci_coords.ra, self.tile.sci_coords.dec)
-        self.write_to_log(f"Science: {str(self.tile.sci_coords)}")
+        sci = (tile.sci_coords.ra, tile.sci_coords.dec, tile.sci_coords.pa)
+        self.write_to_log(f"Science: {str(tile.sci_coords)}")
 
         spec = None
-        if self.tile.spec_coords and len(self.tile.spec_coords) > 0:
-            first_spec = self.tile.spec_coords[0]
+        if tile.spec_coords and len(tile.spec_coords) > 0:
+            first_spec = tile.spec_coords[0]
 
             # For spec we slew to the fibre with which we'll observe first.
             # This should save a bit of time converging.
@@ -82,8 +84,8 @@ class GortObserver:
 
         sky = {}
         for skytel in ["SkyE", "SkyW"]:
-            if skytel.lower() in self.tile.sky_coords:
-                sky_coords_tel = self.tile.sky_coords[skytel.lower()]
+            if skytel.lower() in tile.sky_coords:
+                sky_coords_tel = tile.sky_coords[skytel.lower()]
                 if sky_coords_tel is not None:
                     sky[skytel.lower()] = (sky_coords_tel.ra, sky_coords_tel.dec)
                     self.write_to_log(f"{skytel}: {sky_coords_tel}")
