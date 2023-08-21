@@ -394,27 +394,22 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
 
         sci_coords = ScienceCoordinates(ra, dec, pa=pa)
 
+        calibrators: dict | None = None
+        if sky_coords is None or spec_coords is None:
+            calibrators = get_calibrators_sync(ra=ra, dec=dec)
+
         if sky_coords is None:
-            exclude_coordinates: list[CoordTuple] = []
+            assert calibrators is not None
             sky_coords = {}
-            for telescope in ["skye", "skyw"]:
-                coords = SkyCoordinates.from_science_coordinates(
-                    sci_coords,
-                    exclude_coordinates=exclude_coordinates,
-                )
-                sky_coords[telescope] = coords
-                exclude_coordinates.append((coords.ra, coords.dec))
+            sky_coords["skye"] = SkyCoordinates(*calibrators["sky_pos"][0])
+            sky_coords["skyw"] = SkyCoordinates(*calibrators["sky_pos"][1])
 
         if spec_coords is None:
-            exclude_coordinates: list[CoordTuple] = []
+            assert calibrators is not None
             spec_coords = []
-            for _ in range(12):
-                coords = StandardCoordinates.from_science_coordinates(
-                    sci_coords,
-                    exclude_coordinates=exclude_coordinates,
-                )
+            for ii in range(12):
+                coords = StandardCoordinates(*calibrators["standard_pos"][ii])
                 spec_coords.append(coords)
-                exclude_coordinates.append((coords.ra, coords.dec))
 
         return cls(
             sci_coords,

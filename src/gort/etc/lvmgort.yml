@@ -322,7 +322,7 @@ site:
   height: 2282.0
 
 database:
-  host: lvm-webapp.lco.cl
+  host: lv-webapp.lco.cl
   port: 5432
   user: sdss
   database: lvmdb
