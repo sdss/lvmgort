@@ -455,8 +455,8 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
                 raise TileError("Cannot retrieve tile_id from scheduler.")
 
             tile_id = tile_id_data["tile_id"]
-            sci_pos = tile_id_data["tile_pos"][:2]
-            dither_pos = 0
+            sci_pos = tile_id_data["tile_pos"]
+            dither_pos = tile_id_data["dither_pos"]
 
         elif tile_id is not None:
             raise GortNotImplemented("Initialising from a tile_id is not supported.")
