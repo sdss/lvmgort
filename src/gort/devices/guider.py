@@ -362,7 +362,7 @@ class Guider(GortDevice):
         now: bool = False,
         wait_until_stopped: bool = True,
         timeout: float | None = 30,
-    ):
+    ) -> None:
         """Stops the guide loop.
 
         Parameters
