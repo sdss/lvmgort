@@ -15,7 +15,6 @@ import warnings
 
 from typing import TYPE_CHECKING, Awaitable, Callable, Union
 
-import pandas
 from astropy.io import fits
 from astropy.time import Time
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
@@ -23,7 +22,7 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 from sdsstools.time import get_sjd
 
 from gort.exceptions import ErrorCodes, GortSpecError
-from gort.tools import build_guider_reply_list, cancel_task, register_observation
+from gort.tools import cancel_task, register_observation
 
 
 if TYPE_CHECKING:
@@ -137,11 +136,6 @@ class Exposure(asyncio.Future["Exposure"]):
 
         monitor_task: asyncio.Task | None = None
 
-        if self.flavour == "object":
-            guider_task = asyncio.create_task(self._guider_monitor())
-        else:
-            guider_task = None
-
         try:
             self.start_time = Time.now()
 
@@ -156,8 +150,6 @@ class Exposure(asyncio.Future["Exposure"]):
             # At this point we have integrated and are ready to read.
 
             self.reading = True
-
-            await cancel_task(guider_task)
 
             header = header or {}
             if self._update_header_cb is not None:
@@ -203,45 +195,6 @@ class Exposure(asyncio.Future["Exposure"]):
                 self.verify_files()
 
         return self
-
-    async def _guider_monitor(self):
-        """Monitors the guider data and build a data frame."""
-
-        current_data = []
-
-        task = asyncio.create_task(
-            build_guider_reply_list(
-                self.spec_set.gort,
-                current_data,
-            )
-        )
-
-        try:
-            while True:
-                # Just keep the task running.
-                await asyncio.sleep(1)
-
-        except asyncio.CancelledError:
-            await cancel_task(task)
-
-            if len(current_data) > 0:
-                # Build DF with all the frames.
-                df = pandas.DataFrame.from_records(current_data)
-
-                # Group by frameno, keep only non-NaN values.
-                df = df.groupby(["frameno", "telescope"], as_index=False).apply(
-                    lambda g: g.fillna(method="bfill", axis=0).iloc[0, :]
-                )
-
-                # Remove NaN rows.
-                df = df.dropna()
-
-                # Sort by frameno.
-                df = df.sort_values("frameno")
-
-                self.guider_data = df
-
-            return
 
     async def start_timer(
         self,
@@ -397,16 +350,11 @@ class Exposure(asyncio.Future["Exposure"]):
         if self.flavour != "object":
             return
 
-        if self.guider_data is not None and len(self.guider_data.dropna()) > 0:
-            seeing = self.guider_data.dropna().fwhm.mean()
-        else:
-            seeing = -999
-
         self.spec_set.write_to_log("Registering observation.", "info")
         registration_payload = {
             "dither": dither_pos,
             "jd": self.start_time.jd,
-            "seeing": seeing,
+            "seeing": -999.0,
             "standards": [],
             "skies": [],
             "exposure_no": self.exp_no,
@@ -423,31 +371,3 @@ class Exposure(asyncio.Future["Exposure"]):
             self.spec_set.write_to_log(f"Failed registering exposure: {err}", "error")
         else:
             self.spec_set.write_to_log("Registration complete.")
-
-    async def _update_header(self, header: dict[str, Any]):
-        """Updates the exposure header with pointing and guiding information."""
-
-        if self.guider_data is not None:
-            for tel in ["sci", "spec", "skye", "skyw"]:
-                try:
-                    tel_data = self.guider_data.loc[self.guider_data.telescope == tel]
-                    if len(tel_data) < 2:
-                        frame0 = None
-                        framen = None
-                    else:
-                        frame0 = int(tel_data.frameno.min())
-                        framen = int(tel_data.frameno.max())
-
-                    header.update(
-                        {
-                            f"G{tel.upper()}FR0": (frame0, f"{tel} first guider frame"),
-                            f"G{tel.upper()}FRN": (framen, f"{tel} last guider frame"),
-                        }
-                    )
-
-                except Exception as err:
-                    self.spec_set.write_to_log(
-                        f"Failed updating guider header information for {tel}: {err}",
-                        "warning",
-                    )
-                    continue
