@@ -13,7 +13,7 @@ import json
 import pathlib
 import warnings
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Awaitable, Callable, Union
 
 import pandas
 from astropy.io import fits
@@ -34,6 +34,8 @@ __all__ = ["Exposure", "READOUT_TIME"]
 
 
 READOUT_TIME = 51
+
+UPDATE_HEADER_CB_TYPE = Union[Callable[[dict], None], Callable[[dict], Awaitable], None]
 
 
 class Exposure(asyncio.Future["Exposure"]):
@@ -63,8 +65,7 @@ class Exposure(asyncio.Future["Exposure"]):
         self._timer_task: asyncio.Task | None = None
         self._progress: Progress | None = None
 
-        self._guider_task: asyncio.Task | None = None
-        self.guider_data: pandas.DataFrame | None = None
+        self._update_header_cb: UPDATE_HEADER_CB_TYPE = None
 
         super().__init__()
 
@@ -159,7 +160,11 @@ class Exposure(asyncio.Future["Exposure"]):
             await cancel_task(guider_task)
 
             header = header or {}
-            await self._update_header(header)
+            if self._update_header_cb is not None:
+                if asyncio.iscoroutinefunction(self._update_header_cb):
+                    await self._update_header_cb(header)
+                else:
+                    self._update_header_cb(header)
 
             readout_task = asyncio.create_task(
                 self.spec_set._send_command_all(
