@@ -56,6 +56,9 @@ class GortObserver:
         self.guide_task: asyncio.Future | None = None
         self.guider_monitor = GuiderMonitor(self)
 
+        self.has_standards: bool = True
+        self.standards = Standards(self, tile, self.mask_positions)
+
     def __repr__(self):
         return f"<GortObserver (tile_id={self.tile.tile_id})>"
 
@@ -168,6 +171,7 @@ class GortObserver:
 
         if "spec" not in guide_on_telescopes:
             self.write_to_log("No standards defined. Blocking fibre mask.", "warning")
+            self.has_standards = False
             await self.gort.telescopes.spec.fibsel.move_relative(500)
 
         if n_skies == 0:
@@ -221,7 +225,6 @@ class GortObserver:
         self,
         exposure_time: float = 900.0,
         show_progress: bool | None = None,
-        iterate_over_standards: bool = True,
         count: int = 1,
         **kwargs,
     ):
@@ -233,9 +236,6 @@ class GortObserver:
             The length of the exposure in seconds.
         show_progress
             Displays a progress bar with the elapsed exposure time.
-        iterate_over_standards
-            Whether to move the spec telescope during intergration
-            to observe various standard stars in different fibres.
         count
             Number of exposures. If ``iterate_over_standards=True``, a
             full sequence of standards will be observed during each
@@ -266,6 +266,10 @@ class GortObserver:
             if nexp > 1:
                 await self.guider_monitor.restart()
 
+            # Move fibre selector to the first position. Should be there unless
+            # count > 1 in which case we need to move it back.
+            if self.has_standards:
+                await self.standards.start_iterating(exposure_time)
 
             exposure = await self.gort.specs.expose(
                 exposure_time=exposure_time,
@@ -335,10 +339,48 @@ class GortObserver:
 
         return sorted(positions, key=lambda p: mask_config[p])
 
+    async def _get_header(self):
+        """Returns the extra header dictionary from the tile data."""
+
+        tile_id = self.tile.tile_id
+        dither_pos = self.tile.dither_position
+
+        header = {
+            "tile_id": (tile_id or -999, "The tile_id of this observation"),
+            "dpos": (dither_pos, "Dither position"),
+            "poscira": round(self.tile.sci_coords.ra, 6),
+            "poscide": round(self.tile.sci_coords.dec, 6),
+        }
+
+        if self.tile["skye"]:
+            header.update(
+                {
+                    "poskyera": round(self.tile.sky_coords["skye"].ra, 6),
+                    "poskyede": round(self.tile.sky_coords["skye"].dec, 6),
+                }
+            )
+
+        if self.tile["skyw"]:
+            header.update(
+                {
+                    "poskywra": round(self.tile.sky_coords["skyw"].ra, 6),
+                    "poskywde": round(self.tile.sky_coords["skyw"].dec, 6),
+                }
+            )
+
+        return header.copy()
+
     async def _update_header(self, header: dict[str, Any]):
         """Updates the exposure header with pointing and guiding information."""
 
         header.update(self.guider_monitor.to_header())
+
+        # At this point the shutter is closed so let's stop observing standards.
+        # This also finishes updating the standards table.
+        if self.has_standards:
+            await self.standards.cancel()
+            header.update(self.standards.to_header())
+
 
 class GuiderMonitor:
     """Monitors guider exposures."""
@@ -439,6 +481,51 @@ class GuiderMonitor:
 
         return header
 
+
+class Standards:
+    """Iterates over standards and monitors observed standards."""
+
+    def __init__(self, observer: GortObserver, tile: Tile, mask_positions: list[str]):
+        self.observer = observer
+        self.gort = observer.gort
+
+        self.tile = tile
+        self.mask_positions = mask_positions
+
+        self.iterate_task: asyncio.Task | None = None
+
+        self.current_standard: int = 1
+        self.standards = self._get_frame()
+
+    def _get_frame(self):
+        """Constructs the standard data frame."""
+
+        stdn = list(range(1, len(self.tile.spec_coords) + 1))
+        source_id = [cc.source_id for cc in self.tile.spec_coords]
+        ra = [cc.ra for cc in self.tile.spec_coords]
+        dec = [cc.dec for cc in self.tile.spec_coords]
+
+        default = [0] * len(stdn)
+
+        df = pandas.DataFrame(
+            {
+                "n": pandas.Series(stdn, dtype=numpy.int16),
+                "source_id": pandas.Series(source_id, dtype=numpy.int64),
+                "ra": pandas.Series(ra, dtype=numpy.float64),
+                "dec": pandas.Series(dec, dtype=numpy.float64),
+                "acquired": pandas.Series(default, dtype=numpy.int16),
+                "observed": pandas.Series(default, dtype=numpy.int16),
+                "t0": pandas.Series(default, dtype=numpy.float64),
+                "t1": pandas.Series(default, dtype=numpy.float64),
+                "fibre": pandas.Series([""] * len(stdn), dtype=str),
+            }
+        )
+
+        df.set_index("n", inplace=True)
+
+        return df
+
+    async def start_iterating(self, exposure_time: float):
         """Iterates over the fibre mask positions.
 
         Moving the ``spec`` telescope to each one of the standard star,
@@ -446,8 +533,29 @@ class GuiderMonitor:
 
         """
 
-        # TODO: record how long we exposed on each standard and save that
-        # information somewhere.
+        await self.gort.telescopes.spec.fibsel.move_to_position(self.mask_positions[0])
+        await self.cancel()
+
+        self.standards = self._get_frame()
+        self.current_standard = 1
+
+        self.standards.loc[1, "acquired"] = 1
+        self.standards.loc[1, "t0"] = time()
+        self.standards.loc[1, "fibre"] = self.mask_positions[0]
+
+        self.iterate_task = asyncio.create_task(self._iterate(exposure_time))
+
+    async def cancel(self):
+        """Cancels iteration."""
+
+        await cancel_task(self.iterate_task)
+
+        if self.standards.loc[self.current_standard].acquired == 1:
+            self.standards.loc[self.current_standard, "observed"] = 1
+            self.standards.loc[self.current_standard, "t1"] = time()
+
+    async def _iterate(self, exposure_time: float):
+        """Iterate task."""
 
         # Time to acquire a standard.
         ACQ_PER_STD = 30
@@ -472,9 +580,10 @@ class GuiderMonitor:
         # how long we expect to take acquiring.
         time_per_position = exposure_time / n_stds - ACQ_PER_STD
         if time_per_position < 0:
-            self.write_to_log(
+            self.observer.write_to_log(
                 "Exposure time is too short to observe this "
-                "many standards. I will do what I can."
+                "many standards. I will do what I can.",
+                "warning",
             )
             time_per_position = exposure_time / n_stds
 
@@ -494,8 +603,11 @@ class GuiderMonitor:
             # exposure there is no point in going to the next standard.
             t_now = time()
             if t_now - t0 > exposure_time - 2 * ACQ_PER_STD:
-                self.write_to_log("Exiting standard loop.")
-                self.write_to_log(f"Standards observed: {n_observed}/{n_stds}.", "info")
+                self.observer.write_to_log("Exiting standard loop.")
+                self.observer.write_to_log(
+                    f"Standards observed: {n_observed}/{n_stds}.",
+                    "info",
+                )
                 return
 
             # Time to move to another standard?
@@ -505,8 +617,17 @@ class GuiderMonitor:
                 if len(spec_coords) == current_std_idx + 1:
                     continue
 
+                # Moving the mask to an intermediate position while we move around.
+                spec_tel = self.gort.telescopes.spec
+                await spec_tel.fibsel.move_relative(500)
+
+                # Register the previous standard.
+                self.standards.loc[self.current_standard, "t1"] = time()
+                self.standards.loc[self.current_standard, "observed"] = True
+
                 # Increase current index and get coordinates.
                 current_std_idx += 1
+                self.current_standard += 1
 
                 # New coordinates to observe.
                 new_coords = spec_coords[current_std_idx]
@@ -519,16 +640,11 @@ class GuiderMonitor:
                 # precise metrology.
                 new_guider_pixel = guider_pixels[new_mask_position]
 
-                self.write_to_log(
+                self.observer.write_to_log(
                     f"Moving to standard #{current_std_idx+1} ({new_coords}) "
                     f"on fibre {new_mask_position}.",
                     "info",
                 )
-
-                spec_tel = self.gort.telescopes.spec
-
-                # Moving the mask to an intermediate position while we move around.
-                await spec_tel.fibsel.move_relative(500)
 
                 # Slew to new coordinates. We actually slew to the coordinates
                 # that make the new star close to the fibre that will observe it.
@@ -541,7 +657,7 @@ class GuiderMonitor:
                 slew_dec = new_coords.dec
 
                 # Finish guiding on spec telescope.
-                self.write_to_log("Stopping guiding on spec and reslewing.")
+                self.observer.write_to_log("Stopping guiding on spec and reslewing.")
 
                 cotasks = [
                     self.gort.guiders["spec"].stop(),
@@ -552,7 +668,7 @@ class GuiderMonitor:
                 # Start to guide. Note that here we use the original coordinates
                 # of the star along with the pixel on the master frame on which to
                 # guide. See the note in fibre_slew_coordinates().
-                self.write_to_log("Starting to guide on spec telescope.")
+                self.observer.write_to_log("Starting to guide on spec telescope.")
                 asyncio.create_task(
                     self.gort.guiders.spec.guide(
                         ra=new_coords.ra,
@@ -564,13 +680,13 @@ class GuiderMonitor:
 
                 result = await self.gort.guiders.spec.wait_until_guiding(timeout=60)
                 if result[0] is False:
-                    self.write_to_log(
+                    self.observer.write_to_log(
                         "Failed to acquire standard position. Skipping.",
                         "warning",
                     )
                     continue
 
-                self.write_to_log(f"Standard position {new_mask_position} acquired.")
+                self.observer.write_to_log(f"Standard {new_mask_position} acquired.")
 
                 # Move mask to uncover fibre.
                 await spec_tel.fibsel.move_to_position(new_mask_position)
@@ -578,33 +694,25 @@ class GuiderMonitor:
                 n_observed += 1
                 t0_last_std = time()
 
-    async def _get_header(self):
-        """Returns the extra header dictionary from the tile data."""
+                self.standards.loc[self.current_standard, "acquired"] = 1
+                self.standards.loc[self.current_standard, "t0"] = time()
+                self.standards.loc[self.current_standard, "fibre"] = new_mask_position
 
-        tile_id = self.tile.tile_id
-        dither_pos = self.tile.dither_position
+    def to_header(self):
+        """Returns observed standards as a header-ready dictionary."""
 
-        header = {
-            "tile_id": (tile_id or -999, "The tile_id of this observation"),
-            "dpos": (dither_pos, "Dither position"),
-            "poscira": round(self.tile.sci_coords.ra, 6),
-            "poscide": round(self.tile.sci_coords.dec, 6),
-        }
+        header_data = {}
 
-        if self.tile["skye"]:
-            header.update(
-                {
-                    "poskyera": round(self.tile.sky_coords["skye"].ra, 6),
-                    "poskyede": round(self.tile.sky_coords["skye"].dec, 6),
-                }
-            )
+        for nstd, data in self.standards.iterrows():
+            header_data[f"STD{nstd}ID"] = data.source_id
+            header_data[f"STD{nstd}RA"] = data.ra
+            header_data[f"STD{nstd}DE"] = data.dec
+            header_data[f"STD{nstd}ACQ"] = bool(data.observed)
 
-        if self.tile["skyw"]:
-            header.update(
-                {
-                    "poskywra": round(self.tile.sky_coords["skyw"].ra, 6),
-                    "poskywde": round(self.tile.sky_coords["skyw"].dec, 6),
-                }
-            )
+            if data.observed:
+                header_data[f"STD{nstd}T0"] = Time(data.t0, format="unix").isot
+                header_data[f"STD{nstd}T1"] = Time(data.t1, format="unix").isot
+                header_data[f"STD{nstd}EXP"] = round(data.t1 - data.t0, 1)
+                header_data[f"STD{nstd}FIB"] = data.fibre
 
-        return header.copy()
+        return header_data
