@@ -69,7 +69,7 @@ class MoTanDevice(GortDevice):
 class KMirror(MoTanDevice):
     """A device representing a K-mirror."""
 
-    SLEW_DELAY = {"sci": 1, "skye": 2, "skyw": 3}
+    SLEW_DELAY = 0
 
     async def status(self):
         """Returns the status of the k-mirror."""
@@ -168,7 +168,7 @@ class KMirror(MoTanDevice):
 class Focuser(MoTanDevice):
     """A device representing a focuser."""
 
-    SLEW_DELAY = {"spec": 0, "sci": 1, "skye": 2, "skyw": 3}
+    SLEW_DELAY = 0
 
     async def status(self):
         """Returns the status of the focuser."""
