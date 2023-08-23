@@ -248,9 +248,19 @@ class SkyCoordinates(QuerableCoordinates):
 
 
 class StandardCoordinates(QuerableCoordinates):
-    """A standard position."""
+    """A standard position.
+
+    In addition to the `.QuerableCoordinates` arguments the class acceps
+    a ``source_id`` Gaia identifier.
+
+    """
 
     __db_table__ = "lvmopsdb.standard"
+
+    def __init__(self, *args, source_id: int | None = None, **kwargs):
+        self.source_id = source_id
+
+        super().__init__(*args, **kwargs)
 
 
 class Tile(dict[str, Coordinates | list[Coordinates] | None]):
@@ -408,7 +418,10 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             assert calibrators is not None
             spec_coords = []
             for ii in range(12):
-                coords = StandardCoordinates(*calibrators["standard_pos"][ii])
+                coords = StandardCoordinates(
+                    *calibrators["standard_pos"][ii],
+                    source_id=calibrators["standard_ids"][ii],
+                )
                 spec_coords.append(coords)
 
         return cls(
@@ -471,16 +484,24 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
 
         sci_coords = ScienceCoordinates(*sci_pos, centre_on_fibre=None)
 
-        calibrator_data = get_calibrators_sync(
-            tile_id=None,
-            ra=sci_pos[0],
-            dec=sci_pos[1],
-        )
+        if tile_id:
+            calibrator_data = get_calibrators_sync(tile_id=tile_id)
+        else:
+            calibrator_data = get_calibrators_sync(ra=sci_pos[0], dec=sci_pos[1])
+
         sky_coords = {
             "skye": calibrator_data["sky_pos"][0],
             "skyw": calibrator_data["sky_pos"][1],
         }
-        spec_coords = list(calibrator_data["standard_pos"])
+
+        spec_coords = []
+        for ii in range(len(calibrator_data["standard_pos"])):
+            spec_coords.append(
+                StandardCoordinates(
+                    *calibrator_data["standard_pos"][ii],
+                    source_id=calibrator_data["standard_ids"][ii],
+                )
+            )
 
         new_obj = cls(
             sci_coords,
