@@ -251,8 +251,6 @@ class GortObserver:
         if "object" not in kwargs:
             kwargs["object"] = self.tile.object
 
-        header = await self._get_header()
-
         exposures: list[Exposure] = []
         standard_task: asyncio.Task | None = None
 
@@ -273,7 +271,6 @@ class GortObserver:
 
             exposure = await self.gort.specs.expose(
                 exposure_time=exposure_time,
-                header=header,
                 show_progress=show_progress,
                 count=1,
                 update_header_cb=self._update_header,
@@ -339,13 +336,13 @@ class GortObserver:
 
         return sorted(positions, key=lambda p: mask_config[p])
 
-    async def _get_header(self):
-        """Returns the extra header dictionary from the tile data."""
+    async def _update_header(self, header: dict[str, Any]):
+        """Updates the exposure header with pointing and guiding information."""
 
         tile_id = self.tile.tile_id
         dither_pos = self.tile.dither_position
 
-        header = {
+        tile_header = {
             "tile_id": (tile_id or -999, "The tile_id of this observation"),
             "dpos": (dither_pos, "Dither position"),
             "poscira": round(self.tile.sci_coords.ra, 6),
@@ -353,7 +350,7 @@ class GortObserver:
         }
 
         if self.tile["skye"]:
-            header.update(
+            tile_header.update(
                 {
                     "poskyera": round(self.tile.sky_coords["skye"].ra, 6),
                     "poskyede": round(self.tile.sky_coords["skye"].dec, 6),
@@ -361,17 +358,14 @@ class GortObserver:
             )
 
         if self.tile["skyw"]:
-            header.update(
+            tile_header.update(
                 {
                     "poskywra": round(self.tile.sky_coords["skyw"].ra, 6),
                     "poskywde": round(self.tile.sky_coords["skyw"].dec, 6),
                 }
             )
 
-        return header.copy()
-
-    async def _update_header(self, header: dict[str, Any]):
-        """Updates the exposure header with pointing and guiding information."""
+        header.update(tile_header)
 
         header.update(self.guider_monitor.to_header())
 
