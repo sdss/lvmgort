@@ -343,30 +343,31 @@ class GortObserver:
         dither_pos = self.tile.dither_position
 
         tile_header = {
-            "tile_id": (tile_id or -999, "The tile_id of this observation"),
-            "dpos": (dither_pos, "Dither position"),
-            "poscira": round(self.tile.sci_coords.ra, 6),
-            "poscide": round(self.tile.sci_coords.dec, 6),
+            "TILE_ID": (tile_id or -999, "The tile_id of this observation"),
+            "DPOS": (dither_pos, "Dither position"),
+            "POSCIRA": round(self.tile.sci_coords.ra, 6),
+            "POSCIDE": round(self.tile.sci_coords.dec, 6),
         }
 
         if self.tile["skye"]:
             tile_header.update(
                 {
-                    "poskyera": round(self.tile.sky_coords["skye"].ra, 6),
-                    "poskyede": round(self.tile.sky_coords["skye"].dec, 6),
+                    "POSKYERA": round(self.tile.sky_coords["skye"].ra, 6),
+                    "POSKYEDE": round(self.tile.sky_coords["skye"].dec, 6),
                 }
             )
 
         if self.tile["skyw"]:
             tile_header.update(
                 {
-                    "poskywra": round(self.tile.sky_coords["skyw"].ra, 6),
-                    "poskywde": round(self.tile.sky_coords["skyw"].dec, 6),
+                    "POSKYWRA": round(self.tile.sky_coords["skyw"].ra, 6),
+                    "POSKYWDE": round(self.tile.sky_coords["skyw"].dec, 6),
                 }
             )
 
         header.update(tile_header)
 
+        self.guider_monitor.update_data()
         header.update(self.guider_monitor.to_header())
 
         # At this point the shutter is closed so let's stop observing standards.
@@ -385,6 +386,8 @@ class GuiderMonitor:
 
         self.guider_task: asyncio.Task | None = None
         self.guider_data: pandas.DataFrame | None = None
+
+        self._current_data = []
 
     async def start(self):
         """Starts monitoring."""
@@ -407,12 +410,12 @@ class GuiderMonitor:
     async def _guider_monitor(self):
         """Monitors the guider data and build a data frame."""
 
-        current_data = []
+        self._current_data = []
 
         task = asyncio.create_task(
             build_guider_reply_list(
                 self.gort,
-                current_data,
+                self._current_data,
             )
         )
 
@@ -423,25 +426,27 @@ class GuiderMonitor:
 
         except asyncio.CancelledError:
             await cancel_task(task)
+            self.update_data()
 
-            if len(current_data) > 0:
-                # Build DF with all the frames.
-                df = pandas.DataFrame.from_records(current_data)
+    def update_data(self):
+        """Updates the guider data frame."""
 
-                # Group by frameno, keep only non-NaN values.
-                df = df.groupby(["frameno", "telescope"], as_index=False).apply(
-                    lambda g: g.fillna(method="bfill", axis=0).iloc[0, :]
-                )
+        if len(self._current_data) > 0:
+            # Build DF with all the frames.
+            df = pandas.DataFrame.from_records(self._current_data)
 
-                # Remove NaN rows.
-                df = df.dropna()
+            # Group by frameno, keep only non-NaN values.
+            df = df.groupby(["frameno", "telescope"], as_index=False).apply(
+                lambda g: g.fillna(method="bfill", axis=0).iloc[0, :]
+            )
 
-                # Sort by frameno.
-                df = df.sort_values("frameno")
+            # Remove NaN rows.
+            df = df.dropna()
 
-                self.guider_data = df
+            # Sort by frameno.
+            df = df.sort_values("frameno")
 
-            return
+            self.guider_data = df
 
     def to_header(self):
         """Returns a header with pointing and guiding information."""
