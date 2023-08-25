@@ -69,7 +69,7 @@ class MoTanDevice(GortDevice):
 class KMirror(MoTanDevice):
     """A device representing a K-mirror."""
 
-    SLEW_DELAY = {"sci": 1, "skye": 2, "skyw": 3}
+    SLEW_DELAY = 0
 
     async def status(self):
         """Returns the status of the k-mirror."""
@@ -83,7 +83,7 @@ class KMirror(MoTanDevice):
             raise GortTelescopeError("Device is not reachable.")
 
         await self.slew_delay()
-        # await self.actor.commands.slewStop(timeout=self.timeouts["slewStop"])
+        await self.actor.commands.slewStop(timeout=self.timeouts["slewStop"])
 
         self.write_to_log("Homing k-mirror.", level="info")
         await self.actor.commands.moveToHome(timeout=self.timeouts["moveToHome"])
@@ -126,7 +126,7 @@ class KMirror(MoTanDevice):
             timeout=self.timeouts["moveAbsolute"],
         )
 
-    async def slew(self, ra: float, dec: float):
+    async def slew(self, ra: float, dec: float, offset_angle: float = 0.0):
         """Moves the mirror to the position for ``ra, dec`` and starts slewing.
 
         Parameters
@@ -135,6 +135,8 @@ class KMirror(MoTanDevice):
             Right ascension of the field to track, in degrees.
         dec
             Declination of the field to track, in degrees.
+        offset_angle
+            Derotation offset in degrees.
 
         """
 
@@ -143,16 +145,22 @@ class KMirror(MoTanDevice):
 
         await self.slew_delay()
 
-        self.write_to_log(
-            f"Slewing k-mirror to ra={ra:.6f} dec={dec:.6f} and tracking.",
-            level="info",
-        )
+        if offset_angle == 0:
+            msg = f"Slewing k-mirror to ra={ra:.6f} dec={dec:.6f} and tracking."
+        else:
+            msg = (
+                f"Slewing k-mirror to ra={ra:.6f} dec={dec:.6f} "
+                f"pa={offset_angle:.3f} and tracking."
+            )
+
+        self.write_to_log(msg, level="info")
 
         await self.actor.commands.slewStart(
             ra / 15.0,
             dec,
             seg_time=self.gort.config["telescopes"]["kmirror"]["seg_time"],
             seg_min_num=self.gort.config["telescopes"]["kmirror"]["seg_min_num"],
+            offset_angle=offset_angle,
             timeout=self.timeouts["slewStart"],
         )
 
@@ -160,7 +168,7 @@ class KMirror(MoTanDevice):
 class Focuser(MoTanDevice):
     """A device representing a focuser."""
 
-    SLEW_DELAY = {"spec": 0, "sci": 1, "skye": 2, "skyw": 3}
+    SLEW_DELAY = 0
 
     async def status(self):
         """Returns the status of the focuser."""
@@ -465,6 +473,11 @@ class Telescope(GortDevice):
 
         await self.initialise()
 
+        kmirror_task: asyncio.Task | None = None
+        if kmirror and self.km:
+            self.write_to_log("Parking k-mirror.", level="info")
+            kmirror_task = asyncio.create_task(self.km.park())
+
         if use_pw_park:
             self.write_to_log("Parking telescope to PW default position.", level="info")
             await self.pwi.commands.park()
@@ -494,9 +507,8 @@ class Telescope(GortDevice):
             self.write_to_log("Disabling telescope.")
             await self.pwi.commands.setEnabled(False)
 
-        if kmirror and self.km:
-            self.write_to_log("Parking k-mirror.", level="info")
-            await self.km.park()
+        if kmirror_task:
+            await kmirror_task
 
         self.is_homed = False
 
@@ -510,6 +522,7 @@ class Telescope(GortDevice):
         self,
         ra: float | None = None,
         dec: float | None = None,
+        pa: float = 0.0,
         alt: float | None = None,
         az: float | None = None,
         kmirror: bool = True,
@@ -526,6 +539,8 @@ class Telescope(GortDevice):
             Right ascension coordinates to move to, in degrees.
         dec
             Declination coordinates to move to, in degrees.
+        pa
+            Position angle of the IFU. Defaults to PA=0.
         alt
             Altitude coordinates to move to, in degrees.
         az
@@ -553,7 +568,7 @@ class Telescope(GortDevice):
 
         kmirror_task: asyncio.Task | None = None
         if kmirror and self.km and ra is not None and dec is not None:
-            kmirror_task = asyncio.create_task(self.km.slew(ra, dec))
+            kmirror_task = asyncio.create_task(self.km.slew(ra, dec, offset_angle=pa))
 
         # Commanded and reported coordinates. To be used to check if we reached
         # the correct position.
@@ -981,7 +996,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
 
     async def goto(
         self,
-        sci: tuple[float, float] | None = None,
+        sci: tuple[float, float] | tuple[float, float, float] | None = None,
         spec: tuple[float, float] | None = None,
         skye: tuple[float, float] | None = None,
         skyw: tuple[float, float] | None = None,
@@ -1007,7 +1022,16 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         jobs = []
 
         if sci is not None:
-            jobs.append(self["sci"].goto_coordinates(ra=sci[0], dec=sci[1]))
+            if len(sci) == 2:
+                jobs.append(self["sci"].goto_coordinates(ra=sci[0], dec=sci[1]))
+            else:
+                jobs.append(
+                    self["sci"].goto_coordinates(
+                        ra=sci[0],
+                        dec=sci[1],
+                        pa=sci[2],
+                    )
+                )
 
         if spec is not None:
             jobs.append(self["spec"].goto_coordinates(ra=spec[0], dec=spec[1]))

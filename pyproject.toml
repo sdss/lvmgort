@@ -85,7 +85,7 @@ unfixable = ["F841"]
 "__init__.py" = ["F403", "E402"]
 
 [tool.ruff.isort]
-known-first-party = ["ifoo"]
+known-first-party = ["gort"]
 lines-after-imports = 2
 section-order = ["future", "standard-library", "typing", "third-party", "sdss", "first-party", "local-folder"]
 

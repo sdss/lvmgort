@@ -243,7 +243,7 @@ def get_calibrators_sync(
     tile_id: int | None = None,
     ra: float | None = None,
     dec: float | None = None,
-):
+) -> dict:
     """Get calibrators for a ``tile_id`` or science pointing. Synchronous version."""
 
     sch_config = config["scheduler"]

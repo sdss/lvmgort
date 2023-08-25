@@ -186,6 +186,9 @@ class CleanupRecipe(BaseRecipe):
 
             await asyncio.gather(*cotasks)
 
+        self.gort.log.info("Turning all lights off.")
+        await self.gort.nps.calib.all_off()
+
     async def _wait_until_spec_is_idle(self, spec: Spectrograph):
         """Waits until an spectrograph is idle."""
 

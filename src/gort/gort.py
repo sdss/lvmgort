@@ -514,6 +514,7 @@ class Gort(GortClient):
         tile: Tile | int | None = None,
         ra: float | None = None,
         dec: float | None = None,
+        pa: float = 0.0,
         use_scheduler: bool = False,
         exposure_time: float = 900.0,
         n_exposures: int = 1,
@@ -533,6 +534,8 @@ class Gort(GortClient):
             The RA and Dec where to point the science telescopes. The other
             telescopes are pointed to calibrators that fit the science pointing.
             Cannot be used with ``tile``.
+        pa
+            Position angle of the IFU. Defaults to PA=0.
         use_scheduler
             Whether to use the scheduler to determine the ``tile_id`` or
             select calibrators.
@@ -564,9 +567,9 @@ class Gort(GortClient):
 
         elif ra is not None and dec is not None:
             if use_scheduler:
-                tile = await run_in_executor(Tile.from_scheduler, ra=ra, dec=dec)
+                tile = await run_in_executor(Tile.from_scheduler, ra=ra, dec=dec, pa=pa)
             else:
-                tile = await run_in_executor(Tile.from_coordinates, ra, dec)
+                tile = await run_in_executor(Tile.from_coordinates, ra, dec, pa=pa)
 
         else:
             raise GortError("Not enough information to create a tile.")
@@ -575,6 +578,9 @@ class Gort(GortClient):
 
         # Create observer.
         observer = GortObserver(self, tile)
+
+        # Run the cleanup routine to be extra sure.
+        await self.cleanup()
 
         try:
             # Slew telescopes and move fibsel mask.

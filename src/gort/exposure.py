@@ -13,9 +13,8 @@ import json
 import pathlib
 import warnings
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Awaitable, Callable, Union
 
-import pandas
 from astropy.io import fits
 from astropy.time import Time
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
@@ -23,7 +22,7 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 from sdsstools.time import get_sjd
 
 from gort.exceptions import ErrorCodes, GortSpecError
-from gort.tools import build_guider_reply_list, cancel_task, register_observation
+from gort.tools import cancel_task, register_observation
 
 
 if TYPE_CHECKING:
@@ -34,6 +33,8 @@ __all__ = ["Exposure", "READOUT_TIME"]
 
 
 READOUT_TIME = 51
+
+UPDATE_HEADER_CB_TYPE = Union[Callable[[dict], None], Callable[[dict], Awaitable], None]
 
 
 class Exposure(asyncio.Future["Exposure"]):
@@ -63,8 +64,7 @@ class Exposure(asyncio.Future["Exposure"]):
         self._timer_task: asyncio.Task | None = None
         self._progress: Progress | None = None
 
-        self._guider_task: asyncio.Task | None = None
-        self.guider_data: pandas.DataFrame | None = None
+        self._update_header_cb: UPDATE_HEADER_CB_TYPE = None
 
         super().__init__()
 
@@ -136,11 +136,6 @@ class Exposure(asyncio.Future["Exposure"]):
 
         monitor_task: asyncio.Task | None = None
 
-        if self.flavour == "object":
-            guider_task = asyncio.create_task(self._guider_monitor())
-        else:
-            guider_task = None
-
         try:
             self.start_time = Time.now()
 
@@ -156,10 +151,12 @@ class Exposure(asyncio.Future["Exposure"]):
 
             self.reading = True
 
-            await cancel_task(guider_task)
-
             header = header or {}
-            await self._update_header(header)
+            if self._update_header_cb is not None:
+                if asyncio.iscoroutinefunction(self._update_header_cb):
+                    await self._update_header_cb(header)
+                else:
+                    self._update_header_cb(header)
 
             readout_task = asyncio.create_task(
                 self.spec_set._send_command_all(
@@ -177,6 +174,7 @@ class Exposure(asyncio.Future["Exposure"]):
             if not async_readout:
                 await readout_task
                 await monitor_task
+                self.spec_set.write_to_log(f"Exposure {self.exp_no} completed.")
             else:
                 await self.stop_timer()
                 self.spec_set.write_to_log("Returning with async readout ongoing.")
@@ -198,53 +196,15 @@ class Exposure(asyncio.Future["Exposure"]):
 
         return self
 
-    async def _guider_monitor(self):
-        """Monitors the guider data and build a data frame."""
-
-        current_data = []
-
-        task = asyncio.create_task(
-            build_guider_reply_list(
-                self.spec_set.gort,
-                current_data,
-            )
-        )
-
-        try:
-            while True:
-                # Just keep the task running.
-                await asyncio.sleep(1)
-
-        except asyncio.CancelledError:
-            await cancel_task(task)
-
-            if len(current_data) > 0:
-                # Build DF with all the frames.
-                df = pandas.DataFrame.from_records(current_data)
-
-                # Group by frameno, keep only non-NaN values.
-                df = df.groupby(["frameno", "telescope"], as_index=False).apply(
-                    lambda g: g.fillna(method="bfill", axis=0).iloc[0, :]
-                )
-
-                # Remove NaN rows.
-                df = df.dropna()
-
-                # Sort by frameno.
-                df = df.sort_values("frameno")
-
-                self.guider_data = df
-
-            return
-
     async def start_timer(
         self,
         exposure_time: float,
         readout_time: float = READOUT_TIME,
     ):
-        """Starts the tqdm timer."""
+        """Starts the rich timer."""
 
         self._progress = Progress(
+            TextColumn(f"[yellow]({self.exp_no})"),
             TextColumn("[progress.description]{task.description}"),
             BarColumn(bar_width=None),
             MofNCompleteColumn(),
@@ -256,14 +216,19 @@ class Exposure(asyncio.Future["Exposure"]):
         )
 
         exp_task = self._progress.add_task(
-            "[green]Integrating ...",
+            "[blue] Integrating ...",
             total=int(exposure_time),
+        )
+
+        readout_task = self._progress.add_task(
+            "[blue] Reading ...",
+            total=int(readout_time),
+            visible=False,
         )
 
         self._progress.start()
 
         async def update_timer():
-            readout_task = None
             elapsed = 0
             while True:
                 if elapsed > exposure_time + readout_time:
@@ -273,19 +238,22 @@ class Exposure(asyncio.Future["Exposure"]):
                 elif elapsed < exposure_time:
                     self._progress.update(exp_task, advance=1)
                 else:
-                    if readout_task is None:
-                        readout_task = self._progress.add_task(
-                            "[red]Reading ...",
-                            total=int(readout_time),
-                        )
-                    self._progress.update(exp_task, completed=int(exposure_time))
-                    self._progress.update(readout_task, advance=1)
+                    self._progress.update(
+                        exp_task,
+                        description="[green] Integration complete",
+                        completed=int(exposure_time),
+                    )
+                    self._progress.update(readout_task, advance=1, visible=True)
 
                 await asyncio.sleep(1)
                 elapsed += 1
 
             if self._progress and readout_task:
-                self._progress.update(readout_task, completed=int(readout_time))
+                self._progress.update(
+                    readout_task,
+                    completed=int(readout_time),
+                    description="[green] Readout complete",
+                )
 
         def done_timer(*_):
             if self._progress:
@@ -382,16 +350,11 @@ class Exposure(asyncio.Future["Exposure"]):
         if self.flavour != "object":
             return
 
-        if self.guider_data is not None and len(self.guider_data.dropna()) > 0:
-            seeing = self.guider_data.dropna().fwhm.mean()
-        else:
-            seeing = -999
-
         self.spec_set.write_to_log("Registering observation.", "info")
         registration_payload = {
             "dither": dither_pos,
             "jd": self.start_time.jd,
-            "seeing": seeing,
+            "seeing": -999.0,
             "standards": [],
             "skies": [],
             "exposure_no": self.exp_no,
@@ -408,31 +371,3 @@ class Exposure(asyncio.Future["Exposure"]):
             self.spec_set.write_to_log(f"Failed registering exposure: {err}", "error")
         else:
             self.spec_set.write_to_log("Registration complete.")
-
-    async def _update_header(self, header: dict[str, Any]):
-        """Updates the exposure header with pointing and guiding information."""
-
-        if self.guider_data is not None:
-            for tel in ["sci", "spec", "skye", "skyw"]:
-                try:
-                    tel_data = self.guider_data.loc[self.guider_data.telescope == tel]
-                    if len(tel_data) < 2:
-                        frame0 = None
-                        framen = None
-                    else:
-                        frame0 = int(tel_data.frameno.min())
-                        framen = int(tel_data.frameno.max())
-
-                    header.update(
-                        {
-                            f"G{tel.upper()}FR0": (frame0, f"{tel} first guider frame"),
-                            f"G{tel.upper()}FRN": (framen, f"{tel} last guider frame"),
-                        }
-                    )
-
-                except Exception as err:
-                    self.spec_set.write_to_log(
-                        f"Failed updating guider header information for {tel}: {err}",
-                        "warning",
-                    )
-                    continue

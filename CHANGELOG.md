@@ -1,5 +1,26 @@
 # Changelog
 
+## Next version
+
+### 🚀 New
+
+* Guider frames for each telescope taken during an exposure are added to the spectrograph headers.
+* Standards observed are added to the spectrograph headers.
+* Added a `cleanup` recipe.
+* Added exposure frame to the progress bar.
+* Add `PA` parameter to tiles and propagate it to the k-mirror slew commands.
+
+### ✨ Improved
+
+* Concurrently stop spec guiding and reslew.
+* Pass `seg_time` and `seg_min_num` to `slewStart`.
+* The code used to build the spectrograph header has been cleaned up and consolidated in `GortObserver`.
+
+### 🔧 Fixed
+
+* Explicitely define site coordinates to avoid astropy needing to download files.
+
+
 ## 0.3.0 - August 14, 2023
 
 ### 🚀 New
