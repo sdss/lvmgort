@@ -500,7 +500,7 @@ class Standards:
         """Constructs the standard data frame."""
 
         stdn = list(range(1, len(self.tile.spec_coords) + 1))
-        source_id = [cc.source_id for cc in self.tile.spec_coords]
+        source_id = [cc.source_id or -1 for cc in self.tile.spec_coords]
         ra = [cc.ra for cc in self.tile.spec_coords]
         dec = [cc.dec for cc in self.tile.spec_coords]
 
@@ -703,7 +703,7 @@ class Standards:
         header_data = {}
 
         for nstd, data in self.standards.iterrows():
-            header_data[f"STD{nstd}ID"] = data.source_id
+            header_data[f"STD{nstd}ID"] = data.source_id if data.source_id > 0 else None
             header_data[f"STD{nstd}RA"] = data.ra
             header_data[f"STD{nstd}DE"] = data.dec
             header_data[f"STD{nstd}ACQ"] = bool(data.observed)
