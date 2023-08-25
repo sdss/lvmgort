@@ -204,7 +204,10 @@ def xy_to_radec_offset(xpmm: float, ypmm: float):
 
 
 def fibre_slew_coordinates(
-    ra: float, dec: float, fibre_name: str, derotated: bool = True
+    ra: float,
+    dec: float,
+    fibre_name: str,
+    derotated: bool = True,
 ) -> tuple[float, float]:
     """Determines the slew coordinates for a fibre.
 
@@ -244,19 +247,19 @@ def fibre_slew_coordinates(
 
     ra_off, dec_off = xy_to_radec_offset(xpmm, ypmm)
 
-    ra_off = ra_off / 3600.0 / numpy.cos(numpy.radians(dec))
-    dec_off = dec_off / 3600.0
-
     if not derotated:
-        field_angle = calculate_field_angle(ra, dec, obstime=None)
-        fa_r = numpy.radians(field_angle)
+        field_angle = 90 + calculate_field_angle(ra, dec, obstime=None)
+        fa_r = -numpy.radians(field_angle)
         rotm = numpy.array(
             [
                 [numpy.cos(fa_r), -numpy.sin(fa_r)],
                 [numpy.sin(fa_r), numpy.cos(fa_r)],
             ]
         )
-        ra_off, dec_off = rotm @ numpy.array([ra_off, dec_off]).T
+        ra_off, dec_off = rotm.dot(numpy.array([ra_off, dec_off]).T)
+
+    ra_off = ra_off / 3600.0 / numpy.cos(numpy.radians(dec))
+    dec_off = dec_off / 3600.0
 
     return ra + ra_off, dec + dec_off
 
