@@ -12,8 +12,9 @@ import asyncio
 import json
 import pathlib
 import warnings
+from collections import defaultdict
 
-from typing import TYPE_CHECKING, Awaitable, Callable, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from astropy.io import fits
 from astropy.time import Time
@@ -22,7 +23,7 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 from sdsstools.time import get_sjd
 
 from gort.exceptions import ErrorCodes, GortSpecError
-from gort.tools import cancel_task, register_observation
+from gort.tools import cancel_task, is_interactive, is_notebook, register_observation
 
 
 if TYPE_CHECKING:
@@ -34,7 +35,7 @@ __all__ = ["Exposure", "READOUT_TIME"]
 
 READOUT_TIME = 51
 
-UPDATE_HEADER_CB_TYPE = Union[Callable[[dict], None], Callable[[dict], Awaitable], None]
+CORO_TYPE = Callable[[Any], Awaitable]
 
 
 class Exposure(asyncio.Future["Exposure"]):
@@ -52,6 +53,13 @@ class Exposure(asyncio.Future["Exposure"]):
     """
 
     def __init__(self, exp_no: int, spec_set: SpectrographSet, flavour: str = "object"):
+        flavour = flavour or "object"
+        if flavour not in ["arc", "object", "flat", "bias", "dark"]:
+            raise GortSpecError(
+                "Invalid flavour type.",
+                error_code=ErrorCodes.USAGE_ERROR,
+            )
+
         self.spec_set = spec_set
         self.exp_no = exp_no
         self.flavour = flavour
@@ -80,7 +88,7 @@ class Exposure(asyncio.Future["Exposure"]):
         exposure_time: float | None = None,
         header: dict | None = None,
         async_readout: bool = False,
-        show_progress: bool = False,
+        show_progress: bool | None = None,
         **kwargs,
     ):
         """Exposes the spectrograph.
@@ -97,6 +105,8 @@ class Exposure(asyncio.Future["Exposure"]):
             the returned :obj:`.Exposure` object.
         show_progress
             Displays a progress bar with the elapsed exposure time.
+            If `None` (the default), will show the progress bar only
+            in interactive sessions.
         kwargs
             Keyword arguments to pass to ``lvmscp expose``.
 
@@ -116,6 +126,16 @@ class Exposure(asyncio.Future["Exposure"]):
                     "Solve this manually before exposing.",
                     error_code=ErrorCodes.SECTROGRAPH_NOT_IDLE,
                 )
+
+        header = header or {}
+
+        if self.object is not None:
+            header.update({"OBJECT": self.object})
+        elif self.flavour != "object":
+            header.update({"OBJECT": self.flavour})
+
+        if show_progress is None:
+            show_progress = is_interactive() or is_notebook()
 
         if show_progress:
             await self.start_timer(exposure_time or 0.0)
