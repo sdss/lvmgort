@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
-import logging
 import pathlib
 import re
 import warnings
@@ -25,10 +24,6 @@ import pandas
 import peewee
 from astropy import units as uu
 from astropy.coordinates import angular_separation as astropy_angular_separation
-from rich.console import Console
-from rich.logging import RichHandler
-from rich.text import Text
-from rich.theme import Theme
 
 from gort import config
 
@@ -532,63 +527,6 @@ async def run_in_executor(fn, *args, catch_warnings=False, executor="thread", **
             result = await asyncio.get_running_loop().run_in_executor(pool, fn)
 
     return result
-
-
-class CustomRichHandler(RichHandler):
-    """A slightly custom ``RichHandler`` logging handler."""
-
-    def get_level_text(self, record):
-        """Get the level name from the record."""
-
-        level_name = record.levelname
-        level_text = Text.styled(
-            f"[{level_name}]".ljust(9),
-            f"logging.level.{level_name.lower()}",
-        )
-        return level_text
-
-
-def get_rich_logger(verbosity_level: int = logging.WARNING):
-    """Returns a logger with a custom rich handler."""
-
-    from sdsstools.logger import get_logger
-
-    log = get_logger("gort")
-
-    # Remove normal console logger.
-    log.removeHandler(log.sh)
-    if log.warnings_logger:
-        log.warnings_logger.removeHandler(log.sh)
-
-    # Create a new console with modified log level colours.
-    console = Console(
-        theme=Theme(
-            {
-                "logging.level.debug": "magenta",
-                "logging.level.warning": "yellow",
-                "logging.level.critical": "red",
-                "logging.level.error": "red",
-            }
-        )
-    )
-
-    rich_handler = CustomRichHandler(
-        level=verbosity_level,
-        log_time_format="%X",
-        show_path=False,
-        console=console,
-    )
-    log.addHandler(rich_handler)
-
-    # Use the sh attribute for the rich handler.
-    log.sh = rich_handler  # type:ignore
-
-    # Connect handler with the warnings.
-    if log.warnings_logger:
-        if rich_handler not in log.warnings_logger.handlers:
-            log.warnings_logger.addHandler(rich_handler)
-
-    return log, console
 
 
 async def cancel_task(task: asyncio.Task | None):

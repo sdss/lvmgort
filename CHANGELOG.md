@@ -9,6 +9,7 @@
 * Added a `cleanup` recipe.
 * Added exposure frame to the progress bar.
 * Add `PA` parameter to tiles and propagate it to the k-mirror slew commands.
+* Use `rich` tracebacks. This can be disabled by calling `Gort` with `use_rich_output=False`. Tracebacks generated in an interactive IPython session are now saved to the file log.
 
 ### ✨ Improved
 

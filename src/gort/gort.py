@@ -17,9 +17,12 @@ from copy import deepcopy
 
 from typing import Any, Callable, ClassVar, Generic, Type, TypeVar
 
+from rich import pretty, traceback
+from rich.logging import RichHandler
 from typing_extensions import Self
 
 from clu.client import AMQPClient, AMQPReply
+from sdsstools.logger import SDSSLogger, get_logger
 
 from gort import config
 from gort.core import RemoteActor
@@ -28,7 +31,19 @@ from gort.kubernetes import Kubernetes
 from gort.observer import GortObserver
 from gort.recipes import recipes as recipe_to_class
 from gort.tile import Tile
-from gort.tools import get_rich_logger, run_in_executor
+from gort.tools import run_in_executor
+
+
+try:
+    IPYTHON = get_ipython()  # type: ignore
+    IPYTHON_DEFAULT_HOOKS = [
+        IPYTHON._showtraceback,
+        IPYTHON.showtraceback,
+        IPYTHON.showsyntaxerror,
+    ]
+except NameError:
+    IPYTHON = None
+    IPYTHON_DEFAULT_HOOKS = []
 
 
 __all__ = ["GortClient", "Gort", "GortDeviceSet", "GortDevice"]
@@ -54,6 +69,9 @@ class GortClient(AMQPClient):
         The user to connect to the exchange.
     password
         The password to connect to the exchange.
+    use_rich_output
+        If `True`, uses ``rich`` to provide colourised tracebacks and prettier
+        outputs.
 
     """
 
@@ -63,6 +81,7 @@ class GortClient(AMQPClient):
         port: int = 5672,
         user: str = "guest",
         password: str = "guest",
+        use_rich_output: bool = True,
     ):
         from gort.devices.ag import AGSet
         from gort.devices.enclosure import Enclosure
@@ -74,7 +93,16 @@ class GortClient(AMQPClient):
 
         client_uuid = str(uuid.uuid4()).split("-")[1]
 
-        log, self._console = get_rich_logger()
+        log = get_logger(
+            f"lvmgort-{client_uuid}",
+            use_rich_handler=True,
+            rich_handler_kwargs={"rich_tracebacks": use_rich_output},
+        )
+
+        assert isinstance(log.sh, RichHandler)
+        self.console = log.sh.console
+
+        self._setup_exception_hooks(log, use_rich_output=use_rich_output)
 
         self._connect_lock = asyncio.Lock()
 
@@ -109,6 +137,50 @@ class GortClient(AMQPClient):
                 "The Kubernetes module won't be available."
             )
             self.kubernetes = None
+
+    def _setup_exception_hooks(self, log: SDSSLogger, use_rich_output: bool = True):
+        """Setup various hooks for exception handling."""
+
+        def custom__showtraceback_closure(default__showtraceback):
+            def _showtraceback(*args, **kwargs):
+                assert IPYTHON
+
+                exc_tuple = IPYTHON._get_exc_info()
+                log.handle_exceptions(*exc_tuple)
+
+                default__showtraceback(*args, **kwargs)
+
+            if IPYTHON:
+                IPYTHON._showtraceback = _showtraceback
+
+        if use_rich_output:
+            traceback.install(console=self.console)
+            pretty.install(console=self.console)
+
+            # traceback.install() overrides the excepthook, which means that
+            # tracebacks are not logged to file anymore. Restore that.
+            log.default_excepthook = sys.excepthook
+            sys.excepthook = log.handle_exceptions
+
+        else:
+            # Make sure we are not using rich tracebacks anymore, in
+            # case we installed them at some point.
+            # See https://github.com/Textualize/rich/pull/2972/files
+
+            log.default_excepthook = sys.__excepthook__
+
+            if IPYTHON:
+                IPYTHON._showtraceback = IPYTHON_DEFAULT_HOOKS[0]
+                IPYTHON.showtraceback = IPYTHON_DEFAULT_HOOKS[1]
+                IPYTHON.showsyntaxerror = IPYTHON_DEFAULT_HOOKS[2]
+
+        if IPYTHON:
+            # One more override. We want that any exceptions raised in IPython
+            # also gets logged to file, but IPython overrides excepthook completely
+            # so here we make a custom call to log.handle_exceptions() and then
+            # just let it do whatever it was its default (whether that means it
+            # was overridden by rich or not).
+            custom__showtraceback_closure(IPYTHON._showtraceback)
 
     async def init(self) -> Self:
         """Initialises the client.
