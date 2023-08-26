@@ -86,7 +86,7 @@ class GortClient(AMQPClient):
         If :obj:`True`, uses ``rich`` to provide colourised tracebacks and
         prettier outputs.
     log_file_path
-        The path where to save GORT's log. File logs are always saved with `DEBUG`
+        The path where to save GORT's log. File logs are always saved with ``DEBUG``
         logging level. If :obj:`None`, a temporary file will be used whose path
         can be retrieved by calling :obj:`.get_log_path`. If :obj:`False`, no file
         logging will happen.

@@ -5,7 +5,7 @@
 ### 🚀 New
 
 * Guider frames for each telescope taken during an exposure are added to the spectrograph headers.
-* Standards observed are added to the spectrograph headers.
+* Standards observed are added to the spectrograph headers. The standard information can be accessed as `GortObserver.standards`.
 * Added a `cleanup` recipe.
 * Added exposure frame to the progress bar.
 * Add `PA` parameter to tiles and propagate it to the k-mirror slew commands.
