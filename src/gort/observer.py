@@ -488,12 +488,17 @@ class Standards:
         self.gort = observer.gort
 
         self.tile = tile
-        self.mask_positions = mask_positions
 
         self.iterate_task: asyncio.Task | None = None
 
         self.current_standard: int = 1
         self.standards = self._get_frame()
+
+    @property
+    def mask_positions(self):
+        """Returns the list of mask positions from `.GortObserver`."""
+
+        return self.observer.mask_positions
 
     def _get_frame(self):
         """Constructs the standard data frame."""
