@@ -746,16 +746,16 @@ class Gort(GortClient):
         return await Recipe(self)(**kwargs)
 
     async def startup(self, **kwargs):
-        """Executes the `startup <.StartupRecipe>` sequence."""
+        """Executes the :obj:`startup <.StartupRecipe>` sequence."""
 
         return await self.execute_recipe("startup", **kwargs)
 
     async def shutdown(self, **kwargs):
-        """Executes the `shutdown <.ShutdownRecipe>` sequence."""
+        """Executes the :obj:`shutdown <.ShutdownRecipe>` sequence."""
 
         return await self.execute_recipe("shutdown", **kwargs)
 
     async def cleanup(self, readout: bool = True):
-        """Executes the `shutdown <.CleanupRecipe>` sequence."""
+        """Executes the :obj:`shutdown <.CleanupRecipe>` sequence."""
 
         return await self.execute_recipe("cleanup", readout=readout)
