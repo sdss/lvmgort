@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
-import logging
 import pathlib
 import re
+import tempfile
 import warnings
 from contextlib import suppress
 from datetime import datetime
@@ -25,10 +25,6 @@ import pandas
 import peewee
 from astropy import units as uu
 from astropy.coordinates import angular_separation as astropy_angular_separation
-from rich.console import Console
-from rich.logging import RichHandler
-from rich.text import Text
-from rich.theme import Theme
 
 from gort import config
 
@@ -61,6 +57,7 @@ __all__ = [
     "is_notebook",
     "cancel_task",
     "build_guider_reply_list",
+    "get_temporary_file_path",
 ]
 
 CAMERAS = [
@@ -306,7 +303,7 @@ async def register_observation(payload: dict):
 
 
 def is_notebook() -> bool:
-    """Returns `True` if the code is run inside a Jupyter Notebook.
+    """Returns :obj:`True` if the code is run inside a Jupyter Notebook.
 
     https://stackoverflow.com/questions/15411967/how-can-i-check-if-code-is-executed-in-the-ipython-notebook
 
@@ -325,7 +322,7 @@ def is_notebook() -> bool:
 
 
 def is_interactive():
-    """Returns `True` is we are in an interactive session."""
+    """Returns :obj:`True` is we are in an interactive session."""
 
     import __main__ as main
 
@@ -348,7 +345,7 @@ def get_ccd_frame_path(
         The SJD in which the frames where taken. If not provided, all the
         directories under ``spectro_path`` are searched.
     cameras
-        The cameras to be returned. If `None`, all cameras found are returned.
+        The cameras to be returned. If :obj:`None`, all cameras found are returned.
     spectro_path
         The path to the ``spectro`` directory where spectrograph files are
         stored under an SJD structure.
@@ -408,7 +405,7 @@ async def move_mask_interval(
         value will be iterated, in alphabetic order. Alternative it can be a list
         of positions to move to which will be executed in that order.
     order_by_steps
-        If `True`, the positions are iterated in order of smaller to larger
+        If :obj:`True`, the positions are iterated in order of smaller to larger
         number of step motors.
     total_time
         The total time to spend iterating over positions, in seconds. Each position
@@ -534,63 +531,6 @@ async def run_in_executor(fn, *args, catch_warnings=False, executor="thread", **
     return result
 
 
-class CustomRichHandler(RichHandler):
-    """A slightly custom ``RichHandler`` logging handler."""
-
-    def get_level_text(self, record):
-        """Get the level name from the record."""
-
-        level_name = record.levelname
-        level_text = Text.styled(
-            f"[{level_name}]".ljust(9),
-            f"logging.level.{level_name.lower()}",
-        )
-        return level_text
-
-
-def get_rich_logger(verbosity_level: int = logging.WARNING):
-    """Returns a logger with a custom rich handler."""
-
-    from sdsstools.logger import get_logger
-
-    log = get_logger("gort")
-
-    # Remove normal console logger.
-    log.removeHandler(log.sh)
-    if log.warnings_logger:
-        log.warnings_logger.removeHandler(log.sh)
-
-    # Create a new console with modified log level colours.
-    console = Console(
-        theme=Theme(
-            {
-                "logging.level.debug": "magenta",
-                "logging.level.warning": "yellow",
-                "logging.level.critical": "red",
-                "logging.level.error": "red",
-            }
-        )
-    )
-
-    rich_handler = CustomRichHandler(
-        level=verbosity_level,
-        log_time_format="%X",
-        show_path=False,
-        console=console,
-    )
-    log.addHandler(rich_handler)
-
-    # Use the sh attribute for the rich handler.
-    log.sh = rich_handler  # type:ignore
-
-    # Connect handler with the warnings.
-    if log.warnings_logger:
-        if rich_handler not in log.warnings_logger.handlers:
-            log.warnings_logger.addHandler(rich_handler)
-
-    return log, console
-
-
 async def cancel_task(task: asyncio.Task | None):
     """Safely cancels a task."""
 
@@ -619,7 +559,7 @@ async def build_guider_reply_list(
     reply_list
         A list (usually empty) to which the task will append the replies.
     actor
-        The actor to listen to. If `None`, listens to all the guider actors.
+        The actor to listen to. If :obj:`None`, listens to all the guider actors.
 
     """
 
@@ -686,3 +626,24 @@ async def build_guider_reply_list(
 
     finally:
         gort.remove_reply_callback(handle_guider_reply)
+
+
+def get_temporary_file_path(*args, create_parents: bool = False, **kwargs):
+    """Returns a valid path to a temporary file.
+
+    `args` and `kwargs` are directly passed to `tempfile.NamedTemporaryFile`.
+    If `create_parents`, the parent directories are created if they don't
+    exist.
+
+    """
+
+    tmp_log_file = tempfile.NamedTemporaryFile(*args, **kwargs)
+    tmp_log_file.close()
+
+    tmp_path = pathlib.Path(tmp_log_file.name)
+    if tmp_path.exists():
+        tmp_path.unlink()
+    elif create_parents:
+        tmp_path.parent.mkdir(parents=True, exist_ok=True)
+
+    return tmp_path

@@ -50,10 +50,10 @@ def read_fibermap(
     Parameters
     ----------
     path
-        Path to the fibermap file. If `None` uses the path from the
+        Path to the fibermap file. If :obj:`None` uses the path from the
         configuration file.
     force_cache
-        If `True`, forces a re-read of the fibermap file; otherwise reads it
+        If :obj:`True`, forces a re-read of the fibermap file; otherwise reads it
         from the cache if available.
 
     Returns

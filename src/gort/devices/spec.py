@@ -63,7 +63,7 @@ class IEB(GortDevice):
             The device to power on/off. Either ``'shutter'``, ``'hartmann_left'``,
             or ``'hartmann_right'``. Can be a list of devices to modify.
         on
-            If `True` powers on the device; otherwise powers it down.
+            If :obj:`True` powers on the device; otherwise powers it down.
 
         """
 
@@ -203,7 +203,7 @@ class IEB(GortDevice):
             The device to act on. Either ``'shutter'``, ``'hartmann_left'``,
             or ``'hartmann_right'``. Can be a list of devices to initialise.
         home
-            If `True` homes the devices after initialising them.
+            If :obj:`True` homes the devices after initialising them.
 
         """
 
@@ -228,7 +228,7 @@ class Spectrograph(GortDevice):
         Parameters
         ----------
         simple
-            If `True` returns a short version of the status.
+            If :obj:`True` returns a short version of the status.
 
         """
 
@@ -238,20 +238,20 @@ class Spectrograph(GortDevice):
         return flatten_reply.get("status", {})
 
     async def is_idle(self):
-        """Returns `True` if the spectrograph is idle and ready to expose."""
+        """Returns :obj:`True` if the spectrograph is idle and ready to expose."""
 
         status = await self.status(simple=True)
         names = status["status_names"]
         return "IDLE" in names and "READOUT_PENDING" not in names
 
     async def is_exposing(self):
-        """Returns `True` if the spectrograph is exposing."""
+        """Returns :obj:`True` if the spectrograph is exposing."""
 
         status = await self.status(simple=True)
         return "EXPOSING" in status["status_names"]
 
     async def is_reading(self):
-        """Returns `True` if the spectrograph is idle and ready to expose."""
+        """Returns :obj:`True` if the spectrograph is idle and ready to expose."""
 
         status = await self.status(simple=True)
         return "READING" in status["status_names"]
@@ -307,7 +307,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         Parameters
         ----------
         simple
-            If `True` returns a short version of the status.
+            If :obj:`True` returns a short version of the status.
 
         """
 
@@ -327,7 +327,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         return expno
 
     async def are_idle(self):
-        """Returns `True` if all the spectrographs are idle and ready to expose."""
+        """Returns :obj:`True` if all the spectrographs are idle and ready to expose."""
 
         return all(await self.call_device_method(Spectrograph.is_idle))
 
@@ -355,7 +355,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             Additional data to add to the headers.
         show_progress
             Displays a progress bar with the elapsed exposure time.
-            If `None` (the default), will show the progress bar only
+            If :obj:`None` (the default), will show the progress bar only
             in interactive sessions.
         async_readout
             Returns after integration completes. Readout is initiated

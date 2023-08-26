@@ -46,7 +46,7 @@ class Exposure(asyncio.Future["Exposure"]):
     gort
         A `.Gort` instance to communicate with the actors.
     exp_no
-        The exposure sequence number. If `None`, the next valid
+        The exposure sequence number. If :obj:`None`, the next valid
         sequence number will be used.
     flavour
         The image type. Defaults to ``'object'``.
@@ -135,7 +135,7 @@ class Exposure(asyncio.Future["Exposure"]):
             the returned :obj:`.Exposure` object.
         show_progress
             Displays a progress bar with the elapsed exposure time.
-            If `None` (the default), will show the progress bar only
+            If :obj:`None` (the default), will show the progress bar only
             in interactive sessions.
         object
             The object name to be passed to the header.

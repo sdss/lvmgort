@@ -10,16 +10,29 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import pathlib
 import signal
 import sys
 import uuid
 from copy import deepcopy
 
-from typing import Any, Callable, ClassVar, Generic, Type, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ClassVar,
+    Generic,
+    Literal,
+    Type,
+    TypeVar,
+)
 
+from rich import pretty, traceback
+from rich.logging import RichHandler
 from typing_extensions import Self
 
 from clu.client import AMQPClient, AMQPReply
+from sdsstools.logger import SDSSLogger, get_logger
 
 from gort import config
 from gort.core import RemoteActor
@@ -28,7 +41,22 @@ from gort.kubernetes import Kubernetes
 from gort.observer import GortObserver
 from gort.recipes import recipes as recipe_to_class
 from gort.tile import Tile
-from gort.tools import get_rich_logger, run_in_executor
+from gort.tools import get_temporary_file_path, run_in_executor
+
+
+if TYPE_CHECKING:
+    from rich.console import Console
+
+try:
+    IPYTHON = get_ipython()  # type: ignore
+    IPYTHON_DEFAULT_HOOKS = [
+        IPYTHON._showtraceback,
+        IPYTHON.showtraceback,
+        IPYTHON.showsyntaxerror,
+    ]
+except NameError:
+    IPYTHON = None
+    IPYTHON_DEFAULT_HOOKS = []
 
 
 __all__ = ["GortClient", "Gort", "GortDeviceSet", "GortDevice"]
@@ -54,6 +82,14 @@ class GortClient(AMQPClient):
         The user to connect to the exchange.
     password
         The password to connect to the exchange.
+    use_rich_output
+        If :obj:`True`, uses ``rich`` to provide colourised tracebacks and
+        prettier outputs.
+    log_file_path
+        The path where to save GORT's log. File logs are always saved with ``DEBUG``
+        logging level. If :obj:`None`, a temporary file will be used whose path
+        can be retrieved by calling :obj:`.get_log_path`. If :obj:`False`, no file
+        logging will happen.
 
     """
 
@@ -63,6 +99,8 @@ class GortClient(AMQPClient):
         port: int = 5672,
         user: str = "guest",
         password: str = "guest",
+        use_rich_output: bool = True,
+        log_file_path: str | pathlib.Path | Literal[False] | None = None,
     ):
         from gort.devices.ag import AGSet
         from gort.devices.enclosure import Enclosure
@@ -72,14 +110,21 @@ class GortClient(AMQPClient):
         from gort.devices.telemetry import TelemetrySet as TelemSet
         from gort.devices.telescope import TelescopeSet as TelSet
 
-        client_uuid = str(uuid.uuid4()).split("-")[1]
+        self.client_uuid = str(uuid.uuid4()).split("-")[0]
 
-        log, self._console = get_rich_logger()
+        self.console: Console
+
+        log = self._prepare_logger(
+            log_file_path,
+            use_rich_output=use_rich_output,
+        )
+
+        self._setup_exception_hooks(log, use_rich_output=use_rich_output)
 
         self._connect_lock = asyncio.Lock()
 
         super().__init__(
-            f"Gort-client-{client_uuid}",
+            f"Gort-client-{self.client_uuid}",
             host=host,
             port=port,
             user=user,
@@ -109,6 +154,82 @@ class GortClient(AMQPClient):
                 "The Kubernetes module won't be available."
             )
             self.kubernetes = None
+
+    def _prepare_logger(
+        self,
+        log_file_path: str | pathlib.Path | Literal[False] | None = None,
+        use_rich_output: bool = True,
+    ):
+        """Creates a logger and start file logging."""
+
+        log = get_logger(
+            f"lvmgort-{self.client_uuid}",
+            use_rich_handler=True,
+            rich_handler_kwargs={"rich_tracebacks": use_rich_output},
+        )
+
+        if log_file_path is None:
+            tmp_path = get_temporary_file_path(
+                prefix="gort-",
+                suffix=f"-{self.client_uuid}.log",
+            )
+            log.start_file_logger(str(tmp_path), rotating=False)
+        elif log_file_path is not False:
+            log.start_file_logger(str(log_file_path), rotating=False)
+
+        assert isinstance(log.sh, RichHandler)
+        self.console = log.sh.console
+
+        return log
+
+    def _setup_exception_hooks(self, log: SDSSLogger, use_rich_output: bool = True):
+        """Setup various hooks for exception handling."""
+
+        def custom__showtraceback_closure(default__showtraceback):
+            def _showtraceback(*args, **kwargs):
+                assert IPYTHON
+
+                exc_tuple = IPYTHON._get_exc_info()
+                log.handle_exceptions(*exc_tuple)
+
+                default__showtraceback(*args, **kwargs)
+
+            if IPYTHON:
+                IPYTHON._showtraceback = _showtraceback
+
+        if use_rich_output:
+            traceback.install(console=self.console)
+            pretty.install(console=self.console)
+
+            # traceback.install() overrides the excepthook, which means that
+            # tracebacks are not logged to file anymore. Restore that.
+            log.default_excepthook = sys.excepthook
+            sys.excepthook = log.handle_exceptions
+
+        else:
+            # Make sure we are not using rich tracebacks anymore, in
+            # case we installed them at some point.
+            # See https://github.com/Textualize/rich/pull/2972/files
+
+            log.default_excepthook = sys.__excepthook__
+
+            if IPYTHON:
+                IPYTHON._showtraceback = IPYTHON_DEFAULT_HOOKS[0]
+                IPYTHON.showtraceback = IPYTHON_DEFAULT_HOOKS[1]
+                IPYTHON.showsyntaxerror = IPYTHON_DEFAULT_HOOKS[2]
+
+        if IPYTHON:
+            # One more override. We want that any exceptions raised in IPython
+            # also gets logged to file, but IPython overrides excepthook completely
+            # so here we make a custom call to log.handle_exceptions() and then
+            # just let it do whatever it was its default (whether that means it
+            # was overridden by rich or not).
+            custom__showtraceback_closure(IPYTHON._showtraceback)
+
+    def get_log_path(self):
+        """Returns the path of the log file. :obj:`None` if not logging to file."""
+
+        return self.log.log_filename
 
     async def init(self) -> Self:
         """Initialises the client.
@@ -141,11 +262,11 @@ class GortClient(AMQPClient):
 
     @property
     def connected(self):
-        """Returns `True` if the client is connected."""
+        """Returns :obj:`True` if the client is connected."""
 
         return self.connection and self.connection.connection is not None
 
-    def add_actor(self, actor: str, device: "GortDevice" | None = None):
+    def add_actor(self, actor: str, device: GortDevice | None = None):
         """Adds an actor to the programmatic API.
 
         Parameters
@@ -168,8 +289,8 @@ class GortClient(AMQPClient):
         Parameters
         ----------
         verbosity
-            The level of verbosity. Can be a string level name, an integer, or `None`,
-            in which case the default verbosity will be used.
+            The level of verbosity. Can be a string level name, an integer, or
+            :obj:`None`, in which case the default verbosity will be used.
 
         """
 
@@ -459,9 +580,9 @@ class Gort(GortClient):
         The level of logging verbosity.
     on_interrupt
         Action to perform if the loop receives an interrupt signal during
-        execution. The only options are `None` (do nothing, currently running
-        commands will continue), or ``stop'`` which will stop the telescopes
-        and guiders before exiting.
+        execution. The only options are :obj:`None` (do nothing, currently
+        running commands will continue), or ``stop'`` which will stop the
+        telescopes and guiders before exiting.
 
     """
 
@@ -625,16 +746,16 @@ class Gort(GortClient):
         return await Recipe(self)(**kwargs)
 
     async def startup(self, **kwargs):
-        """Executes the `startup <.StartupRecipe>` sequence."""
+        """Executes the :obj:`startup <.StartupRecipe>` sequence."""
 
         return await self.execute_recipe("startup", **kwargs)
 
     async def shutdown(self, **kwargs):
-        """Executes the `shutdown <.ShutdownRecipe>` sequence."""
+        """Executes the :obj:`shutdown <.ShutdownRecipe>` sequence."""
 
         return await self.execute_recipe("shutdown", **kwargs)
 
     async def cleanup(self, readout: bool = True):
-        """Executes the `shutdown <.CleanupRecipe>` sequence."""
+        """Executes the :obj:`shutdown <.CleanupRecipe>` sequence."""
 
         return await self.execute_recipe("cleanup", readout=readout)

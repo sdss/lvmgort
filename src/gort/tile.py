@@ -120,7 +120,7 @@ class Coordinates:
         -------
         pixel
             A tuple with the x and z coordinates of the pixel in the master frame,
-            or `None` if resetting to the central fibre.
+            or :obj:`None` if resetting to the central fibre.
 
         """
 
@@ -282,8 +282,8 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
     object
         The name of the object.
     allow_replacement
-        If `True`, allows the replacement of empty, invalid or low altitude sky
-        and standard targets.
+        If :obj:`True`, allows the replacement of empty, invalid or low altitude
+        sky and standard targets.
 
     """
 
@@ -396,7 +396,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             autocompleted from the closest available regions.
         spec_coords
             A list of coordinates to observe with the spectrophotometric telescope.
-            If `None`, selects the 12 closest standard stars.
+            If :obj:`None`, selects the 12 closest standard stars.
         kwargs
             Arguments to be passed to the initialiser.
 
@@ -446,9 +446,9 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         Parameters
         ----------
         tile_id
-            The ``tile_id`` for which to create a new :obj:`.Tile`. If `None`,
-            and ``ra`` and ``dec`` are also `None`, the best ``tile_id`` selected
-            by the scheduler will be used.
+            The ``tile_id`` for which to create a new :obj:`.Tile`. If :obj:`None`,
+            and ``ra`` and ``dec`` are also :obj:`None`, the best ``tile_id``
+            selected by the scheduler will be used.
         ra
             Right ascension coordinates of the science telescope pointing.
             Calibrators will be selected from the scheduler.
@@ -548,8 +548,8 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             A dictionary of ``skye`` and ``skyw`` coordinates. Each value must
             be a :obj:`.SkyCoordinates` object or a tuple of RA/Dec coordinates.
         allow_replacement
-            If `True`, allows the replacement of empty, invalid or low altitude
-            targets.
+            If :obj:`True`, allows the replacement of empty, invalid or low
+            altitude targets.
 
         """
 

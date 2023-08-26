@@ -77,7 +77,7 @@ exclude_patterns = [
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
-default_role = "py:obj"
+default_role = "obj"
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
 # add_function_parentheses = True
@@ -104,7 +104,7 @@ todo_include_todos = False
 
 # Intersphinx mappings
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3.9", None),
+    "python": ("https://docs.python.org/3.11", None),
     "clu": ("https://clu.readthedocs.io/en/latest/", None),
 }
 
@@ -124,6 +124,7 @@ copybutton_prompt_is_regexp = True
 
 rst_epilog = f"""
 .. |lvmgort_version| replace:: {__version__}
+.. default-role:: py:obj
 """
 
 
