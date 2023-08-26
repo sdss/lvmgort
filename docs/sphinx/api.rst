@@ -48,6 +48,13 @@ Devices
    :members: Telescope, TelescopeSet, KMirror, Focuser, FibSel
    :show-inheritance:
 
+Exposure
+--------
+
+.. automodule:: gort.exposure
+   :members: Exposure
+   :show-inheritance:
+
 Observer
 --------
 
@@ -69,7 +76,7 @@ Recipes
    :members:
    :show-inheritance:
 
-.. automodule:: gort.recipes.calibrations
+.. automodule:: gort.recipes.calibration
    :members:
    :show-inheritance:
 

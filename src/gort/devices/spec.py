@@ -13,10 +13,9 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from gort.exceptions import ErrorCodes, GortError, GortSpecError
-from gort.exposure import UPDATE_HEADER_CB_TYPE, Exposure
+from gort.exposure import Exposure
 from gort.gort import GortDevice, GortDeviceSet
 from gort.recipes.calibration import CalibrationRecipe
-from gort.tools import is_interactive, is_notebook
 
 
 if TYPE_CHECKING:
@@ -317,15 +316,15 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         return dict(zip(names, statuses))
 
-    def get_seqno(self):
+    def get_expno(self):
         """Returns the next exposure sequence number."""
 
         next_exposure_number_path = self.gort.config["specs"]["nextExposureNumber"]
         with open(next_exposure_number_path, "r") as fd:
             data = fd.read().strip()
-            seqno = int(data) if data != "" else 1
+            expno = int(data) if data != "" else 1
 
-        return seqno
+        return expno
 
     async def are_idle(self):
         """Returns `True` if all the spectrographs are idle and ready to expose."""
@@ -341,7 +340,6 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         async_readout: bool = False,
         count: int = 1,
         object: str | None = None,
-        update_header_cb: UPDATE_HEADER_CB_TYPE = None,
     ) -> Exposure | list[Exposure]:
         """Exposes the spectrographs.
 
@@ -368,10 +366,6 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         object
             A string that will be stored in the ``OBJECT`` header
             keyword.
-        update_header_cb
-            A function that will be called after integration but before
-            readout. It receives the current header and must modify it
-            in place.
 
         Returns
         -------
@@ -388,10 +382,8 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         if not (await self.are_idle()):
             raise GortSpecError(
                 "Spectrographs are not idle. Cannot expose.",
-                error_code=302,
+                error_code=ErrorCodes.SECTROGRAPH_NOT_IDLE,
             )
-
-        await self.reset()
 
         if count <= 0:
             raise GortSpecError("Invalid count.", error_code=ErrorCodes.USAGE_ERROR)
@@ -400,47 +392,23 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
             flavour = "bias"
             exposure_time = 0.0
 
-        flavour = flavour or "object"
-        if flavour not in ["arc", "object", "flat", "bias", "dark"]:
-            raise GortSpecError(
-                "Invalid flavour type.",
-                error_code=ErrorCodes.USAGE_ERROR,
-            )
-
-        header = header or {}
-
-        if object is not None:
-            header.update({"OBJECT": object})
-        elif flavour != "object":
-            header.update({"OBJECT": flavour})
-
-        if show_progress is None:
-            show_progress = is_interactive() or is_notebook()
-
         exposures: list[Exposure] = []
 
         for _ in range(int(count)):
-            seqno = self.get_seqno()
+            exposure = Exposure(self.gort, flavour=flavour, object=object)
 
-            log_msg = f"Taking spectrograph exposure {seqno} "
+            log_msg = f"Taking spectrograph exposure {exposure.exp_no} "
             if flavour == "bias":
                 log_msg += f"({flavour})."
             else:
                 log_msg += f"({flavour}, {exposure_time:.1f} s)."
             self.write_to_log(log_msg, "info")
 
-            await self.reset()
-
-            exposure = Exposure(seqno, self, flavour=flavour)
-            exposure.object = object or ""
-            exposure._update_header_cb = update_header_cb
-
             await exposure.expose(
                 exposure_time=exposure_time,
                 header=header,
                 async_readout=async_readout,
                 show_progress=show_progress,
-                flavour=flavour,
             )
             exposures.append(exposure)
 

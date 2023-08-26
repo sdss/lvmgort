@@ -20,13 +20,13 @@ import pandas
 from astropy.time import Time
 
 from gort.exceptions import GortObserverError
+from gort.exposure import Exposure
 from gort.tile import Coordinates
 from gort.tools import build_guider_reply_list, cancel_task
 from gort.transforms import fibre_slew_coordinates
 
 
 if TYPE_CHECKING:
-    from gort.exposure import Exposure
     from gort.gort import Gort
     from gort.tile import Tile
 
@@ -57,11 +57,18 @@ class GortObserver:
         self.guide_task: asyncio.Future | None = None
         self.guider_monitor = GuiderMonitor(self)
 
-        self.has_standards: bool = True
         self.standards = Standards(self, tile, self.mask_positions)
+
+        self.__current_exposure: Exposure | None = None
 
     def __repr__(self):
         return f"<GortObserver (tile_id={self.tile.tile_id})>"
+
+    @property
+    def has_standards(self):
+        """Returns `True` if standards will be observed."""
+
+        return len(self.standards.standards) > 0
 
     async def slew(self):
         """Slew to the telescope fields."""
@@ -175,7 +182,6 @@ class GortObserver:
 
         if "spec" not in guide_on_telescopes:
             self.write_to_log("No standards defined. Blocking fibre mask.", "warning")
-            self.has_standards = False
             await self.gort.telescopes.spec.fibsel.move_relative(500)
 
         if n_skies == 0:
@@ -230,7 +236,7 @@ class GortObserver:
         exposure_time: float = 900.0,
         show_progress: bool | None = None,
         count: int = 1,
-        **kwargs,
+        object: str | None = None,
     ):
         """Starts exposing the spectrographs.
 
@@ -244,19 +250,23 @@ class GortObserver:
             Number of exposures. If ``iterate_over_standards=True``, a
             full sequence of standards will be observed during each
             exposure.
-        kwargs
-            Other arguments to pass to :obj:`.SpectrographSet.expose`.
+        object
+            The object name to be added to the header.
+
+        Returns
+        -------
+        exposures
+            Either a single `.Exposure` or a list of exposures if ``count>1``.
 
         """
 
         tile_id = self.tile.tile_id
         dither_pos = self.tile.dither_position
 
-        if "object" not in kwargs:
-            kwargs["object"] = self.tile.object
+        if object is None:
+            object = self.tile.object
 
         exposures: list[Exposure] = []
-        standard_task: asyncio.Task | None = None
 
         for nexp in range(1, count + 1):
             self.write_to_log(
@@ -270,21 +280,20 @@ class GortObserver:
 
             # Move fibre selector to the first position. Should be there unless
             # count > 1 in which case we need to move it back.
-            if self.has_standards:
-                await self.standards.start_iterating(exposure_time)
+            await self.standards.start_iterating(exposure_time)
 
-            exposure = await self.gort.specs.expose(
+            exposure = Exposure(self.gort, flavour="object", object=object)
+            self.__current_exposure = exposure
+
+            exposure.hooks["pre-readout"].append(self._pre_readout)
+
+            await exposure.expose(
                 exposure_time=exposure_time,
                 show_progress=show_progress,
-                count=1,
-                update_header_cb=self._update_header,
-                **kwargs,
             )
-            assert not isinstance(exposure, list)
 
             exposures.append(exposure)
 
-            await cancel_task(standard_task)
             await exposure.register_observation(tile_id=tile_id, dither_pos=dither_pos)
 
         if len(exposures) == 1:
@@ -296,6 +305,9 @@ class GortObserver:
         """Finishes the observation, stops the guiders, etc."""
 
         self.write_to_log("Finishing observation.", "info")
+
+        # Should have been cancelled in _update_header(), but just in case.
+        await self.standards.cancel()
 
         if self.guide_task is not None and not self.guide_task.done():
             await self.gort.guiders.stop()
@@ -340,7 +352,7 @@ class GortObserver:
 
         return sorted(positions, key=lambda p: mask_config[p])
 
-    async def _update_header(self, header: dict[str, Any]):
+    async def _pre_readout(self, header: dict[str, Any]):
         """Updates the exposure header with pointing and guiding information."""
 
         tile_id = self.tile.tile_id
@@ -378,6 +390,14 @@ class GortObserver:
         # This also finishes updating the standards table.
         if self.has_standards:
             await self.standards.cancel()
+
+            # There is some overhead between when we set t0 for the first standard
+            # and when the exposure actually begins. This leads to the first standard
+            # having longer exposure time than open shutter.
+            if self.has_standards and self.__current_exposure is not None:
+                start_time = self.__current_exposure.start_time.unix
+                self.standards.standards.loc[1, "t0"] = start_time
+
             header.update(self.standards.to_header())
 
 
@@ -493,12 +513,17 @@ class Standards:
         self.gort = observer.gort
 
         self.tile = tile
-        self.mask_positions = mask_positions
 
         self.iterate_task: asyncio.Task | None = None
 
         self.current_standard: int = 1
         self.standards = self._get_frame()
+
+    @property
+    def mask_positions(self):
+        """Returns the list of mask positions from `.GortObserver`."""
+
+        return self.observer.mask_positions
 
     def _get_frame(self):
         """Constructs the standard data frame."""
@@ -536,6 +561,9 @@ class Standards:
 
         """
 
+        if len(self.standards) == 0:
+            return
+
         await self.gort.telescopes.spec.fibsel.move_to_position(self.mask_positions[0])
         await self.cancel()
 
@@ -553,9 +581,13 @@ class Standards:
 
         await cancel_task(self.iterate_task)
 
+        if len(self.standards) == 0:
+            return
+
         if self.standards.loc[self.current_standard].acquired == 1:
-            self.standards.loc[self.current_standard, "observed"] = 1
-            self.standards.loc[self.current_standard, "t1"] = time()
+            if self.standards.loc[self.current_standard, "observed"] != 1:
+                self.standards.loc[self.current_standard, "observed"] = 1
+                self.standards.loc[self.current_standard, "t1"] = time()
 
     async def _iterate(self, exposure_time: float):
         """Iterate task."""

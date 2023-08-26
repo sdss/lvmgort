@@ -12,8 +12,9 @@ import asyncio
 import json
 import pathlib
 import warnings
+from collections import defaultdict
 
-from typing import TYPE_CHECKING, Awaitable, Callable, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from astropy.io import fits
 from astropy.time import Time
@@ -22,11 +23,11 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 from sdsstools.time import get_sjd
 
 from gort.exceptions import ErrorCodes, GortSpecError
-from gort.tools import cancel_task, register_observation
+from gort.tools import cancel_task, is_interactive, is_notebook, register_observation
 
 
 if TYPE_CHECKING:
-    from gort.devices import SpectrographSet
+    from gort.gort import Gort, GortClient
 
 
 __all__ = ["Exposure", "READOUT_TIME"]
@@ -34,7 +35,7 @@ __all__ = ["Exposure", "READOUT_TIME"]
 
 READOUT_TIME = 51
 
-UPDATE_HEADER_CB_TYPE = Union[Callable[[dict], None], Callable[[dict], Awaitable], None]
+HOOKS_TYPE = defaultdict[str, list[Callable[[Any], Awaitable]]]
 
 
 class Exposure(asyncio.Future["Exposure"]):
@@ -42,20 +43,48 @@ class Exposure(asyncio.Future["Exposure"]):
 
     Parameters
     ----------
+    gort
+        A `.Gort` instance to communicate with the actors.
     exp_no
-        The exposure sequence number.
-    spec_set
-        The :obj:`.SpectrographSet` commanding this exposure.
+        The exposure sequence number. If `None`, the next valid
+        sequence number will be used.
     flavour
-        The image type.
+        The image type. Defaults to ``'object'``.
+    object
+        The object name to be added to the header.
+
+    Attributes
+    ----------
+    hooks
+        A dictionary of hooks to call in specific steps of the exposure. Each
+        hook must be a list of coroutines to call in that specific situation.
+        All coroutines for a given hook are called concurrently and depending
+        on the hook they may be scheduled as a task and not awaited. The only
+        hook at this time is ``'pre-readout'`` which is called with the header
+        before readout begins; the coroutine can modify the header in place or
+        perform any tasks that should be complete at the end of integration.
+
+        To add a coroutine to a hook ::
+
+            async def update_header(header):
+                header.update({'KEY': 1})
+
+            exp = Exposure(g)
+            exp.hooks['pre-readout'].append(update_header)
 
     """
 
-    def __init__(self, exp_no: int, spec_set: SpectrographSet, flavour: str = "object"):
-        self.spec_set = spec_set
-        self.exp_no = exp_no
-        self.flavour = flavour
-        self.object: str = ""
+    def __init__(
+        self,
+        gort: Gort | GortClient,
+        exp_no: int | None = None,
+        flavour: str | None = "object",
+        object: str | None = "",
+    ):
+        self.specs = gort.specs
+        self.exp_no = exp_no or self.specs.get_expno()
+        self.flavour = flavour or "object"
+        self.object = object or ""
         self.start_time = Time.now()
 
         self.error: bool = False
@@ -64,7 +93,16 @@ class Exposure(asyncio.Future["Exposure"]):
         self._timer_task: asyncio.Task | None = None
         self._progress: Progress | None = None
 
-        self._update_header_cb: UPDATE_HEADER_CB_TYPE = None
+        self.hooks: HOOKS_TYPE = defaultdict(
+            list,
+            {"pre-readout": []},
+        )
+
+        if self.flavour not in ["arc", "object", "flat", "bias", "dark"]:
+            raise GortSpecError(
+                "Invalid flavour type.",
+                error_code=ErrorCodes.USAGE_ERROR,
+            )
 
         super().__init__()
 
@@ -80,8 +118,8 @@ class Exposure(asyncio.Future["Exposure"]):
         exposure_time: float | None = None,
         header: dict | None = None,
         async_readout: bool = False,
-        show_progress: bool = False,
-        **kwargs,
+        show_progress: bool | None = None,
+        object: str | None = None,
     ):
         """Exposes the spectrograph.
 
@@ -97,13 +135,15 @@ class Exposure(asyncio.Future["Exposure"]):
             the returned :obj:`.Exposure` object.
         show_progress
             Displays a progress bar with the elapsed exposure time.
-        kwargs
-            Keyword arguments to pass to ``lvmscp expose``.
+            If `None` (the default), will show the progress bar only
+            in interactive sessions.
+        object
+            The object name to be passed to the header.
 
         """
 
         # Check that all specs are idle and not errored.
-        status = await self.spec_set.status(simple=True)
+        status = await self.specs.status(simple=True)
         for spec_status in status.values():
             if "IDLE" not in spec_status["status_names"]:
                 raise GortSpecError(
@@ -117,14 +157,24 @@ class Exposure(asyncio.Future["Exposure"]):
                     error_code=ErrorCodes.SECTROGRAPH_NOT_IDLE,
                 )
 
-        if show_progress:
-            await self.start_timer(exposure_time or 0.0)
+        await self.specs.reset()
 
-        if (
-            exposure_time is None
-            and kwargs.get("flavour", "object") != "bias"
-            and not kwargs.get("bias", False)
-        ):
+        header = header or {}
+
+        # Set object name for header.
+        if object is not None:
+            header.update({"OBJECT": object})
+        elif self.object is not None and self.object != "":
+            header.update({"OBJECT": self.object})
+        elif self.flavour != "object":
+            header.update({"OBJECT": self.flavour})
+        else:
+            header.update({"OBJECT": ""})
+
+        if show_progress is None:
+            show_progress = is_interactive() or is_notebook()
+
+        if exposure_time is None and self.flavour != "bias":
             raise GortSpecError(
                 "Exposure time required for all flavours except bias.",
                 error_code=ErrorCodes.USAGE_ERROR,
@@ -132,34 +182,30 @@ class Exposure(asyncio.Future["Exposure"]):
 
         warnings.filterwarnings("ignore", message=".*cannot modify a done command.*")
 
-        self.spec_set.last_exposure = self
+        self.specs.last_exposure = self
 
         monitor_task: asyncio.Task | None = None
 
         try:
+            if show_progress:
+                await self.start_timer(exposure_time or 0.0)
+
             self.start_time = Time.now()
 
-            await self.spec_set._send_command_all(
+            await self.specs._send_command_all(
                 "expose",
                 exposure_time=exposure_time,
                 seqno=self.exp_no,
                 readout=False,
-                **kwargs,
             )
 
+            # Call pre-readout tasks.
+            await self._call_hook("pre-readout", header)
+
             # At this point we have integrated and are ready to read.
-
             self.reading = True
-
-            header = header or {}
-            if self._update_header_cb is not None:
-                if asyncio.iscoroutinefunction(self._update_header_cb):
-                    await self._update_header_cb(header)
-                else:
-                    self._update_header_cb(header)
-
             readout_task = asyncio.create_task(
-                self.spec_set._send_command_all(
+                self.specs._send_command_all(
                     "read",
                     header=json.dumps(header),
                 )
@@ -174,10 +220,10 @@ class Exposure(asyncio.Future["Exposure"]):
             if not async_readout:
                 await readout_task
                 await monitor_task
-                self.spec_set.write_to_log(f"Exposure {self.exp_no} completed.")
+                self.specs.write_to_log(f"Exposure {self.exp_no} completed.")
             else:
                 await self.stop_timer()
-                self.spec_set.write_to_log("Returning with async readout ongoing.")
+                self.specs.write_to_log("Returning with async readout ongoing.")
 
         except Exception as err:
             # Cancel the monitor task
@@ -212,7 +258,7 @@ class Exposure(asyncio.Future["Exposure"]):
             expand=True,
             transient=True,
             auto_refresh=True,
-            console=self.spec_set.gort._console,  # Need to use same console as logger.
+            console=self.specs.gort._console,  # Need to use same console as logger.
         )
 
         exp_task = self._progress.add_task(
@@ -311,7 +357,7 @@ class Exposure(asyncio.Future["Exposure"]):
 
             for key in HEADERS_WARNING:
                 if key not in header:
-                    self.spec_set.write_to_log(
+                    self.specs.write_to_log(
                         f"Keyword {key} not present in {file!s}",
                         "warning",
                     )
@@ -320,7 +366,7 @@ class Exposure(asyncio.Future["Exposure"]):
         """Returns the files written by the exposure."""
 
         sjd = get_sjd("LCO")
-        config = self.spec_set.gort.config
+        config = self.specs.gort.config
         data_path = pathlib.Path(config["specs"]["data_path"].format(SJD=sjd))
 
         return list(data_path.glob(f"*-[0]*{self.exp_no}.fits.gz"))
@@ -328,9 +374,9 @@ class Exposure(asyncio.Future["Exposure"]):
     async def _done_monitor(self):
         """Waits until the spectrographs are idle, and marks the Future done."""
 
-        await self.spec_set._send_command_all("wait_until_idle", allow_errored=True)
+        await self.specs._send_command_all("wait_until_idle", allow_errored=True)
 
-        for spec in self.spec_set.values():
+        for spec in self.specs.values():
             reply = await spec.status(simple=True)
             if "ERROR" in reply["status_names"]:
                 self.error = True
@@ -350,7 +396,7 @@ class Exposure(asyncio.Future["Exposure"]):
         if self.flavour != "object":
             return
 
-        self.spec_set.write_to_log("Registering observation.", "info")
+        self.specs.write_to_log("Registering observation.", "info")
         registration_payload = {
             "dither": dither_pos,
             "jd": self.start_time.jd,
@@ -363,11 +409,28 @@ class Exposure(asyncio.Future["Exposure"]):
         if tile_id is not None:
             registration_payload["tile_id"] = tile_id
 
-        self.spec_set.write_to_log(f"Registration payload {registration_payload}")
+        self.specs.write_to_log(f"Registration payload {registration_payload}")
 
         try:
             await register_observation(registration_payload)
         except Exception as err:
-            self.spec_set.write_to_log(f"Failed registering exposure: {err}", "error")
+            self.specs.write_to_log(f"Failed registering exposure: {err}", "error")
         else:
-            self.spec_set.write_to_log("Registration complete.")
+            self.specs.write_to_log("Registration complete.")
+
+    async def _call_hook(self, hook_name: str, *args, as_task: bool = False, **kwargs):
+        """Calls the coroutines associated with a hook."""
+
+        if hook_name not in self.hooks:
+            raise ValueError(f"Invalid hook {hook_name!r}.")
+
+        coros = self.hooks[hook_name]
+        if not isinstance(coros, list) and asyncio.iscoroutinefunction(coros):
+            task = asyncio.create_task(coros(*args, **kwargs))
+        elif isinstance(coros, list):
+            task = asyncio.gather(*[coro(*args, **kwargs) for coro in coros])
+        else:
+            raise ValueError(f"Invalid hook functions found for {hook_name!r}.")
+
+        if not as_task:
+            await task
