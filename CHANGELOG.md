@@ -12,6 +12,7 @@
 
 ### ✨ Improved
 
+* [#9](https://github.com/sdss/lvmgort/pull/9) Refactoring of `Exposure` and `SpectrographSet.expose()`. Most of the code in the latter has been moved to the former. Added a system of hooks for the exposure process. For now, only a `pre-readout` hook that is called with the header before the exposure is read.
 * Concurrently stop spec guiding and reslew.
 * Pass `seg_time` and `seg_min_num` to `slewStart`.
 * The code used to build the spectrograph header has been cleaned up and consolidated in `GortObserver`.
