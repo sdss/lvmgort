@@ -20,12 +20,12 @@ import pandas
 from astropy.time import Time
 
 from gort.exceptions import GortObserverError
+from gort.exposure import Exposure
 from gort.tile import Coordinates
 from gort.tools import build_guider_reply_list, cancel_task
 
 
 if TYPE_CHECKING:
-    from gort.exposure import Exposure
     from gort.gort import Gort
     from gort.tile import Tile
 
@@ -226,7 +226,7 @@ class GortObserver:
         exposure_time: float = 900.0,
         show_progress: bool | None = None,
         count: int = 1,
-        **kwargs,
+        object: str | None = None,
     ):
         """Starts exposing the spectrographs.
 
@@ -240,16 +240,16 @@ class GortObserver:
             Number of exposures. If ``iterate_over_standards=True``, a
             full sequence of standards will be observed during each
             exposure.
-        kwargs
-            Other arguments to pass to :obj:`.SpectrographSet.expose`.
+        object
+            The object name to be added to the header.
 
         """
 
         tile_id = self.tile.tile_id
         dither_pos = self.tile.dither_position
 
-        if "object" not in kwargs:
-            kwargs["object"] = self.tile.object
+        if object is None:
+            object = self.tile.object
 
         exposures: list[Exposure] = []
         standard_task: asyncio.Task | None = None
@@ -269,14 +269,11 @@ class GortObserver:
             if self.has_standards:
                 await self.standards.start_iterating(exposure_time)
 
-            exposure = await self.gort.specs.expose(
+            exposure = Exposure(self.gort, flavour="object", object=object)
+            await exposure.expose(
                 exposure_time=exposure_time,
                 show_progress=show_progress,
-                count=1,
-                update_header_cb=self._update_header,
-                **kwargs,
             )
-            assert not isinstance(exposure, list)
 
             exposures.append(exposure)
 

@@ -316,15 +316,15 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         return dict(zip(names, statuses))
 
-    def get_seqno(self):
+    def get_expno(self):
         """Returns the next exposure sequence number."""
 
         next_exposure_number_path = self.gort.config["specs"]["nextExposureNumber"]
         with open(next_exposure_number_path, "r") as fd:
             data = fd.read().strip()
-            seqno = int(data) if data != "" else 1
+            expno = int(data) if data != "" else 1
 
-        return seqno
+        return expno
 
     async def are_idle(self):
         """Returns `True` if all the spectrographs are idle and ready to expose."""
@@ -382,10 +382,8 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         if not (await self.are_idle()):
             raise GortSpecError(
                 "Spectrographs are not idle. Cannot expose.",
-                error_code=302,
+                error_code=ErrorCodes.SECTROGRAPH_NOT_IDLE,
             )
-
-        await self.reset()
 
         if count <= 0:
             raise GortSpecError("Invalid count.", error_code=ErrorCodes.USAGE_ERROR)
@@ -397,26 +395,20 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         exposures: list[Exposure] = []
 
         for _ in range(int(count)):
-            seqno = self.get_seqno()
+            exposure = Exposure(self.gort, flavour=flavour, object=object)
 
-            log_msg = f"Taking spectrograph exposure {seqno} "
+            log_msg = f"Taking spectrograph exposure {exposure.exp_no} "
             if flavour == "bias":
                 log_msg += f"({flavour})."
             else:
                 log_msg += f"({flavour}, {exposure_time:.1f} s)."
             self.write_to_log(log_msg, "info")
 
-            await self.reset()
-
-            exposure = Exposure(seqno, self, flavour=(flavour or "object"))
-            exposure.object = object or ""
-
             await exposure.expose(
                 exposure_time=exposure_time,
                 header=header,
                 async_readout=async_readout,
                 show_progress=show_progress,
-                flavour=flavour,
             )
             exposures.append(exposure)
 
