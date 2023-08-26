@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### 🔧 Fixed
+
+* Fixed some additional issues with the exception hooks that cause a recursion loop in IPython in some cases.
+
+
 ## 0.4.0 - August 26, 2023
 
 ### 🚀 New
