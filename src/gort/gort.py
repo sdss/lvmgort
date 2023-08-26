@@ -32,7 +32,7 @@ from rich.logging import RichHandler
 from typing_extensions import Self
 
 from clu.client import AMQPClient, AMQPReply
-from sdsstools.logger import SDSSLogger, get_logger
+from sdsstools.logger import SDSSLogger, get_exception_formatted, get_logger
 
 from gort import config
 from gort.core import RemoteActor
@@ -211,7 +211,10 @@ class GortClient(AMQPClient):
             # case we installed them at some point.
             # See https://github.com/Textualize/rich/pull/2972/files
 
-            log.default_excepthook = sys.__excepthook__
+            log.default_excepthook = lambda *args, **kwargs: print(
+                get_exception_formatted(*args, **kwargs)
+            )
+            sys.excepthook = log.handle_exceptions
 
             if IPYTHON:
                 IPYTHON._showtraceback = IPYTHON_DEFAULT_HOOKS[0]
@@ -224,6 +227,7 @@ class GortClient(AMQPClient):
             # so here we make a custom call to log.handle_exceptions() and then
             # just let it do whatever it was its default (whether that means it
             # was overridden by rich or not).
+            log.default_excepthook = lambda *_, **__: None
             custom__showtraceback_closure(IPYTHON._showtraceback)
 
     def get_log_path(self):
