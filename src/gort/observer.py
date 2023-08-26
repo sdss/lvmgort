@@ -65,7 +65,7 @@ class GortObserver:
 
     @property
     def has_standards(self):
-        """Returns `True` if standards will be observed."""
+        """Returns :obj:`True` if standards will be observed."""
 
         return len(self.standards.standards) > 0
 

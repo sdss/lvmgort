@@ -128,7 +128,7 @@ class Enclosure(GortDevice):
         await self.actor.commands.dome.commands.stop()
 
     async def is_local(self):
-        """Returns `True` if the enclosure is in local mode."""
+        """Returns :obj:`True` if the enclosure is in local mode."""
 
         status = await self.status()
         safety_status_labels = status.get("safety_status_labels", None)

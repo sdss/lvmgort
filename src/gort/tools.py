@@ -303,7 +303,7 @@ async def register_observation(payload: dict):
 
 
 def is_notebook() -> bool:
-    """Returns `True` if the code is run inside a Jupyter Notebook.
+    """Returns :obj:`True` if the code is run inside a Jupyter Notebook.
 
     https://stackoverflow.com/questions/15411967/how-can-i-check-if-code-is-executed-in-the-ipython-notebook
 
@@ -322,7 +322,7 @@ def is_notebook() -> bool:
 
 
 def is_interactive():
-    """Returns `True` is we are in an interactive session."""
+    """Returns :obj:`True` is we are in an interactive session."""
 
     import __main__ as main
 
@@ -345,7 +345,7 @@ def get_ccd_frame_path(
         The SJD in which the frames where taken. If not provided, all the
         directories under ``spectro_path`` are searched.
     cameras
-        The cameras to be returned. If `None`, all cameras found are returned.
+        The cameras to be returned. If :obj:`None`, all cameras found are returned.
     spectro_path
         The path to the ``spectro`` directory where spectrograph files are
         stored under an SJD structure.
@@ -405,7 +405,7 @@ async def move_mask_interval(
         value will be iterated, in alphabetic order. Alternative it can be a list
         of positions to move to which will be executed in that order.
     order_by_steps
-        If `True`, the positions are iterated in order of smaller to larger
+        If :obj:`True`, the positions are iterated in order of smaller to larger
         number of step motors.
     total_time
         The total time to spend iterating over positions, in seconds. Each position
@@ -559,7 +559,7 @@ async def build_guider_reply_list(
     reply_list
         A list (usually empty) to which the task will append the replies.
     actor
-        The actor to listen to. If `None`, listens to all the guider actors.
+        The actor to listen to. If :obj:`None`, listens to all the guider actors.
 
     """
 

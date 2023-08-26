@@ -83,13 +83,13 @@ class GortClient(AMQPClient):
     password
         The password to connect to the exchange.
     use_rich_output
-        If `True`, uses ``rich`` to provide colourised tracebacks and prettier
-        outputs.
+        If :obj:`True`, uses ``rich`` to provide colourised tracebacks and
+        prettier outputs.
     log_file_path
         The path where to save GORT's log. File logs are always saved with `DEBUG`
-        logging level. If `None`, a temporary file will be used whose path can be
-        retrieved by calling `.get_log_path`. If `False`, no file logging
-        will happen.
+        logging level. If :obj:`None`, a temporary file will be used whose path
+        can be retrieved by calling :obj:`.get_log_path`. If :obj:`False`, no file
+        logging will happen.
 
     """
 
@@ -227,7 +227,7 @@ class GortClient(AMQPClient):
             custom__showtraceback_closure(IPYTHON._showtraceback)
 
     def get_log_path(self):
-        """Returns the path of the log file. `None` if not logging to file."""
+        """Returns the path of the log file. :obj:`None` if not logging to file."""
 
         return self.log.log_filename
 
@@ -262,11 +262,11 @@ class GortClient(AMQPClient):
 
     @property
     def connected(self):
-        """Returns `True` if the client is connected."""
+        """Returns :obj:`True` if the client is connected."""
 
         return self.connection and self.connection.connection is not None
 
-    def add_actor(self, actor: str, device: "GortDevice" | None = None):
+    def add_actor(self, actor: str, device: GortDevice | None = None):
         """Adds an actor to the programmatic API.
 
         Parameters
@@ -289,8 +289,8 @@ class GortClient(AMQPClient):
         Parameters
         ----------
         verbosity
-            The level of verbosity. Can be a string level name, an integer, or `None`,
-            in which case the default verbosity will be used.
+            The level of verbosity. Can be a string level name, an integer, or
+            :obj:`None`, in which case the default verbosity will be used.
 
         """
 
@@ -580,9 +580,9 @@ class Gort(GortClient):
         The level of logging verbosity.
     on_interrupt
         Action to perform if the loop receives an interrupt signal during
-        execution. The only options are `None` (do nothing, currently running
-        commands will continue), or ``stop'`` which will stop the telescopes
-        and guiders before exiting.
+        execution. The only options are :obj:`None` (do nothing, currently
+        running commands will continue), or ``stop'`` which will stop the
+        telescopes and guiders before exiting.
 
     """
 

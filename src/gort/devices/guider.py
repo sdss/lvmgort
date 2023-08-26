@@ -78,10 +78,10 @@ class Guider(GortDevice):
         ----------
         guide_tolerance
             The minimum separation, in arcsec, between the measured and desired
-            positions that needs to be reached before returning. If `None`,
+            positions that needs to be reached before returning. If :obj:`None`,
             waits until guiding (as opposed to acquisition) begins.
         timeout
-            Maximum time, in seconds, to wait before returning. If `None`,
+            Maximum time, in seconds, to wait before returning. If :obj:`None`,
             waits indefinitely. If the timeout is reached it does not
             raise an exception.
 
@@ -94,7 +94,7 @@ class Guider(GortDevice):
         separation
             The current separation.
         timedout
-            `True` if the acquisition timed out.
+            :obj:`True` if the acquisition timed out.
 
         """
 
@@ -127,7 +127,7 @@ class Guider(GortDevice):
         args,kwargs
             Arguments to be passed to the guider expose command.
         continuous
-            Whether to expose the camera continuously. If `False`
+            Whether to expose the camera continuously. If :obj:`False`
             it takes a single exposure.
 
         """
@@ -151,11 +151,11 @@ class Guider(GortDevice):
         Parameters
         ----------
         inplace
-            If `True`, focuses the telescope where it is pointing at. Otherwise
+            If :obj:`True`, focuses the telescope where it is pointing at. Otherwise
             points to zenith.
         guess
-            The initial guess for the focuser position. If `None`, the default value
-            from the configuration file is used.
+            The initial guess for the focuser position. If :obj:`None`, the
+            default value from the configuration file is used.
         step_size
             The size, in focuser units, of each step.
         steps
@@ -238,7 +238,7 @@ class Guider(GortDevice):
         Parameters
         ----------
         ra,dec
-            The coordinates to acquire. If `None`, the current telescope
+            The coordinates to acquire. If :obj:`None`, the current telescope
             coordinates are used.
         exposure_time
             The exposure time of the AG integrations.
@@ -438,7 +438,7 @@ class GuiderSet(GortDeviceSet[Guider]):
         args,kwargs
             Arguments to be passed to :obj:`.Guider.expose`.
         continuous
-            Whether to expose the camera continuously. If `False`
+            Whether to expose the camera continuously. If :obj:`False`
             it takes a single exposure.
 
         """
@@ -487,13 +487,14 @@ class GuiderSet(GortDeviceSet[Guider]):
         Parameters
         ----------
         inplace
-            If `True`, focuses the telescopes where they are pointing at. Otherwise
+            If :obj:`True`, focuses the telescopes where they are pointing at. Otherwise
             points to zenith.
         guess
-            The initial guesses for focuser position. If `None`, the default values
-            from the configuration file are used. It can also be a float value,
-            which will be used for all telescopes, or a mapping of telescope name
-            to guess value. Missing values will default to the configuration value.
+            The initial guesses for focuser position. If :obj:`None`, the default
+            values from the configuration file are used. It can also be a float
+            value, which will be used for all telescopes, or a mapping of telescope
+            name to guess value. Missing values will default to the configuration
+            value.
         step_size
             The size, in focuser units, of each step.
         steps
@@ -576,10 +577,10 @@ class GuiderSet(GortDeviceSet[Guider]):
             List of telescopes to wait for convergence.
         guide_tolerance
             The minimum separation, in arcsec, between the measured and desired
-            positions that needs to be reached before returning. If `None`,
+            positions that needs to be reached before returning. If :obj:`None`,
             waits until guiding (as opposed to acquisition) begins.
         timeout
-            Maximum time, in seconds, to wait before returning. If `None`,
+            Maximum time, in seconds, to wait before returning. If :obj:`None`,
             waits indefinitely. If the timeout is reached it does not
             raise an exception.
 
@@ -587,8 +588,8 @@ class GuiderSet(GortDeviceSet[Guider]):
         -------
         status
             A dictionary with the telescope names and a tuple indicating whether
-            the desired minimum separation was reached. the current
-            :obj:`.GuiderStatus`, and the current separation for that telescope.
+            the desired minimum separation was reached. The current
+            ``GuiderStatus``, and the current separation for that telescope.
 
         """
 

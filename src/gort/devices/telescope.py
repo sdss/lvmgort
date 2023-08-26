@@ -376,7 +376,7 @@ class Telescope(GortDevice):
         Parameters
         ----------
         home
-            If `True`, runs the homing routine after initialising.
+            If :obj:`True`, runs the homing routine after initialising.
 
         """
 
@@ -400,13 +400,13 @@ class Telescope(GortDevice):
         Parameters
         ---------
         home_telescope
-            Homes the telescope. Defaults to `True`.
+            Homes the telescope. Defaults to :obj:`True`.
         home_km
-            Homes the K-mirror, if present. Defaults to `True`.
+            Homes the K-mirror, if present. Defaults to :obj:`True`.
         home_focuser
-            Homes the focuser. Defaults to `False`.
+            Homes the focuser. Defaults to :obj:`False`.
         home_fibsel
-            Homes the fibre selector, if present. Defaults to `False`.
+            Homes the fibre selector, if present. Defaults to :obj:`False`.
 
         """
 
@@ -549,7 +549,7 @@ class Telescope(GortDevice):
             Whether to move the k-mirror into position. Only when
             the coordinates provided are RA/Dec.
         altaz_tracking
-            If `True`, starts tracking after moving to alt/az coordinates.
+            If :obj:`True`, starts tracking after moving to alt/az coordinates.
             By defaul the PWI won't track with those coordinates.
         use_pointing_offsets
             If defined, uses the RA/Dec calibrations offsets for the telescope.
@@ -855,13 +855,13 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         Parameters
         ---------
         home_telescopes
-            Homes the telescopes. Defaults to `True`.
+            Homes the telescopes. Defaults to :obj:`True`.
         home_kms
-            Homes the K-mirrors, if present. Defaults to `True`.
+            Homes the K-mirrors, if present. Defaults to :obj:`True`.
         home_focusers
-            Homes the focusers. Defaults to `False`.
+            Homes the focusers. Defaults to :obj:`False`.
         home_fibsel
-            Homes the fibre selector, if present. Defaults to `False`.
+            Homes the fibre selector, if present. Defaults to :obj:`False`.
 
         """
 
@@ -936,7 +936,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
             Whether to move the k-mirror into position. Only when
             the coordinates provided are RA/Dec.
         altaz_tracking
-            If `True`, starts tracking after moving to alt/az coordinates.
+            If :obj:`True`, starts tracking after moving to alt/az coordinates.
             By defaul the PWI won't track with those coordinates.
         force
             Move the telescopes even if mode is local.

@@ -58,12 +58,13 @@ class StartupRecipe(BaseRecipe):
         gort
             The `.Gort` instance to use.
         calibration_sequence
-            The name of the calibration sequence to use. If `None`, uses the default
-            sequence from the configuration. If `False`, skips the calibration sequence.
+            The name of the calibration sequence to use. If :obj:`None`, uses the
+            default sequence from the configuration. If :obj:`False`, skips the
+            calibration sequence.
         open_enclosure
             Whether to open the enclosure.
         confirm_open
-            If `True`, asks the user to confirm opening the enclosure.
+            If :obj:`True`, asks the user to confirm opening the enclosure.
         focus
             Whether to focus after the enclosure has open.
 
@@ -122,7 +123,7 @@ class ShutdownRecipe(BaseRecipe):
         Parameters
         ----------
         park_telescopes
-            Park telescopes (and disables axes). Set to `False` if only
+            Park telescopes (and disables axes). Set to :obj:`False` if only
             closing for a brief period of time.
 
         """
