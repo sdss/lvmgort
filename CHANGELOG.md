@@ -10,6 +10,7 @@
 * Added exposure frame to the progress bar.
 * Add `PA` parameter to tiles and propagate it to the k-mirror slew commands.
 * Use `rich` tracebacks. This can be disabled by calling `Gort` with `use_rich_output=False`. Tracebacks generated in an interactive IPython session are now saved to the file log.
+* Log `Gort` output to a temporary file by default. `Gort` can also be called with an argument `log_file_path` to indicate where to save the log, or with `log_file_path=False` to disable logging. The current file log path can be retrieved as `Gort.get_log_path()`.
 
 ### ✨ Improved
 

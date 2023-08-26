@@ -12,6 +12,7 @@ import asyncio
 import concurrent.futures
 import pathlib
 import re
+import tempfile
 import warnings
 from contextlib import suppress
 from datetime import datetime
@@ -56,6 +57,7 @@ __all__ = [
     "is_notebook",
     "cancel_task",
     "build_guider_reply_list",
+    "get_temporary_file_path",
 ]
 
 CAMERAS = [
@@ -624,3 +626,24 @@ async def build_guider_reply_list(
 
     finally:
         gort.remove_reply_callback(handle_guider_reply)
+
+
+def get_temporary_file_path(*args, create_parents: bool = False, **kwargs):
+    """Returns a valid path to a temporary file.
+
+    `args` and `kwargs` are directly passed to `tempfile.NamedTemporaryFile`.
+    If `create_parents`, the parent directories are created if they don't
+    exist.
+
+    """
+
+    tmp_log_file = tempfile.NamedTemporaryFile(*args, **kwargs)
+    tmp_log_file.close()
+
+    tmp_path = pathlib.Path(tmp_log_file.name)
+    if tmp_path.exists():
+        tmp_path.unlink()
+    elif create_parents:
+        tmp_path.parent.mkdir(parents=True, exist_ok=True)
+
+    return tmp_path

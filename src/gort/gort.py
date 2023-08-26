@@ -10,12 +10,22 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import pathlib
 import signal
 import sys
 import uuid
 from copy import deepcopy
 
-from typing import Any, Callable, ClassVar, Generic, Type, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ClassVar,
+    Generic,
+    Literal,
+    Type,
+    TypeVar,
+)
 
 from rich import pretty, traceback
 from rich.logging import RichHandler
@@ -31,8 +41,11 @@ from gort.kubernetes import Kubernetes
 from gort.observer import GortObserver
 from gort.recipes import recipes as recipe_to_class
 from gort.tile import Tile
-from gort.tools import run_in_executor
+from gort.tools import get_temporary_file_path, run_in_executor
 
+
+if TYPE_CHECKING:
+    from rich.console import Console
 
 try:
     IPYTHON = get_ipython()  # type: ignore
@@ -72,6 +85,11 @@ class GortClient(AMQPClient):
     use_rich_output
         If `True`, uses ``rich`` to provide colourised tracebacks and prettier
         outputs.
+    log_file_path
+        The path where to save GORT's log. File logs are always saved with `DEBUG`
+        logging level. If `None`, a temporary file will be used whose path can be
+        retrieved by calling `.get_log_path`. If `False`, no file logging
+        will happen.
 
     """
 
@@ -82,6 +100,7 @@ class GortClient(AMQPClient):
         user: str = "guest",
         password: str = "guest",
         use_rich_output: bool = True,
+        log_file_path: str | pathlib.Path | Literal[False] | None = None,
     ):
         from gort.devices.ag import AGSet
         from gort.devices.enclosure import Enclosure
@@ -91,23 +110,21 @@ class GortClient(AMQPClient):
         from gort.devices.telemetry import TelemetrySet as TelemSet
         from gort.devices.telescope import TelescopeSet as TelSet
 
-        client_uuid = str(uuid.uuid4()).split("-")[1]
+        self.client_uuid = str(uuid.uuid4()).split("-")[0]
 
-        log = get_logger(
-            f"lvmgort-{client_uuid}",
-            use_rich_handler=True,
-            rich_handler_kwargs={"rich_tracebacks": use_rich_output},
+        self.console: Console
+
+        log = self._prepare_logger(
+            log_file_path,
+            use_rich_output=use_rich_output,
         )
-
-        assert isinstance(log.sh, RichHandler)
-        self.console = log.sh.console
 
         self._setup_exception_hooks(log, use_rich_output=use_rich_output)
 
         self._connect_lock = asyncio.Lock()
 
         super().__init__(
-            f"Gort-client-{client_uuid}",
+            f"Gort-client-{self.client_uuid}",
             host=host,
             port=port,
             user=user,
@@ -137,6 +154,33 @@ class GortClient(AMQPClient):
                 "The Kubernetes module won't be available."
             )
             self.kubernetes = None
+
+    def _prepare_logger(
+        self,
+        log_file_path: str | pathlib.Path | Literal[False] | None = None,
+        use_rich_output: bool = True,
+    ):
+        """Creates a logger and start file logging."""
+
+        log = get_logger(
+            f"lvmgort-{self.client_uuid}",
+            use_rich_handler=True,
+            rich_handler_kwargs={"rich_tracebacks": use_rich_output},
+        )
+
+        if log_file_path is None:
+            tmp_path = get_temporary_file_path(
+                prefix="gort-",
+                suffix=f"-{self.client_uuid}.log",
+            )
+            log.start_file_logger(str(tmp_path), rotating=False)
+        elif log_file_path is not False:
+            log.start_file_logger(str(log_file_path), rotating=False)
+
+        assert isinstance(log.sh, RichHandler)
+        self.console = log.sh.console
+
+        return log
 
     def _setup_exception_hooks(self, log: SDSSLogger, use_rich_output: bool = True):
         """Setup various hooks for exception handling."""
@@ -181,6 +225,11 @@ class GortClient(AMQPClient):
             # just let it do whatever it was its default (whether that means it
             # was overridden by rich or not).
             custom__showtraceback_closure(IPYTHON._showtraceback)
+
+    def get_log_path(self):
+        """Returns the path of the log file. `None` if not logging to file."""
+
+        return self.log.log_filename
 
     async def init(self) -> Self:
         """Initialises the client.
