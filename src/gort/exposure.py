@@ -187,10 +187,10 @@ class Exposure(asyncio.Future["Exposure"]):
         monitor_task: asyncio.Task | None = None
 
         try:
-            self.start_time = Time.now()
-
             if show_progress:
                 await self.start_timer(exposure_time or 0.0)
+
+            self.start_time = Time.now()
 
             await self.specs._send_command_all(
                 "expose",
