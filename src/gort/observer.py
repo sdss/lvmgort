@@ -270,6 +270,8 @@ class GortObserver:
                 await self.standards.start_iterating(exposure_time)
 
             exposure = Exposure(self.gort, flavour="object", object=object)
+            exposure.hooks["pre-readout"].append(self._update_header)
+
             await exposure.expose(
                 exposure_time=exposure_time,
                 show_progress=show_progress,

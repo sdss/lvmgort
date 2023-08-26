@@ -35,7 +35,7 @@ __all__ = ["Exposure", "READOUT_TIME"]
 
 READOUT_TIME = 51
 
-CORO_TYPE = Callable[[Any], Awaitable]
+HOOKS_TYPE = defaultdict[str, list[Callable[[Any], Awaitable]]]
 
 
 class Exposure(asyncio.Future["Exposure"]):
@@ -52,6 +52,25 @@ class Exposure(asyncio.Future["Exposure"]):
         The image type. Defaults to ``'object'``.
     object
         The object name to be added to the header.
+
+    Attributes
+    ----------
+    hooks
+        A dictionary of hooks to call in specific steps of the exposure. Each
+        hook must be a list of coroutines to call in that specific situation.
+        All coroutines for a given hook are called concurrently and depending
+        on the hook they may be scheduled as a task and not awaited. The only
+        hook at this time is ``'pre-readout'`` which is called with the header
+        before readout begins; the coroutine can modify the header in place or
+        perform any tasks that should be complete at the end of integration.
+
+        To add a coroutine to a hook ::
+
+            async def update_header(header):
+                header.update({'KEY': 1})
+
+            exp = Exposure(g)
+            exp.hooks['pre-readout'].append(update_header)
 
     """
 
@@ -74,7 +93,10 @@ class Exposure(asyncio.Future["Exposure"]):
         self._timer_task: asyncio.Task | None = None
         self._progress: Progress | None = None
 
-        self.hooks: defaultdict[str, list[CORO_TYPE]] = defaultdict(list)
+        self.hooks: HOOKS_TYPE = defaultdict(
+            list,
+            {"pre-readout": []},
+        )
 
         if self.flavour not in ["arc", "object", "flat", "bias", "dark"]:
             raise GortSpecError(
@@ -176,6 +198,9 @@ class Exposure(asyncio.Future["Exposure"]):
                 seqno=self.exp_no,
                 readout=False,
             )
+
+            # Call pre-readout tasks.
+            await self._call_hook("pre-readout", header)
 
             # At this point we have integrated and are ready to read.
             self.reading = True
@@ -392,3 +417,20 @@ class Exposure(asyncio.Future["Exposure"]):
             self.specs.write_to_log(f"Failed registering exposure: {err}", "error")
         else:
             self.specs.write_to_log("Registration complete.")
+
+    async def _call_hook(self, hook_name: str, *args, as_task: bool = False, **kwargs):
+        """Calls the coroutines associated with a hook."""
+
+        if hook_name not in self.hooks:
+            raise ValueError(f"Invalid hook {hook_name!r}.")
+
+        coros = self.hooks[hook_name]
+        if not isinstance(coros, list) and asyncio.iscoroutinefunction(coros):
+            task = asyncio.create_task(coros(*args, **kwargs))
+        elif isinstance(coros, list):
+            task = asyncio.gather(*[coro(*args, **kwargs) for coro in coros])
+        else:
+            raise ValueError(f"Invalid hook functions found for {hook_name!r}.")
+
+        if not as_task:
+            await task
