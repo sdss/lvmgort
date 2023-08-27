@@ -23,6 +23,7 @@ from gort.exceptions import GortObserverError
 from gort.exposure import Exposure
 from gort.tile import Coordinates
 from gort.tools import build_guider_reply_list, cancel_task
+from gort.transforms import fibre_slew_coordinates
 
 
 if TYPE_CHECKING:
@@ -91,9 +92,12 @@ class GortObserver:
 
             # For spec we slew to the fibre with which we'll observe first.
             # This should save a bit of time converging.
-            spec_target = (first_spec.ra, first_spec.dec)
-            # spec = fibre_slew_coordinates(*spec_target, self.mask_positions[0])
-            spec = spec_target
+            spec = fibre_slew_coordinates(
+                first_spec.ra,
+                first_spec.dec,
+                self.mask_positions[0],
+                derotated=False,
+            )
 
             self.write_to_log(f"Spec: {first_spec} on {self.mask_positions[0]}")
 
@@ -679,13 +683,12 @@ class Standards:
 
                 # Slew to new coordinates. We actually slew to the coordinates
                 # that make the new star close to the fibre that will observe it.
-                # slew_ra, slew_dec = fibre_slew_coordinates(
-                #     new_coords.ra,
-                #     new_coords.dec,
-                #     new_mask_position,
-                # )
-                slew_ra = new_coords.ra
-                slew_dec = new_coords.dec
+                slew_ra, slew_dec = fibre_slew_coordinates(
+                    new_coords.ra,
+                    new_coords.dec,
+                    new_mask_position,
+                    derotated=False,
+                )
 
                 # Finish guiding on spec telescope.
                 self.observer.write_to_log("Stopping guiding on spec and reslewing.")
