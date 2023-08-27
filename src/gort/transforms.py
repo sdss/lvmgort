@@ -248,7 +248,10 @@ def fibre_slew_coordinates(
     ra_off, dec_off = xy_to_radec_offset(xpmm, ypmm)
 
     if not derotated:
-        field_angle = 90 + calculate_field_angle(ra, dec, obstime=None)
+        field_angle = calculate_field_angle(ra, dec, obstime=None)
+
+        # We rotate by -fa_r. I.e., we are "derotating" the sky then
+        # calculating the offsets.
         fa_r = -numpy.radians(field_angle)
         rotm = numpy.array(
             [
@@ -257,6 +260,10 @@ def fibre_slew_coordinates(
             ]
         )
         ra_off, dec_off = rotm.dot(numpy.array([ra_off, dec_off]).T)
+
+        # Account for the fact that when we apply the rotation the axes are
+        # 180 deg off.
+        dec_off = -dec_off
 
     ra_off = ra_off / 3600.0 / numpy.cos(numpy.radians(dec))
     dec_off = dec_off / 3600.0
