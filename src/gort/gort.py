@@ -112,7 +112,7 @@ class GortClient(AMQPClient):
 
         self.client_uuid = str(uuid.uuid4()).split("-")[0]
 
-        self.console: Console
+        self._console: Console
 
         log = self._prepare_logger(
             log_file_path,
@@ -178,7 +178,7 @@ class GortClient(AMQPClient):
             log.start_file_logger(str(log_file_path), rotating=False)
 
         assert isinstance(log.sh, RichHandler)
-        self.console = log.sh.console
+        self._console = log.sh.console
 
         return log
 
@@ -198,8 +198,8 @@ class GortClient(AMQPClient):
                 IPYTHON._showtraceback = _showtraceback
 
         if use_rich_output:
-            traceback.install(console=self.console)
-            pretty.install(console=self.console)
+            traceback.install(console=self._console)
+            pretty.install(console=self._console)
 
             # traceback.install() overrides the excepthook, which means that
             # tracebacks are not logged to file anymore. Restore that.
