@@ -370,6 +370,7 @@ class GortObserver:
                 {
                     "POSKYERA": round(self.tile.sky_coords["skye"].ra, 6),
                     "POSKYEDE": round(self.tile.sky_coords["skye"].dec, 6),
+                    "SKYENAME": self.tile.sky_coords['skye'].name
                 }
             )
 
@@ -378,6 +379,7 @@ class GortObserver:
                 {
                     "POSKYWRA": round(self.tile.sky_coords["skyw"].ra, 6),
                     "POSKYWDE": round(self.tile.sky_coords["skyw"].dec, 6),
+                    "SKYWNAME": self.tile.sky_coords['skyw'].name
                 }
             )
 

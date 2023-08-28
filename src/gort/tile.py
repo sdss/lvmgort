@@ -242,15 +242,25 @@ class ScienceCoordinates(Coordinates):
 
 
 class SkyCoordinates(QuerableCoordinates):
-    """A sky position."""
+    """A sky position.
+
+    In addition to the `.QuerableCoordinates` arguments the class accepts
+    a ``name`` identifier.
+
+    """
 
     __db_table__ = "lvmopsdb.sky"
+
+    def __init__(self, *args, name: str | None = None, **kwargs):
+        self.name = name
+
+        super().__init__(*args, **kwargs)
 
 
 class StandardCoordinates(QuerableCoordinates):
     """A standard position.
 
-    In addition to the `.QuerableCoordinates` arguments the class acceps
+    In addition to the `.QuerableCoordinates` arguments the class accepts
     a ``source_id`` Gaia identifier.
 
     """
@@ -290,7 +300,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
     def __init__(
         self,
         sci_coords: ScienceCoordinates,
-        sky_coords: dict[str, SkyCoordinates | CoordTuple] | None = None,
+        sky_coords: dict[str, SkyCoordinates] | dict[str, CoordTuple] | None = None,
         spec_coords: list[StandardCoordinates | CoordTuple] | None = None,
         dither_position: int = 0,
         object: str | None = None,
@@ -379,7 +389,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         ra: float,
         dec: float,
         pa: float = 0.0,
-        sky_coords: dict[str, SkyCoordinates | CoordTuple] | None = None,
+        sky_coords: dict[str, SkyCoordinates] | dict[str, CoordTuple] | None = None,
         spec_coords: list[StandardCoordinates | CoordTuple] | None = None,
         **kwargs,
     ):
@@ -490,8 +500,14 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             calibrator_data = get_calibrators_sync(ra=sci_pos[0], dec=sci_pos[1])
 
         sky_coords = {
-            "skye": calibrator_data["sky_pos"][0],
-            "skyw": calibrator_data["sky_pos"][1],
+            "skye": SkyCoordinates(
+                *calibrator_data["sky_pos"][0],
+                name=calibrator_data["sky_names"][0],
+            ),
+            "skyw": SkyCoordinates(
+                *calibrator_data["sky_pos"][1],
+                name=calibrator_data["sky_names"][1],
+            ),
         }
 
         spec_coords = []
@@ -537,7 +553,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
 
     def set_sky_coords(
         self,
-        sky_coords: dict[str, SkyCoordinates | CoordTuple] | None = None,
+        sky_coords: dict[str, SkyCoordinates] | dict[str, CoordTuple] | None = None,
         allow_replacement: bool = True,
     ) -> dict[str, SkyCoordinates]:
         """Sets the sky telescopes coordinates.
