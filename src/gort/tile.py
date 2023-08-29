@@ -63,7 +63,7 @@ class Coordinates:
     ):
         self.ra = ra
         self.dec = dec
-        self.pa = pa if pa is not None else 0.0
+        self.pa = pa % 360 if pa is not None else 0.0
 
         self.skycoord = SkyCoord(ra=ra, dec=dec, unit="deg", frame="fk5")
 

@@ -363,6 +363,7 @@ class GortObserver:
             "DPOS": (dither_pos, "Dither position"),
             "POSCIRA": round(self.tile.sci_coords.ra, 6),
             "POSCIDE": round(self.tile.sci_coords.dec, 6),
+            "POSCIPA": round(self.tile.sci_coords.pa, 4),
         }
 
         if self.tile["skye"]:
@@ -370,7 +371,8 @@ class GortObserver:
                 {
                     "POSKYERA": round(self.tile.sky_coords["skye"].ra, 6),
                     "POSKYEDE": round(self.tile.sky_coords["skye"].dec, 6),
-                    "SKYENAME": self.tile.sky_coords['skye'].name
+                    "POSKYEPA": round(self.tile.sky_coords["skye"].pa, 4),
+                    "SKYENAME": self.tile.sky_coords["skye"].name,
                 }
             )
 
@@ -379,7 +381,8 @@ class GortObserver:
                 {
                     "POSKYWRA": round(self.tile.sky_coords["skyw"].ra, 6),
                     "POSKYWDE": round(self.tile.sky_coords["skyw"].dec, 6),
-                    "SKYWNAME": self.tile.sky_coords['skyw'].name
+                    "POSKYWPA": round(self.tile.sky_coords["skyw"].pa, 4),
+                    "SKYWNAME": self.tile.sky_coords["skyw"].name,
                 }
             )
 
