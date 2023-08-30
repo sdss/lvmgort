@@ -705,7 +705,7 @@ class Gort(GortClient):
         observer = GortObserver(self, tile)
 
         # Run the cleanup routine to be extra sure.
-        await self.cleanup()
+        await self.cleanup(turn_off=False)
 
         try:
             # Slew telescopes and move fibsel mask.
@@ -759,7 +759,7 @@ class Gort(GortClient):
 
         return await self.execute_recipe("shutdown", **kwargs)
 
-    async def cleanup(self, readout: bool = True):
+    async def cleanup(self, readout: bool = True, turn_off: bool = True):
         """Executes the :obj:`shutdown <.CleanupRecipe>` sequence."""
 
-        return await self.execute_recipe("cleanup", readout=readout)
+        return await self.execute_recipe("cleanup", readout=readout, turn_off=turn_off)

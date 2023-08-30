@@ -148,7 +148,7 @@ class CleanupRecipe(BaseRecipe):
 
     name = "cleanup"
 
-    async def recipe(self, readout: bool = True):
+    async def recipe(self, readout: bool = True, turn_off: bool = True):
         """Runs the cleanup recipe.
 
         Parameters
@@ -156,6 +156,8 @@ class CleanupRecipe(BaseRecipe):
         readout
             If the spectrographs are idle and with a readout pending,
             reads the spectrographs.
+        turn_off
+            If :obj:`True`, turns off the lamps.
 
         """
 
@@ -187,8 +189,9 @@ class CleanupRecipe(BaseRecipe):
 
             await asyncio.gather(*cotasks)
 
-        self.gort.log.info("Turning all lights off.")
-        await self.gort.nps.calib.all_off()
+        if turn_off:
+            self.gort.log.info("Turning all lights off.")
+            await self.gort.nps.calib.all_off()
 
     async def _wait_until_spec_is_idle(self, spec: Spectrograph):
         """Waits until an spectrograph is idle."""
