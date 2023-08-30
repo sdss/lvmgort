@@ -60,6 +60,7 @@ class GortObserver:
         self.standards = Standards(self, tile, self.mask_positions)
 
         self.__current_exposure: Exposure | None = None
+        self._n_exposures: int = 0
 
     def __repr__(self):
         return f"<GortObserver (tile_id={self.tile.tile_id})>"
@@ -275,7 +276,7 @@ class GortObserver:
             )
 
             # Refresh guider data for this exposure.
-            if nexp > 1:
+            if self._n_exposures > 0:
                 await self.guider_monitor.restart()
 
             # Move fibre selector to the first position. Should be there unless
@@ -293,6 +294,7 @@ class GortObserver:
             )
 
             exposures.append(exposure)
+            self._n_exposures += 1
 
             await exposure.register_observation(tile_id=tile_id, dither_pos=dither_pos)
 
