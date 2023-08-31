@@ -11,6 +11,10 @@
 * [#10](https://github.com/sdss/lvmgort/pull/10) `GortObserver.slew()` and the standard iteration task now calculate the adjusted target coordinates for the spec telescope so that the slew puts the star on top of the desired fibre to be observed. Most of this relies on code copied from `lvmtipo` used to calculate the field angle through the siderostat.
 * `SkyCoordinates` now accepts a `name` attribute that is passed to the `SKYENAME` and `SKYWNAME` header keywords.
 
+### 🏷️ Changed
+
+* Set `GR{telescope}FR{0|N}` with the range of guider frames in which we were guiding (as opposed to the entire guide loop including acquisition frames).
+
 ### 🔧 Fixed
 
 * Fixed some additional issues with the exception hooks that cause a recursion loop in IPython in some cases.
