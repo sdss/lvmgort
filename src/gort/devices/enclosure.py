@@ -75,6 +75,11 @@ class Lights:
         for light in self.LIGHTS:
             self.__setattr__(light, Light(enclosure, light))
 
+    if TYPE_CHECKING:
+
+        def __getattr__(self, light: str) -> Light:
+            ...
+
 
 class Enclosure(GortDevice):
     """Class representing the LVM enclosure."""
