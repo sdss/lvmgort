@@ -193,6 +193,12 @@ class CleanupRecipe(BaseRecipe):
             self.gort.log.info("Turning all lights off.")
             await self.gort.nps.calib.all_off()
 
+        # Turn off lights in the dome.
+        await asyncio.gather(
+            self.gort.enclosure.lights.telescope_red.off(),
+            self.gort.enclosure.lights.telescope_bright.off(),
+        )
+
     async def _wait_until_spec_is_idle(self, spec: Spectrograph):
         """Waits until an spectrograph is idle."""
 
