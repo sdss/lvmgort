@@ -14,6 +14,7 @@
 ### 🔧 Fixed
 
 * Fixed some additional issues with the exception hooks that cause a recursion loop in IPython in some cases.
+* Fixed a bug that would accumulate the range of guider frames for an spectrograph exposure if `GortObserver.expose()` was called multiple times.
 
 
 ## 0.4.0 - August 26, 2023
