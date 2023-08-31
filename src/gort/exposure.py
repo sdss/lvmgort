@@ -85,7 +85,9 @@ class Exposure(asyncio.Future["Exposure"]):
         self.exp_no = exp_no or self.specs.get_expno()
         self.flavour = flavour or "object"
         self.object = object or ""
+
         self.start_time = Time.now()
+        self._exposure_time: float | None = None
 
         self.error: bool = False
         self.reading: bool = False
@@ -186,9 +188,11 @@ class Exposure(asyncio.Future["Exposure"]):
 
         monitor_task: asyncio.Task | None = None
 
+        self._exposure_time = exposure_time or 0.0
+
         try:
             if show_progress:
-                await self.start_timer(exposure_time or 0.0)
+                await self.start_timer(self._exposure_time)
 
             self.start_time = Time.now()
 
@@ -393,6 +397,9 @@ class Exposure(asyncio.Future["Exposure"]):
     ):
         """Registers the exposure in the database."""
 
+        if not self.done() or self._exposure_time is None:
+            raise GortSpecError("Exposure cannot be registered until done.")
+
         if self.flavour != "object":
             return
 
@@ -404,6 +411,7 @@ class Exposure(asyncio.Future["Exposure"]):
             "standards": [],
             "skies": [],
             "exposure_no": self.exp_no,
+            "exposure_time": self._exposure_time,
         }
 
         if tile_id is not None:
