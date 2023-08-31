@@ -21,7 +21,59 @@ if TYPE_CHECKING:
     from gort.gort import GortClient
 
 
-__all__ = ["Enclosure"]
+__all__ = ["Enclosure", "Lights", "Light"]
+
+
+class Light:
+    """An enclosure light."""
+
+    def __init__(self, enclosure: Enclosure, name: str):
+        self.enclosure = enclosure
+        self.name = name
+
+    async def on(self):
+        """Turns on the light."""
+
+        status = await self.status()
+        if status is False:
+            self.enclosure.write_to_log(f"Turning on light {self.name!r}.", "info")
+            await self.enclosure.actor.commands.lights("on", self.name)
+
+    async def off(self):
+        """Turns on the light."""
+
+        status = await self.status()
+        if status is True:
+            self.enclosure.write_to_log(f"Turning off light {self.name!r}.", "info")
+            await self.enclosure.actor.commands.lights("off", self.name)
+
+    async def toggle(self):
+        """Turns on the light."""
+
+        self.enclosure.write_to_log(f"Toggling {self.name!r}.", "info")
+        await self.enclosure.actor.commands.lights("toggle", self.name)
+
+    async def status(self):
+        """Returns a boolean with the light status."""
+
+        status = await self.enclosure.actor.commands.lights("status")
+
+        labels = status.get("lights_labels")
+
+        if labels is None:
+            raise GortEnclosureError("Did not receive lights status.")
+
+        return self.name.upper() in labels
+
+
+class Lights:
+    """Controls the enclosure lights."""
+
+    LIGHTS = ["telescope_bright", "telescope_red"]
+
+    def __init__(self, enclosure: Enclosure):
+        for light in self.LIGHTS:
+            self.__setattr__(light, Light(enclosure, light))
 
 
 class Enclosure(GortDevice):
@@ -32,10 +84,11 @@ class Enclosure(GortDevice):
     def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
 
+        self.lights = Lights(self)
+
     async def restart(self):
         """Restarts the ``lvmecp`` deployment."""
 
-        # HACK: GortDevice has the everything that is needed to run restart.
         await GortDeviceSet.restart(self)  # type: ignore
 
     async def status(self):
