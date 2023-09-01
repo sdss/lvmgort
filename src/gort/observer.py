@@ -148,8 +148,12 @@ class GortObserver:
 
         """
 
-        # Determine telescopes on which to guide.
+        # Make sure we are not guiding or that the previous is on.
+        if self.guide_task is not None and not self.guide_task.done():
+            await self.gort.guiders.stop()
+            await cancel_task(self.guide_task)
 
+        # Determine telescopes on which to guide.
         guide_coros = []
         guide_on_telescopes: list[str] = []
         n_skies = 0

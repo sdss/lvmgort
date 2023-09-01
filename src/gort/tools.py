@@ -532,7 +532,7 @@ async def run_in_executor(fn, *args, catch_warnings=False, executor="thread", **
     return result
 
 
-async def cancel_task(task: asyncio.Task | None):
+async def cancel_task(task: asyncio.Future | None):
     """Safely cancels a task."""
 
     if task is None or task.done():
