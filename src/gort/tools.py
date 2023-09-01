@@ -191,7 +191,7 @@ async def ds9_display_frames(
     return ds9
 
 
-def parse_agcam_filename(file_: str | pathlib.Path) -> tuple[str, str] | None:
+def parse_agcam_filename(file_: str | pathlib.Path):
     """Returns the type of an ``agcam`` file in the form ``(telescope, camera)``."""
 
     file_ = pathlib.Path(file_)
