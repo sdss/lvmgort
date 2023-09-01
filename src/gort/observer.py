@@ -715,7 +715,7 @@ class Standards:
                     self.gort.guiders.spec.guide(
                         ra=new_coords.ra,
                         dec=new_coords.dec,
-                        guide_tolerance=3,
+                        guide_tolerance=2,
                         pixel=new_guider_pixel,
                     )
                 )

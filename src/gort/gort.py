@@ -643,7 +643,7 @@ class Gort(GortClient):
         use_scheduler: bool = False,
         exposure_time: float = 900.0,
         n_exposures: int = 1,
-        guide_tolerance: float = 3.0,
+        guide_tolerance: float = 1.0,
         acquisition_timeout: float = 180.0,
         show_progress: bool | None = None,
     ):
