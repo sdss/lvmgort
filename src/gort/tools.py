@@ -21,6 +21,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Callable, Coroutine
 
 import httpx
+import numpy
 import pandas
 import peewee
 from astropy import units as uu
@@ -596,6 +597,8 @@ async def build_guider_reply_list(
                     "ra_offset": measured_pointing["radec_offset"][0],
                     "dec_offset": measured_pointing["radec_offset"][1],
                     "separation": measured_pointing["separation"],
+                    "pa": measured_pointing.get("pa", numpy.nan),
+                    "zero_point": measured_pointing.get("zero_point", numpy.nan),
                     "mode": measured_pointing["mode"],
                     "telescope": telescope,
                 }
@@ -623,7 +626,6 @@ async def build_guider_reply_list(
             await asyncio.sleep(30)
             if len(reply_list) == nlist:
                 return
-
     finally:
         gort.remove_reply_callback(handle_guider_reply)
 
