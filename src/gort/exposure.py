@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import pathlib
+import re
 import warnings
 from collections import defaultdict
 
@@ -353,7 +354,9 @@ class Exposure(asyncio.Future["Exposure"]):
 
         HEADERS_WARNING = []
 
-        for file in self.get_files():
+        files = self.get_files()
+
+        for file in files:
             header = fits.getheader(str(file))
 
             for key in HEADERS_CRITICAL:
@@ -366,6 +369,10 @@ class Exposure(asyncio.Future["Exposure"]):
                         f"Keyword {key} not present in {file!s}",
                         "warning",
                     )
+
+        if len(files) > 0:
+            pattern_path = re.sub("([rbz][1-3])", "*", str(files[0]))
+            self.specs.write_to_log(f"Files saved to {pattern_path!r}.")
 
     def get_files(self):
         """Returns the files written by the exposure."""
