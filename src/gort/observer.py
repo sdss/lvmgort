@@ -22,7 +22,7 @@ from astropy.time import Time
 from gort.exceptions import GortObserverError
 from gort.exposure import Exposure
 from gort.tile import Coordinates
-from gort.tools import build_guider_reply_list, cancel_task
+from gort.tools import build_guider_reply_list, cancel_task, register_observation
 from gort.transforms import fibre_slew_coordinates
 
 
@@ -300,7 +300,11 @@ class GortObserver:
             exposures.append(exposure)
             self._n_exposures += 1
 
-            await exposure.register_observation(tile_id=tile_id, dither_pos=dither_pos)
+            await self.register_exposure(
+                exposure,
+                tile_id=tile_id,
+                dither_pos=dither_pos,
+            )
 
         if len(exposures) == 1:
             return exposures[0]
@@ -318,6 +322,43 @@ class GortObserver:
         if self.guide_task is not None and not self.guide_task.done():
             await self.gort.guiders.stop()
             await self.guide_task
+
+    async def register_exposure(
+        self,
+        exposure: Exposure,
+        tile_id: int | None = None,
+        dither_pos: int = 0,
+    ):
+        """Registers the exposure in the database."""
+
+        if not exposure.done() or exposure._exposure_time is None:
+            raise GortObserverError("Exposure cannot be registered until done.")
+
+        if exposure.flavour != "object":
+            return
+
+        self.write_to_log("Registering observation.", "info")
+        registration_payload = {
+            "dither": dither_pos,
+            "jd": exposure.start_time.jd,
+            "seeing": -999.0,
+            "standards": [],
+            "skies": [],
+            "exposure_no": exposure.exp_no,
+            "exposure_time": exposure._exposure_time,
+        }
+
+        if tile_id is not None:
+            registration_payload["tile_id"] = tile_id
+
+        self.write_to_log(f"Registration payload {registration_payload}")
+
+        try:
+            await register_observation(registration_payload)
+        except Exception as err:
+            self.write_to_log(f"Failed registering exposure: {err}", "error")
+        else:
+            self.write_to_log("Registration complete.")
 
     def write_to_log(
         self,

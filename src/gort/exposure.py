@@ -24,7 +24,7 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 from sdsstools.time import get_sjd
 
 from gort.exceptions import ErrorCodes, GortSpecError
-from gort.tools import cancel_task, is_interactive, is_notebook, register_observation
+from gort.tools import cancel_task, is_interactive, is_notebook
 
 
 if TYPE_CHECKING:
@@ -397,42 +397,6 @@ class Exposure(asyncio.Future["Exposure"]):
 
         # Set the Future.
         self.set_result(self)
-
-    async def register_observation(
-        self,
-        tile_id: int | None = None,
-        dither_pos: int = 0,
-    ):
-        """Registers the exposure in the database."""
-
-        if not self.done() or self._exposure_time is None:
-            raise GortSpecError("Exposure cannot be registered until done.")
-
-        if self.flavour != "object":
-            return
-
-        self.specs.write_to_log("Registering observation.", "info")
-        registration_payload = {
-            "dither": dither_pos,
-            "jd": self.start_time.jd,
-            "seeing": -999.0,
-            "standards": [],
-            "skies": [],
-            "exposure_no": self.exp_no,
-            "exposure_time": self._exposure_time,
-        }
-
-        if tile_id is not None:
-            registration_payload["tile_id"] = tile_id
-
-        self.specs.write_to_log(f"Registration payload {registration_payload}")
-
-        try:
-            await register_observation(registration_payload)
-        except Exception as err:
-            self.specs.write_to_log(f"Failed registering exposure: {err}", "error")
-        else:
-            self.specs.write_to_log("Registration complete.")
 
     async def _call_hook(self, hook_name: str, *args, as_task: bool = False, **kwargs):
         """Calls the coroutines associated with a hook."""
