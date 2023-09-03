@@ -198,6 +198,7 @@ class Exposure(asyncio.Future["Exposure"]):
 
             await self.specs._send_command_all(
                 "expose",
+                flavour=self.flavour,
                 exposure_time=exposure_time,
                 seqno=self.exp_no,
                 readout=False,
