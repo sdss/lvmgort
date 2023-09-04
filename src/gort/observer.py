@@ -110,12 +110,18 @@ class GortObserver:
                     sky[skytel.lower()] = (sky_coords_tel.ra, sky_coords_tel.dec)
                     self.write_to_log(f"{skytel}: {sky_coords_tel}")
 
+        # For sci we want to slew the k-mirror so that we can apply small positive
+        # offsets without backlash. So we slew to the tile PA-stop_degs_before.
+        kmirror_config = self.gort.config["telescopes"]["kmirror"]
+        stop_degs_before = kmirror_config.get("stop_degs_before", {}).get("sci", 0.0)
+
         cotasks.append(
             self.gort.telescopes.goto(
                 sci=sci,
                 spec=spec,
                 skye=sky.get("skye", None),
                 skyw=sky.get("skyw", None),
+                sci_km_stop_degs_before=stop_degs_before,
             )
         )
 

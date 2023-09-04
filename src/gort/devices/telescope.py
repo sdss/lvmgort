@@ -126,7 +126,13 @@ class KMirror(MoTanDevice):
             timeout=self.timeouts["moveAbsolute"],
         )
 
-    async def slew(self, ra: float, dec: float, offset_angle: float = 0.0):
+    async def slew(
+        self,
+        ra: float,
+        dec: float,
+        offset_angle: float = 0.0,
+        stop_degs_before: float = 0.0,
+    ):
         """Moves the mirror to the position for ``ra, dec`` and starts slewing.
 
         Parameters
@@ -137,6 +143,11 @@ class KMirror(MoTanDevice):
             Declination of the field to track, in degrees.
         offset_angle
             Derotation offset in degrees.
+        stop_degs_before
+            Number of degrees to stop before reaching the desired position
+            angle. This has the effect of actually slewing to
+            ``offset_angle-stop_degs_before``. Useful if we want to be
+            sure that positive offsets will be applied without backlash.
 
         """
 
@@ -155,12 +166,16 @@ class KMirror(MoTanDevice):
 
         self.write_to_log(msg, level="info")
 
+        stop_degs_before = abs(stop_degs_before)
+        if abs(stop_degs_before) > 0:
+            self.write_to_log(f"Using stop_degs_before={stop_degs_before}.")
+
         await self.actor.commands.slewStart(
             ra / 15.0,
             dec,
             seg_time=self.gort.config["telescopes"]["kmirror"]["seg_time"],
             seg_min_num=self.gort.config["telescopes"]["kmirror"]["seg_min_num"],
-            offset_angle=offset_angle,
+            offset_angle=offset_angle - stop_degs_before,
             timeout=self.timeouts["slewStart"],
         )
 
@@ -526,6 +541,7 @@ class Telescope(GortDevice):
         alt: float | None = None,
         az: float | None = None,
         kmirror: bool = True,
+        kmirror_kwargs: dict = {},
         altaz_tracking: bool = False,
         use_pointing_offsets: bool = True,
         force: bool = False,
@@ -548,6 +564,8 @@ class Telescope(GortDevice):
         kmirror
             Whether to move the k-mirror into position. Only when
             the coordinates provided are RA/Dec.
+        kmirror_kwargs
+            Dictionary of keyword arguments to pass to :obj:`.KMirror.slew`.
         altaz_tracking
             If :obj:`True`, starts tracking after moving to alt/az coordinates.
             By defaul the PWI won't track with those coordinates.
@@ -568,7 +586,14 @@ class Telescope(GortDevice):
 
         kmirror_task: asyncio.Task | None = None
         if kmirror and self.km and ra is not None and dec is not None:
-            kmirror_task = asyncio.create_task(self.km.slew(ra, dec, offset_angle=pa))
+            kmirror_task = asyncio.create_task(
+                self.km.slew(
+                    ra,
+                    dec,
+                    offset_angle=pa,
+                    **kmirror_kwargs,
+                )
+            )
 
         # Commanded and reported coordinates. To be used to check if we reached
         # the correct position.
@@ -1000,6 +1025,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         spec: tuple[float, float] | None = None,
         skye: tuple[float, float] | None = None,
         skyw: tuple[float, float] | None = None,
+        sci_km_stop_degs_before: float = 0.0,
         force: bool = False,
     ):
         """Sends each telescope to a different position.
@@ -1014,6 +1040,10 @@ class TelescopeSet(GortDeviceSet[Telescope]):
             The RA and Dec where to slew the skyE telescope.
         skyw
             The RA and Dec where to slew the skyW telescope.
+        sci_km_stop_degs_before
+            The number of degrees before the desired position where to send
+            the science k-mirror. Useful if we want to be sure that positive
+            offsets will be applied without backlash.
 
         """
 
@@ -1022,14 +1052,22 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         jobs = []
 
         if sci is not None:
+            kmirror_kwargs = {"stop_degs_before": sci_km_stop_degs_before}
             if len(sci) == 2:
-                jobs.append(self["sci"].goto_coordinates(ra=sci[0], dec=sci[1]))
+                jobs.append(
+                    self["sci"].goto_coordinates(
+                        ra=sci[0],
+                        dec=sci[1],
+                        kmirror_kwargs=kmirror_kwargs,
+                    )
+                )
             else:
                 jobs.append(
                     self["sci"].goto_coordinates(
                         ra=sci[0],
                         dec=sci[1],
                         pa=sci[2],
+                        kmirror_kwargs=kmirror_kwargs,
                     )
                 )
 
