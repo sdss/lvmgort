@@ -32,7 +32,7 @@ telescopes:
       moveToHome: 60
   kmirror:
     seg_time: 1
-    seg_min_num: 20
+    seg_min_num: 3
   pointing_offsets:
     sci: [0, 0]
     skye: [0, 0]
