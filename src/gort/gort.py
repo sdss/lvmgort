@@ -27,6 +27,7 @@ from typing import (
     TypeVar,
 )
 
+from packaging.version import Version
 from rich import pretty, traceback
 from rich.logging import RichHandler
 from typing_extensions import Self
@@ -36,7 +37,7 @@ from sdsstools.logger import SDSSLogger, get_exception_formatted, get_logger
 
 from gort import config
 from gort.core import RemoteActor
-from gort.exceptions import GortError
+from gort.exceptions import GortError, RemoteCommandError
 from gort.kubernetes import Kubernetes
 from gort.observer import GortObserver
 from gort.recipes import recipes as recipe_to_class
@@ -513,6 +514,9 @@ class GortDevice:
         self.name = name
         self.actor = gort.add_actor(actor, device=self)
 
+        # Placeholder version. The real one is retrieved on init.
+        self.version = Version("0.99.0")
+
     async def init(self):
         """Runs asynchronous tasks that must be executed on init.
 
@@ -520,6 +524,15 @@ class GortDevice:
         by :obj:`.DeviceSet.init`.
 
         """
+
+        # Get the version of the actor.
+        if "version" in self.actor.commands:
+            try:
+                reply = await self.actor.commands.version()
+                if (version := reply.get("version")) is not None:
+                    self.version = version
+            except RemoteCommandError as err:
+                self.write_to_log(f"Failed retrieving actor version: {err}")
 
         return
 
