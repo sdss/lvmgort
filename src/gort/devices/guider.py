@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 import numpy
 import pandas
+from packaging.version import Version
 
 from gort.exceptions import ErrorCodes, GortError, GortGuiderError
 from gort.gort import GortDevice, GortDeviceSet
@@ -247,9 +248,14 @@ class Guider(GortDevice):
             the central pixel. This can also be the name of a known pixel
             position for this telescope, e.g., ``'P1-1'`` for ``spec``.
         guide_kwargs
-            Other keyword arguments to pass to ``lvmguider guide``.
+            Other keyword arguments to pass to ``lvmguider guide``. The includes
+            the ``pa`` argument that if not provided is assumed to be zero.
 
         """
+
+        # The PA argument in lvmguider was added in 0.4.0a0.
+        if self.version == Version("0.99.0") or self.version < Version("0.4.0a0"):
+            guide_kwargs.pop("pa")
 
         self.separation = None
 

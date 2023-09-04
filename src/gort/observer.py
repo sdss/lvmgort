@@ -126,7 +126,7 @@ class GortObserver:
         # Execute.
         await asyncio.gather(*cotasks)
 
-    async def acquire(self, guide_tolerance: float = 3, timeout: float = 180):
+    async def acquire(self, guide_tolerance: float = 1, timeout: float = 180):
         """Acquires the field in all the telescopes. Blocks until then.
 
         Parameters
@@ -180,6 +180,7 @@ class GortObserver:
                 self.gort.guiders[tel].guide(
                     ra=coords.ra,
                     dec=coords.dec,
+                    pa=coords.pa,
                     guide_tolerance=guide_tolerance,
                     pixel=pixel,
                 )
