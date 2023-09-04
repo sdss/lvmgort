@@ -543,7 +543,6 @@ class Telescope(GortDevice):
         kmirror: bool = True,
         kmirror_kwargs: dict = {},
         altaz_tracking: bool = False,
-        use_pointing_offsets: bool = True,
         force: bool = False,
         retry: bool = True,
     ):
@@ -568,9 +567,7 @@ class Telescope(GortDevice):
             Dictionary of keyword arguments to pass to :obj:`.KMirror.slew`.
         altaz_tracking
             If :obj:`True`, starts tracking after moving to alt/az coordinates.
-            By defaul the PWI won't track with those coordinates.
-        use_pointing_offsets
-            If defined, uses the RA/Dec calibrations offsets for the telescope.
+            By default the PWI won't track with those coordinates.
         force
             Move the telescopes even if mode is local.
         retry
@@ -611,14 +608,6 @@ class Telescope(GortDevice):
             assert is_radec, "Invalid input parameters"
 
             self.write_to_log(f"Moving to ra={ra:.6f} dec={dec:.6f}.", level="info")
-
-            if use_pointing_offsets:
-                offsets = self.config.get("pointing_offsets", {}).get(self.name, None)
-                if offsets is not None:
-                    ra_offset = offsets[0] / 3600.0
-                    dec_offset = offsets[1] / 3600.0
-                    ra = float(ra + ra_offset / numpy.cos(numpy.radians(dec)))
-                    dec = float(dec + dec_offset)
 
             ra = float(numpy.clip(ra, 0, 360))
             dec = float(numpy.clip(dec, -90, 90))
