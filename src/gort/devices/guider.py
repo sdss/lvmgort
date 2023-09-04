@@ -319,6 +319,24 @@ class Guider(GortDevice):
                 # Sort by frameno.
                 df = df.sort_values("frameno")
 
+                # Select columns.
+                df = df[
+                    [
+                        "frameno",
+                        "time",
+                        "n_sources",
+                        "focus_position",
+                        "fwhm",
+                        "telescope",
+                        "ra",
+                        "dec",
+                        "ra_offset",
+                        "dec_offset",
+                        "separation",
+                        "mode",
+                    ]
+                ]
+
                 # Remove NaN rows.
                 df = df.dropna()
 

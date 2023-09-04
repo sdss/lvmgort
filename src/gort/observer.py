@@ -517,7 +517,7 @@ class GuiderMonitor:
             )
 
             # Remove NaN rows.
-            df = df.dropna()
+            df = df.loc[~numpy.isnan(df.frameno)]
 
             # Sort by frameno.
             df = df.sort_values("frameno")

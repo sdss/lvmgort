@@ -598,7 +598,7 @@ async def build_guider_reply_list(
                     "dec_offset": measured_pointing["radec_offset"][1],
                     "separation": measured_pointing["separation"],
                     "pa": measured_pointing.get("pa", numpy.nan),
-                    "pa_offset": measured_pointing.get("pa_offset"),
+                    "pa_offset": measured_pointing.get("pa_offset", numpy.nan),
                     "zero_point": measured_pointing.get("zero_point", numpy.nan),
                     "mode": measured_pointing["mode"],
                     "telescope": telescope,
