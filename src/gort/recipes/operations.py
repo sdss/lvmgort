@@ -84,6 +84,9 @@ class StartupRecipe(BaseRecipe):
         self.gort.log.info("Turning off all lamps.")
         await self.gort.nps.calib.all_off()
 
+        self.gort.log.info("Reconnecting AG cameras.")
+        await self.gort.ags.reconnect()
+
         self.gort.log.info("Taking AG darks.")
         await self.gort.guiders.take_darks()
 
