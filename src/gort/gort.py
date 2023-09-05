@@ -37,7 +37,7 @@ from sdsstools.logger import SDSSLogger, get_exception_formatted, get_logger
 
 from gort import config
 from gort.core import RemoteActor
-from gort.exceptions import GortError, RemoteCommandError
+from gort.exceptions import GortError
 from gort.kubernetes import Kubernetes
 from gort.observer import GortObserver
 from gort.recipes import recipes as recipe_to_class
@@ -531,9 +531,8 @@ class GortDevice:
                 reply = await self.actor.commands.version()
                 if (version := reply.get("version")) is not None:
                     self.version = Version(version)
-            except RemoteCommandError:
+            except Exception:
                 pass
-                # self.write_to_log(f"Failed retrieving actor version: {err}")
 
         return
 
