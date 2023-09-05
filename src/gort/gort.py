@@ -530,7 +530,7 @@ class GortDevice:
             try:
                 reply = await self.actor.commands.version()
                 if (version := reply.get("version")) is not None:
-                    self.version = version
+                    self.version = Version(version)
             except RemoteCommandError as err:
                 self.write_to_log(f"Failed retrieving actor version: {err}")
 
