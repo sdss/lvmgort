@@ -661,7 +661,6 @@ class Telescope(GortDevice):
                     az=az,
                     kmirror=kmirror,
                     altaz_tracking=altaz_tracking,
-                    use_pointing_offsets=use_pointing_offsets,
                     force=force,
                     retry=False,
                 )
