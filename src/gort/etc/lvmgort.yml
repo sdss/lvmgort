@@ -34,7 +34,7 @@ telescopes:
     seg_time: 1
     seg_min_num: 3
     stop_degs_before:
-      sci: 1.0
+      sci: 0.0
   pointing_offsets:
     sci: [0, 0]
     skye: [0, 0]
