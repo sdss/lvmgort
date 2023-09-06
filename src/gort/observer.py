@@ -540,7 +540,7 @@ class GuiderMonitor:
             for tel in ["sci", "spec", "skye", "skyw"]:
                 try:
                     tel_data = self.guider_data.loc[self.guider_data.telescope == tel]
-                    tel_data = tel_data.loc[tel_data["mode"] == "guide"]
+                    # tel_data = tel_data.loc[tel_data["mode"] == "guide"]
                     if len(tel_data) < 2:
                         frame0 = None
                         framen = None
