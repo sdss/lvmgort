@@ -575,49 +575,53 @@ async def build_guider_reply_list(
         body = reply.body
         telescope = str(reply.sender).split(".")[1]
 
-        if "frame" in body:
-            frame = body["frame"]
-            reply_list.append(
-                {
-                    "frameno": frame["seqno"],
-                    "time": pandas.to_datetime(datetime.now()),
-                    "n_sources": frame["n_sources"],
-                    "focus_position": frame["focus_position"],
-                    "fwhm": frame["fwhm"],
-                    "telescope": telescope,
-                }
-            )
-        elif "measured_pointing" in body:
-            measured_pointing = body["measured_pointing"]
-            reply_list.append(
-                {
-                    "frameno": measured_pointing["frameno"],
-                    "ra": measured_pointing["ra"],
-                    "dec": measured_pointing["dec"],
-                    "ra_offset": measured_pointing["radec_offset"][0],
-                    "dec_offset": measured_pointing["radec_offset"][1],
-                    "separation": measured_pointing["separation"],
-                    "pa": measured_pointing.get("pa", numpy.nan),
-                    "pa_offset": measured_pointing.get("pa_offset", numpy.nan),
-                    "zero_point": measured_pointing.get("zero_point", numpy.nan),
-                    "mode": measured_pointing["mode"],
-                    "telescope": telescope,
-                }
-            )
-        elif "correction_applied" in body:
-            correction_applied = body["correction_applied"]
+        try:
+            if "frame" in body:
+                frame = body["frame"]
+                reply_list.append(
+                    {
+                        "frameno": frame["seqno"],
+                        "time": pandas.to_datetime(datetime.now()),
+                        "n_sources": frame["n_sources"],
+                        "focus_position": frame["focus_position"],
+                        "fwhm": frame["fwhm"],
+                        "telescope": telescope,
+                    }
+                )
+            elif "measured_pointing" in body:
+                measured_pointing = body["measured_pointing"]
+                reply_list.append(
+                    {
+                        "frameno": measured_pointing["frameno"],
+                        "ra": measured_pointing["ra"],
+                        "dec": measured_pointing["dec"],
+                        "ra_offset": measured_pointing["radec_offset"][0],
+                        "dec_offset": measured_pointing["radec_offset"][1],
+                        "separation": measured_pointing["separation"],
+                        "pa": measured_pointing.get("pa", numpy.nan),
+                        "pa_offset": measured_pointing.get("pa_offset", numpy.nan),
+                        "zero_point": measured_pointing.get("zero_point", numpy.nan),
+                        "mode": measured_pointing["mode"],
+                        "telescope": telescope,
+                    }
+                )
+            elif "correction_applied" in body:
+                correction_applied = body["correction_applied"]
 
-            reply_list.append(
-                {
-                    "frameno": correction_applied["frameno"],
-                    "ax0_applied": correction_applied["motax_applied"][0],
-                    "ax1_applied": correction_applied["motax_applied"][1],
-                    "rot_applied": correction_applied.get("rot_applied", 0.0),
-                    "telescope": telescope,
-                }
-            )
-        else:
-            return
+                reply_list.append(
+                    {
+                        "frameno": correction_applied["frameno"],
+                        "ax0_applied": correction_applied["motax_applied"][0],
+                        "ax1_applied": correction_applied["motax_applied"][1],
+                        "rot_applied": correction_applied.get("rot_applied", 0.0),
+                        "telescope": telescope,
+                    }
+                )
+            else:
+                return
+
+        except Exception as err:
+            gort.log.warning(f"Error processing guider reply: {err}")
 
     try:
         gort.add_reply_callback(handle_guider_reply)
