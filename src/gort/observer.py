@@ -276,7 +276,10 @@ class GortObserver:
         dither_pos = self.tile.dither_position
 
         if object is None:
-            object = self.tile.object
+            if self.tile.object:
+                object = self.tile.object
+            elif tile_id is not None and tile_id > 0:
+                object = f"tile_id={tile_id}"
 
         exposures: list[Exposure] = []
 
