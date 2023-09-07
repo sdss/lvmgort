@@ -18,7 +18,7 @@ from astropy.time import Time
 from httpx import RequestError
 
 from gort import config
-from gort.exceptions import GortNotImplemented, GortWarning, TileError
+from gort.exceptions import GortError, GortNotImplemented, GortWarning, TileError
 from gort.tools import get_calibrators_sync, get_db_connection, get_next_tile_id_sync
 from gort.transforms import fibre_to_master_frame
 
@@ -480,6 +480,9 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             tile_id = tile_id_data["tile_id"]
             sci_pos = tile_id_data["tile_pos"]
             dither_pos = tile_id_data["dither_pos"]
+
+            if tile_id is None or tile_id < 0:
+                raise GortError("The scheduler could not find a valid tile to observe.")
 
         elif tile_id is not None:
             raise GortNotImplemented("Initialising from a tile_id is not supported.")
