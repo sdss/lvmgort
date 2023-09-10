@@ -137,7 +137,7 @@ class ShutdownRecipe(BaseRecipe):
         await self.gort.nps.calib.all_off()
 
         self.gort.log.info("Making sure guiders are idle.")
-        await self.gort.guiders.stop(now=True)
+        await self.gort.guiders.stop()
 
         await self.gort.enclosure.close()
 
@@ -165,7 +165,7 @@ class CleanupRecipe(BaseRecipe):
         """
 
         self.gort.log.info("Stopping the guiders.")
-        await self.gort.guiders.stop(now=False)
+        await self.gort.guiders.stop()
 
         if not (await self.gort.specs.are_idle()):
             cotasks = []
