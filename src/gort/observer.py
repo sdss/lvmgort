@@ -301,6 +301,7 @@ class GortObserver:
             self.__current_exposure = exposure
 
             exposure.hooks["pre-readout"].append(self._pre_readout)
+            exposure.hooks["post-readout"].append(self._post_readout)
 
             await exposure.expose(
                 exposure_time=exposure_time,
@@ -461,6 +462,11 @@ class GortObserver:
                 self.standards.standards.loc[1, "t0"] = start_time
 
             header.update(self.standards.to_header())
+
+    async def _post_readout(self, exposure: Exposure):
+        """Post exposure tasks."""
+
+        return
 
 
 class GuiderMonitor:
