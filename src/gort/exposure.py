@@ -153,6 +153,12 @@ class Exposure(asyncio.Future["Exposure"]):
 
         """
 
+        log = self.specs.write_to_log
+
+        if self.specs.last_exposure is not None and not self.specs.last_exposure.done():
+            log("Waiting for previous exposure to read out.", "warning")
+            await self.specs.last_exposure
+
         # Check that all specs are idle and not errored.
         status = await self.specs.status(simple=True)
         for spec_status in status.values():
@@ -234,10 +240,10 @@ class Exposure(asyncio.Future["Exposure"]):
             if not async_readout:
                 await readout_task
                 await monitor_task
-                self.specs.write_to_log(f"Exposure {self.exp_no} completed.")
+                log(f"Exposure {self.exp_no} completed.")
             else:
                 await self.stop_timer()
-                self.specs.write_to_log("Returning with async readout ongoing.")
+                log("Returning with async readout ongoing.")
 
         except Exception as err:
             # Cancel the monitor task
