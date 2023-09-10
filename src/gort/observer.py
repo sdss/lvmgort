@@ -248,6 +248,8 @@ class GortObserver:
         exposure_time: float = 900.0,
         show_progress: bool | None = None,
         count: int = 1,
+        async_readout: bool = False,
+        keep_guiding: bool = True,
         object: str | None = None,
     ):
         """Starts exposing the spectrographs.
@@ -262,6 +264,12 @@ class GortObserver:
             Number of exposures. If ``iterate_over_standards=True``, a
             full sequence of standards will be observed during each
             exposure.
+        async_readout
+            Whether to wait for the readout to complete or return as soon
+            as the readout begins. If :obj:`False`, the exposure is registered
+            but the observation is not finished.
+        keep_guiding
+            If :obj:`True`, keeps the guider running after the last exposure.
         object
             The object name to be added to the header.
 
@@ -306,16 +314,29 @@ class GortObserver:
             await exposure.expose(
                 exposure_time=exposure_time,
                 show_progress=show_progress,
+                async_readout=True,
             )
 
-            exposures.append(exposure)
-            self._n_exposures += 1
-
+            # TODO: this is a bit dangerous because we are registering the
+            # exposure before  it's actually written to disk. Maybe we should
+            # wait until _post_readout() to register, but then the scheduler
+            # needs to be changed to not return the same tile twice.
             await self.register_exposure(
                 exposure,
                 tile_id=tile_id,
                 dither_pos=dither_pos,
             )
+
+            if nexp == count and not keep_guiding:
+                await self.gort.guiders.stop()
+
+            if nexp == count and async_readout:
+                return exposure
+            else:
+                await exposure
+
+            exposures.append(exposure)
+            self._n_exposures += 1
 
         if len(exposures) == 1:
             return exposures[0]
@@ -342,8 +363,8 @@ class GortObserver:
     ):
         """Registers the exposure in the database."""
 
-        if not exposure.done() or exposure._exposure_time is None:
-            raise GortObserverError("Exposure cannot be registered until done.")
+        if exposure._exposure_time is None:
+            raise GortObserverError("Exposure time cannot be 'None'.")
 
         if exposure.flavour != "object":
             return

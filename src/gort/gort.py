@@ -656,6 +656,8 @@ class Gort(GortClient):
         use_scheduler: bool = False,
         exposure_time: float = 900.0,
         n_exposures: int = 1,
+        async_readout: bool = True,
+        keep_guiding: bool = False,
         guide_tolerance: float = 1.0,
         acquisition_timeout: float = 180.0,
         show_progress: bool | None = None,
@@ -681,6 +683,15 @@ class Gort(GortClient):
             The length of the exposure in seconds.
         n_exposures
             Number of exposures to take while guiding.
+        async_readout
+            Whether to wait for the readout to complete or return as soon
+            as the readout begins. If :obj:`False`, the exposure is registered
+            but the observation is not finished. This should be :obj:`True`
+            during normal science operations to allow the following acquisition
+            to occur during readout.
+        keep_guiding
+            If :obj:`True`, keeps the guider running after the last exposure.
+            This should be :obj:`False` during normal science operations.
         guide_tolerance
             The guide tolerance in arcsec. A telescope will not be considered
             to be guiding if its separation to the commanded field is larger
@@ -735,6 +746,8 @@ class Gort(GortClient):
                 exposure_time=exposure_time,
                 show_progress=show_progress,
                 count=n_exposures,
+                async_readout=async_readout,
+                keep_guiding=keep_guiding,
             )
 
         finally:
