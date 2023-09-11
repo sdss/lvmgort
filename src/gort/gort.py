@@ -48,6 +48,9 @@ from gort.tools import get_temporary_file_path, run_in_executor
 if TYPE_CHECKING:
     from rich.console import Console
 
+    from gort.exposure import Exposure
+
+
 try:
     IPYTHON = get_ipython()  # type: ignore
     IPYTHON_DEFAULT_HOOKS = [
@@ -747,12 +750,19 @@ class Gort(GortClient):
 
         assert isinstance(tile, Tile)
 
+        # Set the initial dither position. This will make
+        # the initial acquisition on that pixel.
+        dither_positions = tile.dither_positions
+        tile.set_dither_position(dither_positions[0])
+
         # Create observer.
         observer = GortObserver(self, tile)
 
         # Run the cleanup routine to be extra sure.
         if run_cleanup:
             await self.cleanup(turn_off=False)
+
+        exposures: list[Exposure] = []
 
         try:
             # Slew telescopes and move fibsel mask.
@@ -764,20 +774,37 @@ class Gort(GortClient):
                 timeout=acquisition_timeout,
             )
 
-            # Exposing
-            exposure = await observer.expose(
-                exposure_time=exposure_time,
-                show_progress=show_progress,
-                count=n_exposures,
-                async_readout=async_readout,
-                keep_guiding=keep_guiding,
-            )
+            # Loop over the dither positions. For the first one do nothing
+            # since we have already acquired for that position.
+            for idither, dpos in enumerate(dither_positions):
+                if idither != 0:
+                    self.log.info(f"Acquiring dither position #{dpos}")
+                    await observer.set_dither_position(dpos)
+
+                self.log.info(f"Taking exposure for dither position #{dpos}")
+
+                # Should we keep the guider alive during readout?
+                keep_guiding_exp = keep_guiding or idither != len(dither_positions) - 1
+
+                # Exposing
+                exposure = await observer.expose(
+                    exposure_time=exposure_time,
+                    show_progress=show_progress,
+                    count=n_exposures,
+                    async_readout=async_readout,
+                    keep_guiding=keep_guiding_exp,
+                )
+
+                if isinstance(exposure, list):
+                    exposures += exposure
+                else:
+                    exposures.append(exposure)
 
         finally:
             # Finish observation.
             await observer.finish_observation()
 
-        return exposure
+        return exposures
 
     async def execute_recipe(self, recipe: str, **kwargs):
         """Executes a recipe.

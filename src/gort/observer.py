@@ -14,7 +14,7 @@ import re
 from contextlib import contextmanager
 from time import time
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Sequence
 
 import numpy
 import pandas
@@ -22,6 +22,7 @@ from astropy.time import Time
 
 from gort.exceptions import GortObserverError
 from gort.exposure import Exposure
+from gort.maskbits import GuiderStatus
 from gort.tile import Coordinates
 from gort.tools import (
     build_guider_reply_list,
@@ -265,6 +266,7 @@ class GortObserver:
         async_readout: bool = False,
         keep_guiding: bool = True,
         object: str | None = None,
+        dither_position: int | None = None,
     ):
         """Starts exposing the spectrographs.
 
@@ -286,6 +288,9 @@ class GortObserver:
             If :obj:`True`, keeps the guider running after the last exposure.
         object
             The object name to be added to the header.
+        dither_position
+            The dither position. If :obj:`None`, uses the first dither position
+            in the tile. Only relevant for exposure registration.
 
         Returns
         -------
@@ -295,7 +300,13 @@ class GortObserver:
         """
 
         tile_id = self.tile.tile_id
-        dither_pos = self.tile.dither_position
+
+        if dither_position is None:
+            tile_dither_pos = self.tile.dither_positions
+            if isinstance(tile_dither_pos, Sequence):
+                dither_position = tile_dither_pos[0]
+            else:
+                dither_position = tile_dither_pos
 
         if object is None:
             if self.tile.object:
@@ -341,7 +352,7 @@ class GortObserver:
                 await self.register_exposure(
                     exposure,
                     tile_id=tile_id,
-                    dither_pos=dither_pos,
+                    dither_position=dither_position,
                 )
 
             if nexp == count and not keep_guiding:
@@ -401,7 +412,7 @@ class GortObserver:
         self,
         exposure: Exposure,
         tile_id: int | None = None,
-        dither_pos: int = 0,
+        dither_position: int = 0,
     ):
         """Registers the exposure in the database."""
 
@@ -413,7 +424,7 @@ class GortObserver:
 
         self.write_to_log("Registering observation.", "info")
         registration_payload = {
-            "dither": dither_pos,
+            "dither": dither_position,
             "jd": exposure.start_time.jd,
             "seeing": -999.0,
             "standards": [],
@@ -433,6 +444,26 @@ class GortObserver:
             self.write_to_log(f"Failed registering exposure: {err}", "error")
         else:
             self.write_to_log("Registration complete.")
+
+    async def set_dither_position(self, dither: int):
+        """Reacquire science telescope for a new dither position."""
+
+        valid_status = (
+            GuiderStatus.GUIDING | GuiderStatus.DRIFTING | GuiderStatus.ACQUIRING
+        )
+
+        sci_status = self.gort.guiders.sci.status
+        if sci_status is None or not (sci_status & valid_status):
+            raise GortObserverError("sci guider must be active to set dither position.")
+
+        self.tile.set_dither_position(dither)
+        await self.gort.guiders.sci.set_pixel(self.tile.sci_coords._mf_pixel)
+
+        # Wait until converges.
+        with self.register_overhead(f"set-dither-position:acquire-{dither}"):
+            await asyncio.sleep(2)
+            self.write_to_log("Waiting for 'sci' guider to converge.")
+            await self.gort.guiders.sci.wait_until_guiding(timeout=120)
 
     def write_to_log(
         self,
@@ -487,7 +518,7 @@ class GortObserver:
         """Updates the exposure header with pointing and guiding information."""
 
         tile_id = self.tile.tile_id
-        dither_pos = self.tile.dither_position
+        dither_pos = self.tile.dither_positions
 
         tile_header = {
             "TILE_ID": (tile_id or -999, "The tile_id of this observation"),
