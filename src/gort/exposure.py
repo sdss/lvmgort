@@ -243,7 +243,6 @@ class Exposure(asyncio.Future["Exposure"]):
                 log(f"Exposure {self.exp_no} completed.")
             else:
                 await self.stop_timer()
-                log("Returning with async readout ongoing.")
 
         except Exception as err:
             # Cancel the monitor task
