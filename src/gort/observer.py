@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from contextlib import contextmanager
 from time import time
 
 from typing import TYPE_CHECKING, Any
@@ -22,7 +23,12 @@ from astropy.time import Time
 from gort.exceptions import GortObserverError
 from gort.exposure import Exposure
 from gort.tile import Coordinates
-from gort.tools import build_guider_reply_list, cancel_task, register_observation
+from gort.tools import (
+    build_guider_reply_list,
+    cancel_task,
+    insert_to_database,
+    register_observation,
+)
 from gort.transforms import fibre_slew_coordinates
 
 
@@ -62,6 +68,8 @@ class GortObserver:
         self.__current_exposure: Exposure | None = None
         self._n_exposures: int = 0
 
+        self.overheads: dict[str, tuple[float, float]] = {}
+
     def __repr__(self):
         return f"<GortObserver (tile_id={self.tile.tile_id})>"
 
@@ -78,8 +86,9 @@ class GortObserver:
 
         cotasks = []
 
-        # Stops guiders.
-        await self.gort.guiders.stop()
+        with self.register_overhead("slew:stop-guiders"):
+            # Stops guiders.
+            await self.gort.guiders.stop()
 
         # Slew telescopes.
         self.write_to_log(f"Slewing to tile_id={tile.tile_id}.", level="info")
@@ -130,7 +139,8 @@ class GortObserver:
         cotasks.append(fibsel.move_to_position(self.mask_positions[0]))
 
         # Execute.
-        await asyncio.gather(*cotasks)
+        with self.register_overhead("slew:slew"):
+            await asyncio.gather(*cotasks)
 
     async def acquire(self, guide_tolerance: float = 1, timeout: float = 180):
         """Acquires the field in all the telescopes. Blocks until then.
@@ -154,10 +164,11 @@ class GortObserver:
 
         """
 
-        # Make sure we are not guiding or that the previous is on.
-        if self.guide_task is not None and not self.guide_task.done():
-            await self.gort.guiders.stop()
-            await cancel_task(self.guide_task)
+        with self.register_overhead("acquisition:stop-guiders"):
+            # Make sure we are not guiding or that the previous is on.
+            if self.guide_task is not None and not self.guide_task.done():
+                await self.gort.guiders.stop()
+                await cancel_task(self.guide_task)
 
         # Determine telescopes on which to guide.
         guide_coros = []
@@ -192,27 +203,30 @@ class GortObserver:
                 )
             )
 
-        if "spec" not in guide_on_telescopes:
-            self.write_to_log("No standards defined. Blocking fibre mask.", "warning")
-            await self.gort.telescopes.spec.fibsel.move_relative(500)
+            if "spec" not in guide_on_telescopes:
+                with self.register_overhead("acquisition:move-fibsel-500"):
+                    self.write_to_log("Not using spec: blocking fibre mask.", "warning")
+                    await self.gort.telescopes.spec.fibsel.move_relative(500)
 
         if n_skies == 0:
             self.write_to_log("No sky positions defined.", "warning")
 
-        # Start guide loop.
-        await self.guider_monitor.restart()
-        self.guide_task = asyncio.gather(*guide_coros)
+        with self.register_overhead("acquisition:start-guide-loop"):
+            # Start guide loop.
+            await self.guider_monitor.restart()
+            self.guide_task = asyncio.gather(*guide_coros)
 
-        await asyncio.sleep(5)
+        with self.register_overhead("acquisition:acquire"):
+            await asyncio.sleep(2)
 
-        # Wait until convergence.
-        self.write_to_log("Waiting for guiders to converge.")
-        guide_status = await asyncio.gather(
-            *[
-                self.gort.guiders[tel].wait_until_guiding(timeout=timeout)
-                for tel in guide_on_telescopes
-            ]
-        )
+            # Wait until convergence.
+            self.write_to_log("Waiting for guiders to converge.")
+            guide_status = await asyncio.gather(
+                *[
+                    self.gort.guiders[tel].wait_until_guiding(timeout=timeout)
+                    for tel in guide_on_telescopes
+                ]
+            )
 
         has_timedout = any([gs[3] for gs in guide_status])
         if has_timedout:
@@ -297,38 +311,42 @@ class GortObserver:
                 "info",
             )
 
-            # Refresh guider data for this exposure.
-            if self._n_exposures > 0:
-                await self.guider_monitor.restart()
+            with self.register_overhead("expose:pre-exposure"):
+                # Refresh guider data for this exposure.
+                if self._n_exposures > 0:
+                    await self.guider_monitor.restart()
 
-            # Move fibre selector to the first position. Should be there unless
-            # count > 1 in which case we need to move it back.
-            await self.standards.start_iterating(exposure_time)
+                # Move fibre selector to the first position. Should be there unless
+                # count > 1 in which case we need to move it back.
+                await self.standards.start_iterating(exposure_time)
 
-            exposure = Exposure(self.gort, flavour="object", object=object)
-            self.__current_exposure = exposure
+                exposure = Exposure(self.gort, flavour="object", object=object)
+                self.__current_exposure = exposure
 
             exposure.hooks["pre-readout"].append(self._pre_readout)
             exposure.hooks["post-readout"].append(self._post_readout)
 
-            await exposure.expose(
-                exposure_time=exposure_time,
-                show_progress=show_progress,
-                async_readout=True,
-            )
+            with self.register_overhead("expose:integration"):
+                await exposure.expose(
+                    exposure_time=exposure_time,
+                    show_progress=show_progress,
+                    async_readout=True,
+                )
 
             # TODO: this is a bit dangerous because we are registering the
             # exposure before  it's actually written to disk. Maybe we should
             # wait until _post_readout() to register, but then the scheduler
             # needs to be changed to not return the same tile twice.
-            await self.register_exposure(
-                exposure,
-                tile_id=tile_id,
-                dither_pos=dither_pos,
-            )
+            with self.register_overhead("exposure:register-exposure"):
+                await self.register_exposure(
+                    exposure,
+                    tile_id=tile_id,
+                    dither_pos=dither_pos,
+                )
 
             if nexp == count and not keep_guiding:
-                await self.gort.guiders.stop()
+                with self.register_overhead("expose:stop-guiders"):
+                    await self.gort.guiders.stop()
 
             if nexp == count and async_readout:
                 return exposure
@@ -348,12 +366,31 @@ class GortObserver:
 
         self.write_to_log("Finishing observation.", "info")
 
-        # Should have been cancelled in _update_header(), but just in case.
-        await self.standards.cancel()
+        with self.register_overhead("finish-observation"):
+            # Should have been cancelled in _update_header(), but just in case.
+            await self.standards.cancel()
 
-        if self.guide_task is not None and not self.guide_task.done():
-            await self.gort.guiders.stop()
-            await self.guide_task
+            if self.guide_task is not None and not self.guide_task.done():
+                await self.gort.guiders.stop()
+                await self.guide_task
+
+        # Write overheads to database.
+        payload = [
+            {
+                "observer_id": id(self),
+                "stage": name,
+                "start_time": value[0],
+                "end_time": value[0] + value[1],
+                "duration": value[1],
+            }
+            for name, value in self.overheads.items()
+        ]
+
+        try:
+            table_name = self.gort.config["database"]["tables"]["overhead"]
+            insert_to_database(table_name, payload)
+        except Exception as err:
+            self.write_to_log(f"Failed saving overheads to database: {err}", "error")
 
     async def register_exposure(
         self,
@@ -421,6 +458,16 @@ class GortObserver:
         assert isinstance(level, int)
 
         self.gort.log.log(level, message)
+
+    @contextmanager
+    def register_overhead(self, name: str):
+        """Measures and registers and overhead."""
+
+        t0 = time()
+
+        yield
+
+        self.overheads[name] = (t0, time() - t0)
 
     def _get_mask_positions(self, pattern: str):
         """Returns mask positions sorted by motor steps."""
@@ -753,6 +800,7 @@ class Standards:
                 # Increase current index and get coordinates.
                 current_std_idx += 1
                 self.current_standard += 1
+                overhead_root = f"standards:standard-{self.current_standard}"
 
                 # New coordinates to observe.
                 new_coords = spec_coords[current_std_idx]
@@ -781,13 +829,14 @@ class Standards:
                 )
 
                 # Finish guiding on spec telescope.
-                self.observer.write_to_log("Stopping guiding on spec and reslewing.")
+                self.observer.write_to_log("Re-slewing 'spec' telescope.")
 
-                cotasks = [
-                    self.gort.guiders["spec"].stop(),
-                    spec_tel.goto_coordinates(ra=slew_ra, dec=slew_dec),
-                ]
-                await asyncio.gather(*cotasks)
+                with self.observer.register_overhead(f"{overhead_root}-slew"):
+                    cotasks = [
+                        self.gort.guiders["spec"].stop(),
+                        spec_tel.goto_coordinates(ra=slew_ra, dec=slew_dec),
+                    ]
+                    await asyncio.gather(*cotasks)
 
                 # Start to guide. Note that here we use the original coordinates
                 # of the star along with the pixel on the master frame on which to
@@ -802,18 +851,22 @@ class Standards:
                     )
                 )
 
-                result = await self.gort.guiders.spec.wait_until_guiding(timeout=60)
-                if result[0] is False:
+                with self.observer.register_overhead(f"{overhead_root}-acquire"):
+                    result = await self.gort.guiders.spec.wait_until_guiding(timeout=60)
+                    if result[0] is False:
+                        self.observer.write_to_log(
+                            f"Timed out acquiring standard {self.current_standard}.",
+                            "warning",
+                        )
+                        continue
+
                     self.observer.write_to_log(
-                        "Failed to acquire standard position. Skipping.",
-                        "warning",
+                        f"Standard #{self.current_standard} on "
+                        f"{new_mask_position!r} has been acquired."
                     )
-                    continue
 
-                self.observer.write_to_log(f"Standard {new_mask_position} acquired.")
-
-                # Move mask to uncover fibre.
-                await spec_tel.fibsel.move_to_position(new_mask_position)
+                    # Move mask to uncover fibre.
+                    await spec_tel.fibsel.move_to_position(new_mask_position)
 
                 n_observed += 1
                 t0_last_std = time()
