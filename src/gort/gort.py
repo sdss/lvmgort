@@ -647,6 +647,25 @@ class Gort(GortClient):
         self.log.warning("Closing and parking telescopes.")
         await asyncio.gather(*tasks)
 
+    async def observe(self, n_tiles: int | None = None):
+        """Runs a fully automatic science observing loop."""
+
+        # TODO: add some exception handling for keyboard interrupts.
+
+        self.log.info("Running the cleanup recipe.")
+        await self.execute_recipe("cleanup")
+
+        self.log.info("Starting observing loop.")
+
+        n_completed = 0
+        while True:
+            await self.observe_tile()
+            n_completed += 1
+
+            if n_tiles is not None and n_completed >= n_tiles:
+                self.log.info("Number of tiles reached. Finishing observing loop.")
+                break
+
     async def observe_tile(
         self,
         tile: Tile | int | None = None,
@@ -661,6 +680,7 @@ class Gort(GortClient):
         guide_tolerance: float = 1.0,
         acquisition_timeout: float = 180.0,
         show_progress: bool | None = None,
+        run_cleanup: bool = True,
     ):
         """Performs all the operations necessary to observe a tile.
 
@@ -702,6 +722,8 @@ class Gort(GortClient):
             raised if the acquisition failed.
         show_progress
             Displays a progress bar with the elapsed exposure time.
+        run_cleanup
+            Whether to run the cleanup routine.
 
         """
 
@@ -729,7 +751,8 @@ class Gort(GortClient):
         observer = GortObserver(self, tile)
 
         # Run the cleanup routine to be extra sure.
-        await self.cleanup(turn_off=False)
+        if run_cleanup:
+            await self.cleanup(turn_off=False)
 
         try:
             # Slew telescopes and move fibsel mask.
