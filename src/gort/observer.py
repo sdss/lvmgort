@@ -374,10 +374,15 @@ class GortObserver:
                 await self.gort.guiders.stop()
                 await self.guide_task
 
+        tile_id = self.tile.tile_id
+        if tile_id is None or tile_id <= 0:
+            tile_id = None
+
         # Write overheads to database.
         payload = [
             {
                 "observer_id": id(self),
+                "tile_id": tile_id,
                 "stage": name,
                 "start_time": value[0],
                 "end_time": value[0] + value[1],
