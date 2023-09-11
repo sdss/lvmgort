@@ -92,6 +92,16 @@ guiders:
   devices:
     sci:
       actor: lvm.sci.guider
+      dither_offsets:
+        0: [0.00, 0.00]
+        1: [-10.68, 18.50]
+        2: [10.68, 18.50]
+        3: [0.00, -12.33]
+        4: [10.68, -6.17]
+        5: [-10.68, -6.17]
+        6: [10.68, 6.17]
+        7: [-10.68, 6.17]
+        8: [0.00, 12.33]
     spec:
       actor: lvm.spec.guider
       named_pixels:
