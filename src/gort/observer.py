@@ -311,7 +311,7 @@ class GortObserver:
                 "info",
             )
 
-            with self.register_overhead("expose:pre-exposure"):
+            with self.register_overhead(f"expose:pre-exposure-{nexp}"):
                 # Refresh guider data for this exposure.
                 if self._n_exposures > 0:
                     await self.guider_monitor.restart()
@@ -326,7 +326,7 @@ class GortObserver:
             exposure.hooks["pre-readout"].append(self._pre_readout)
             exposure.hooks["post-readout"].append(self._post_readout)
 
-            with self.register_overhead("expose:integration"):
+            with self.register_overhead(f"expose:integration-{nexp}"):
                 await exposure.expose(
                     exposure_time=exposure_time,
                     show_progress=show_progress,
@@ -337,7 +337,7 @@ class GortObserver:
             # exposure before  it's actually written to disk. Maybe we should
             # wait until _post_readout() to register, but then the scheduler
             # needs to be changed to not return the same tile twice.
-            with self.register_overhead("exposure:register-exposure"):
+            with self.register_overhead(f"exposure:register-exposure-{nexp}"):
                 await self.register_exposure(
                     exposure,
                     tile_id=tile_id,
@@ -345,7 +345,7 @@ class GortObserver:
                 )
 
             if nexp == count and not keep_guiding:
-                with self.register_overhead("expose:stop-guiders"):
+                with self.register_overhead(f"expose:stop-guiders-{nexp}"):
                     await self.gort.guiders.stop()
 
             if nexp == count and async_readout:
