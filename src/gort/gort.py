@@ -653,7 +653,7 @@ class Gort(GortClient):
         ra: float | None = None,
         dec: float | None = None,
         pa: float = 0.0,
-        use_scheduler: bool = False,
+        use_scheduler: bool = True,
         exposure_time: float = 900.0,
         n_exposures: int = 1,
         async_readout: bool = True,
