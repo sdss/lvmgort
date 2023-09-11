@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import warnings
 
-from typing import cast
+from typing import Sequence, cast
 
 import pandas
 from astropy.coordinates import EarthLocation, SkyCoord
@@ -20,7 +20,7 @@ from httpx import RequestError
 from gort import config
 from gort.exceptions import GortError, GortNotImplemented, GortWarning, TileError
 from gort.tools import get_calibrators_sync, get_db_connection, get_next_tile_id_sync
-from gort.transforms import fibre_to_master_frame
+from gort.transforms import fibre_to_master_frame, offset_to_master_frame_pixel
 
 
 __all__ = [
@@ -302,14 +302,18 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         sci_coords: ScienceCoordinates,
         sky_coords: dict[str, SkyCoordinates] | dict[str, CoordTuple] | None = None,
         spec_coords: list[StandardCoordinates | CoordTuple] | None = None,
-        dither_position: int = 0,
+        dither_positions: int | Sequence[int] = 0,
         object: str | None = None,
         allow_replacement: bool = True,
     ):
         self.allow_replacement = allow_replacement
 
         self.tile_id: int | None = None
-        self.dither_position = dither_position
+        self.dither_positions = (
+            dither_positions
+            if isinstance(dither_positions, Sequence)
+            else [dither_positions]
+        )
 
         self.object = object or (f"Tile {self.tile_id}" if self.tile_id else None)
 
@@ -329,6 +333,16 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             f"n_skies={len(self.sky_coords)}; "
             f"n_standards={len(self.spec_coords)})>"
         )
+
+    def set_dither_position(self, dither: int):
+        """Sets the full frame pixel for the science IFU to the dither position."""
+
+        raoff: float
+        decoff: float
+        raoff, decoff = config["guiders"]["devices"]["sci"]["dither_offsets"][dither]
+
+        xx, zz = offset_to_master_frame_pixel(ra=raoff, dec=decoff)
+        self.sci_coords.set_mf_pixel(xz=(xx, zz))
 
     @property
     def sci_coords(self):
@@ -526,7 +540,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             sci_coords,
             sky_coords=sky_coords,
             spec_coords=spec_coords,
-            dither_position=dither_pos,
+            dither_positions=dither_pos,
             **kwargs,
         )
         new_obj.tile_id = tile_id
