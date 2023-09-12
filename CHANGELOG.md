@@ -1,6 +1,6 @@
 # Changelog
 
-## Next version
+## 0.5.0 - September 12, 2023
 
 ### 🚀 New
 
@@ -10,15 +10,26 @@
 
 * [#10](https://github.com/sdss/lvmgort/pull/10) `GortObserver.slew()` and the standard iteration task now calculate the adjusted target coordinates for the spec telescope so that the slew puts the star on top of the desired fibre to be observed. Most of this relies on code copied from `lvmtipo` used to calculate the field angle through the siderostat.
 * `SkyCoordinates` now accepts a `name` attribute that is passed to the `SKYENAME` and `SKYWNAME` header keywords.
+* IFU PA angles passed to the headers.
+* Pass exposure time when registering an exposure.
+* Support new outputs from `lvmguider 0.4.0b1`.
+* Get actor versions on init.
+* Support guiding in PA (disabled for now).
+* Reconnect AGs during `startup` recipe.
+* Add `tile_id` as `OBJECT`` if no object string user-defined.
 
 ### 🏷️ Changed
 
 * Set `GR{telescope}FR{0|N}` with the range of guider frames in which we were guiding (as opposed to the entire guide loop including acquisition frames).
+* Changed default guide tolerance to 1 arcsec.
 
 ### 🔧 Fixed
 
 * Fixed some additional issues with the exception hooks that cause a recursion loop in IPython in some cases.
 * Fixed a bug that would accumulate the range of guider frames for an spectrograph exposure if `GortObserver.expose()` was called multiple times.
+* Fixed a slicing issue with newer versions of Pandas.
+* Fixed a bug that caused the exposure flavour not being passed to the headers.
+* Deal with cases when the scheduler cannot find a good tile to observe.
 
 
 ## 0.4.0 - August 26, 2023
