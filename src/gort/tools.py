@@ -18,7 +18,7 @@ from contextlib import suppress
 from datetime import datetime
 from functools import partial
 
-from typing import TYPE_CHECKING, Callable, Coroutine
+from typing import TYPE_CHECKING, Any, Callable, Coroutine
 
 import httpx
 import numpy
@@ -59,6 +59,7 @@ __all__ = [
     "cancel_task",
     "build_guider_reply_list",
     "get_temporary_file_path",
+    "insert_to_database",
 ]
 
 CAMERAS = [
@@ -488,7 +489,7 @@ def angular_separation(lon1: float, lat1: float, lon2: float, lat2: float):
 def get_db_connection():
     """Returns a DB connection from the configuration file parameters."""
 
-    conn = peewee.PostgresqlDatabase(**config["database"])
+    conn = peewee.PostgresqlDatabase(**config["database"]["connection"])
     assert conn.connect(), "Database connection failed."
 
     return conn
@@ -655,3 +656,46 @@ def get_temporary_file_path(*args, create_parents: bool = False, **kwargs):
         tmp_path.parent.mkdir(parents=True, exist_ok=True)
 
     return tmp_path
+
+
+def insert_to_database(
+    table_name: str,
+    payload: list[dict[str, Any]],
+    columns: list[str] | None = None,
+):
+    """Inserts data into the database.
+
+    Parameters
+    ----------
+    table_name
+        The table in the database where to insert the data. Can be in the format
+        ``schema.table_name``.
+    payload
+        The data to ingest, as a list of dictionaries in which each dictionary
+        is a mapping of column name in ``table`` to the value to ingest.
+    columns
+        A list of table columns. If not passed, the column names are inferred from
+        the first element in the payload. In this case you must ensure that all the
+        elements in the payload contain entries for all the columns (use :obj:`None`
+        to fill missing data).
+
+    """
+
+    if len(payload) == 0:
+        return
+
+    columns = columns or list(payload[0].keys())
+
+    conn = get_db_connection()
+
+    schema: str | None
+    if "." in table_name:
+        schema, table_name = table_name.split(".")
+    else:
+        schema = None
+        table_name = table_name
+
+    table = peewee.Table(table_name, schema=schema, columns=columns)
+    table.bind(conn)
+
+    table.insert(payload).execute()

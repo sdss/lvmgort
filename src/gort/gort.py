@@ -48,6 +48,9 @@ from gort.tools import get_temporary_file_path, run_in_executor
 if TYPE_CHECKING:
     from rich.console import Console
 
+    from gort.exposure import Exposure
+
+
 try:
     IPYTHON = get_ipython()  # type: ignore
     IPYTHON_DEFAULT_HOOKS = [
@@ -647,18 +650,40 @@ class Gort(GortClient):
         self.log.warning("Closing and parking telescopes.")
         await asyncio.gather(*tasks)
 
+    async def observe(self, n_tiles: int | None = None):
+        """Runs a fully automatic science observing loop."""
+
+        # TODO: add some exception handling for keyboard interrupts.
+
+        self.log.info("Running the cleanup recipe.")
+        await self.execute_recipe("cleanup")
+
+        self.log.info("Starting observing loop.")
+
+        n_completed = 0
+        while True:
+            await self.observe_tile()
+            n_completed += 1
+
+            if n_tiles is not None and n_completed >= n_tiles:
+                self.log.info("Number of tiles reached. Finishing observing loop.")
+                break
+
     async def observe_tile(
         self,
         tile: Tile | int | None = None,
         ra: float | None = None,
         dec: float | None = None,
         pa: float = 0.0,
-        use_scheduler: bool = False,
+        use_scheduler: bool = True,
         exposure_time: float = 900.0,
         n_exposures: int = 1,
+        async_readout: bool = True,
+        keep_guiding: bool = False,
         guide_tolerance: float = 1.0,
         acquisition_timeout: float = 180.0,
         show_progress: bool | None = None,
+        run_cleanup: bool = True,
     ):
         """Performs all the operations necessary to observe a tile.
 
@@ -681,6 +706,15 @@ class Gort(GortClient):
             The length of the exposure in seconds.
         n_exposures
             Number of exposures to take while guiding.
+        async_readout
+            Whether to wait for the readout to complete or return as soon
+            as the readout begins. If :obj:`False`, the exposure is registered
+            but the observation is not finished. This should be :obj:`True`
+            during normal science operations to allow the following acquisition
+            to occur during readout.
+        keep_guiding
+            If :obj:`True`, keeps the guider running after the last exposure.
+            This should be :obj:`False` during normal science operations.
         guide_tolerance
             The guide tolerance in arcsec. A telescope will not be considered
             to be guiding if its separation to the commanded field is larger
@@ -691,6 +725,8 @@ class Gort(GortClient):
             raised if the acquisition failed.
         show_progress
             Displays a progress bar with the elapsed exposure time.
+        run_cleanup
+            Whether to run the cleanup routine.
 
         """
 
@@ -714,11 +750,19 @@ class Gort(GortClient):
 
         assert isinstance(tile, Tile)
 
+        # Set the initial dither position. This will make
+        # the initial acquisition on that pixel.
+        dither_positions = tile.dither_positions
+        tile.set_dither_position(dither_positions[0])
+
         # Create observer.
         observer = GortObserver(self, tile)
 
         # Run the cleanup routine to be extra sure.
-        await self.cleanup(turn_off=False)
+        if run_cleanup:
+            await self.cleanup(turn_off=False)
+
+        exposures: list[Exposure] = []
 
         try:
             # Slew telescopes and move fibsel mask.
@@ -730,18 +774,37 @@ class Gort(GortClient):
                 timeout=acquisition_timeout,
             )
 
-            # Exposing
-            exposure = await observer.expose(
-                exposure_time=exposure_time,
-                show_progress=show_progress,
-                count=n_exposures,
-            )
+            # Loop over the dither positions. For the first one do nothing
+            # since we have already acquired for that position.
+            for idither, dpos in enumerate(dither_positions):
+                if idither != 0:
+                    self.log.info(f"Acquiring dither position #{dpos}")
+                    await observer.set_dither_position(dpos)
+
+                self.log.info(f"Taking exposure for dither position #{dpos}")
+
+                # Should we keep the guider alive during readout?
+                keep_guiding_exp = keep_guiding or idither != len(dither_positions) - 1
+
+                # Exposing
+                exposure = await observer.expose(
+                    exposure_time=exposure_time,
+                    show_progress=show_progress,
+                    count=n_exposures,
+                    async_readout=async_readout,
+                    keep_guiding=keep_guiding_exp,
+                )
+
+                if isinstance(exposure, list):
+                    exposures += exposure
+                else:
+                    exposures.append(exposure)
 
         finally:
             # Finish observation.
             await observer.finish_observation()
 
-        return exposure
+        return exposures
 
     async def execute_recipe(self, recipe: str, **kwargs):
         """Executes a recipe.

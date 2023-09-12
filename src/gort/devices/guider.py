@@ -381,47 +381,19 @@ class Guider(GortDevice):
             await cancel_task(task)
             return
 
-    async def stop(
-        self,
-        now: bool = False,
-        wait_until_stopped: bool = True,
-        timeout: float | None = 30,
-    ) -> None:
+    async def stop(self) -> None:
         """Stops the guide loop.
 
         Parameters
         ----------
-        now
-            Aggressively stops the guide loop.
         wait_until_stopped
             Blocks until the guider is idle.
-        timeout
-            How long to wait for the guider to become idle before
-            forcibly stop it. Ignored if ``now=True``.
 
         """
 
-        self.write_to_log(f"Stopping guider with now={now}.", "info")
-        await self.actor.commands.stop(now=now)
+        self.write_to_log("Stopping guider.", "info")
 
-        if not now and wait_until_stopped:
-            elapsed = 0.0
-            while True:
-                if self.status & GuiderStatus.IDLE:
-                    self.write_to_log("Guider is idle.")
-                    return
-
-                await asyncio.sleep(0.5)
-                elapsed += 0.5
-
-                if timeout is not None and elapsed > timeout:
-                    self.write_to_log(
-                        "The guider is not yet idle. Stopping with now=True.",
-                        "warning",
-                    )
-                    await self.stop(now=True)
-                    return
-
+        await self.actor.commands.stop()
         self.status = GuiderStatus.IDLE
 
     async def set_pixel(self, pixel: tuple[float, float] | str | None = None):
@@ -569,23 +541,10 @@ class GuiderSet(GortDeviceSet[Guider]):
 
         await self.call_device_method(Guider.guide, *args, **kwargs)
 
-    async def stop(self, now: bool = False, wait_until_stopped: bool = True):
-        """Stops the guide loop on all telescopes.
+    async def stop(self):
+        """Stops the guide loop on all telescopes."""
 
-        Parameters
-        ----------
-        now
-            Aggressively stops the guide loop.
-        wait_until_stopped
-            Blocks until the guider is idle.
-
-        """
-
-        await self.call_device_method(
-            Guider.stop,
-            now=now,
-            wait_until_stopped=wait_until_stopped,
-        )
+        await self.call_device_method(Guider.stop)
 
     async def wait_until_guiding(
         self,

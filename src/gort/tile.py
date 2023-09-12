@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import warnings
 
-from typing import cast
+from typing import Sequence, cast
 
 import pandas
 from astropy.coordinates import EarthLocation, SkyCoord
@@ -20,7 +20,7 @@ from httpx import RequestError
 from gort import config
 from gort.exceptions import GortError, GortNotImplemented, GortWarning, TileError
 from gort.tools import get_calibrators_sync, get_db_connection, get_next_tile_id_sync
-from gort.transforms import fibre_to_master_frame
+from gort.transforms import fibre_to_master_frame, offset_to_master_frame_pixel
 
 
 __all__ = [
@@ -147,7 +147,7 @@ class QuerableCoordinates(Coordinates):
     def from_science_coordinates(
         cls,
         sci_coords: ScienceCoordinates,
-        exclude_coordinates: list[CoordTuple] = [],
+        exclude_coordinates: Sequence[CoordTuple] = [],
         exclude_invisible: bool = True,
     ):
         """Retrieves a valid and observable position from the database.
@@ -201,7 +201,7 @@ class QuerableCoordinates(Coordinates):
 
         return cls(skycoord_min.ra.deg, skycoord_min.dec.deg)
 
-    def verify_and_replace(self, exclude_coordinates: list[CoordTuple] = []):
+    def verify_and_replace(self, exclude_coordinates: Sequence[CoordTuple] = []):
         """Verifies that the coordinates are visible and if not, replaces them.
 
         Parameters
@@ -273,7 +273,7 @@ class StandardCoordinates(QuerableCoordinates):
         super().__init__(*args, **kwargs)
 
 
-class Tile(dict[str, Coordinates | list[Coordinates] | None]):
+class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
     """A representation of a science pointing with associated calibrators.
 
     This class is most usually initialised from a classmethod like
@@ -288,7 +288,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
     spec_coords
         A list of coordinates to observe with the spectrophotometric telescope.
     dither_position
-        The dither position to obseve (not yet functional).
+        The dither position(s) to obseve.
     object
         The name of the object.
     allow_replacement
@@ -301,15 +301,19 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         self,
         sci_coords: ScienceCoordinates,
         sky_coords: dict[str, SkyCoordinates] | dict[str, CoordTuple] | None = None,
-        spec_coords: list[StandardCoordinates | CoordTuple] | None = None,
-        dither_position: int = 0,
+        spec_coords: Sequence[StandardCoordinates | CoordTuple] | None = None,
+        dither_positions: int | Sequence[int] = 0,
         object: str | None = None,
         allow_replacement: bool = True,
     ):
         self.allow_replacement = allow_replacement
 
         self.tile_id: int | None = None
-        self.dither_position = dither_position
+        self.dither_positions = (
+            dither_positions
+            if isinstance(dither_positions, Sequence)
+            else [dither_positions]
+        )
 
         self.object = object or (f"Tile {self.tile_id}" if self.tile_id else None)
 
@@ -329,6 +333,16 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             f"n_skies={len(self.sky_coords)}; "
             f"n_standards={len(self.spec_coords)})>"
         )
+
+    def set_dither_position(self, dither: int):
+        """Sets the full frame pixel for the science IFU to the dither position."""
+
+        raoff: float
+        decoff: float
+        raoff, decoff = config["guiders"]["devices"]["sci"]["dither_offsets"][dither]
+
+        xx, zz = offset_to_master_frame_pixel(ra=raoff, dec=decoff)
+        self.sci_coords.set_mf_pixel(xz=(xx, zz))
 
     @property
     def sci_coords(self):
@@ -368,13 +382,13 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
     def spec_coords(self):
         """Returns the Spec coordinates."""
 
-        return cast(list[StandardCoordinates], self["spec"])
+        return cast(Sequence[StandardCoordinates], self["spec"])
 
     @spec_coords.setter
-    def spec_coords(self, new_coords: list[StandardCoordinates]):
+    def spec_coords(self, new_coords: Sequence[StandardCoordinates]):
         """Sets the SkyW coordinates."""
 
-        parsed_coords: list[Coordinates] = []
+        parsed_coords: Sequence[Coordinates] = []
         for coords in new_coords:
             if isinstance(coords, (list, tuple)):
                 parsed_coords.append(StandardCoordinates(*coords))
@@ -390,7 +404,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         dec: float,
         pa: float = 0.0,
         sky_coords: dict[str, SkyCoordinates] | dict[str, CoordTuple] | None = None,
-        spec_coords: list[StandardCoordinates | CoordTuple] | None = None,
+        spec_coords: Sequence[StandardCoordinates | CoordTuple] | None = None,
         **kwargs,
     ):
         """Creates an instance from coordinates, allowing autocompletion.
@@ -526,7 +540,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             sci_coords,
             sky_coords=sky_coords,
             spec_coords=spec_coords,
-            dither_position=dither_pos,
+            dither_positions=dither_pos,
             **kwargs,
         )
         new_obj.tile_id = tile_id
@@ -576,7 +590,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             sky_coords = {}
 
         valid_sky_coords: dict[str, SkyCoordinates] = {}
-        assigned_coordinates: list[CoordTuple] = []
+        assigned_coordinates: Sequence[CoordTuple] = []
 
         for telescope in ["skye", "skyw"]:
             tel_coords = sky_coords.get(telescope, None)
@@ -641,9 +655,9 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
 
     def set_spec_coords(
         self,
-        spec_coords: list[StandardCoordinates | CoordTuple] | None = None,
+        spec_coords: Sequence[StandardCoordinates | CoordTuple] | None = None,
         reject_invisible: bool = True,
-    ) -> list[StandardCoordinates]:
+    ) -> Sequence[StandardCoordinates]:
         """Sets the spec telescope coordinates.
 
         Parameters

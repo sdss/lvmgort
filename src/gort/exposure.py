@@ -15,7 +15,7 @@ import re
 import warnings
 from collections import defaultdict
 
-from typing import TYPE_CHECKING, Any, Awaitable, Callable
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Literal
 
 from astropy.io import fits
 from astropy.time import Time
@@ -36,7 +36,10 @@ __all__ = ["Exposure", "READOUT_TIME"]
 
 READOUT_TIME = 51
 
-HOOKS_TYPE = defaultdict[str, list[Callable[[Any], Awaitable]]]
+HOOKS_TYPE = defaultdict[
+    Literal["pre-readout", "post-readout"],
+    list[Callable[[Any], Awaitable]],
+]
 
 
 class Exposure(asyncio.Future["Exposure"]):
@@ -60,10 +63,13 @@ class Exposure(asyncio.Future["Exposure"]):
         A dictionary of hooks to call in specific steps of the exposure. Each
         hook must be a list of coroutines to call in that specific situation.
         All coroutines for a given hook are called concurrently and depending
-        on the hook they may be scheduled as a task and not awaited. The only
-        hook at this time is ``'pre-readout'`` which is called with the header
-        before readout begins; the coroutine can modify the header in place or
-        perform any tasks that should be complete at the end of integration.
+        on the hook they may be scheduled as a task and not awaited. Available
+        hooks are:
+        - ``'pre-readout'`` which is called with the header before readout
+          begins; the coroutine can modify the header in place or perform
+          any tasks that should be complete at the end of integration.
+        - ``'post-readout'`` called as a task (not awaited) after the readout
+          is complete. Receives the :obj:`.Exposure` object.
 
         To add a coroutine to a hook ::
 
@@ -98,7 +104,7 @@ class Exposure(asyncio.Future["Exposure"]):
 
         self.hooks: HOOKS_TYPE = defaultdict(
             list,
-            {"pre-readout": []},
+            {"pre-readout": [], "post-readout": []},
         )
 
         if self.flavour not in ["arc", "object", "flat", "bias", "dark"]:
@@ -108,6 +114,8 @@ class Exposure(asyncio.Future["Exposure"]):
             )
 
         super().__init__()
+
+        self.add_done_callback(self._when_done)
 
     def __repr__(self):
         return (
@@ -144,6 +152,12 @@ class Exposure(asyncio.Future["Exposure"]):
             The object name to be passed to the header.
 
         """
+
+        log = self.specs.write_to_log
+
+        if self.specs.last_exposure is not None and not self.specs.last_exposure.done():
+            log("Waiting for previous exposure to read out.", "warning")
+            await self.specs.last_exposure
 
         # Check that all specs are idle and not errored.
         status = await self.specs.status(simple=True)
@@ -226,10 +240,9 @@ class Exposure(asyncio.Future["Exposure"]):
             if not async_readout:
                 await readout_task
                 await monitor_task
-                self.specs.write_to_log(f"Exposure {self.exp_no} completed.")
+                log(f"Exposure {self.exp_no} completed.")
             else:
                 await self.stop_timer()
-                self.specs.write_to_log("Returning with async readout ongoing.")
 
         except Exception as err:
             # Cancel the monitor task
@@ -242,9 +255,6 @@ class Exposure(asyncio.Future["Exposure"]):
 
         finally:
             await self.stop_timer()
-
-            if self.done() and not self.error:
-                self.verify_files()
 
         return self
 
@@ -382,6 +392,14 @@ class Exposure(asyncio.Future["Exposure"]):
         data_path = pathlib.Path(config["specs"]["data_path"].format(SJD=sjd))
 
         return list(data_path.glob(f"*-[0]*{self.exp_no}.fits.gz"))
+
+    def _when_done(self, result):
+        """Called when the future is done."""
+
+        if not self.error:
+            self.verify_files()
+
+        asyncio.create_task(self._call_hook("post-readout", self, as_task=True))
 
     async def _done_monitor(self):
         """Waits until the spectrographs are idle, and marks the Future done."""

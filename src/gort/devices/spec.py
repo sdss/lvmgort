@@ -394,7 +394,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         exposures: list[Exposure] = []
 
-        for _ in range(int(count)):
+        for nexp in range(int(count)):
             exposure = Exposure(self.gort, flavour=flavour, object=object)
 
             log_msg = f"Taking spectrograph exposure {exposure.exp_no} "
@@ -404,13 +404,18 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                 log_msg += f"({flavour}, {exposure_time:.1f} s)."
             self.write_to_log(log_msg, "info")
 
+            async_readout_this_exp = async_readout if nexp == int(count) - 1 else False
+
             await exposure.expose(
                 exposure_time=exposure_time,
                 header=header,
-                async_readout=async_readout,
+                async_readout=async_readout_this_exp,
                 show_progress=show_progress,
             )
             exposures.append(exposure)
+
+        if async_readout:
+            self.write_to_log("Returning with async readout ongoing.")
 
         if len(exposures) == 1:
             return exposures[0]
