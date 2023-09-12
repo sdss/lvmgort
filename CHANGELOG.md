@@ -1,5 +1,19 @@
 # Changelog
 
+## Next version
+
+### 🚀 New
+
+* [#11](https://github.com/sdss/lvmgort/pull/11) Support asynchronous readout during `GortObserved`-enabled observations and implement dithering:
+  * Remove calls to `lvmguider stop --now`. The new `stop` command always cancels the guider task.
+  * Added `pre-readout` hook for `Exposure`.
+  * Allow `GortObserver` to read out an exposure asynchronously.
+  * `Gort.observe_tile()` will by default read the last exposure asynchronously to allow for the next slew and acquisition to happen during readout.
+  * Added a context manager `GortObserver.register_overhead()` that measured the elapsed time in different parts of the slew and acquisition process and records the values to the database.
+  * The dither positions associated with a `Tile` are now a list of positions that the scheduler wants us to observe. `Gort.observe_tile()` will try to observe all dither positions without stopping the guider.
+  * Added `Gort.observe()` with a simple loop for observing tiles.
+
+
 ## 0.5.0 - September 12, 2023
 
 ### 🚀 New
