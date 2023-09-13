@@ -518,7 +518,7 @@ class GortObserver:
         """Updates the exposure header with pointing and guiding information."""
 
         tile_id = self.tile.tile_id
-        dither_pos = self.tile.dither_positions
+        dither_pos = self.tile.sci_coords.dither_position
 
         tile_header = {
             "TILE_ID": (tile_id or -999, "The tile_id of this observation"),

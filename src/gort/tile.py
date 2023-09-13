@@ -240,6 +240,8 @@ class ScienceCoordinates(Coordinates):
 
     """
 
+    dither_position: int = 0
+
 
 class SkyCoordinates(QuerableCoordinates):
     """A sky position.
@@ -343,6 +345,8 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
 
         xx, zz = offset_to_master_frame_pixel(ra=raoff, dec=decoff)
         self.sci_coords.set_mf_pixel(xz=(xx, zz))
+
+        self.sci_coords.dither_position = dither
 
     @property
     def sci_coords(self):
