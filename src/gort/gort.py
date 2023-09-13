@@ -799,6 +799,7 @@ class Gort(GortClient):
                     count=n_exposures,
                     async_readout=async_readout,
                     keep_guiding=keep_guiding_exp,
+                    dither_position=dpos,
                 )
 
                 if isinstance(exposure, list):

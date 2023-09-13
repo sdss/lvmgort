@@ -14,7 +14,7 @@ import re
 from contextlib import contextmanager
 from time import time
 
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any
 
 import numpy
 import pandas
@@ -301,12 +301,7 @@ class GortObserver:
 
         tile_id = self.tile.tile_id
 
-        if dither_position is None:
-            tile_dither_pos = self.tile.dither_positions
-            if isinstance(tile_dither_pos, Sequence):
-                dither_position = tile_dither_pos[0]
-            else:
-                dither_position = tile_dither_pos
+        dither_position = dither_position or self.tile.sci_coords.dither_position
 
         if object is None:
             if self.tile.object:
