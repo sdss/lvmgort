@@ -294,6 +294,10 @@ class Guider(GortDevice):
                 reference_pixel=pixel,
                 **guide_kwargs,
             )
+        except Exception as err:
+            # Deal with the guide command being cancelled when we stop it.
+            if "This command has been cancelled" not in str(err):
+                raise
         finally:
             await cancel_task(self.guide_monitor_task)
 
