@@ -781,6 +781,12 @@ class Gort(GortClient):
                     self.log.info(f"Acquiring dither position #{dpos}")
                     await observer.set_dither_position(dpos)
 
+                    # Need to restart the guider monitor so that the new exposure
+                    # gets the range of guider frames that correspond to this dither.
+                    # GortObserver.expose() doesn't do this because we ask for a single
+                    # exposure.
+                    await observer.guider_monitor.restart()
+
                 self.log.info(f"Taking exposure for dither position #{dpos}")
 
                 # Should we keep the guider alive during readout?
