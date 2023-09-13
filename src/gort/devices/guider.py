@@ -319,7 +319,7 @@ class Guider(GortDevice):
 
                 # Group by frameno, keep only non-NaN values.
                 df = df.groupby(["frameno", "telescope"], as_index=False).apply(
-                    lambda g: g.fillna(method="bfill", axis=0).iloc[0, :]
+                    lambda g: g.bfill(axis=0).iloc[0, :]
                 )
 
                 # Sort by frameno.
