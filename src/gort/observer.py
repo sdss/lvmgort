@@ -204,10 +204,10 @@ class GortObserver:
                 )
             )
 
-            if "spec" not in guide_on_telescopes:
-                with self.register_overhead("acquisition:move-fibsel-500"):
-                    self.write_to_log("Not using spec: blocking fibre mask.", "warning")
-                    await self.gort.telescopes.spec.fibsel.move_relative(500)
+        if "spec" not in guide_on_telescopes:
+            with self.register_overhead("acquisition:move-fibsel-500"):
+                self.write_to_log("Not using spec: blocking fibre mask.", "warning")
+                await self.gort.telescopes.spec.fibsel.move_relative(500)
 
         if n_skies == 0:
             self.write_to_log("No sky positions defined.", "warning")
