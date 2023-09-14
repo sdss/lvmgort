@@ -142,7 +142,8 @@ class KMirror(MoTanDevice):
         dec
             Declination of the field to track, in degrees.
         offset_angle
-            Derotation offset in degrees.
+            Derotation offset in degrees. This value is converted to the
+            -180 to 180 deg range before sending it to the k-mirror.
         stop_degs_before
             Number of degrees to stop before reaching the desired position
             angle. This has the effect of actually slewing to
@@ -155,6 +156,10 @@ class KMirror(MoTanDevice):
             raise GortTelescopeError("Device is not reachable.")
 
         await self.slew_delay()
+
+        offset_angle %= 360
+        if offset_angle > 180:
+            offset_angle -= 360
 
         if offset_angle == 0:
             msg = f"Slewing k-mirror to ra={ra:.6f} dec={dec:.6f} and tracking."
