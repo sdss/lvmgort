@@ -1,6 +1,6 @@
 # Changelog
 
-## Next version
+## 0.6.0 - September 14, 2023
 
 ### 🚀 New
 
@@ -12,6 +12,16 @@
   * Added a context manager `GortObserver.register_overhead()` that measured the elapsed time in different parts of the slew and acquisition process and records the values to the database.
   * The dither positions associated with a `Tile` are now a list of positions that the scheduler wants us to observe. `Gort.observe_tile()` will try to observe all dither positions without stopping the guider.
   * Added `Gort.observe()` with a simple loop for observing tiles.
+* Add dither information to `Tile` and support exposing multiple dither positions in the same observation.
+
+### ✨ Improved
+
+* Pass the observed sky and standard pks to the scheduler during registration.
+* The K-mirror offset angle is now wrapped between -180 and 180 degrees. Hopefully this prevents some cases in which offsets angles very close to 360 degrees cause the K-mirror to fail because of a software limit.
+
+### 🔧 Fixed
+
+* Fixed deprecations in Pandas `fillna()` with `method='bfill'`.
 
 
 ## 0.5.0 - September 12, 2023
