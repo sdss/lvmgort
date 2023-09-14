@@ -335,7 +335,8 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
             f"dec={self.sci_coords.dec:.6f}, "
             f"pa={self.sci_coords.pa:.3f}; "
             f"n_skies={len(self.sky_coords)}; "
-            f"n_standards={len(self.spec_coords)})>"
+            f"n_standards={len(self.spec_coords)}; "
+            f"dither_positions={self.dither_positions!r})>"
         )
 
     def set_dither_position(self, dither: int):

@@ -762,6 +762,13 @@ class Gort(GortClient):
         if run_cleanup:
             await self.cleanup(turn_off=False)
 
+        if tile.tile_id is not None:
+            dither_positions = ", ".join(map(str, tile.dither_positions))
+            self.log.info(
+                f"Observing tile_id={tile.tile_id} on "
+                f"dither positions #{dither_positions}."
+            )
+
         exposures: list[Exposure] = []
 
         try:
