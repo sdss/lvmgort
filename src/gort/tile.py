@@ -255,6 +255,7 @@ class SkyCoordinates(QuerableCoordinates):
 
     def __init__(self, *args, name: str | None = None, **kwargs):
         self.name = name
+        self.pk: int | None = None
 
         super().__init__(*args, **kwargs)
 
@@ -271,6 +272,7 @@ class StandardCoordinates(QuerableCoordinates):
 
     def __init__(self, *args, source_id: int | None = None, **kwargs):
         self.source_id = source_id
+        self.pk: int | None = None
 
         super().__init__(*args, **kwargs)
 
@@ -442,6 +444,9 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
             sky_coords["skye"] = SkyCoordinates(*calibrators["sky_pos"][0])
             sky_coords["skyw"] = SkyCoordinates(*calibrators["sky_pos"][1])
 
+            sky_coords["skye"].pk = calibrators["sky_pks"][0]
+            sky_coords["skyw"].pk = calibrators["sky_pks"][1]
+
         if spec_coords is None:
             assert calibrators is not None
             spec_coords = []
@@ -450,6 +455,7 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
                     *calibrators["standard_pos"][ii],
                     source_id=calibrators["standard_ids"][ii],
                 )
+                coords.pk = calibrators["standard_pks"][ii]
                 spec_coords.append(coords)
 
         return cls(
@@ -531,14 +537,17 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
             ),
         }
 
+        sky_coords["skye"].pk = calibrator_data["sky_pks"][0]
+        sky_coords["skyw"].pk = calibrator_data["sky_pks"][1]
+
         spec_coords = []
         for ii in range(len(calibrator_data["standard_pos"])):
-            spec_coords.append(
-                StandardCoordinates(
-                    *calibrator_data["standard_pos"][ii],
-                    source_id=calibrator_data["standard_ids"][ii],
-                )
+            std_coords = StandardCoordinates(
+                *calibrator_data["standard_pos"][ii],
+                source_id=calibrator_data["standard_ids"][ii],
             )
+            std_coords.pk = calibrator_data["standard_pks"][ii]
+            spec_coords.append(std_coords)
 
         new_obj = cls(
             sci_coords,

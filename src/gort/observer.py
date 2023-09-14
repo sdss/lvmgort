@@ -417,13 +417,22 @@ class GortObserver:
         if exposure.flavour != "object":
             return
 
+        standards: list[int] = []
+        for stdn, row in self.standards.standards.iterrows():
+            if row.observed == 1:
+                pk = self.tile.spec_coords[stdn - 1].pk  # type:ignore
+                if pk is not None:
+                    standards.append(pk)
+
+        skies = [sky.pk for sky in self.tile.sky_coords.values() if sky.pk is not None]
+
         self.write_to_log("Registering observation.", "info")
         registration_payload = {
             "dither": dither_position,
             "jd": exposure.start_time.jd,
             "seeing": -999.0,
-            "standards": [],
-            "skies": [],
+            "standards": standards,
+            "skies": skies,
             "exposure_no": exposure.exp_no,
             "exposure_time": exposure._exposure_time,
         }
