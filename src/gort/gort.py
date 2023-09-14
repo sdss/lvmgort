@@ -662,7 +662,7 @@ class Gort(GortClient):
 
         n_completed = 0
         while True:
-            await self.observe_tile()
+            await self.observe_tile(run_cleanup=False)
             n_completed += 1
 
             if n_tiles is not None and n_completed >= n_tiles:
