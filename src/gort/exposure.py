@@ -158,7 +158,6 @@ class Exposure(asyncio.Future["Exposure"]):
         if self.specs.last_exposure is not None and not self.specs.last_exposure.done():
             log("Waiting for previous exposure to read out.", "warning")
             await self.specs.last_exposure
-            await asyncio.sleep(10)
 
         # Check that all specs are idle and not errored.
         status = await self.specs.status(simple=True)
