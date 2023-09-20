@@ -423,6 +423,11 @@ class Guider(GortDevice):
         else:
             await self.actor.commands.set_pixel(*pixel)
 
+    async def apply_corrections(self, enable: bool = True):
+        """Enable/disable corrections being applied to the axes."""
+
+        await self.actor.commands.corrections(mode="enable" if enable else "disable")
+
 
 class GuiderSet(GortDeviceSet[Guider]):
     """A set of telescope guiders."""
@@ -549,6 +554,11 @@ class GuiderSet(GortDeviceSet[Guider]):
         """Stops the guide loop on all telescopes."""
 
         await self.call_device_method(Guider.stop)
+
+    async def apply_corrections(self, enable: bool = True):
+        """Enable/disable corrections being applied to the axes."""
+
+        await self.call_device_method(Guider.apply_corrections, enable=enable)
 
     async def wait_until_guiding(
         self,
