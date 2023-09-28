@@ -20,7 +20,7 @@ import numpy
 import pandas
 from astropy.time import Time
 
-from gort.exceptions import GortObserverError
+from gort.exceptions import ErrorCodes, GortObserverError
 from gort.exposure import Exposure
 from gort.maskbits import GuiderStatus
 from gort.tile import Coordinates
@@ -242,11 +242,16 @@ class GortObserver:
                         "Science telescope is not guiding.",
                         error_code=801,
                     )
-                if tel == "spec" and not is_guiding:
-                    raise GortObserverError(
-                        "Spec telescope is not guiding.",
-                        error_code=801,
-                    )
+
+                if tel == "spec":
+                    if not is_guiding:
+                        raise GortObserverError(
+                            "Spec telescope is not guiding.",
+                            error_code=ErrorCodes.ACQUISITION_FAILED,
+                        )
+                    else:
+                        await self.gort.guiders.spec.apply_corrections(False)
+
                 if "sky" in tel and not is_guiding:
                     self.write_to_log(f"{tel} telescope is not guiding.", "warning")
 
@@ -907,6 +912,11 @@ class Standards:
 
                     # Move mask to uncover fibre.
                     await spec_tel.fibsel.move_to_position(new_mask_position)
+
+                    # Do not guide. This means RA/Dec drifting will happen
+                    # but not rotation drifting since we are guiding on a point
+                    # source.
+                    await self.gort.guiders.spec.apply_corrections(False)
 
                 n_observed += 1
                 t0_last_std = time()
