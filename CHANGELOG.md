@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.1 - September 28, 2023
+
+### ✨ Improved
+
+* Pass `force` to `_prepare_telescopes()`.
+
+### 🏷️ Changed
+
+* Do not run cleanup after each iteration in `Gort.observe()`
+* Set `stop_degs_before.sci` to 1.5.
+
+
 ## 0.6.0 - September 14, 2023
 
 ### 🚀 New

@@ -53,7 +53,7 @@ class Light:
         self.enclosure.write_to_log(f"Toggling {self.name!r}.", "info")
         await self.enclosure.actor.commands.lights("toggle", self.name)
 
-    async def status(self):
+    async def status(self) -> bool:
         """Returns a boolean with the light status."""
 
         status = await self.enclosure.actor.commands.lights("status")
@@ -103,7 +103,7 @@ class Enclosure(GortDevice):
 
         return reply.flatten()
 
-    async def _prepare_telescopes(self):
+    async def _prepare_telescopes(self, force: bool = False):
         """Moves telescopes to park position before opening/closing the enclosure."""
 
         telescopes = list(self.gort.telescopes)
@@ -120,7 +120,7 @@ class Enclosure(GortDevice):
         )
 
         park_coros = [
-            self.gort.telescopes[tel].goto_named_position("park")
+            self.gort.telescopes[tel].goto_named_position("park", force=force)
             for itel, tel in enumerate(telescopes)
             if not is_parked[itel]
         ]
@@ -161,7 +161,7 @@ class Enclosure(GortDevice):
 
         if park_telescopes:
             try:
-                await self._prepare_telescopes()
+                await self._prepare_telescopes(force=force)
             except Exception as err:
                 self.write_to_log(
                     f"Failed determining the status of the telescopes: {err}",
