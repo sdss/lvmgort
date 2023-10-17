@@ -1026,7 +1026,9 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         Parameters
         ----------
         sci
-            The RA and Dec where to slew the science telescope.
+            The RA and Dec where to slew the science telescope. A third value
+            can be provided for the PA. Note that in this case a -1 factor
+            is applied before sending it to the K-mirror.
         spec
             The RA and Dec where to slew the spectrophotometric telescope.
         skye
@@ -1059,7 +1061,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
                     self["sci"].goto_coordinates(
                         ra=sci[0],
                         dec=sci[1],
-                        pa=sci[2],
+                        pa=-sci[2],  # Note the -1 here
                         kmirror_kwargs=kmirror_kwargs,
                     )
                 )
