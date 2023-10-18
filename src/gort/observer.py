@@ -198,7 +198,7 @@ class GortObserver:
                 self.gort.guiders[tel].guide(
                     ra=coords.ra,
                     dec=coords.dec,
-                    pa=coords.pa,
+                    pa=-coords.pa,  # -1 since k-mirror handiness is opposite to tile PA
                     guide_tolerance=guide_tolerance,
                     pixel=pixel,
                 )
