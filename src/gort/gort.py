@@ -34,6 +34,7 @@ from typing_extensions import Self
 
 from clu.client import AMQPClient, AMQPReply
 from sdsstools.logger import SDSSLogger, get_logger
+from sdsstools.time import get_sjd
 
 from gort import config
 from gort.core import RemoteActor
@@ -173,11 +174,25 @@ class GortClient(AMQPClient):
         )
 
         if log_file_path is None:
-            tmp_path = get_temporary_file_path(
-                prefix="gort-",
-                suffix=f"-{self.client_uuid}.log",
-            )
-            log.start_file_logger(str(tmp_path), rotating=False)
+            path = self.config["logging"]["path"]
+            sjd = get_sjd()
+            path = path.format(SJD=sjd)
+
+            try:
+                log.start_file_logger(str(path), rotating=False, mode="a")
+
+            except Exception as err:
+                tmp_path = get_temporary_file_path(
+                    prefix="gort-",
+                    suffix=f"-{self.client_uuid}.log",
+                )
+                log.warning(
+                    f"Failed starting file logging to {str(path)}: {err}. "
+                    f"Using temporary path {str(tmp_path)}."
+                )
+
+                log.start_file_logger(str(tmp_path), rotating=False)
+
         elif log_file_path is not False:
             log.start_file_logger(str(log_file_path), rotating=False)
 
