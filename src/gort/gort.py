@@ -174,12 +174,14 @@ class GortClient(AMQPClient):
         )
 
         if log_file_path is None:
-            path = self.config["logging"]["path"]
+            path = config["logging"]["path"]
             sjd = get_sjd()
             path = path.format(SJD=sjd)
 
             try:
                 log.start_file_logger(str(path), rotating=False, mode="a")
+                log.info("Starting GORT.")
+                log.info(f"Logging to {str(path)}")
 
             except Exception as err:
                 tmp_path = get_temporary_file_path(
