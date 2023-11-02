@@ -839,8 +839,9 @@ class Standards:
                 await spec_tel.fibsel.move_relative(500)
 
                 # Register the previous standard.
-                self.standards.loc[self.current_standard, "t1"] = time()
-                self.standards.loc[self.current_standard, "observed"] = 1
+                if self.standards.loc[self.current_standard, "acquired"] == 1:
+                    self.standards.loc[self.current_standard, "t1"] = time()
+                    self.standards.loc[self.current_standard, "observed"] = 1
 
                 # Increase current index and get coordinates.
                 current_std_idx += 1
