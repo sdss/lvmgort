@@ -747,7 +747,7 @@ class Standards:
             return
 
         await self.gort.telescopes.spec.fibsel.move_to_position(self.mask_positions[0])
-        await self.cancel()
+        await cancel_task(self.iterate_task)
 
         self.standards = self._get_frame()
         self.current_standard = 1
@@ -840,7 +840,7 @@ class Standards:
 
                 # Register the previous standard.
                 self.standards.loc[self.current_standard, "t1"] = time()
-                self.standards.loc[self.current_standard, "observed"] = True
+                self.standards.loc[self.current_standard, "observed"] = 1
 
                 # Increase current index and get coordinates.
                 current_std_idx += 1
@@ -859,7 +859,7 @@ class Standards:
                 new_guider_pixel = guider_pixels[new_mask_position]
 
                 self.observer.write_to_log(
-                    f"Moving to standard #{current_std_idx+1} ({new_coords}) "
+                    f"Moving to standard #{self.current_standard} ({new_coords}) "
                     f"on fibre {new_mask_position}.",
                     "info",
                 )
