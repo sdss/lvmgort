@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.6.2 - November 4, 2023
+
+### ✨ Improved
+
+* File logger logs to `logging.path` (defaults to `/data/logs/lvmgort/<SJD>.log`).
+
+### 🏷️ Changed
+
+* Disable guider corrections for `spec` telescope after acquisition. This prevents field rotation affecting the exposure at the cost of tracking error.
+* Pass `-PA` to the guider due to different handiness for PA between the guider and the tiling database.
+
+### 🔧 Fixed
+
+* Fixed a bug in the recording of the standards acquisition and exposure times.
+
+
 ## 0.6.1 - September 28, 2023
 
 ### ✨ Improved
