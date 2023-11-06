@@ -65,6 +65,19 @@ telescopes:
       spec:
         az: 252.558
         alt: 56.414
+    selfie:
+      skyw:
+        az: 91.5
+        alt: 16.17
+      spec:
+        az: 91.5
+        alt: 16.17
+      sci:
+        az: 272
+        alt: -16.4
+      skye:
+        az: 272
+        alt: -16.4
   mask_positions:
     P1-1: 1650
     P1-2: 215
