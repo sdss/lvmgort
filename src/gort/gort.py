@@ -238,13 +238,13 @@ class GortClient(AMQPClient):
                 IPYTHON.showtraceback = IPYTHON_DEFAULT_HOOKS[1]
                 IPYTHON.showsyntaxerror = IPYTHON_DEFAULT_HOOKS[2]
 
-        if IPYTHON:
-            # One more override. We want that any exceptions raised in IPython
-            # also gets logged to file, but IPython overrides excepthook completely
-            # so here we make a custom call to log.handle_exceptions() and then
-            # just let it do whatever it was its default (whether that means it
-            # was overridden by rich or not).
-            custom__showtraceback_closure(IPYTHON._showtraceback)
+        # if IPYTHON:
+        #     # One more override. We want that any exceptions raised in IPython
+        #     # also gets logged to file, but IPython overrides excepthook completely
+        #     # so here we make a custom call to log.handle_exceptions() and then
+        #     # just let it do whatever it was its default (whether that means it
+        #     # was overridden by rich or not).
+        #     custom__showtraceback_closure(IPYTHON._showtraceback)
 
     def get_log_path(self):
         """Returns the path of the log file. :obj:`None` if not logging to file."""
