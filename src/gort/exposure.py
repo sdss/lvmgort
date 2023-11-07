@@ -217,6 +217,7 @@ class Exposure(asyncio.Future["Exposure"]):
                 exposure_time=exposure_time,
                 seqno=self.exp_no,
                 readout=False,
+                timeout=(exposure_time or 0) + 30,
             )
 
             # Call pre-readout tasks.
@@ -228,6 +229,7 @@ class Exposure(asyncio.Future["Exposure"]):
                 self.specs._send_command_all(
                     "read",
                     header=json.dumps(header),
+                    timeout=90,
                 )
             )
 
