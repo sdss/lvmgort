@@ -99,7 +99,7 @@ class Enclosure(GortDevice):
     async def status(self):
         """Retrieves the status of the power outlet."""
 
-        reply: ActorReply = await self.actor.commands.status()
+        reply: ActorReply = await self.actor.commands.status(timeout=5)
 
         return reply.flatten()
 
