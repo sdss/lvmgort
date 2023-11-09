@@ -188,6 +188,27 @@ specs:
       actor: lvmscp.sp3
   data_path: /data/spectro/{SJD}
   nextExposureNumber: /data/spectro/nextExposureNumber
+  verification:
+    headers:
+      critical:
+        - TILE_ID
+        - DPOS
+        - ARGON
+        - NEON
+        - LDLS
+        - QUARTZ
+        - HGNE
+        - XENON
+        - HARTMANN
+        - TESCIRA
+        - TESCIDE
+        - TESKYERA
+        - TESKYEDE
+        - TESKYWRA
+        - TESKYWDE
+        - TESPECRA
+        - TESPECDE
+      warning: []
 
 ags:
   devices:
