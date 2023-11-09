@@ -65,6 +65,7 @@ __all__ = [
     "get_md5sum_file",
     "get_md5sum_from_spectro",
     "get_md5sum",
+    "mark_exposure_bad",
 ]
 
 AnyPath = str | os.PathLike
@@ -309,6 +310,31 @@ async def register_observation(payload: dict):
 
         if resp.status_code != 200 or not resp.json()["success"]:
             raise RuntimeError(f"Failed registering observation: {resp.text}.")
+
+
+def mark_exposure_bad(tile_id: int, dither_position: int = 0):
+    """Marks a registered tile/dither as bad."""
+
+    db = get_db_connection()
+
+    completion_status = peewee.Table("completion_status", schema="lvmopsdb").bind(db)
+    dither = peewee.Table("dither", schema="lvmopsdb").bind(db)
+
+    dither_pk = (
+        dither.select(dither.c.pk)
+        .where(
+            dither.c.tile_id == tile_id,
+            dither.c.position == dither_position,
+        )
+        .namedtuples()
+    )
+
+    if len(dither_pk) == 0:
+        raise ValueError("No matching tile-position.")
+
+    completion_status.update(done=False).where(
+        completion_status.c.pk == dither_pk[0].pk
+    ).execute()
 
 
 def is_notebook() -> bool:

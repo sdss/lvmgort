@@ -28,6 +28,7 @@ from gort.tools import (
     build_guider_reply_list,
     cancel_task,
     insert_to_database,
+    mark_exposure_bad,
     register_observation,
 )
 from gort.transforms import fibre_slew_coordinates
@@ -579,7 +580,17 @@ class GortObserver:
     async def _post_readout(self, exposure: Exposure):
         """Post exposure tasks."""
 
-        return
+        tile_id = self.tile.tile_id
+        dither_pos = self.tile.sci_coords.dither_position
+
+        if exposure.error is True:
+            if tile_id is not None:
+                mark_exposure_bad(tile_id, dither_pos)
+
+            self.write_to_log(
+                "Exposure returned with errors. Tile-dither has been marked as bad.",
+                "error",
+            )
 
 
 class GuiderMonitor:
@@ -735,7 +746,7 @@ class Standards:
 
         return df
 
-    async def start_iterating(self, exposure_time: float):
+    async def start_iterating(self, exposure_time: float) -> None:
         """Iterates over the fibre mask positions.
 
         Moving the ``spec`` telescope to each one of the standard star,
