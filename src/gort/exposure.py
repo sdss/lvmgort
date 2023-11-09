@@ -56,6 +56,8 @@ class Exposure(asyncio.Future["Exposure"]):
         The image type. Defaults to ``'object'``.
     object
         The object name to be added to the header.
+    specs
+        List the spectrographs to expose. Defaults to all.
 
     Attributes
     ----------
@@ -87,8 +89,10 @@ class Exposure(asyncio.Future["Exposure"]):
         exp_no: int | None = None,
         flavour: str | None = "object",
         object: str | None = "",
+        specs: Sequence[str] | None = None,
     ):
         self.specs = gort.specs
+        self.devices = specs
         self.exp_no = exp_no or self.specs.get_expno()
         self.flavour = flavour or "object"
         self.object = object or ""
@@ -161,7 +165,10 @@ class Exposure(asyncio.Future["Exposure"]):
 
         # Check that all specs are idle and not errored.
         status = await self.specs.status(simple=True)
-        for spec_status in status.values():
+        for spec_name, spec_status in status.items():
+            if self.devices is not None and spec_name not in self.devices:
+                continue
+
             if "IDLE" not in spec_status["status_names"]:
                 raise GortSpecError(
                     "Some spectrographs are not IDLE.",
@@ -213,6 +220,7 @@ class Exposure(asyncio.Future["Exposure"]):
 
             await self.specs._send_command_all(
                 "expose",
+                devices=self.devices,
                 flavour=self.flavour,
                 exposure_time=exposure_time,
                 seqno=self.exp_no,
@@ -228,6 +236,7 @@ class Exposure(asyncio.Future["Exposure"]):
             readout_task = asyncio.create_task(
                 self.specs._send_command_all(
                     "read",
+                    devices=self.devices,
                     header=json.dumps(header),
                     timeout=90,
                 )

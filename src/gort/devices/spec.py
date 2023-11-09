@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
 from gort.exceptions import ErrorCodes, GortError, GortSpecError
 from gort.exposure import Exposure
@@ -340,6 +340,8 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         async_readout: bool = False,
         count: int = 1,
         object: str | None = None,
+        specs: Sequence[str] | None = None,
+        **kwargs,
     ) -> Exposure | list[Exposure]:
         """Exposes the spectrographs.
 
@@ -366,6 +368,8 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         object
             A string that will be stored in the ``OBJECT`` header
             keyword.
+        specs
+            List the spectrographs to expose. Defaults to all.
 
         Returns
         -------
@@ -395,7 +399,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         exposures: list[Exposure] = []
 
         for nexp in range(int(count)):
-            exposure = Exposure(self.gort, flavour=flavour, object=object)
+            exposure = Exposure(self.gort, flavour=flavour, object=object, specs=specs)
 
             log_msg = f"Taking spectrograph exposure {exposure.exp_no} "
             if flavour == "bias":
@@ -411,6 +415,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
                 header=header,
                 async_readout=async_readout_this_exp,
                 show_progress=show_progress,
+                **kwargs,
             )
             exposures.append(exposure)
 
