@@ -15,7 +15,7 @@ import re
 import warnings
 from collections import defaultdict
 
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Literal
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Literal, Sequence
 
 from astropy.io import fits
 from astropy.time import Time
@@ -24,7 +24,13 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 from sdsstools.time import get_sjd
 
 from gort.exceptions import ErrorCodes, GortSpecError
-from gort.tools import cancel_task, is_interactive, is_notebook
+from gort.tools import (
+    cancel_task,
+    get_md5sum,
+    get_md5sum_from_spectro,
+    is_interactive,
+    is_notebook,
+)
 
 
 if TYPE_CHECKING:
@@ -381,6 +387,11 @@ class Exposure(asyncio.Future["Exposure"]):
                         f"Keyword {key} not present in {file!s}",
                         "warning",
                     )
+
+            md5sum_spectro = get_md5sum_from_spectro(file)
+            md5sum = get_md5sum(file)
+            if md5sum != md5sum_spectro:
+                raise RuntimeError(f"MD5 checksum validation failed for file {file!r}")
 
         if len(files) > 0:
             pattern_path = re.sub("([rbz][1-3])", "*", str(files[0]))

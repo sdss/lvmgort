@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import hashlib
+import os
 import pathlib
 import re
 import tempfile
@@ -60,7 +62,12 @@ __all__ = [
     "build_guider_reply_list",
     "get_temporary_file_path",
     "insert_to_database",
+    "get_md5sum_file",
+    "get_md5sum_from_spectro",
+    "get_md5sum",
 ]
+
+AnyPath = str | os.PathLike
 
 CAMERAS = [
     "sci.west",
@@ -699,3 +706,41 @@ def insert_to_database(
     table.bind(conn)
 
     table.insert(payload).execute()
+
+
+def get_md5sum_file(file: AnyPath):
+    """Returns the path to the MD5 file for the spectro files."""
+
+    file = pathlib.Path(file).absolute()
+    mjd = file.parts[-2]
+
+    md5sum = file.parent / f"{mjd}.md5sum"
+
+    return md5sum if md5sum.exists() else None
+
+
+def get_md5sum_from_spectro(file: AnyPath):
+    """Returns the MD5 checksum for a file from the spectro checksum file."""
+
+    file = pathlib.Path(file).absolute()
+    basename = file.name
+
+    md5sum_file = get_md5sum_file(file)
+    if not md5sum_file:
+        return None
+
+    data = open(md5sum_file).read()
+
+    match = re.search(rf"([0-9a-f]+)\s+{basename}", data)
+    if not match:
+        return None
+
+    return match.groups(1)[0]
+
+
+def get_md5sum(file: AnyPath):
+    """Returns the MD5 checksum for a file."""
+
+    data = open(file, "rb").read()
+
+    return hashlib.md5(data).hexdigest()
