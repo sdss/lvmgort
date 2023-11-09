@@ -57,11 +57,12 @@ class GortError(Exception):
             self.error_code = ErrorCodes.UNKNOWN_ERROR
             error_code = self.error_code.value
 
+        prefix = f"Error {self.error_code.value} ({self.error_code.name})"
         if message is not None and message != "":
             message = decapitalize_first_letter(message)
-            super().__init__(f"Error {error_code} ({self.error_code.name}): {message}")
+            super().__init__(f"{prefix}: {message}")
         else:
-            super().__init__(f"Error {error_code} ({self.error_code.name})")
+            super().__init__(prefix)
 
 
 class RemoteCommandError(GortError):
