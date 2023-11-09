@@ -141,6 +141,7 @@ class Exposure(asyncio.Future["Exposure"]):
         async_readout: bool = False,
         show_progress: bool | None = None,
         object: str | None = None,
+        raise_on_error: bool = True,
     ):
         """Exposes the spectrograph.
 
@@ -160,6 +161,8 @@ class Exposure(asyncio.Future["Exposure"]):
             in interactive sessions.
         object
             The object name to be passed to the header.
+        raise_on_error
+            Whether to raise an error when the exposure is marked as errored.
 
         """
 
@@ -268,7 +271,13 @@ class Exposure(asyncio.Future["Exposure"]):
             self.error = True
             self.set_result(self)
 
-            raise GortSpecError(f"Exposure failed with error {err}", error_code=301)
+            if raise_on_error:
+                raise GortSpecError(
+                    f"Exposure failed with error {err}",
+                    error_code=ErrorCodes.SECTROGRAPH_FAILED_EXPOSING,
+                )
+            else:
+                log.warning(f"Exposure failed with error {err}")
 
         finally:
             await self.stop_timer()
@@ -361,7 +370,8 @@ class Exposure(asyncio.Future["Exposure"]):
 
         config = self.specs.gort.config["specs"]
 
-        HEADERS_WARNING = []
+        HEADERS_CRITICAL = config["verification"]["headers"]["critical"]
+        HEADERS_WARNING = config["verification"]["headers"]["warning"]
 
         files = self.get_files()
 
@@ -379,7 +389,7 @@ class Exposure(asyncio.Future["Exposure"]):
 
             for key in HEADERS_CRITICAL:
                 if key not in header:
-                    raise GortSpecError(f"Keyword {key} not present in {file!s}")
+                    raise RuntimeError(f"Keyword {key} not present in {file!s}")
 
             for key in HEADERS_WARNING:
                 if key not in header:
@@ -409,9 +419,6 @@ class Exposure(asyncio.Future["Exposure"]):
     def _when_done(self, result):
         """Called when the future is done."""
 
-        if not self.error:
-            self.verify_files()
-
         asyncio.create_task(self._call_hook("post-readout", self, as_task=True))
 
     async def _done_monitor(self):
@@ -419,12 +426,14 @@ class Exposure(asyncio.Future["Exposure"]):
 
         await self.specs._send_command_all("wait_until_idle", allow_errored=True)
 
+        self.reading = False
+
         for spec in self.specs.values():
             reply = await spec.status(simple=True)
             if "ERROR" in reply["status_names"]:
                 self.error = True
 
-        self.reading = False
+        self.verify_files()
 
         # Set the Future.
         self.set_result(self)
