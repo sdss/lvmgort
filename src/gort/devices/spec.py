@@ -430,7 +430,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
     async def reset(self):
         """Reset the spectrographs."""
 
-        await self._send_command_all("reset")
+        await self.send_command_all("reset")
 
     async def initialise(self):
         """Initialises the spectrographs and flashes the ACF configuration file."""

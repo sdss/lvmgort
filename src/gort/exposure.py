@@ -227,7 +227,7 @@ class Exposure(asyncio.Future["Exposure"]):
 
             self.start_time = Time.now()
 
-            await self.specs._send_command_all(
+            await self.specs.send_command_all(
                 "expose",
                 devices=self.devices,
                 flavour=self.flavour,
@@ -243,7 +243,7 @@ class Exposure(asyncio.Future["Exposure"]):
             # At this point we have integrated and are ready to read.
             self.reading = True
             readout_task = asyncio.create_task(
-                self.specs._send_command_all(
+                self.specs.send_command_all(
                     "read",
                     devices=self.devices,
                     header=json.dumps(header),
@@ -424,7 +424,7 @@ class Exposure(asyncio.Future["Exposure"]):
     async def _done_monitor(self):
         """Waits until the spectrographs are idle, and marks the Future done."""
 
-        await self.specs._send_command_all("wait_until_idle", allow_errored=True)
+        await self.specs.send_command_all("wait_until_idle", allow_errored=True)
 
         self.reading = False
 

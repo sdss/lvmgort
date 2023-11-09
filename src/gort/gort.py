@@ -422,7 +422,7 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
 
         return await asyncio.gather(*[method(dev, *args, **kwargs) for dev in devices])
 
-    async def _send_command_all(
+    async def send_command_all(
         self,
         command: str,
         *args,
