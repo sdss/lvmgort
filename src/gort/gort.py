@@ -23,6 +23,7 @@ from typing import (
     ClassVar,
     Generic,
     Literal,
+    Sequence,
     Type,
     TypeVar,
 )
@@ -421,7 +422,13 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
 
         return await asyncio.gather(*[method(dev, *args, **kwargs) for dev in devices])
 
-    async def _send_command_all(self, command: str, *args, **kwargs):
+    async def _send_command_all(
+        self,
+        command: str,
+        *args,
+        devices: Sequence[str] | None = None,
+        **kwargs,
+    ):
         """Sends a command to all the devices.
 
         Parameters
@@ -434,7 +441,10 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
         """
 
         tasks = []
-        for dev in self.values():
+        for name, dev in self.items():
+            if devices is not None and name not in devices:
+                continue
+
             actor_command = dev.actor.commands[command]
             tasks.append(actor_command(*args, **kwargs))
 
