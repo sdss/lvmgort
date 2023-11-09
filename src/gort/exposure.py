@@ -353,29 +353,20 @@ class Exposure(asyncio.Future["Exposure"]):
     def verify_files(self):
         """Checks that the files have been written and have the right contents."""
 
-        HEADERS_CRITICAL = [
-            "TILE_ID",
-            "DPOS",
-            "ARGON",
-            "NEON",
-            "LDLS",
-            "QUARTZ",
-            "HGNE",
-            "XENON",
-            "HARTMANN",
-            "TESCIRA",
-            "TESCIDE",
-            "TESKYERA",
-            "TESKYEDE",
-            "TESKYWRA",
-            "TESKYWDE",
-            "TESPECRA",
-            "TESPECDE",
-        ]
+        config = self.specs.gort.config["specs"]
 
         HEADERS_WARNING = []
 
         files = self.get_files()
+
+        n_spec = len(self.devices) if self.devices else len(config["devices"])
+        n_files_expected = n_spec * 3
+
+        if (n_files_found := len(files)) < n_files_expected:
+            raise RuntimeError(
+                f"Expected {n_files_expected} files but found {n_files_found}. "
+                "Verification failed."
+            )
 
         for file in files:
             header = fits.getheader(str(file))
