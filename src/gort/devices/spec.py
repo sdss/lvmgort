@@ -401,13 +401,6 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         for nexp in range(int(count)):
             exposure = Exposure(self.gort, flavour=flavour, object=object, specs=specs)
 
-            log_msg = f"Taking spectrograph exposure {exposure.exp_no} "
-            if flavour == "bias":
-                log_msg += f"({flavour})."
-            else:
-                log_msg += f"({flavour}, {exposure_time:.1f} s)."
-            self.write_to_log(log_msg, "info")
-
             async_readout_this_exp = async_readout if nexp == int(count) - 1 else False
 
             await exposure.expose(

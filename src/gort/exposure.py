@@ -221,6 +221,13 @@ class Exposure(asyncio.Future["Exposure"]):
 
         self._exposure_time = exposure_time or 0.0
 
+        log_msg = f"Taking spectrograph exposure {self.exp_no} "
+        if self.flavour == "bias":
+            log_msg += f"({self.flavour})."
+        else:
+            log_msg += f"({self.flavour or object}, {exposure_time:.1f} s)."
+        log(log_msg, "info")
+
         try:
             if show_progress:
                 await self.start_timer(self._exposure_time)
