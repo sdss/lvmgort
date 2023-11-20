@@ -144,7 +144,7 @@ class GortObserver:
         with self.register_overhead("slew:slew"):
             await asyncio.gather(*cotasks)
 
-    async def acquire(self, guide_tolerance: float = 1, timeout: float = 180):
+    async def acquire(self, guide_tolerance: float | None = None, timeout: float = 180):
         """Acquires the field in all the telescopes. Blocks until then.
 
         Parameters
@@ -152,7 +152,8 @@ class GortObserver:
         guide_tolerance
             The guide tolerance in arcsec. A telescope will not be considered
             to be guiding if its separation to the commanded field is larger
-            than this value.
+            than this value. If `None`, default values from the configuration
+            file are used.
         timeout
             The maximum time allowed for acquisition. In case of timeout
             the acquired fields are evaluated and an exception is
@@ -195,12 +196,15 @@ class GortObserver:
             # first fibre/mask position.
             pixel = coords._mf_pixel if tel != "spec" else self.mask_positions[0]
 
+            guide_tolerance_tel = self.gort.config["observer"]["guide_tolerance"][tel]
+            guide_tolerance_tel = guide_tolerance or guide_tolerance_tel
+
             guide_coros.append(
                 self.gort.guiders[tel].guide(
                     ra=coords.ra,
                     dec=coords.dec,
                     pa=-coords.pa,  # -1 since k-mirror handiness is opposite to tile PA
-                    guide_tolerance=guide_tolerance,
+                    guide_tolerance=guide_tolerance_tel,
                     pixel=pixel,
                 )
             )
@@ -788,6 +792,9 @@ class Standards:
         # Time to acquire a standard.
         ACQ_PER_STD = 30
 
+        # Tolerance to start guiding
+        guide_tolerance_spec = self.gort.config["observer"]["guide_tolerance"]["spec"]
+
         spec_coords = self.tile.spec_coords
 
         # If we have zero or one standards, do nothing. The spec telescope
@@ -903,7 +910,7 @@ class Standards:
                     self.gort.guiders.spec.guide(
                         ra=new_coords.ra,
                         dec=new_coords.dec,
-                        guide_tolerance=2,
+                        guide_tolerance=guide_tolerance_spec,
                         pixel=new_guider_pixel,
                     )
                 )

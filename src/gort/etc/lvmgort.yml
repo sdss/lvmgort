@@ -352,6 +352,13 @@ scheduler:
   host: 10.8.38.26
   port: 5100
 
+observer:
+  guide_tolerance:
+    sci: 2
+    spec: 3
+    skye: 3
+    skyw: 3
+
 kubernetes:
   path:
     default: /home/sdss5/config/kube
