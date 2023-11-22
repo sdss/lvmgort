@@ -195,14 +195,15 @@ class Exposure(asyncio.Future["Exposure"]):
         header = header or {}
 
         # Set object name for header.
-        if object is not None:
-            header.update({"OBJECT": object})
-        elif self.object is not None and self.object != "":
-            header.update({"OBJECT": self.object})
-        elif self.flavour != "object":
-            header.update({"OBJECT": self.flavour})
-        else:
-            header.update({"OBJECT": ""})
+        if "OBJECT" not in header:
+            if object is not None:
+                header.update({"OBJECT": object})
+            elif self.object is not None and self.object != "":
+                header.update({"OBJECT": self.object})
+            elif self.flavour != "object":
+                header.update({"OBJECT": self.flavour})
+            else:
+                header.update({"OBJECT": ""})
 
         if show_progress is None:
             show_progress = is_interactive() or is_notebook()
