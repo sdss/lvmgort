@@ -166,6 +166,16 @@ nps:
       actor: lvmnps.sp3
     calib:
       actor: lvmnps.calib
+    sci:
+      actor: lvmnps.sci
+    spec:
+      actor: lvmnps.spec
+    skye:
+      actor: lvmnps.skye
+    skyw:
+      actor: lvmnps.skyw
+    mocon:
+      actor: lvmnps.mocon
 
 telemetry:
   devices:

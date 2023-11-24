@@ -1,5 +1,10 @@
 # Changelog
 
+## New version
+
+### ✨ Improved
+
+* Added NPS devices for telescopes and MOCON.
 ## 0.6.2 - November 4, 2023
 
 ### ✨ Improved
