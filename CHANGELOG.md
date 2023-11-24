@@ -2,9 +2,21 @@
 
 ## New version
 
+### 🚀 New
+
+* Added `selfie` position.
+
 ### ✨ Improved
 
 * Added NPS devices for telescopes and MOCON.
+* Added spectrograph exposure and enclosure timeouts.
+* Support exposing only some spectrographs.
+* Verify the number of files writtent to disk by the spectrographs and their MD5s.
+* Mark exposure bad in post-readout if it fails.
+
+### 🏷️ Changed
+
+* Relaxed spec and sky telescope guiding tolerances to 3 arcsec.
 
 ### 🔧 Fixed
 
