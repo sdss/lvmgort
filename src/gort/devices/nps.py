@@ -52,7 +52,7 @@ class NPS(GortDevice):
 
         for outlet_number in range(1, 9):
             self.write_to_log(f"Turning off outlet {outlet_number}.")
-            await self.actor.commands.off("", outlet_number)
+            await self.actor.commands.off(outlet_number)
 
 
 class NPSSet(GortDeviceSet[NPS]):
