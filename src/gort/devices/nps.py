@@ -27,11 +27,15 @@ class NPS(GortDevice):
     def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
 
-    async def status(self):
+    async def status(self, outlet: int | str | None = None):
         """Retrieves the status of the power outlet."""
 
-        reply: ActorReply = await self.actor.commands.status()
-        return reply.flatten()["status"][self.name]
+        if outlet is None:
+            reply: ActorReply = await self.actor.commands.status()
+            return reply.flatten()["outlets"]
+        else:
+            reply: ActorReply = await self.actor.commands.status(outlet)
+            return reply.flatten()["outlet_info"]
 
     async def on(self, outlet: str):
         """Turns an outlet on."""

@@ -5,6 +5,12 @@
 ### ✨ Improved
 
 * Added NPS devices for telescopes and MOCON.
+
+### 🔧 Fixed
+
+* Updated `NPS` to handle `lvmnps` 1.0.0 (including upgrade to `unclick` 0.1.0).
+
+
 ## 0.6.2 - November 4, 2023
 
 ### ✨ Improved
