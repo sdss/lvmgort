@@ -50,9 +50,8 @@ class NPS(GortDevice):
     async def all_off(self):
         """Turns off all the outlets."""
 
-        for outlet_number in range(1, 9):
-            self.write_to_log(f"Turning off outlet {outlet_number}.")
-            await self.actor.commands.off(outlet_number)
+        self.write_to_log("Turning off all outlets.")
+        await self.actor.commands.all_off()
 
 
 class NPSSet(GortDeviceSet[NPS]):
