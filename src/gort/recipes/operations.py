@@ -81,8 +81,9 @@ class StartupRecipe(BaseRecipe):
             home_fibsel=True,
         )
 
-        self.gort.log.info("Turning off all lamps.")
+        self.gort.log.info("Turning off all calibration lamps and dome lights.")
         await self.gort.nps.calib.all_off()
+        await self.gort.enclosure.lights.dome_all_off()
 
         self.gort.log.info("Reconnecting AG cameras.")
         await self.gort.ags.reconnect()

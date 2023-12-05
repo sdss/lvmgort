@@ -75,6 +75,11 @@ class Lights:
         for light in self.LIGHTS:
             self.__setattr__(light, Light(enclosure, light))
 
+    async def dome_all_off(self):
+        """Turns off all the lights in the dome."""
+
+        await asyncio.gather(self.telescope_bright.off(), self.telescope_red.off())
+
     if TYPE_CHECKING:
 
         def __getattr__(self, light: str) -> Light:
