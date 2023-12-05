@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### ✨ Improved
+
+* [#14](https://github.com/sdss/lvmgort/issues/14) Turn off dome lights as part of the `startup` and `cleanup` recipes.
+
+
 ## 0.7.0 - November 24, 2023
 
 ### 🚀 New

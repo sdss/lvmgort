@@ -81,8 +81,9 @@ class StartupRecipe(BaseRecipe):
             home_fibsel=True,
         )
 
-        self.gort.log.info("Turning off all lamps.")
+        self.gort.log.info("Turning off all calibration lamps and dome lights.")
         await self.gort.nps.calib.all_off()
+        await self.gort.enclosure.lights.dome_all_off()
 
         self.gort.log.info("Reconnecting AG cameras.")
         await self.gort.ags.reconnect()
@@ -151,7 +152,7 @@ class CleanupRecipe(BaseRecipe):
 
     name = "cleanup"
 
-    async def recipe(self, readout: bool = True, turn_off: bool = True):
+    async def recipe(self, readout: bool = True, turn_lamps_off: bool = True):
         """Runs the cleanup recipe.
 
         Parameters
@@ -159,8 +160,8 @@ class CleanupRecipe(BaseRecipe):
         readout
             If the spectrographs are idle and with a readout pending,
             reads the spectrographs.
-        turn_off
-            If :obj:`True`, turns off the lamps.
+        turn_lamps_off
+            If :obj:`True`, turns off the dome lights and calibration lamps.
 
         """
 
@@ -192,9 +193,10 @@ class CleanupRecipe(BaseRecipe):
 
             await asyncio.gather(*cotasks)
 
-        if turn_off:
-            self.gort.log.info("Turning all lights off.")
+        if turn_lamps_off:
+            self.gort.log.info("Turning off all calibration lamps and dome lights.")
             await self.gort.nps.calib.all_off()
+            await self.gort.enclosure.lights.dome_all_off()
 
         # Turn off lights in the dome.
         await asyncio.gather(
