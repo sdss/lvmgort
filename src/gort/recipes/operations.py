@@ -46,7 +46,7 @@ class StartupRecipe(BaseRecipe):
 
     async def recipe(
         self,
-        calibration_sequence: str | None | Literal[False] = None,
+        calibration_sequence: str | None | Literal[False] = False,
         open_enclosure: bool = True,
         confirm_open: bool = True,
         focus: bool = True,
