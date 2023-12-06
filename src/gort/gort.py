@@ -782,7 +782,7 @@ class Gort(GortClient):
 
         # Run the cleanup routine to be extra sure.
         if run_cleanup:
-            await self.cleanup(turn_off=False)
+            await self.cleanup(turn_lamps_off=False)
 
         if tile.tile_id is not None:
             dither_positions_str = ", ".join(map(str, dither_positions))
@@ -871,7 +871,11 @@ class Gort(GortClient):
 
         return await self.execute_recipe("shutdown", **kwargs)
 
-    async def cleanup(self, readout: bool = True, turn_off: bool = True):
+    async def cleanup(self, readout: bool = True, turn_lamps_off: bool = True):
         """Executes the :obj:`shutdown <.CleanupRecipe>` sequence."""
 
-        return await self.execute_recipe("cleanup", readout=readout, turn_off=turn_off)
+        return await self.execute_recipe(
+            "cleanup",
+            readout=readout,
+            turn_lamps_off=turn_lamps_off,
+        )
