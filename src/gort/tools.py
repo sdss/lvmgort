@@ -14,6 +14,7 @@ import hashlib
 import os
 import pathlib
 import re
+import signal
 import tempfile
 import warnings
 from contextlib import suppress
@@ -770,3 +771,56 @@ def get_md5sum(file: AnyPath):
     data = open(file, "rb").read()
 
     return hashlib.md5(data).hexdigest()
+
+
+class SignalHandler:
+    """Adds a signal handler to the loop to run a function when a signal is received."""
+
+    def __init__(self, signals: list[str] = ["SIGINT", "SIGTERM"]):
+        self.signals = signals
+
+        self._registered_signals: list[str] = []
+        self._func: Callable | None = None
+
+    def enable(self, func: Callable | None = None, signals: list[str] | None = None):
+        """Enables signal handling by the loop."""
+
+        loop = asyncio.get_running_loop()
+
+        signals = signals or self.signals
+        func = func or self._func
+
+        if func is None:
+            raise ValueError("No function defined to run on signal.")
+
+        def scheduler():
+            assert func is not None
+
+            if asyncio.iscoroutinefunction(func):
+                asyncio.create_task(func())
+            else:
+                loop.call_soon(func)
+
+        for signame in signals:
+            loop.add_signal_handler(getattr(signal, signame), scheduler)
+            self._registered_signals.append(signame)
+
+    def disable(self):
+        """Removes signal handling."""
+
+        for signame in self.signals:
+            asyncio.get_running_loop().remove_signal_handler(getattr(signal, signame))
+            self._registered_signals.remove(signame)
+
+        self._func = None
+
+    def __call__(self, func: Callable):
+        self._func = func
+
+        return self
+
+    def __enter__(self):
+        self.enable()
+
+    def __exit__(self, *args):
+        self.disable()

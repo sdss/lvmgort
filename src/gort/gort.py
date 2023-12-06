@@ -11,7 +11,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import pathlib
-import signal
 import sys
 import uuid
 from copy import deepcopy
@@ -44,7 +43,7 @@ from gort.kubernetes import Kubernetes
 from gort.observer import GortObserver
 from gort.recipes import recipes as recipe_to_class
 from gort.tile import Tile
-from gort.tools import get_temporary_file_path, run_in_executor
+from gort.tools import SignalHandler, get_temporary_file_path, run_in_executor
 
 
 if TYPE_CHECKING:
@@ -640,27 +639,7 @@ class Gort(GortClient):
         if verbosity:
             self.set_verbosity(verbosity)
 
-        self.set_signals(mode=on_interrupt)
-
-    def set_signals(self, mode: str | None = None):
-        """Defines the behaviour when the event loop receives a signal."""
-
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            self.log.warning(
-                "No event loop found. Signals cannot be set and "
-                "this may cause other problems."
-            )
-            return
-
-        async def _stop():
-            await asyncio.gather(*[self.telescopes.stop(), self.guiders.stop()])
-            sys.exit(1)
-
-        if mode == "stop":
-            self.log.debug(f"Adding signal handler {mode!r}.")
-            loop.add_signal_handler(signal.SIGINT, lambda: asyncio.create_task(_stop()))
+        self.signal_handler = SignalHandler()
 
     async def emergency_close(self):
         """Parks and closes the telescopes."""
@@ -682,14 +661,15 @@ class Gort(GortClient):
 
         self.log.info("Starting observing loop.")
 
-        n_completed = 0
-        while True:
-            await self.observe_tile(run_cleanup=False)
-            n_completed += 1
+        with self.signal_handler(self.cleanup):
+            n_completed = 0
+            while True:
+                await self.observe_tile(run_cleanup=False, register_signals=False)
+                n_completed += 1
 
-            if n_tiles is not None and n_completed >= n_tiles:
-                self.log.info("Number of tiles reached. Finishing observing loop.")
-                break
+                if n_tiles is not None and n_completed >= n_tiles:
+                    self.log.info("Number of tiles reached. Finishing observing loop.")
+                    break
 
     async def observe_tile(
         self,
@@ -706,6 +686,7 @@ class Gort(GortClient):
         acquisition_timeout: float = 180.0,
         show_progress: bool | None = None,
         run_cleanup: bool = True,
+        register_signals: bool = True,
     ):
         """Performs all the operations necessary to observe a tile.
 
@@ -749,6 +730,9 @@ class Gort(GortClient):
             Displays a progress bar with the elapsed exposure time.
         run_cleanup
             Whether to run the cleanup routine.
+        register_signals
+            If ``True``, registers a signal handler to catch interrupts and
+            run the cleanup routine.
 
         """
 
@@ -792,6 +776,9 @@ class Gort(GortClient):
             )
 
         exposures: list[Exposure] = []
+
+        if register_signals:
+            self.signal_handler.enable(self.cleanup)
 
         try:
             # Slew telescopes and move fibsel mask.
@@ -839,6 +826,9 @@ class Gort(GortClient):
         finally:
             # Finish observation.
             await observer.finish_observation()
+
+            if register_signals:
+                self.signal_handler.disable()
 
         return exposures
 
