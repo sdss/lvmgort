@@ -145,14 +145,14 @@ guiders:
         P2-10: [1770.5, 1201.8]
         P2-11: [1960.9, 1533.4]
         P2-12: [2309.8, 1736.5]
-    skye:
-      actor: lvm.skye.guider
+    # skye:
+    #   actor: lvm.skye.guider
     skyw:
       actor: lvm.skyw.guider
   focus:
     guess:
       sci: [0.154, 34.278]
-      skye: [0.134, 34.405]
+      # skye: [0.134, 34.405]
       skyw: [0.164, 34.364]
       spec: [0.186, 35.188]
 
@@ -226,8 +226,8 @@ ags:
       actor: lvm.sci.agcam
     spec:
       actor: lvm.spec.agcam
-    skye:
-      actor: lvm.skye.agcam
+    # skye:
+    #   actor: lvm.skye.agcam
     skyw:
       actor: lvm.skyw.agcam
 
