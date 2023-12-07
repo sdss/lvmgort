@@ -550,9 +550,11 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
         if lat_sky_1 > lat_sky_2:
             best_sky_pos = calibrator_data["sky_pos"][0]
             sky_name = calibrator_data["sky_names"][0]
+            sky_pks = calibrator_data["sky_pks"][0]
         else:
             best_sky_pos = calibrator_data["sky_pos"][1]
             sky_name = calibrator_data["sky_names"][1]
+            sky_pks = calibrator_data["sky_pks"][1]
 
         sky_coords = {
             # "skye": SkyCoordinates(
@@ -566,7 +568,7 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
         }
 
         # sky_coords["skye"].pk = calibrator_data["sky_pks"][0]
-        sky_coords["skyw"].pk = calibrator_data["sky_pks"][1]
+        sky_coords["skyw"].pk = sky_pks
 
         spec_coords = []
         for ii in range(len(calibrator_data["standard_pos"])):
@@ -633,7 +635,7 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
         valid_sky_coords: dict[str, SkyCoordinates] = {}
         assigned_coordinates: Sequence[CoordTuple] = []
 
-        for telescope in ["skye", "skyw"]:
+        for telescope in ["skyw"]:
             tel_coords = sky_coords.get(telescope, None)
 
             replace: bool = False
