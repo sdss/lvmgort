@@ -534,8 +534,18 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
 
         # HACK: select the sky with the highest Galactic latitude.
 
-        lat_sky_1 = calibrator_data["sky_pos"][0].galactic.l
-        lat_sky_2 = calibrator_data["sky_pos"][1].galactic.l
+        lat_sky_1 = SkyCoord(
+            ra=calibrator_data["sky_pos"][0][0],
+            dec=calibrator_data["sky_pos"][0][1],
+            unit="deg",
+            frame="icrs",
+        ).galactic.l
+        lat_sky_2 = SkyCoord(
+            ra=calibrator_data["sky_pos"][1][0],
+            dec=calibrator_data["sky_pos"][1][1],
+            unit="deg",
+            frame="icrs",
+        ).galactic.l
 
         if lat_sky_1 > lat_sky_2:
             best_sky_pos = calibrator_data["sky_pos"][0]
