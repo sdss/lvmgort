@@ -113,7 +113,7 @@ class GortObserver:
             self.write_to_log(f"Spec: {first_spec} on {self.mask_positions[0]}")
 
         sky = {}
-        for skytel in ["SkyE", "SkyW"]:
+        for skytel in ["SkyW"]:
             if skytel.lower() in tile.sky_coords:
                 sky_coords_tel = tile.sky_coords[skytel.lower()]
                 if sky_coords_tel is not None:
@@ -129,7 +129,7 @@ class GortObserver:
             self.gort.telescopes.goto(
                 sci=sci,
                 spec=spec,
-                skye=sky.get("skye", None),
+                # skye=sky.get("skye", None),
                 skyw=sky.get("skyw", None),
                 sci_km_stop_degs_before=stop_degs_before,
             )
@@ -176,7 +176,7 @@ class GortObserver:
         guide_coros = []
         guide_on_telescopes: list[str] = []
         n_skies = 0
-        for tel in ["sci", "skye", "skyw", "spec"]:
+        for tel in ["sci", "skyw", "spec"]:
             coords = self.tile[tel]
 
             if coords is None or (isinstance(coords, list) and len(coords) == 0):
@@ -675,7 +675,7 @@ class GuiderMonitor:
         header: dict[str, Any] = {}
 
         if self.guider_data is not None:
-            for tel in ["sci", "spec", "skye", "skyw"]:
+            for tel in ["sci", "spec", "skyw"]:
                 try:
                     tel_data = self.guider_data.loc[self.guider_data.telescope == tel]
                     # tel_data = tel_data.loc[tel_data["mode"] == "guide"]

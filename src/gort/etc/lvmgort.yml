@@ -12,10 +12,10 @@ telescopes:
       kmirror: null
       focuser: lvm.spec.foc
       fibsel: lvm.spec.fibsel
-    skye:
-      actor: lvm.skye.pwi
-      kmirror: lvm.skye.km
-      focuser: lvm.skye.foc
+    # skye:
+    #   actor: lvm.skye.pwi
+    #   kmirror: lvm.skye.km
+    #   focuser: lvm.skye.foc
     skyw:
       actor: lvm.skyw.pwi
       kmirror: lvm.skyw.km

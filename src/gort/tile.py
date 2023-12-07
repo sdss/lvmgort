@@ -96,6 +96,11 @@ class Coordinates:
 
         return altaz.alt.deg
 
+    def get_galactic(self):
+        """Returns the Galactic coordinates of the target."""
+
+        return self.skycoord.galactic
+
     def is_observable(self):
         """Determines whether a target is observable."""
 
@@ -527,18 +532,30 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
         else:
             calibrator_data = get_calibrators_sync(ra=sci_pos[0], dec=sci_pos[1])
 
+        # HACK: select the sky with the highest Galactic latitude.
+
+        lat_sky_1 = calibrator_data["sky_pos"][0].galactic.l
+        lat_sky_2 = calibrator_data["sky_pos"][1].galactic.l
+
+        if lat_sky_1 > lat_sky_2:
+            best_sky_pos = calibrator_data["sky_pos"][0]
+            sky_name = calibrator_data["sky_names"][0]
+        else:
+            best_sky_pos = calibrator_data["sky_pos"][1]
+            sky_name = calibrator_data["sky_names"][1]
+
         sky_coords = {
-            "skye": SkyCoordinates(
-                *calibrator_data["sky_pos"][0],
-                name=calibrator_data["sky_names"][0],
-            ),
+            # "skye": SkyCoordinates(
+            #     *calibrator_data["sky_pos"][0],
+            #     name=calibrator_data["sky_names"][0],
+            # ),
             "skyw": SkyCoordinates(
-                *calibrator_data["sky_pos"][1],
-                name=calibrator_data["sky_names"][1],
+                *best_sky_pos,
+                name=sky_name,
             ),
         }
 
-        sky_coords["skye"].pk = calibrator_data["sky_pks"][0]
+        # sky_coords["skye"].pk = calibrator_data["sky_pks"][0]
         sky_coords["skyw"].pk = calibrator_data["sky_pks"][1]
 
         spec_coords = []
