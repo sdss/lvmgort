@@ -433,7 +433,11 @@ class GortObserver:
                 if pk is not None:
                     standards.append(pk)
 
-        skies = [sky.pk for sky in self.tile.sky_coords.values() if sky.pk is not None]
+        skies = [
+            sky.pk
+            for sky in self.tile.sky_coords.values()
+            if sky is not None and sky.pk is not None
+        ]
 
         self.write_to_log("Registering observation.", "info")
         registration_payload = {
