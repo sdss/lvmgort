@@ -67,6 +67,7 @@ __all__ = [
     "get_md5sum_from_spectro",
     "get_md5sum",
     "mark_exposure_bad",
+    "handle_signals",
 ]
 
 AnyPath = str | os.PathLike
@@ -775,7 +776,7 @@ def get_md5sum(file: AnyPath):
 
 def handle_signals(
     signals: Sequence[int],
-    callback: Callable[[], Any] | None,
+    callback: Callable[[], Any] | None = None,
     cancel: bool = True,
 ):
     """Runs a callback when a signal is received during the execution of a task.
@@ -787,10 +788,11 @@ def handle_signals(
     """
 
     def _handle_signal(task: asyncio.Task):
-        if callback is not None:
-            asyncio.get_running_loop().call_soon(callback)
         if cancel:
             task.cancel()
+
+        if callback:
+            asyncio.get_running_loop().call_soon(callback)
 
     def _outter_wrapper(coro_func):
         @functools.wraps(coro_func)
