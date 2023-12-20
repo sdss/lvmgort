@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import pathlib
+import subprocess
 import sys
 import uuid
 from copy import deepcopy
@@ -826,6 +827,26 @@ class Gort(GortClient):
             await observer.finish_observation()
 
         return exposures
+
+    async def run_script(self, script: str):
+        """Runs a script."""
+
+        if not script.endswith(".py"):
+            script += ".py"
+
+        path = pathlib.Path(__file__).parent / "../../scripts" / script
+
+        cmd = await asyncio.create_subprocess_shell(f"python {path!s}")
+        await cmd.communicate()
+
+    def run_script_sync(self, script: str):
+        """Runs a script."""
+
+        if not script.endswith(".py"):
+            script += ".py"
+
+        path = pathlib.Path(__file__).parent / "../../scripts" / script
+        subprocess.run(f"python {path!s}", shell=True)
 
     async def execute_recipe(self, recipe: str, **kwargs):
         """Executes a recipe.
