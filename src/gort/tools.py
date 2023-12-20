@@ -775,7 +775,7 @@ def get_md5sum(file: AnyPath):
 
 def handle_signals(
     signals: Sequence[int],
-    callback: Callable[[], None] | None,
+    callback: Callable[[], Any] | None,
     cancel: bool = True,
 ):
     """Runs a callback when a signal is received during the execution of a task.
@@ -792,7 +792,7 @@ def handle_signals(
         if cancel:
             task.cancel()
 
-    def _outter_wrapper(coro_func: Callable[..., Coroutine[None, None, None]]):
+    def _outter_wrapper(coro_func):
         @functools.wraps(coro_func)
         async def _inner_wrapper(*args, **kwargs):
             task = asyncio.create_task(coro_func(*args, **kwargs))

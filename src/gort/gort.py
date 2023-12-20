@@ -661,7 +661,7 @@ class Gort(GortClient):
 
         n_completed = 0
         while True:
-            await self.observe_tile(run_cleanup=False, register_signals=False)
+            await self.observe_tile(run_cleanup=False, cleanup_on_interrrupt=True)
             n_completed += 1
 
             if n_tiles is not None and n_completed >= n_tiles:
@@ -683,7 +683,7 @@ class Gort(GortClient):
         acquisition_timeout: float = 180.0,
         show_progress: bool | None = None,
         run_cleanup: bool = True,
-        register_signals: bool = True,
+        cleanup_on_interrrupt: bool = True,
     ):
         """Performs all the operations necessary to observe a tile.
 
@@ -727,7 +727,7 @@ class Gort(GortClient):
             Displays a progress bar with the elapsed exposure time.
         run_cleanup
             Whether to run the cleanup routine.
-        register_signals
+        cleanup_on_interrrupt
             If ``True``, registers a signal handler to catch interrupts and
             run the cleanup routine.
 
@@ -759,7 +759,11 @@ class Gort(GortClient):
         tile.set_dither_position(dither_positions[0])
 
         # Create observer.
-        observer = GortObserver(self, tile)
+        observer = GortObserver(
+            self,
+            tile,
+            on_interrupt=self.cleanup if cleanup_on_interrrupt else None,
+        )
 
         # Run the cleanup routine to be extra sure.
         if run_cleanup:
