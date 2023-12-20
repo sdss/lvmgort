@@ -1,11 +1,17 @@
 # Changelog
 
-## Next version
+## 0.7.1 - December 20, 2023
 
 ### ✨ Improved
 
 * [#13](https://github.com/sdss/lvmgort/issues/13) Adds a signal handler for `SIGINT` and `SIGTERM`. When `GortObserver` is running and an interrupt is received the signal handler will run the cleanup routine.
 * [#14](https://github.com/sdss/lvmgort/issues/14) Turn off dome lights as part of the `startup` and `cleanup` recipes.
+* Use `lvmnps all-off`` to turn off all lamps faster.
+
+### 🏷️ Changed
+
+* Disable marking tiles as bad on error for now. This could cause confusion if an exposure failed and the tile was marked bad, but then the images were recovered using lockfiles.
+* Skip the calibration sequence on startup by default.
 
 
 ## 0.7.0 - November 24, 2023
