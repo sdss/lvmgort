@@ -43,7 +43,7 @@ from gort.kubernetes import Kubernetes
 from gort.observer import GortObserver
 from gort.recipes import recipes as recipe_to_class
 from gort.tile import Tile
-from gort.tools import SignalHandler, get_temporary_file_path, run_in_executor
+from gort.tools import get_temporary_file_path, run_in_executor
 
 
 if TYPE_CHECKING:
@@ -639,8 +639,6 @@ class Gort(GortClient):
         if verbosity:
             self.set_verbosity(verbosity)
 
-        self.signal_handler = SignalHandler()
-
     async def emergency_close(self):
         """Parks and closes the telescopes."""
 
@@ -661,15 +659,14 @@ class Gort(GortClient):
 
         self.log.info("Starting observing loop.")
 
-        with self.signal_handler(self.cleanup):
-            n_completed = 0
-            while True:
-                await self.observe_tile(run_cleanup=False, register_signals=False)
-                n_completed += 1
+        n_completed = 0
+        while True:
+            await self.observe_tile(run_cleanup=False, register_signals=False)
+            n_completed += 1
 
-                if n_tiles is not None and n_completed >= n_tiles:
-                    self.log.info("Number of tiles reached. Finishing observing loop.")
-                    break
+            if n_tiles is not None and n_completed >= n_tiles:
+                self.log.info("Number of tiles reached. Finishing observing loop.")
+                break
 
     async def observe_tile(
         self,
@@ -777,9 +774,6 @@ class Gort(GortClient):
 
         exposures: list[Exposure] = []
 
-        if register_signals:
-            self.signal_handler.enable(self.cleanup)
-
         try:
             # Slew telescopes and move fibsel mask.
             await observer.slew()
@@ -826,9 +820,6 @@ class Gort(GortClient):
         finally:
             # Finish observation.
             await observer.finish_observation()
-
-            if register_signals:
-                self.signal_handler.disable()
 
         return exposures
 

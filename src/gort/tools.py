@@ -10,18 +10,18 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import functools
 import hashlib
 import os
 import pathlib
 import re
-import signal
 import tempfile
 import warnings
 from contextlib import suppress
 from datetime import datetime
 from functools import partial
 
-from typing import TYPE_CHECKING, Any, Callable, Coroutine
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Sequence
 
 import httpx
 import numpy
@@ -773,54 +773,41 @@ def get_md5sum(file: AnyPath):
     return hashlib.md5(data).hexdigest()
 
 
-class SignalHandler:
-    """Adds a signal handler to the loop to run a function when a signal is received."""
+def handle_signals(
+    signals: Sequence[int],
+    callback: Callable[[], None] | None,
+    cancel: bool = True,
+):
+    """Runs a callback when a signal is received during the execution of a task.
 
-    def __init__(self, signals: list[str] = ["SIGINT", "SIGTERM"]):
-        self.signals = signals
+    This function is meant to decorate coroutines. If a signal matching ``signals``
+    is received, the callback is run and the coroutine (which is executed as a task)
+    is cancelled if ``cancel=True``.
 
-        self._registered_signals: list[str] = []
-        self._func: Callable | None = None
+    """
 
-    def enable(self, func: Callable | None = None, signals: list[str] | None = None):
-        """Enables signal handling by the loop."""
+    def _handle_signal(task: asyncio.Task):
+        if callback is not None:
+            asyncio.get_running_loop().call_soon(callback)
+        if cancel:
+            task.cancel()
 
-        loop = asyncio.get_running_loop()
+    def _outter_wrapper(coro_func: Callable[..., Coroutine[None, None, None]]):
+        @functools.wraps(coro_func)
+        async def _inner_wrapper(*args, **kwargs):
+            task = asyncio.create_task(coro_func(*args, **kwargs))
 
-        signals = signals or self.signals
-        func = func or self._func
+            handler = partial(_handle_signal, task)
+            for sgn in signals:
+                asyncio.get_running_loop().add_signal_handler(sgn, handler)
 
-        if func is None:
-            raise ValueError("No function defined to run on signal.")
+            try:
+                with suppress(asyncio.CancelledError):
+                    return await task
+            finally:
+                for sgn in signals:
+                    asyncio.get_running_loop().remove_signal_handler(sgn)
 
-        def scheduler():
-            assert func is not None
+        return _inner_wrapper
 
-            if asyncio.iscoroutinefunction(func):
-                asyncio.create_task(func())
-            else:
-                loop.call_soon(func)
-
-        for signame in signals:
-            loop.add_signal_handler(getattr(signal, signame), scheduler)
-            self._registered_signals.append(signame)
-
-    def disable(self):
-        """Removes signal handling."""
-
-        for signame in self.signals:
-            asyncio.get_running_loop().remove_signal_handler(getattr(signal, signame))
-            self._registered_signals.remove(signame)
-
-        self._func = None
-
-    def __call__(self, func: Callable):
-        self._func = func
-
-        return self
-
-    def __enter__(self):
-        self.enable()
-
-    def __exit__(self, *args):
-        self.disable()
+    return _outter_wrapper
