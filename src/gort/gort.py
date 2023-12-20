@@ -15,6 +15,7 @@ import subprocess
 import sys
 import uuid
 from copy import deepcopy
+from functools import partial
 
 from typing import (
     TYPE_CHECKING,
@@ -759,12 +760,13 @@ class Gort(GortClient):
         dither_positions = tile.dither_positions
         tile.set_dither_position(dither_positions[0])
 
+        if cleanup_on_interrrupt:
+            interrupt_cb = partial(self.run_script_sync, "cleanup")
+        else:
+            interrupt_cb = None
+
         # Create observer.
-        observer = GortObserver(
-            self,
-            tile,
-            on_interrupt=self.cleanup if cleanup_on_interrrupt else None,
-        )
+        observer = GortObserver(self, tile, on_interrupt=interrupt_cb)
 
         # Run the cleanup routine to be extra sure.
         if run_cleanup:

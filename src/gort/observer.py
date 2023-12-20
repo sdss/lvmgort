@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING, Any, Callable
 import numpy
 import pandas
 from astropy.time import Time
-from attr import dataclass
 
 from gort.exceptions import ErrorCodes, GortObserverError
 from gort.exposure import Exposure
@@ -44,11 +43,18 @@ if TYPE_CHECKING:
 __all__ = ["GortObserver"]
 
 
-@dataclass
 class InterrupHandlerHelper:
     """Helper for handling interrupts"""
 
-    callback: Callable | None = None
+    def __init__(self):
+        self._callback: Callable | None = None
+
+    def run_callback(self):
+        if self._callback is not None:
+            self._callback()
+
+    def set_callback(self, cb: Callable | None):
+        self._callback = cb
 
 
 interrupt_helper = InterrupHandlerHelper()
@@ -93,7 +99,7 @@ class GortObserver:
 
         self.overheads: dict[str, tuple[float, float]] = {}
 
-        interrupt_helper.callback = on_interrupt
+        interrupt_helper.set_callback(on_interrupt)
 
     def __repr__(self):
         return f"<GortObserver (tile_id={self.tile.tile_id})>"
@@ -104,7 +110,7 @@ class GortObserver:
 
         return len(self.standards.standards) > 0
 
-    @handle_signals(interrupt_signals, interrupt_helper.callback)
+    @handle_signals(interrupt_signals, interrupt_helper.run_callback)
     async def slew(self):
         """Slew to the telescope fields."""
 
@@ -168,7 +174,7 @@ class GortObserver:
         with self.register_overhead("slew:slew"):
             await asyncio.gather(*cotasks)
 
-    @handle_signals(interrupt_signals, interrupt_helper.callback)
+    @handle_signals(interrupt_signals, interrupt_helper.run_callback)
     async def acquire(self, guide_tolerance: float | None = None, timeout: float = 180):
         """Acquires the field in all the telescopes. Blocks until then.
 
@@ -293,7 +299,7 @@ class GortObserver:
 
         self.write_to_log("All telescopes are now guiding.")
 
-    @handle_signals(interrupt_signals, interrupt_helper.callback)
+    @handle_signals(interrupt_signals, interrupt_helper.run_callback)
     async def expose(
         self,
         exposure_time: float = 900.0,
@@ -403,7 +409,7 @@ class GortObserver:
         else:
             return exposures
 
-    @handle_signals(interrupt_signals, interrupt_helper.callback)
+    @handle_signals(interrupt_signals, interrupt_helper.run_callback)
     async def finish_observation(self):
         """Finishes the observation, stops the guiders, etc."""
 
