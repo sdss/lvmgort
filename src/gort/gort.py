@@ -11,10 +11,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import pathlib
-import signal
+import subprocess
 import sys
 import uuid
 from copy import deepcopy
+from functools import partial
 
 from typing import (
     TYPE_CHECKING,
@@ -640,28 +641,6 @@ class Gort(GortClient):
         if verbosity:
             self.set_verbosity(verbosity)
 
-        self.set_signals(mode=on_interrupt)
-
-    def set_signals(self, mode: str | None = None):
-        """Defines the behaviour when the event loop receives a signal."""
-
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            self.log.warning(
-                "No event loop found. Signals cannot be set and "
-                "this may cause other problems."
-            )
-            return
-
-        async def _stop():
-            await asyncio.gather(*[self.telescopes.stop(), self.guiders.stop()])
-            sys.exit(1)
-
-        if mode == "stop":
-            self.log.debug(f"Adding signal handler {mode!r}.")
-            loop.add_signal_handler(signal.SIGINT, lambda: asyncio.create_task(_stop()))
-
     async def emergency_close(self):
         """Parks and closes the telescopes."""
 
@@ -684,7 +663,7 @@ class Gort(GortClient):
 
         n_completed = 0
         while True:
-            await self.observe_tile(run_cleanup=False)
+            await self.observe_tile(run_cleanup=False, cleanup_on_interrrupt=True)
             n_completed += 1
 
             if n_tiles is not None and n_completed >= n_tiles:
@@ -706,6 +685,7 @@ class Gort(GortClient):
         acquisition_timeout: float = 180.0,
         show_progress: bool | None = None,
         run_cleanup: bool = True,
+        cleanup_on_interrrupt: bool = True,
     ):
         """Performs all the operations necessary to observe a tile.
 
@@ -749,6 +729,9 @@ class Gort(GortClient):
             Displays a progress bar with the elapsed exposure time.
         run_cleanup
             Whether to run the cleanup routine.
+        cleanup_on_interrrupt
+            If ``True``, registers a signal handler to catch interrupts and
+            run the cleanup routine.
 
         """
 
@@ -777,8 +760,13 @@ class Gort(GortClient):
         dither_positions = tile.dither_positions
         tile.set_dither_position(dither_positions[0])
 
+        if cleanup_on_interrrupt:
+            interrupt_cb = partial(self.run_script_sync, "cleanup")
+        else:
+            interrupt_cb = None
+
         # Create observer.
-        observer = GortObserver(self, tile)
+        observer = GortObserver(self, tile, on_interrupt=interrupt_cb)
 
         # Run the cleanup routine to be extra sure.
         if run_cleanup:
@@ -841,6 +829,26 @@ class Gort(GortClient):
             await observer.finish_observation()
 
         return exposures
+
+    async def run_script(self, script: str):
+        """Runs a script."""
+
+        if not script.endswith(".py"):
+            script += ".py"
+
+        path = pathlib.Path(__file__).parent / "../../scripts" / script
+
+        cmd = await asyncio.create_subprocess_shell(f"python {path!s}")
+        await cmd.communicate()
+
+    def run_script_sync(self, script: str):
+        """Runs a script."""
+
+        if not script.endswith(".py"):
+            script += ".py"
+
+        path = pathlib.Path(__file__).parent / "../../scripts" / script
+        subprocess.run(f"python {path!s}", shell=True)
 
     async def execute_recipe(self, recipe: str, **kwargs):
         """Executes a recipe.

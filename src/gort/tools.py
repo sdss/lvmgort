@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import functools
 import hashlib
 import os
 import pathlib
@@ -20,7 +21,7 @@ from contextlib import suppress
 from datetime import datetime
 from functools import partial
 
-from typing import TYPE_CHECKING, Any, Callable, Coroutine
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Sequence
 
 import httpx
 import numpy
@@ -66,6 +67,7 @@ __all__ = [
     "get_md5sum_from_spectro",
     "get_md5sum",
     "mark_exposure_bad",
+    "handle_signals",
 ]
 
 AnyPath = str | os.PathLike
@@ -770,3 +772,44 @@ def get_md5sum(file: AnyPath):
     data = open(file, "rb").read()
 
     return hashlib.md5(data).hexdigest()
+
+
+def handle_signals(
+    signals: Sequence[int],
+    callback: Callable[[], Any] | None = None,
+    cancel: bool = True,
+):
+    """Runs a callback when a signal is received during the execution of a task.
+
+    This function is meant to decorate coroutines. If a signal matching ``signals``
+    is received, the callback is run and the coroutine (which is executed as a task)
+    is cancelled if ``cancel=True``.
+
+    """
+
+    def _handle_signal(task: asyncio.Task):
+        if cancel:
+            task.cancel()
+
+        if callback:
+            asyncio.get_running_loop().call_soon(callback)
+
+    def _outter_wrapper(coro_func):
+        @functools.wraps(coro_func)
+        async def _inner_wrapper(*args, **kwargs):
+            task = asyncio.create_task(coro_func(*args, **kwargs))
+
+            handler = partial(_handle_signal, task)
+            for sgn in signals:
+                asyncio.get_running_loop().add_signal_handler(sgn, handler)
+
+            try:
+                with suppress(asyncio.CancelledError):
+                    return await task
+            finally:
+                for sgn in signals:
+                    asyncio.get_running_loop().remove_signal_handler(sgn)
+
+        return _inner_wrapper
+
+    return _outter_wrapper

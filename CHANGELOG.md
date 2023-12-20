@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### 🚀 New
+
+* [#13](https://github.com/sdss/lvmgort/issues/13) Adds a signal handler for `SIGINT` and `SIGTERM`. When `GortObserver` is running and an interrupt is received the signal handler will run the cleanup routine.
+
+
 ## 0.7.1 - December 20, 2023
 
 ### ✨ Improved
