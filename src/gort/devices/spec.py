@@ -43,10 +43,15 @@ class IEB(GortDevice):
             self.actor.commands.transducer.commands.status(),
             self.actor.commands.wago.commands.status(),
             self.actor.commands.wago.commands.getpower(),
+            return_exceptions=True,
         )
 
         status = {}
         for reply in replies:
+            if isinstance(reply, Exception):
+                self.write_to_log(str(reply), "warning")
+                continue
+
             flat_reply = reply.flatten()
             if "transducer" in flat_reply:
                 flat_reply = {f"{self.spec_name}_pressures": flat_reply["transducer"]}
