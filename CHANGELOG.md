@@ -6,6 +6,10 @@
 
 * [#13](https://github.com/sdss/lvmgort/issues/13) Adds a signal handler for `SIGINT` and `SIGTERM`. When `GortObserver` is running and an interrupt is received the signal handler will run the cleanup routine.
 
+### ✨ Improved
+
+* `SpectrographSet.reset` now accepts `full=True` which performs additional checks and opens/closes the shutter and hartmann doors as needed.
+
 
 ## 0.7.1 - December 20, 2023
 

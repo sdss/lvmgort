@@ -281,6 +281,29 @@ class Spectrograph(GortDevice):
         self.write_to_log("Closing shutter.")
         await self.ieb.close("shutter")
 
+    async def reset(self, full: bool = False):
+        """Resets the spectrograph to a valid state."""
+
+        await self.actor.commands.reset()
+
+        if full:
+            mech_status = await self.ieb.status()
+            relays = mech_status[f"{self.name}_relays"]
+            if not all(relays.values()):
+                self.write_to_log(f"Powering on {self.name} relays.", 'warning')
+                await self.ieb.power(list(relays.keys()))
+                mech_status = await self.ieb.status()
+
+            if mech_status[f"{self.name}_shutter"]['open']:
+                self.write_to_log(f"Closing {self.name} shutter.", 'warning')
+                await self.ieb.close("shutter")
+
+            for side in ['left', 'right']:
+                if not mech_status[f"{self.name}_hartmann_{side}"]['open']:
+                    self.write_to_log(f"Opening {self.name} {side} HD.", 'warning')
+                    await self.ieb.open(f"hartmann_{side}")
+
+
     async def expose(self, **kwargs):
         """Exposes the spectrograph."""
 
@@ -425,10 +448,10 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         return exposures
 
-    async def reset(self):
+    async def reset(self, full: bool = False):
         """Reset the spectrographs."""
 
-        await self.send_command_all("reset")
+        await self.call_device_method(Spectrograph.reset, full=full)
 
     async def initialise(self):
         """Initialises the spectrographs and flashes the ACF configuration file."""
