@@ -181,7 +181,9 @@ class WebsocketServer:
     ):
         """Returns the enclosure status."""
 
-        status = await self.gort.enclosure.status()
+        # status = await self.gort.enclosure.status()
+        status = {}
+
         await self.reply_to_client(client, command_id, status)
 
     @route("enclosure_action")
