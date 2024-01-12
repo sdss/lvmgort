@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 __all__ = ["Exposure", "READOUT_TIME"]
 
 
-READOUT_TIME = 51
+READOUT_TIME = 55
 
 HOOKS_TYPE = defaultdict[
     Literal["pre-readout", "post-readout"],
@@ -299,6 +299,8 @@ class Exposure(asyncio.Future["Exposure"]):
     ):
         """Starts the rich timer."""
 
+        await self.stop_timer()
+
         self._progress = Progress(
             TextColumn(f"[yellow]({self.exp_no})"),
             TextColumn("[progress.description]{task.description}"),
@@ -327,9 +329,7 @@ class Exposure(asyncio.Future["Exposure"]):
         async def update_timer():
             elapsed = 0
             while True:
-                if elapsed > exposure_time + readout_time:
-                    break
-                elif self._progress is None:
+                if self._progress is None:
                     return
                 elif elapsed < exposure_time:
                     self._progress.update(exp_task, advance=1)
@@ -344,21 +344,7 @@ class Exposure(asyncio.Future["Exposure"]):
                 await asyncio.sleep(1)
                 elapsed += 1
 
-            if self._progress and readout_task:
-                self._progress.update(
-                    readout_task,
-                    completed=int(readout_time),
-                    description="[green] Readout complete",
-                )
-
-        def done_timer(*_):
-            if self._progress:
-                self._progress.stop()
-                self._progress.console.clear_live()
-                self._progress = None
-
         self._timer_task = asyncio.create_task(update_timer())
-        self._timer_task.add_done_callback(done_timer)
 
         return
 
