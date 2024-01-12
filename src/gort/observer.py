@@ -48,10 +48,14 @@ class InterrupHandlerHelper:
 
     def __init__(self):
         self._callback: Callable | None = None
+        self.raise_after_callback: bool = True
 
     def run_callback(self):
         if self._callback is not None:
             self._callback()
+
+        if self.raise_after_callback:
+            raise RuntimeError("The observation was interrupted.")
 
     def set_callback(self, cb: Callable | None):
         self._callback = cb
