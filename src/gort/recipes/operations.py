@@ -192,6 +192,7 @@ class CleanupRecipe(BaseRecipe):
                         cotasks.append(self._wait_until_spec_is_idle(spec))
 
             await asyncio.gather(*cotasks)
+            await self.gort.specs.reset(full=True)
 
         if turn_lamps_off:
             self.gort.log.info("Turning off all calibration lamps and dome lights.")

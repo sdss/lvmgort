@@ -8,7 +8,7 @@
 
 ### ✨ Improved
 
-* `SpectrographSet.reset` now accepts `full=True` which performs additional checks and opens/closes the shutter and hartmann doors as needed.
+* `SpectrographSet.reset` now accepts `full=True` which performs additional checks and opens/closes the shutter and hartmann doors as needed. `reset` with `full=True` is run automatically during the `cleanup` recipe.
 
 
 ## 0.7.1 - December 20, 2023
