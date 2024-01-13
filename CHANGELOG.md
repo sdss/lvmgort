@@ -9,6 +9,7 @@
 ### ✨ Improved
 
 * `SpectrographSet.reset` now accepts `full=True` which performs additional checks and opens/closes the shutter and hartmann doors as needed. `reset` with `full=True` is run automatically during the `cleanup` recipe.
+* The GORT websocket now uses the CLU model for `lvmecp` instead of asking the PLC to report its status on each call to `WebsocketServer.enclosure_status()`.
 
 
 ## 0.7.1 - December 20, 2023

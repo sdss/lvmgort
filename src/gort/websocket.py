@@ -76,7 +76,11 @@ class WebsocketServer:
         """Start the server and AMQP client."""
 
         # self.gort.add_reply_callback(self._handle_reply)
+
         await self.gort.init()
+
+        # Add lvmecp to models.
+        await self.gort.models.add_actor("lvmecp")
 
         self.websocket_server = await serve(
             self._handle_websocket_connection,
@@ -181,8 +185,12 @@ class WebsocketServer:
     ):
         """Returns the enclosure status."""
 
-        # status = await self.gort.enclosure.status()
-        status = {}
+        # Use the model instead of actively polling for the status except
+        # if info is missing.
+        if self.gort.models["lvmecp"]["registers"].value is None:
+            await self.gort.enclosure.status()
+
+        status = self.gort.models["lvmecp"].flatten()
 
         await self.reply_to_client(client, command_id, status)
 
