@@ -290,19 +290,18 @@ class Spectrograph(GortDevice):
             mech_status = await self.ieb.status()
             relays = mech_status[f"{self.name}_relays"]
             if not all(relays.values()):
-                self.write_to_log(f"Powering on {self.name} relays.", 'warning')
+                self.write_to_log(f"Powering on {self.name} relays.", "warning")
                 await self.ieb.power(list(relays.keys()))
                 mech_status = await self.ieb.status()
 
-            if mech_status[f"{self.name}_shutter"]['open']:
-                self.write_to_log(f"Closing {self.name} shutter.", 'warning')
+            if mech_status[f"{self.name}_shutter"]["open"]:
+                self.write_to_log(f"Closing {self.name} shutter.", "warning")
                 await self.ieb.close("shutter")
 
-            for side in ['left', 'right']:
-                if not mech_status[f"{self.name}_hartmann_{side}"]['open']:
-                    self.write_to_log(f"Opening {self.name} {side} HD.", 'warning')
+            for side in ["left", "right"]:
+                if not mech_status[f"{self.name}_hartmann_{side}"]["open"]:
+                    self.write_to_log(f"Opening {self.name} {side} HD.", "warning")
                     await self.ieb.open(f"hartmann_{side}")
-
 
     async def expose(self, **kwargs):
         """Exposes the spectrograph."""
