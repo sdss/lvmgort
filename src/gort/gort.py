@@ -663,7 +663,13 @@ class Gort(GortClient):
 
         n_completed = 0
         while True:
-            await self.observe_tile(run_cleanup=False, cleanup_on_interrrupt=True)
+            result = await self.observe_tile(
+                run_cleanup=False,
+                cleanup_on_interrrupt=True,
+            )
+            if result is False:
+                break
+
             n_completed += 1
 
             if n_tiles is not None and n_completed >= n_tiles:
@@ -826,6 +832,7 @@ class Gort(GortClient):
 
         except KeyboardInterrupt:
             self.log.warning("Observation interrupted by user.")
+            return False
 
         finally:
             # Finish observation.
