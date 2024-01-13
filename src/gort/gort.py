@@ -850,6 +850,8 @@ class Gort(GortClient):
         if not script.endswith(".py"):
             script += ".py"
 
+        self.log.info(f"Running script {script!r}.")
+
         path = pathlib.Path(__file__).parent / "../../scripts" / script
         subprocess.run(f"python {path!s}", shell=True)
 
