@@ -69,11 +69,14 @@ class Light:
 class Lights:
     """Controls the enclosure lights."""
 
-    LIGHTS = ["telescope_bright", "telescope_red"]
+    LIGHTS = ["telescope_bright", "telescope_red", "spectrograph_room"]
 
     def __init__(self, enclosure: Enclosure):
         for light in self.LIGHTS:
             self.__setattr__(light, Light(enclosure, light))
+
+    def __repr__(self):
+        return f"<Lights ({', '.join(self.LIGHTS)})>"
 
     async def dome_all_off(self):
         """Turns off all the lights in the dome."""

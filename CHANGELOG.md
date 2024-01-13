@@ -5,6 +5,7 @@
 ### 🚀 New
 
 * [#13](https://github.com/sdss/lvmgort/issues/13) Adds a signal handler for `SIGINT` and `SIGTERM`. When `GortObserver` is running and an interrupt is received the signal handler will run the cleanup routine.
+* Added `spectrograph_room` light to enclosure.
 
 ### ✨ Improved
 
