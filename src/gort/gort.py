@@ -824,6 +824,9 @@ class Gort(GortClient):
                 else:
                     exposures.append(exposure)
 
+        except KeyboardInterrupt:
+            self.log.warning("Observation interrupted by user.")
+
         finally:
             # Finish observation.
             await observer.finish_observation()

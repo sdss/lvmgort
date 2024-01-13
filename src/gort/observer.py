@@ -47,15 +47,14 @@ class InterrupHandlerHelper:
     """Helper for handling interrupts"""
 
     def __init__(self):
+        self.gort: Gort | None = None
         self._callback: Callable | None = None
-        self.raise_after_callback: bool = True
 
     def run_callback(self):
         if self._callback is not None:
+            if self.gort:
+                self.gort.log.warning("Running cleanup due to keyboard interrupt.")
             self._callback()
-
-        if self.raise_after_callback:
-            raise RuntimeError("The observation was interrupted.")
 
     def set_callback(self, cb: Callable | None):
         self._callback = cb
@@ -104,6 +103,7 @@ class GortObserver:
         self.overheads: dict[str, tuple[float, float]] = {}
 
         interrupt_helper.set_callback(on_interrupt)
+        interrupt_helper.gort = gort
 
     def __repr__(self):
         return f"<GortObserver (tile_id={self.tile.tile_id})>"

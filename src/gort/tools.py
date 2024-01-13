@@ -804,8 +804,10 @@ def handle_signals(
                 asyncio.get_running_loop().add_signal_handler(sgn, handler)
 
             try:
-                with suppress(asyncio.CancelledError):
+                try:
                     return await task
+                except asyncio.CancelledError:
+                    raise KeyboardInterrupt()
             finally:
                 for sgn in signals:
                     asyncio.get_running_loop().remove_signal_handler(sgn)
