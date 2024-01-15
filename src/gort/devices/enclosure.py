@@ -69,7 +69,12 @@ class Light:
 class Lights:
     """Controls the enclosure lights."""
 
-    LIGHTS = ["telescope_bright", "telescope_red", "spectrograph_room"]
+    LIGHTS = [
+        "telescope_bright",
+        "telescope_red",
+        "spectrograph_room",
+        "utilities_room",
+    ]
 
     def __init__(self, enclosure: Enclosure):
         for light in self.LIGHTS:

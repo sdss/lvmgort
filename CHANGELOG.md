@@ -5,6 +5,7 @@
 ### ✨ Improved
 
 * Break out of `Gort.observe()`` on keyboard interrupt
+* Added `utilities_room` light to enclosure.
 
 
 ## 0.8.0 - January 13, 2024
