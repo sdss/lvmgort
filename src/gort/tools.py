@@ -815,3 +815,19 @@ def handle_signals(
         return _inner_wrapper
 
     return _outter_wrapper
+
+
+def get_by_source_id(source_id: int) -> dict | None:
+    """Returns Gaia DR3 information for a source ID."""
+
+    db = get_db_connection()
+
+    gaia_dr3 = peewee.Table("gaia_dr3_source", schema="catalogdb").bind(db)
+
+    query = gaia_dr3.select(gaia_dr3.star).where(gaia_dr3.c.source_id == source_id)
+    data = query.dicts()
+
+    if len(data) == 0:
+        return None
+
+    return data[0]

@@ -19,7 +19,12 @@ from httpx import RequestError
 
 from gort import config
 from gort.exceptions import GortError, GortNotImplemented, GortWarning, TileError
-from gort.tools import get_calibrators_sync, get_db_connection, get_next_tile_id_sync
+from gort.tools import (
+    get_by_source_id,
+    get_calibrators_sync,
+    get_db_connection,
+    get_next_tile_id_sync,
+)
 from gort.transforms import fibre_to_master_frame, offset_to_master_frame_pixel
 
 
@@ -270,11 +275,33 @@ class StandardCoordinates(QuerableCoordinates):
 
     __db_table__ = "lvmopsdb.standard"
 
-    def __init__(self, *args, source_id: int | None = None, **kwargs):
+    def __init__(
+        self,
+        ra: float | None = None,
+        dec: float | None = None,
+        source_id: int | None = None,
+        **kwargs,
+    ):
         self.source_id = source_id
         self.pk: int | None = None
 
-        super().__init__(*args, **kwargs)
+        if ra is None or dec is None:
+            if source_id is None:
+                raise TileError("Must pass either ra/dec or source_id.")
+            else:
+                if (data := get_by_source_id(int(source_id))) is None:
+                    raise TileError(f"Cannot find Gaia data for source_id={source_id}.")
+
+                ra = data["ra"]
+                dec = data["dec"]
+
+        assert ra is not None and dec is not None
+
+        super().__init__(ra, dec, **kwargs)
+
+
+SpecCoordsType = Sequence[StandardCoordinates | CoordTuple | int | dict] | None
+SkyCoordsType = dict[str, SkyCoordinates] | dict[str, CoordTuple] | None
 
 
 class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
@@ -304,8 +331,8 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
     def __init__(
         self,
         sci_coords: ScienceCoordinates,
-        sky_coords: dict[str, SkyCoordinates] | dict[str, CoordTuple] | None = None,
-        spec_coords: Sequence[StandardCoordinates | CoordTuple] | None = None,
+        sky_coords: SkyCoordsType = None,
+        spec_coords: SpecCoordsType = None,
         dither_positions: int | Sequence[int] = 0,
         object: str | None = None,
         allow_replacement: bool = True,
@@ -410,8 +437,8 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
         ra: float,
         dec: float,
         pa: float = 0.0,
-        sky_coords: dict[str, SkyCoordinates] | dict[str, CoordTuple] | None = None,
-        spec_coords: Sequence[StandardCoordinates | CoordTuple] | None = None,
+        sky_coords: SkyCoordsType = None,
+        spec_coords: SpecCoordsType | None = None,
         **kwargs,
     ):
         """Creates an instance from coordinates, allowing autocompletion.
@@ -584,7 +611,7 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
 
     def set_sky_coords(
         self,
-        sky_coords: dict[str, SkyCoordinates] | dict[str, CoordTuple] | None = None,
+        sky_coords: SkyCoordsType = None,
         allow_replacement: bool = True,
     ) -> dict[str, SkyCoordinates]:
         """Sets the sky telescopes coordinates.
@@ -669,7 +696,7 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
 
     def set_spec_coords(
         self,
-        spec_coords: Sequence[StandardCoordinates | CoordTuple] | None = None,
+        spec_coords: SpecCoordsType = None,
         reject_invisible: bool = True,
     ) -> Sequence[StandardCoordinates]:
         """Sets the spec telescope coordinates.
@@ -689,8 +716,16 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
             pass
         else:
             for coords in spec_coords:
-                if not isinstance(coords, Coordinates):
+                if isinstance(coords, Coordinates):
+                    pass
+                elif isinstance(coords, (list, tuple)):
                     coords = StandardCoordinates(*coords)
+                elif isinstance(coords, int):
+                    coords = StandardCoordinates(source_id=coords)
+                elif isinstance(coords, dict):
+                    coords = StandardCoordinates(**coords)
+                else:
+                    raise TypeError(f"Invalid spec coordinate {coords!r}.")
 
                 if reject_invisible and not coords.is_observable():
                     continue
