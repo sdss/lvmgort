@@ -11,6 +11,10 @@
 * Break out of `Gort.observe()`` on keyboard interrupt
 * Added `utilities_room` light to enclosure.
 
+### 🔧 Fixed
+
+* Fixed exposure loop not restarting after a keyboard interrupt.
+
 
 ## 0.8.0 - January 13, 2024
 

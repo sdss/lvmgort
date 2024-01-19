@@ -47,14 +47,22 @@ class InterrupHandlerHelper:
     """Helper for handling interrupts"""
 
     def __init__(self):
-        self.gort: Gort | None = None
+        self.observer: GortObserver | None = None
         self._callback: Callable | None = None
 
     def run_callback(self):
-        if self._callback is not None:
-            if self.gort:
-                self.gort.log.warning("Running cleanup due to keyboard interrupt.")
-            self._callback()
+        if self._callback is None:
+            return
+
+        if self.observer:
+            if (exposure := self.observer._current_exposure) is not None:
+                exposure.error = True
+                exposure.set_result(exposure)
+                exposure.stop_timer()
+
+            self.observer.gort.log.warning("Running cleanup due to keyboard interrupt.")
+
+        self._callback()
 
     def set_callback(self, cb: Callable | None):
         self._callback = cb
@@ -97,13 +105,13 @@ class GortObserver:
 
         self.standards = Standards(self, tile, self.mask_positions)
 
-        self.__current_exposure: Exposure | None = None
+        self._current_exposure: Exposure | None = None
         self._n_exposures: int = 0
 
         self.overheads: dict[str, tuple[float, float]] = {}
 
         interrupt_helper.set_callback(on_interrupt)
-        interrupt_helper.gort = gort
+        interrupt_helper.observer = self
 
     def __repr__(self):
         return f"<GortObserver (tile_id={self.tile.tile_id})>"
@@ -373,7 +381,7 @@ class GortObserver:
                 await self.standards.start_iterating(exposure_time)
 
                 exposure = Exposure(self.gort, flavour="object", object=object)
-                self.__current_exposure = exposure
+                self._current_exposure = exposure
 
             exposure.hooks["pre-readout"].append(self._pre_readout)
             exposure.hooks["post-readout"].append(self._post_readout)
@@ -612,8 +620,8 @@ class GortObserver:
             # There is some overhead between when we set t0 for the first standard
             # and when the exposure actually begins. This leads to the first standard
             # having longer exposure time than open shutter.
-            if self.has_standards and self.__current_exposure is not None:
-                start_time = self.__current_exposure.start_time.unix
+            if self.has_standards and self._current_exposure is not None:
+                start_time = self._current_exposure.start_time.unix
                 self.standards.standards.loc[1, "t0"] = start_time
 
             header.update(self.standards.to_header())

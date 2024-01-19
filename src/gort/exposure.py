@@ -270,7 +270,7 @@ class Exposure(asyncio.Future["Exposure"]):
                 await monitor_task
                 log(f"Exposure {self.exp_no} completed.")
             else:
-                await self.stop_timer()
+                self.stop_timer()
 
         except Exception as err:
             # Cancel the monitor task
@@ -288,7 +288,7 @@ class Exposure(asyncio.Future["Exposure"]):
                 log.warning(f"Exposure failed with error {err}")
 
         finally:
-            await self.stop_timer()
+            self.stop_timer()
 
         return self
 
@@ -299,7 +299,7 @@ class Exposure(asyncio.Future["Exposure"]):
     ):
         """Starts the rich timer."""
 
-        await self.stop_timer()
+        self.stop_timer()
 
         self._progress = Progress(
             TextColumn(f"[yellow]({self.exp_no})"),
@@ -348,10 +348,11 @@ class Exposure(asyncio.Future["Exposure"]):
 
         return
 
-    async def stop_timer(self):
+    def stop_timer(self):
         """Cancels the timer."""
 
-        await cancel_task(self._timer_task)
+        if self._timer_task and not self._timer_task.done():
+            self._timer_task.cancel()
         self._timer_task = None
 
         if self._progress:
