@@ -359,7 +359,7 @@ def calculate_position_angle(ra: float, dec: float, obstime: astropy.time.Time |
 
     """
 
-    site = astropy.coordinates.EarthLocation.of_site("Las Campanas Observatory")
+    site = astropy.coordinates.EarthLocation.from_geodetic(**config["site"])
 
     if isinstance(obstime, str):
         obstime = astropy.time.Time(obstime, format="isot")
@@ -550,7 +550,7 @@ class Siderostat:
             time = astropy.time.Time.now()
 
         # Compute mirror positions
-        site = astropy.coordinates.EarthLocation.of_site("Las Campanas Observatory")
+        site = astropy.coordinates.EarthLocation.from_geodetic(**config["site"])
 
         assert isinstance(astropy.units.Pa, astropy.units.Unit)
         assert isinstance(astropy.units.um, astropy.units.Unit)
@@ -585,7 +585,7 @@ class Siderostat:
         # normal vectors from other unit vector
         m2tom1 = numpy.cross(star, self.b)
         vlen = numpy.linalg.norm(m2tom1)
-        m2tom1 /= self.sign * vlen
+        m2tom1 /= self.sign * float(vlen)
 
         # surface normal to M1 (not normalized to 1)
         m1norm = star - m2tom1

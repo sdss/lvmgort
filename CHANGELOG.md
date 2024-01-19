@@ -10,6 +10,7 @@
 
 * Break out of `Gort.observe()`` on keyboard interrupt
 * Added `utilities_room` light to enclosure.
+* Update astropy to 6.0.0 and avoid it requiring to download orientation data from the internet.
 
 ### 🔧 Fixed
 
