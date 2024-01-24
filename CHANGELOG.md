@@ -1,10 +1,11 @@
 # Changelog
 
-### Next version
+## Next version
 
 ### 🚀 New
 
 * Tile standard coordinates can now be defined as a list of Gaia DR3 source IDs. If the standard coordinates is a single integer, it will be assumed to be a source ID and the coordinates will be retrieved from the database.
+* Added code for telescope pointing models.
 
 ### ✨ Improved
 
