@@ -268,7 +268,7 @@ async def pointing_model(
 
 if __name__ == "__main__":
     NPOINTS = 50
-    ALT_RANGE = (40, 85)
+    ALT_RANGE = (40, 88)
     AZ_RANGE = (0, 355)
     TELESCOPES = ["sci", "spec", "skye", "skyw"]
 
