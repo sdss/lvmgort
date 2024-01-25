@@ -157,7 +157,7 @@ async def pointing_model(
     telescopes: Sequence[str] = ["sci", "spec", "skye", "skyw"],
     home: bool = True,
     add_points: bool = True,
-) -> pandas.DataFrame:
+) -> pandas.DataFrame | None:
     """Iterates over a series of points on the sky measuring offsets.
 
     Parameters
