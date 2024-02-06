@@ -170,9 +170,11 @@ class Guider(GortDevice):
 
         """
 
+        reply_callback = partial(self.log_replies, skip_debug=False)
+
         if sweep is False:
             self.write_to_log("Adjusting focus position.", "info")
-            await self.actor.commands.adjust_focus(reply_callback=self.log_replies)
+            await self.actor.commands.adjust_focus(reply_callback=reply_callback)
             return
 
         # Send telescopes to zenith.
@@ -187,7 +189,7 @@ class Guider(GortDevice):
             self.write_to_log(f"Focusing telescope {self.name}.", "info")
 
             replies = await self.actor.commands.focus(
-                reply_callback=partial(self.log_replies, skip_debug=False),
+                reply_callback=reply_callback,
                 guess=guess,
                 step_size=step_size,
                 steps=steps,
