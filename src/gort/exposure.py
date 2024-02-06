@@ -74,10 +74,10 @@ class Exposure(asyncio.Future["Exposure"]):
         on the hook they may be scheduled as a task and not awaited. Available
         hooks are:
         - ``'pre-readout'`` which is called with the header before readout
-          begins; the coroutine can modify the header in place or perform
-          any tasks that should be complete at the end of integration.
+        begins; the coroutine can modify the header in place or perform
+        any tasks that should be complete at the end of integration.
         - ``'post-readout'`` called as a task (not awaited) after the readout
-          is complete. Receives the :obj:`.Exposure` object.
+        is complete. Receives the :obj:`.Exposure` object.
 
         To add a coroutine to a hook ::
 

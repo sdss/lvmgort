@@ -691,6 +691,7 @@ class HomTrans:
 
     def apply(self, rhs: numpy.ndarray):
         """Apply self transformation to a vector of coordinates.
+
         Parameters
         ----------
         rhs
