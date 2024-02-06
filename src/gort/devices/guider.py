@@ -18,6 +18,7 @@ import numpy
 import pandas
 from packaging.version import Version
 
+from gort import config
 from gort.exceptions import ErrorCodes, GortError, GortGuiderError
 from gort.gort import GortDevice, GortDeviceSet
 from gort.maskbits import GuiderStatus
@@ -142,9 +143,9 @@ class Guider(GortDevice):
         self,
         inplace=False,
         guess: float | None = None,
-        step_size: float = 0.5,
-        steps: int = 7,
-        exposure_time: float = 5.0,
+        step_size: float = config["guiders.focus.step_size"],
+        steps: int = config["guiders.focus.steps"],
+        exposure_time: float = config["guiders.focus.exposure_time"],
     ):
         """Focus the telescope.
 
