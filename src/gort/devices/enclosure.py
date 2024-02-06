@@ -90,8 +90,7 @@ class Lights:
 
     if TYPE_CHECKING:
 
-        def __getattr__(self, light: str) -> Light:
-            ...
+        def __getattr__(self, light: str) -> Light: ...
 
 
 class Enclosure(GortDevice):
