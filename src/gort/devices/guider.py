@@ -43,7 +43,6 @@ class Guider(GortDevice):
         self.status: GuiderStatus = GuiderStatus.IDLE
 
         self.guide_monitor_task: asyncio.Task | None = None
-        self._best_focus: tuple[float, float] = (-999.0, -999.0)
 
         self.gort.add_reply_callback(self._status_cb)
 
@@ -166,8 +165,6 @@ class Guider(GortDevice):
 
         """
 
-        self._best_focus = (-999, -999)
-
         # Send telescopes to zenith.
         if not inplace:
             self.write_to_log("Moving telescope to zenith.")
@@ -188,41 +185,39 @@ class Guider(GortDevice):
                 f"Focusing telescope {self.name} with initial guess {guess:.1f}.",
                 "info",
             )
-            await self.actor.commands.focus(
-                reply_callback=self._parse_focus,
+
+            replies = await self.actor.commands.focus(
+                reply_callback=partial(self.log_replies, skip_debug=False),
                 guess=guess,
                 step_size=step_size,
                 steps=steps,
                 exposure_time=exposure_time,
             )
-        except GortError as err:
-            self.write_to_log(f"Failed focusing with error {err}", level="error")
-        finally:
-            self.separation = None
+
+            best_focus = replies.get("best_focus")
+            if best_focus is None:
+                raise GortError("best_focus keyword was not emitted.")
+            elif best_focus["focus"] < 1:
+                raise GortError(
+                    "Estimated focus does not seem to be correct. "
+                    "Please repeat the focus sweep."
+                )
+
+            best_focus = best_focus["focus"]
+            best_fwhm = best_focus["fwhm"]
             self.write_to_log(
-                f"Best focus: {self._best_focus[1]} arcsec "
-                f"at {self._best_focus[0]} DT",
+                f"Best focus: {best_fwhm} arcsec at {best_fwhm} DT",
                 "info",
             )
 
-            if self._best_focus[1] < 0.3:
-                self.write_to_log("Focus value is invalid.", "error")
+            return best_focus, best_fwhm
 
-        return self._best_focus
+        except GortError as err:
+            self.write_to_log(f"Failed focusing with error: {err}", level="error")
+            return -999, -999
 
-    def _parse_focus(self, reply: AMQPReply):
-        """Parses replies from the guider command."""
-
-        if not reply.body:
-            return
-
-        self.log_replies(reply, skip_debug=False)
-
-        if "best_focus" in reply.body:
-            self._best_focus = (
-                reply.body["best_focus"]["focus"],
-                reply.body["best_focus"]["fwhm"],
-            )
+        finally:
+            self.separation = None
 
     async def guide(
         self,
