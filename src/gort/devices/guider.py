@@ -172,7 +172,7 @@ class Guider(GortDevice):
 
         if sweep is False:
             self.write_to_log("Adjusting focus position.", "info")
-            await self.actor.commands.adjust_focus()
+            await self.actor.commands.adjust_focus(reply_callback=self.log_replies)
             return
 
         # Send telescopes to zenith.
@@ -195,22 +195,23 @@ class Guider(GortDevice):
             )
 
             best_focus = replies.get("best_focus")
+
             if best_focus is None:
                 raise GortError("best_focus keyword was not emitted.")
-            elif best_focus["focus"] < 1:
+            elif best_focus["focus"] < 0.5 or best_focus["r2"] < 0.5:
                 raise GortError(
                     "Estimated focus does not seem to be correct. "
                     "Please repeat the focus sweep."
                 )
 
-            best_focus = best_focus["focus"]
-            best_fwhm = best_focus["fwhm"]
+            focus = best_focus["focus"]
+            fwhm = best_focus["fwhm"]
             self.write_to_log(
-                f"Best focus: {best_fwhm} arcsec at {best_fwhm} DT",
+                f"Best focus: {fwhm} arcsec at {focus} DT",
                 "info",
             )
 
-            return best_focus, best_fwhm
+            return focus, fwhm
 
         except GortError as err:
             self.write_to_log(f"Failed focusing with error: {err}", level="error")
