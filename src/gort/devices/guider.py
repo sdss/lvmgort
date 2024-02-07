@@ -267,7 +267,7 @@ class Guider(GortDevice):
 
         self.separation = None
 
-        if not self.status & GuiderStatus.IDLE:
+        if self.status & GuiderStatus.NON_IDLE:
             raise GortGuiderError(
                 "Guider is not IDLE",
                 error_code=ErrorCodes.COMMAND_FAILED,
