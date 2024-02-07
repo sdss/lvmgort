@@ -621,11 +621,6 @@ class Gort(GortClient):
         Arguments to pass to :obj:`.GortClient`.
     verbosity
         The level of logging verbosity.
-    on_interrupt
-        Action to perform if the loop receives an interrupt signal during
-        execution. The only options are :obj:`None` (do nothing, currently
-        running commands will continue), or ``stop'`` which will stop the
-        telescopes and guiders before exiting.
 
     """
 
@@ -633,7 +628,6 @@ class Gort(GortClient):
         self,
         *args,
         verbosity: str | None = None,
-        on_interrupt: str | None = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -817,7 +811,7 @@ class Gort(GortClient):
                     # gets the range of guider frames that correspond to this dither.
                     # GortObserver.expose() doesn't do this because we ask for a single
                     # exposure.
-                    await observer.guider_monitor.restart()
+                    observer.guider_monitor.reset()
 
                     # Refocus for the new dither position.
                     if adjust_focus:

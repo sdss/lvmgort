@@ -21,7 +21,7 @@ from gort import config
 from gort.exceptions import ErrorCodes, GortError, GortGuiderError
 from gort.gort import GortDevice, GortDeviceSet
 from gort.maskbits import GuiderStatus
-from gort.tools import build_guider_reply_list, cancel_task
+from gort.tools import GuiderMonitor, cancel_task
 
 
 if TYPE_CHECKING:
@@ -42,8 +42,7 @@ class Guider(GortDevice):
         self.separation: float | None = None
         self.status: GuiderStatus = GuiderStatus.IDLE
 
-        self.guide_monitor_task: asyncio.Task | None = None
-
+        self.guider_monitor = GuiderMonitor(self.gort, self.name)
         self.gort.add_reply_callback(self._status_cb)
 
     @property
@@ -261,6 +260,8 @@ class Guider(GortDevice):
 
         """
 
+        monitor_task: asyncio.Task | None = None
+
         # The PA argument in lvmguider was added in 0.4.0a0.
         if self.version == Version("0.99.0") or self.version < Version("0.4.0a0"):
             guide_kwargs.pop("pa")
@@ -294,7 +295,8 @@ class Guider(GortDevice):
 
         try:
             if monitor:
-                self.guide_monitor_task = asyncio.create_task(self._monitor_task())
+                self.guider_monitor.start_monitoring()
+                monitor_task = asyncio.create_task(self._monitor_task())
 
             await self.actor.commands.guide(
                 reply_callback=partial(self.log_replies, skip_debug=False),
@@ -304,63 +306,48 @@ class Guider(GortDevice):
                 reference_pixel=pixel,
                 **guide_kwargs,
             )
+
         except Exception as err:
             # Deal with the guide command being cancelled when we stop it.
             if "This command has been cancelled" not in str(err):
                 raise
+
         finally:
-            await cancel_task(self.guide_monitor_task)
+            await cancel_task(monitor_task)
 
     async def _monitor_task(self, timeout: float = 30):
         """Monitors guiding and reports average and last guide metrics."""
 
-        current_data = []
-
-        task = asyncio.create_task(
-            build_guider_reply_list(
-                self.gort,
-                current_data,
-                actor=self.actor.name,
-            )
-        )
-
-        try:
-            while True:
+        while True:
+            try:
                 await asyncio.sleep(timeout)
 
-                # Build DF with all the frames.
-                df = pandas.DataFrame.from_records(current_data)
-
-                # Group by frameno, keep only non-NaN values.
-                df = df.groupby(["frameno", "telescope"], as_index=False).apply(
-                    lambda g: g.bfill(axis=0).iloc[0, :]
-                )
-
-                # Sort by frameno.
-                df = df.sort_values("frameno")
+                # Get updated date
+                df = self.guider_monitor.update().copy()
+                df = df.loc[self.name].reset_index()
 
                 # Select columns.
-                df = df[
+                df = df.loc[
+                    :,
                     [
                         "frameno",
                         "time",
                         "n_sources",
                         "focus_position",
                         "fwhm",
-                        "telescope",
                         "ra",
                         "dec",
                         "ra_offset",
                         "dec_offset",
                         "separation",
                         "mode",
-                    ]
+                    ],
                 ]
 
                 # Remove NaN rows.
                 df = df.dropna()
 
-                now = datetime.datetime.utcnow()
+                now = datetime.datetime.now(datetime.timezone.utc)
                 time_range = now - pandas.Timedelta(f"{timeout} seconds")
                 time_data = df.loc[df.time > time_range, :]
 
@@ -391,9 +378,11 @@ class Guider(GortDevice):
                     "info",
                 )
 
-        except asyncio.CancelledError:
-            await cancel_task(task)
-            return
+            except asyncio.CancelledError:
+                return
+
+            except Exception as err:
+                self.write_to_log(f"Error in guider monitor: {err}", "warning")
 
     async def stop(self) -> None:
         """Stops the guide loop.
@@ -409,6 +398,7 @@ class Guider(GortDevice):
 
         await self.actor.commands.stop()
         self.status = GuiderStatus.IDLE
+        self.guider_monitor.stop_monitoring()
 
     async def set_pixel(self, pixel: tuple[float, float] | str | None = None):
         """Sets the master frame pixel on which to guide.
@@ -467,8 +457,6 @@ class Guider(GortDevice):
             The time to sleep between exposures (seconds).
 
         """
-
-        await self.stop()
 
         if ra is None and dec is None:
             await self.telescope.goto_named_position("zenith", altaz_tracking=True)

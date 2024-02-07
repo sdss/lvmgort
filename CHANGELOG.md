@@ -9,6 +9,7 @@
 ### ✨ Improved
 
 * [#19](https://github.com/sdss/lvmgort/pull/19) Improvemts to focusing. After a focus sweep, the focus is adjusted based on the delta temperature before each exposure.
+* [#21](https://github.com/sdss/lvmgort/pull/21) Added `GuiderMonitor` which replaces `build_guider_reply_list`. All Pandas dataframes now use `pyarrow` dtypes, and some deprecations and errors have been addressed.
 
 
 ## 0.9.0 - January 31, 2024

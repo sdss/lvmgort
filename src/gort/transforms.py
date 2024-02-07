@@ -90,6 +90,7 @@ def read_fibermap(
             dtype=list(zip(cols, dtypes)),
         ),
     )
+    fibers.convert_dtypes(dtype_backend="pyarrow")
 
     # Lower-case some columns.
     for col in fibers:
