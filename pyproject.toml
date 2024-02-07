@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lvmgort"
-version = "0.9.1a0"
+version = "0.10.0"
 description = "The brains of LVM observing"
 authors = ["José Sánchez-Gallego <gallegoj@uw.edu>"]
 license = "BSD-3-Clause"
