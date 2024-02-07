@@ -20,12 +20,12 @@ from typing import TYPE_CHECKING, Any, Callable
 import pandas
 from astropy.time import Time
 
-from gort.devices.guider import GuiderMonitor
 from gort.exceptions import ErrorCodes, GortObserverError
 from gort.exposure import Exposure
 from gort.maskbits import GuiderStatus
 from gort.tile import Coordinates
 from gort.tools import (
+    GuiderMonitor,
     cancel_task,
     handle_signals,
     insert_to_database,
