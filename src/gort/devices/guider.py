@@ -453,9 +453,8 @@ class Guider(GortDevice):
         guider keywords, including transparency and FWHM, being output and the
         plots in Grafana being updated.
 
-        Note that the guide loop is started as a task and this function will return
-        after the slew is complete. To stop monitoring use the :obj:`.Guider.stop`
-        method.
+        After cancelling the monitoring make sure to stop the guiders with the
+        :obj:`.Guider.stop` method.
 
         Parameter
         ---------
@@ -468,6 +467,8 @@ class Guider(GortDevice):
             The time to sleep between exposures (seconds).
 
         """
+
+        await self.stop()
 
         if ra is None and dec is None:
             await self.telescope.goto_named_position("zenith", altaz_tracking=True)
@@ -490,13 +491,11 @@ class Guider(GortDevice):
         # coordinates again to make sure the kmirror is set.
         await self.telescope.goto_coordinates(ra, dec)
 
-        asyncio.create_task(
-            self.guide(
-                ra=ra,
-                dec=dec,
-                exposure_time=exposure_time,
-                sleep=sleep,
-            )
+        await self.guide(
+            ra=ra,
+            dec=dec,
+            exposure_time=exposure_time,
+            sleep=sleep,
         )
 
 
