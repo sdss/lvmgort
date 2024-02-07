@@ -14,10 +14,10 @@ from functools import partial
 
 from typing import TYPE_CHECKING
 
-import numpy
 import pandas
 from packaging.version import Version
 
+from gort import config
 from gort.exceptions import ErrorCodes, GortError, GortGuiderError
 from gort.gort import GortDevice, GortDeviceSet
 from gort.maskbits import GuiderStatus
@@ -43,7 +43,6 @@ class Guider(GortDevice):
         self.status: GuiderStatus = GuiderStatus.IDLE
 
         self.guide_monitor_task: asyncio.Task | None = None
-        self._best_focus: tuple[float, float] = (-999.0, -999.0)
 
         self.gort.add_reply_callback(self._status_cb)
 
@@ -142,10 +141,11 @@ class Guider(GortDevice):
     async def focus(
         self,
         inplace=False,
+        sweep: bool = True,
         guess: float | None = None,
-        step_size: float = 0.5,
-        steps: int = 7,
-        exposure_time: float = 5.0,
+        step_size: float = config["guiders.focus.step_size"],
+        steps: int = config["guiders.focus.steps"],
+        exposure_time: float = config["guiders.focus.exposure_time"],
     ):
         """Focus the telescope.
 
@@ -154,9 +154,13 @@ class Guider(GortDevice):
         inplace
             If :obj:`True`, focuses the telescope where it is pointing at. Otherwise
             points to zenith.
+        sweep
+            Performs a focus sweep around the initial guess position to find the
+            best focus. If :obj:`False`, the focus position is determined based on
+            the current bench temperature.
         guess
-            The initial guess for the focuser position. If :obj:`None`, the
-            default value from the configuration file is used.
+            The initial guess for the focuser position. If :obj:`None`, the initial
+            guess is determined based on the current bench temperature.
         step_size
             The size, in focuser units, of each step.
         steps
@@ -166,7 +170,12 @@ class Guider(GortDevice):
 
         """
 
-        self._best_focus = (-999, -999)
+        reply_callback = partial(self.log_replies, skip_debug=False)
+
+        if sweep is False:
+            self.write_to_log("Adjusting focus position.", "info")
+            await self.actor.commands.adjust_focus(reply_callback=reply_callback)
+            return
 
         # Send telescopes to zenith.
         if not inplace:
@@ -176,53 +185,48 @@ class Guider(GortDevice):
                 altaz_tracking=True,
             )
 
-        if guess is None:
-            guess = self.gort.config["guiders"]["focus"]["guess"][self.name]
-            if isinstance(guess, (list, tuple)):
-                sensor_data = await self.gort.telemetry[self.name].status()
-                temp = sensor_data["sensor1"]["temperature"]
-                guess = guess[0] * temp + guess[1]
-
         try:
-            self.write_to_log(
-                f"Focusing telescope {self.name} with initial guess {guess:.1f}.",
-                "info",
-            )
-            await self.actor.commands.focus(
-                reply_callback=self._parse_focus,
+            self.write_to_log(f"Focusing telescope {self.name}.", "info")
+
+            replies = await self.actor.commands.focus(
+                reply_callback=reply_callback,
                 guess=guess,
                 step_size=step_size,
                 steps=steps,
                 exposure_time=exposure_time,
             )
-        except GortError as err:
-            self.write_to_log(f"Failed focusing with error {err}", level="error")
-        finally:
-            self.separation = None
+
+            best_focus = replies.get("best_focus")
+
+            if best_focus is None:
+                raise GortError("best_focus keyword was not emitted.")
+            elif best_focus["focus"] < 0.5 or best_focus["r2"] < 0.5:
+                raise GortError(
+                    "Estimated focus does not seem to be correct. "
+                    "Please repeat the focus sweep."
+                )
+
+            focus = best_focus["focus"]
+            fwhm = best_focus["fwhm"]
             self.write_to_log(
-                f"Best focus: {self._best_focus[1]} arcsec "
-                f"at {self._best_focus[0]} DT",
+                f"Best focus: {fwhm} arcsec at {focus} DT",
                 "info",
             )
 
-            if self._best_focus[1] < 0.3:
-                self.write_to_log("Focus value is invalid.", "error")
+            return focus, fwhm
 
-        return self._best_focus
+        except GortError as err:
+            self.write_to_log(f"Failed focusing with error: {err}", level="error")
 
-    def _parse_focus(self, reply: AMQPReply):
-        """Parses replies from the guider command."""
+        finally:
+            self.separation = None
 
-        if not reply.body:
-            return
+        return -999, -999
 
-        self.log_replies(reply, skip_debug=False)
+    async def adjust_focus(self):
+        """Adjusts the focus position based on the current bench temperature."""
 
-        if "best_focus" in reply.body:
-            self._best_focus = (
-                reply.body["best_focus"]["focus"],
-                reply.body["best_focus"]["fwhm"],
-            )
+        await self.focus(sweep=False)
 
     async def guide(
         self,
@@ -495,8 +499,8 @@ class GuiderSet(GortDeviceSet[Guider]):
             If :obj:`True`, focuses the telescopes where they are pointing at. Otherwise
             points to zenith.
         guess
-            The initial guesses for focuser position. If :obj:`None`, the default
-            values from the configuration file are used. It can also be a float
+            The initial guesses for focuser position. If :obj:`None`, an estimate
+            based on the current bench temperatures is used. It can also be a float
             value, which will be used for all telescopes, or a mapping of telescope
             name to guess value. Missing values will default to the configuration
             value.
@@ -521,6 +525,7 @@ class GuiderSet(GortDeviceSet[Guider]):
         jobs = [
             self[guider_name].focus(
                 inplace=inplace,
+                sweep=True,
                 guess=guess_dict.get(guider_name, None),
                 step_size=step_size,
                 steps=steps,
@@ -530,13 +535,30 @@ class GuiderSet(GortDeviceSet[Guider]):
         ]
         results = await asyncio.gather(*jobs)
 
-        best_focus = [f"{name}: {results[itel][1]}" for itel, name in enumerate(self)]
+        best_focus: list[str] = []
+        error: bool = False
+        for itel, name in enumerate(self):
+            result = results[itel]
+            if result is None:
+                continue
+
+            best_focus.append(f"{name}: {result[1]}")
+
+            if any(result) < 0:
+                error = True
 
         self.write_to_log("Best focus: " + ", ".join(best_focus), "info")
 
-        fwhms = numpy.array([fwhm for _, fwhm in results])
-        if numpy.any(fwhms < 0.3):
+        if error:
             self.write_to_log("One or more focus values are invalid.", "error")
+            return False
+
+        return True
+
+    async def adjust_focus(self):
+        """Adjusts the focus position based on the current bench temperature."""
+
+        await asyncio.gather(*[self[gname].adjust_focus() for gname in self])
 
     async def guide(self, *args, **kwargs):
         """Guide on all telescopes.

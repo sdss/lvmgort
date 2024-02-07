@@ -651,7 +651,7 @@ class Gort(GortClient):
         self.log.warning("Closing and parking telescopes.")
         await asyncio.gather(*tasks)
 
-    async def observe(self, n_tiles: int | None = None):
+    async def observe(self, n_tiles: int | None = None, adjust_focus: bool = True):
         """Runs a fully automatic science observing loop."""
 
         # TODO: add some exception handling for keyboard interrupts.
@@ -666,6 +666,7 @@ class Gort(GortClient):
             result = await self.observe_tile(
                 run_cleanup=False,
                 cleanup_on_interrrupt=True,
+                adjust_focus=adjust_focus,
             )
             if result is False:
                 break
@@ -691,6 +692,7 @@ class Gort(GortClient):
         acquisition_timeout: float = 180.0,
         show_progress: bool | None = None,
         run_cleanup: bool = True,
+        adjust_focus: bool = True,
         cleanup_on_interrrupt: bool = True,
     ):
         """Performs all the operations necessary to observe a tile.
@@ -735,6 +737,10 @@ class Gort(GortClient):
             Displays a progress bar with the elapsed exposure time.
         run_cleanup
             Whether to run the cleanup routine.
+        adjust_focus
+            Adjusts the focuser positions based on temperature drift before
+            starting the observation. This works best if the focus has been
+            initially determined using a focus sweep.
         cleanup_on_interrrupt
             If ``True``, registers a signal handler to catch interrupts and
             run the cleanup routine.
@@ -778,6 +784,9 @@ class Gort(GortClient):
         if run_cleanup:
             await self.cleanup(turn_lamps_off=False)
 
+        if adjust_focus:
+            await self.guiders.adjust_focus()
+
         if tile.tile_id is not None:
             dither_positions_str = ", ".join(map(str, dither_positions))
             self.log.info(
@@ -809,6 +818,10 @@ class Gort(GortClient):
                     # GortObserver.expose() doesn't do this because we ask for a single
                     # exposure.
                     await observer.guider_monitor.restart()
+
+                    # Refocus for the new dither position.
+                    if adjust_focus:
+                        await self.guiders.adjust_focus()
 
                 self.log.info(f"Taking exposure for dither position #{dpos}")
 

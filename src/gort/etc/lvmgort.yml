@@ -150,11 +150,9 @@ guiders:
     skyw:
       actor: lvm.skyw.guider
   focus:
-    guess:
-      sci: [0.154, 34.278]
-      skye: [0.134, 34.405]
-      skyw: [0.164, 34.364]
-      spec: [0.186, 35.188]
+    step_size: 0.2
+    steps: 7
+    exposure_time: 5.0
 
 nps:
   devices:

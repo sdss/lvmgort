@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### ✨ Improved
+
+* [[#19](https://github.com/sdss/lvmgort/pull/19)] Improvemts to focusing. After a focus sweep, the focus is adjusted based on the delta temperature before each exposure.
+
+
 ## 0.9.0 - January 31, 2024
 
 ### 🚀 New
