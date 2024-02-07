@@ -12,16 +12,18 @@ import asyncio
 import datetime
 from functools import partial
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+import numpy
 import pandas
+import pyarrow
 from packaging.version import Version
 
 from gort import config
 from gort.exceptions import ErrorCodes, GortError, GortGuiderError
 from gort.gort import GortDevice, GortDeviceSet
 from gort.maskbits import GuiderStatus
-from gort.tools import build_guider_reply_list, cancel_task
+from gort.tools import cancel_task
 
 
 if TYPE_CHECKING:
@@ -30,7 +32,7 @@ if TYPE_CHECKING:
     from gort.gort import GortClient
 
 
-__all__ = ["Guider", "GuiderSet"]
+__all__ = ["Guider", "GuiderSet", "GuiderMonitor"]
 
 
 class Guider(GortDevice):
@@ -42,8 +44,7 @@ class Guider(GortDevice):
         self.separation: float | None = None
         self.status: GuiderStatus = GuiderStatus.IDLE
 
-        self.guide_monitor_task: asyncio.Task | None = None
-
+        self.guider_monitor = GuiderMonitor(self.gort, self.name)
         self.gort.add_reply_callback(self._status_cb)
 
     @property
@@ -261,6 +262,8 @@ class Guider(GortDevice):
 
         """
 
+        monitor_task: asyncio.Task | None = None
+
         # The PA argument in lvmguider was added in 0.4.0a0.
         if self.version == Version("0.99.0") or self.version < Version("0.4.0a0"):
             guide_kwargs.pop("pa")
@@ -294,7 +297,8 @@ class Guider(GortDevice):
 
         try:
             if monitor:
-                self.guide_monitor_task = asyncio.create_task(self._monitor_task())
+                self.guider_monitor.start_monitoring()
+                monitor_task = asyncio.create_task(self._monitor_task())
 
             await self.actor.commands.guide(
                 reply_callback=partial(self.log_replies, skip_debug=False),
@@ -304,43 +308,29 @@ class Guider(GortDevice):
                 reference_pixel=pixel,
                 **guide_kwargs,
             )
+
         except Exception as err:
             # Deal with the guide command being cancelled when we stop it.
             if "This command has been cancelled" not in str(err):
                 raise
+
         finally:
-            await cancel_task(self.guide_monitor_task)
+            await cancel_task(monitor_task)
 
     async def _monitor_task(self, timeout: float = 30):
         """Monitors guiding and reports average and last guide metrics."""
 
-        current_data = []
-
-        task = asyncio.create_task(
-            build_guider_reply_list(
-                self.gort,
-                current_data,
-                actor=self.actor.name,
-            )
-        )
-
-        try:
-            while True:
+        while True:
+            try:
                 await asyncio.sleep(timeout)
 
-                # Build DF with all the frames.
-                df = pandas.DataFrame.from_records(current_data)
-
-                # Group by frameno, keep only non-NaN values.
-                df = df.groupby(["frameno", "telescope"], as_index=False).apply(
-                    lambda g: g.bfill(axis=0).iloc[0, :]
-                )
-
-                # Sort by frameno.
-                df = df.sort_values("frameno")
+                # Get updated date
+                df = self.guider_monitor.update().copy()
+                df = df.loc[self.name].reset_index()
 
                 # Select columns.
-                df = df[
+                df = df.loc[
+                    :,
                     [
                         "frameno",
                         "time",
@@ -354,7 +344,7 @@ class Guider(GortDevice):
                         "dec_offset",
                         "separation",
                         "mode",
-                    ]
+                    ],
                 ]
 
                 # Remove NaN rows.
@@ -391,9 +381,11 @@ class Guider(GortDevice):
                     "info",
                 )
 
-        except asyncio.CancelledError:
-            await cancel_task(task)
-            return
+            except asyncio.CancelledError:
+                return
+
+            except Exception as err:
+                self.write_to_log(f"Error in guider monitor: {err}", "warning")
 
     async def stop(self) -> None:
         """Stops the guide loop.
@@ -699,3 +691,190 @@ class GuiderSet(GortDeviceSet[Guider]):
         )
 
         return dict(zip(names, results))
+
+
+class GuiderMonitor:
+    """A tool to monitor guider outputs and store them in a dataframe."""
+
+    def __init__(self, gort: GortClient, actor: str | None = None):
+
+        self.gort = gort
+        self.actor = actor
+
+        self.data: pandas.DataFrame | None = None
+
+        self.__dtypes = {
+            "frameno": "int32[pyarrow]",
+            "telescope": "string[pyarrow]",
+            "time": pandas.ArrowDtype(pyarrow.timestamp("ms", "UTC")),
+            "n_sources": "int32[pyarrow]",
+            "focus_position": "float32[pyarrow]",
+            "fwhm": "float32[pyarrow]",
+            "ra": "float64[pyarrow]",
+            "dec": "float64[pyarrow]",
+            "ra_offset": "float32[pyarrow]",
+            "dec_offset": "float32[pyarrow]",
+            "separation": "float32[pyarrow]",
+            "pa": "float32[pyarrow]",
+            "pa_offset": "float32[pyarrow]",
+            "zero_point": "float32[pyarrow]",
+            "mode": "string[pyarrow]",
+            "ax0_applied": "float32[pyarrow]",
+            "ax1_applied": "float32[pyarrow]",
+            "rot_applied": "float32[pyarrow]",
+        }
+        self._data: dict[str, dict[tuple[int, str], Any]] = {
+            column: {}
+            for column in self.__dtypes
+            if column not in ["frameno", "telescope"]
+        }
+
+    def reset(self):
+        """Resets the internal state."""
+
+        self.__init__(self.gort, self.actor)
+
+    def start_monitoring(self):
+        """Starts monitoring the guider outputs."""
+
+        if self._handle_guider_reply not in self.gort._callbacks:
+            self.gort.add_reply_callback(self._handle_guider_reply)
+
+        self.reset()
+
+    def stop_monitoring(self):
+        """Stops monitoring the guider outputs."""
+
+        if self._handle_guider_reply in self.gort._callbacks:
+            self.gort.remove_reply_callback(self._handle_guider_reply)
+
+    def __del__(self):
+        self.stop_monitoring()
+
+    def update(self):
+        """Updates the internal dataframe."""
+
+        series: dict[str, pandas.Series] = {}
+        for column in self._data:
+            series[column] = pandas.Series(
+                list(self._data[column].values()),
+                index=self._data,
+                dtype=self.__dtypes[column],
+            )
+
+        df = pandas.DataFrame(series)
+        df.index.names = ["frameno", "telescope"]
+        df.reset_index(inplace=True)
+
+        df.frameno = df.frameno.astype("int32[pyarrow]")
+        df.telescope = df.telescope.astype("string[pyarrow]")
+        df.set_index(["telescope", "frameno"], inplace=True)
+        df.sort_index(inplace=True)
+
+        self.data = df
+
+        return df
+
+    async def _handle_guider_reply(self, reply: AMQPReply):
+        """Processes an actor reply and stores the collected data."""
+
+        if self.actor is not None:
+            if self.actor not in str(reply.sender):
+                return
+        else:
+            if ".guider" not in str(reply.sender):
+                return
+
+        body = reply.body
+
+        telescope = str(reply.sender).split(".")[1]
+        frameno: int | None = None
+        new_data: dict[str, Any] = {}
+
+        try:
+            if "frame" in body:
+                frame = body["frame"]
+                frameno = frame["seqno"]
+                new_data = {
+                    "time": pandas.to_datetime(datetime.datetime.now()),
+                    "n_sources": frame["n_sources"],
+                    "focus_position": frame["focus_position"],
+                    "fwhm": frame["fwhm"],
+                    "telescope": telescope,
+                }
+
+            elif "measured_pointing" in body:
+                measured_pointing = body["measured_pointing"]
+                frameno = measured_pointing["frameno"]
+                new_data = {
+                    "ra": measured_pointing["ra"],
+                    "dec": measured_pointing["dec"],
+                    "ra_offset": measured_pointing["radec_offset"][0],
+                    "dec_offset": measured_pointing["radec_offset"][1],
+                    "separation": measured_pointing["separation"],
+                    "pa": measured_pointing.get("pa", numpy.nan),
+                    "pa_offset": measured_pointing.get("pa_offset", numpy.nan),
+                    "zero_point": measured_pointing.get("zero_point", numpy.nan),
+                    "mode": measured_pointing["mode"],
+                    "telescope": telescope,
+                }
+
+            elif "correction_applied" in body:
+                correction_applied = body["correction_applied"]
+                frameno = correction_applied["frameno"]
+                new_data = {
+                    "ax0_applied": correction_applied["motax_applied"][0],
+                    "ax1_applied": correction_applied["motax_applied"][1],
+                    "rot_applied": correction_applied.get("rot_applied", 0.0),
+                    "telescope": telescope,
+                }
+            else:
+                return
+
+            if not isinstance(frameno, int):
+                return
+
+            index = (frameno, telescope)
+            for column, value in new_data.items():
+                self._data[column][index] = value
+
+            self.update()
+
+        except Exception as err:
+            self.gort.log.warning(f"Error processing guider reply: {err}")
+
+    def to_header(self):
+        """Returns a header with pointing and guiding information."""
+
+        header: dict[str, Any] = {}
+
+        telescopes = ["sci", "spec", "skye", "skyw"]
+        if self.actor is not None:
+            telescopes = [self.actor.split(".")[1]]
+
+        if self.data is not None:
+            for tel in telescopes:
+                try:
+                    tel_data = self.data.loc[self.data.telescope == tel]
+                    if len(tel_data) < 2:
+                        frame0 = None
+                        framen = None
+                    else:
+                        frame0 = int(tel_data.frameno.min())
+                        framen = int(tel_data.frameno.max())
+
+                    header.update(
+                        {
+                            f"G{tel.upper()}FR0": (frame0, f"{tel} first guider frame"),
+                            f"G{tel.upper()}FRN": (framen, f"{tel} last guider frame"),
+                        }
+                    )
+
+                except Exception as err:
+                    self.gort.specs.write_to_log(
+                        f"Failed updating guider header information for {tel}: {err}",
+                        "warning",
+                    )
+                    continue
+
+        return header

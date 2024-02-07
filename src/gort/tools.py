@@ -18,14 +18,11 @@ import re
 import tempfile
 import warnings
 from contextlib import suppress
-from datetime import datetime
 from functools import partial
 
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Sequence
 
 import httpx
-import numpy
-import pandas
 import peewee
 from astropy import units as uu
 from astropy.coordinates import angular_separation as astropy_angular_separation
@@ -60,7 +57,6 @@ __all__ = [
     "is_interactive",
     "is_notebook",
     "cancel_task",
-    "build_guider_reply_list",
     "get_temporary_file_path",
     "insert_to_database",
     "get_md5sum_file",
@@ -577,99 +573,6 @@ async def cancel_task(task: asyncio.Future | None):
     task.cancel()
     with suppress(asyncio.CancelledError):
         await task
-
-
-async def build_guider_reply_list(
-    gort: GortClient,
-    reply_list: list[dict],
-    actor: str | None = None,
-):
-    """Tasks that monitors the guider output and builds a list of replies.
-
-    This coroutine is meant to be run as a task. When the task is cancelled it
-    will clean itself by removing the callback in the client.
-
-    Parameters
-    ----------
-    gort
-        The Gort client to connect to the actor system.
-    reply_list
-        A list (usually empty) to which the task will append the replies.
-    actor
-        The actor to listen to. If :obj:`None`, listens to all the guider actors.
-
-    """
-
-    async def handle_guider_reply(reply: AMQPReply):
-        if actor is not None:
-            if actor not in str(reply.sender):
-                return
-        else:
-            if ".guider" not in str(reply.sender):
-                return
-
-        body = reply.body
-        telescope = str(reply.sender).split(".")[1]
-
-        try:
-            if "frame" in body:
-                frame = body["frame"]
-                reply_list.append(
-                    {
-                        "frameno": frame["seqno"],
-                        "time": pandas.to_datetime(datetime.now()),
-                        "n_sources": frame["n_sources"],
-                        "focus_position": frame["focus_position"],
-                        "fwhm": frame["fwhm"],
-                        "telescope": telescope,
-                    }
-                )
-            elif "measured_pointing" in body:
-                measured_pointing = body["measured_pointing"]
-                reply_list.append(
-                    {
-                        "frameno": measured_pointing["frameno"],
-                        "ra": measured_pointing["ra"],
-                        "dec": measured_pointing["dec"],
-                        "ra_offset": measured_pointing["radec_offset"][0],
-                        "dec_offset": measured_pointing["radec_offset"][1],
-                        "separation": measured_pointing["separation"],
-                        "pa": measured_pointing.get("pa", numpy.nan),
-                        "pa_offset": measured_pointing.get("pa_offset", numpy.nan),
-                        "zero_point": measured_pointing.get("zero_point", numpy.nan),
-                        "mode": measured_pointing["mode"],
-                        "telescope": telescope,
-                    }
-                )
-            elif "correction_applied" in body:
-                correction_applied = body["correction_applied"]
-
-                reply_list.append(
-                    {
-                        "frameno": correction_applied["frameno"],
-                        "ax0_applied": correction_applied["motax_applied"][0],
-                        "ax1_applied": correction_applied["motax_applied"][1],
-                        "rot_applied": correction_applied.get("rot_applied", 0.0),
-                        "telescope": telescope,
-                    }
-                )
-            else:
-                return
-
-        except Exception as err:
-            gort.log.warning(f"Error processing guider reply: {err}")
-
-    try:
-        gort.add_reply_callback(handle_guider_reply)
-
-        # If the list does not expand every 30s, clean and exit.
-        while True:
-            nlist = len(reply_list)
-            await asyncio.sleep(30)
-            if len(reply_list) == nlist:
-                return
-    finally:
-        gort.remove_reply_callback(handle_guider_reply)
 
 
 def get_temporary_file_path(*args, create_parents: bool = False, **kwargs):

@@ -17,16 +17,15 @@ from time import time
 
 from typing import TYPE_CHECKING, Any, Callable
 
-import numpy
 import pandas
 from astropy.time import Time
 
+from gort.devices.guider import GuiderMonitor
 from gort.exceptions import ErrorCodes, GortObserverError
 from gort.exposure import Exposure
 from gort.maskbits import GuiderStatus
 from gort.tile import Coordinates
 from gort.tools import (
-    build_guider_reply_list,
     cancel_task,
     handle_signals,
     insert_to_database,
@@ -101,7 +100,7 @@ class GortObserver:
         self.mask_positions = self._get_mask_positions(mask_positions_pattern)
 
         self.guide_task: asyncio.Future | None = None
-        self.guider_monitor = GuiderMonitor(self)
+        self.guider_monitor = GuiderMonitor(self.gort)
 
         self.standards = Standards(self, tile, self.mask_positions)
 
@@ -262,7 +261,7 @@ class GortObserver:
 
         with self.register_overhead("acquisition:start-guide-loop"):
             # Start guide loop.
-            await self.guider_monitor.restart()
+            self.guider_monitor.start_monitoring()
             self.guide_task = asyncio.gather(*guide_coros)
 
         with self.register_overhead("acquisition:acquire"):
@@ -374,7 +373,7 @@ class GortObserver:
             with self.register_overhead(f"expose:pre-exposure-{nexp}"):
                 # Refresh guider data for this exposure.
                 if self._n_exposures > 0:
-                    await self.guider_monitor.restart()
+                    self.guider_monitor.reset()
 
                 # Move fibre selector to the first position. Should be there unless
                 # count > 1 in which case we need to move it back.
@@ -609,7 +608,6 @@ class GortObserver:
 
         header.update(tile_header)
 
-        self.guider_monitor.update_data()
         header.update(self.guider_monitor.to_header())
 
         # At this point the shutter is closed so let's stop observing standards.
@@ -642,111 +640,6 @@ class GortObserver:
         #     )
 
         return
-
-
-class GuiderMonitor:
-    """Monitors guider exposures."""
-
-    def __init__(self, observer: GortObserver):
-        self.observer = observer
-        self.gort = observer.gort
-
-        self.guider_task: asyncio.Task | None = None
-        self.guider_data: pandas.DataFrame | None = None
-
-        self._current_data = []
-
-    async def start(self):
-        """Starts monitoring."""
-
-        self.guider_task = asyncio.create_task(self._guider_monitor())
-
-    async def stop(self):
-        """Stops monitoring."""
-
-        await cancel_task(self.guider_task)
-
-    async def restart(self):
-        """Restarts monitoring."""
-
-        self.guider_data = None
-
-        await self.stop()
-        await self.start()
-
-    async def _guider_monitor(self):
-        """Monitors the guider data and build a data frame."""
-
-        self._current_data = []
-
-        task = asyncio.create_task(
-            build_guider_reply_list(
-                self.gort,
-                self._current_data,
-            )
-        )
-
-        try:
-            while True:
-                # Just keep the task running.
-                await asyncio.sleep(1)
-
-        except asyncio.CancelledError:
-            await cancel_task(task)
-            self.update_data()
-
-    def update_data(self):
-        """Updates the guider data frame."""
-
-        if len(self._current_data) > 0:
-            # Build DF with all the frames.
-            df = pandas.DataFrame.from_records(self._current_data)
-
-            # Group by frameno, keep only non-NaN values.
-            df = df.groupby(["frameno", "telescope"], as_index=False).apply(
-                lambda g: g.bfill(axis=0).iloc[0, :]
-            )
-
-            # Remove NaN rows.
-            df = df.loc[~numpy.isnan(df.frameno)]
-
-            # Sort by frameno.
-            df = df.sort_values("frameno")
-
-            self.guider_data = df
-
-    def to_header(self):
-        """Returns a header with pointing and guiding information."""
-
-        header: dict[str, Any] = {}
-
-        if self.guider_data is not None:
-            for tel in ["sci", "spec", "skye", "skyw"]:
-                try:
-                    tel_data = self.guider_data.loc[self.guider_data.telescope == tel]
-                    # tel_data = tel_data.loc[tel_data["mode"] == "guide"]
-                    if len(tel_data) < 2:
-                        frame0 = None
-                        framen = None
-                    else:
-                        frame0 = int(tel_data.frameno.min())
-                        framen = int(tel_data.frameno.max())
-
-                    header.update(
-                        {
-                            f"G{tel.upper()}FR0": (frame0, f"{tel} first guider frame"),
-                            f"G{tel.upper()}FRN": (framen, f"{tel} last guider frame"),
-                        }
-                    )
-
-                except Exception as err:
-                    self.gort.specs.write_to_log(
-                        f"Failed updating guider header information for {tel}: {err}",
-                        "warning",
-                    )
-                    continue
-
-        return header
 
 
 class Standards:
