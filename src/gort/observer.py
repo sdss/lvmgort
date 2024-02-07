@@ -781,15 +781,15 @@ class Standards:
 
         df = pandas.DataFrame(
             {
-                "n": pandas.Series(stdn, dtype=numpy.int16),
-                "source_id": pandas.Series(source_id, dtype=numpy.int64),
-                "ra": pandas.Series(ra, dtype=numpy.float64),
-                "dec": pandas.Series(dec, dtype=numpy.float64),
-                "acquired": pandas.Series(default, dtype=numpy.int16),
-                "observed": pandas.Series(default, dtype=numpy.int16),
-                "t0": pandas.Series(default, dtype=numpy.float64),
-                "t1": pandas.Series(default, dtype=numpy.float64),
-                "fibre": pandas.Series([""] * len(stdn), dtype=str),
+                "n": pandas.Series(stdn, dtype="int16[pyarrow]"),
+                "source_id": pandas.Series(source_id, dtype="int64[pyarrow]"),
+                "ra": pandas.Series(ra, dtype="float64[pyarrow]"),
+                "dec": pandas.Series(dec, dtype="float64[pyarrow]"),
+                "acquired": pandas.Series(default, dtype="int16[pyarrow]"),
+                "observed": pandas.Series(default, dtype="int16[pyarrow]"),
+                "t0": pandas.Series(default, dtype="float64[pyarrow]"),
+                "t1": pandas.Series(default, dtype="float64[pyarrow]"),
+                "fibre": pandas.Series([""] * len(stdn), dtype="string[pyarrow]"),
             }
         )
 
