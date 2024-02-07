@@ -234,6 +234,7 @@ class Guider(GortDevice):
         dec: float | None = None,
         exposure_time: float = 5.0,
         pixel: tuple[float, float] | str | None = None,
+        monitor: bool = True,
         **guide_kwargs,
     ):
         """Starts the guide loop.
@@ -251,6 +252,9 @@ class Guider(GortDevice):
             The pixel on the master frame on which to guide. Defaults to
             the central pixel. This can also be the name of a known pixel
             position for this telescope, e.g., ``'P1-1'`` for ``spec``.
+        monitor
+            Whether to monitor the guide loop and output the average and last
+            guide metrics every 30 seconds.
         guide_kwargs
             Other keyword arguments to pass to ``lvmguider guide``. The includes
             the ``pa`` argument that if not provided is assumed to be zero.
@@ -289,7 +293,9 @@ class Guider(GortDevice):
         self.write_to_log(log_msg, level="info")
 
         try:
-            self.guide_monitor_task = asyncio.create_task(self._monitor_task())
+            if monitor:
+                self.guide_monitor_task = asyncio.create_task(self._monitor_task())
+
             await self.actor.commands.guide(
                 reply_callback=partial(self.log_replies, skip_debug=False),
                 ra=ra,
@@ -431,6 +437,66 @@ class Guider(GortDevice):
         """Enable/disable corrections being applied to the axes."""
 
         await self.actor.commands.corrections(mode="enable" if enable else "disable")
+
+    async def monitor(
+        self,
+        ra: float | None = None,
+        dec: float | None = None,
+        exposure_time: float = 5.0,
+        sleep: float = 60,
+    ):
+        """Guides at a given position, sleeping between exposures.
+
+        This is a convenience function mainly to monitor transparency during bad
+        weather conditions. The telescope will be slewed to a given position
+        (default to zenith) and guide with a low cadence. This results in the
+        guider keywords, including transparency and FWHM, being output and the
+        plots in Grafana being updated.
+
+        After cancelling the monitoring make sure to stop the guiders with the
+        :obj:`.Guider.stop` method.
+
+        Parameter
+        ---------
+        ra,dec
+            The coordinates to acquire. If :obj:`None`, the current zenith
+            coordinates are used.
+        exposure_time
+            The exposure time of the AG integrations.
+        sleep
+            The time to sleep between exposures (seconds).
+
+        """
+
+        await self.stop()
+
+        if ra is None and dec is None:
+            await self.telescope.goto_named_position("zenith", altaz_tracking=True)
+
+            # Get approximate RA/Dec. It doesn't really matter, we just want to guide
+            # on a field that's close to zenith.
+            tel_status = await self.telescope.status()
+            ra = tel_status.get("ra_j2000_hours")
+            dec = tel_status.get("dec_j2000_degs")
+
+            assert (
+                ra is not None and dec is not None
+            ), "Failed getting telescope RA/Dec."
+            ra *= 15.0
+
+        elif (ra is None and dec is not None) or (ra is not None and dec is None):
+            raise ValueError("Both RA and Dec need to be provided.")
+
+        # Even if we already went to zenith in alt/az we need to go to these
+        # coordinates again to make sure the kmirror is set.
+        await self.telescope.goto_coordinates(ra, dec)
+
+        await self.guide(
+            ra=ra,
+            dec=dec,
+            exposure_time=exposure_time,
+            sleep=sleep,
+        )
 
 
 class GuiderSet(GortDeviceSet[Guider]):
@@ -581,6 +647,15 @@ class GuiderSet(GortDeviceSet[Guider]):
         """Enable/disable corrections being applied to the axes."""
 
         await self.call_device_method(Guider.apply_corrections, enable=enable)
+
+    async def monitor(self, *args, **kwargs):
+        """Guides at a given position, sleeping between exposures.
+
+        See :obj:`.Guider.monitor` for details.
+
+        """
+
+        await self.call_device_method(Guider.monitor, *args, **kwargs)
 
     async def wait_until_guiding(
         self,
