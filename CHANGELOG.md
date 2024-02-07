@@ -2,9 +2,13 @@
 
 ## Next version
 
+### 🚀 New
+
+* [#20](https://github.com/sdss/lvmgort/pull/20) Added `GuiderSet.monitor()` which can be used to guide at zenith with low cadence and monitor transparency and FWHM while conditions are bad.
+
 ### ✨ Improved
 
-* [[#19](https://github.com/sdss/lvmgort/pull/19)] Improvemts to focusing. After a focus sweep, the focus is adjusted based on the delta temperature before each exposure.
+* [#19](https://github.com/sdss/lvmgort/pull/19) Improvemts to focusing. After a focus sweep, the focus is adjusted based on the delta temperature before each exposure.
 
 
 ## 0.9.0 - January 31, 2024
