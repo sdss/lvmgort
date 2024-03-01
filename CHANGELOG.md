@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### 🔧 Fixed
+
+* Fixed a serious issue in which if the slew fails, the retry did not send the PA and it would default to PA=0.
+
+
 ## 0.10.0 - February 7, 2024
 
 ### 🚀 New
