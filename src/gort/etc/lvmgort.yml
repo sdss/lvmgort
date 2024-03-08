@@ -21,6 +21,8 @@ telescopes:
       kmirror: lvm.skyw.km
       focuser: lvm.skyw.foc
   timeouts:
+    pwi:
+      slew: 60
     kmirror:
       slewStart: 60
       slewStop: 30

@@ -350,6 +350,8 @@ class Telescope(GortDevice):
         else:
             self.guider = None
 
+        self.timeouts = self.gort.config["telescopes"]["timeouts"]["pwi"]
+
     async def init(self):
         """Determines the initial state of the telescope."""
 
@@ -617,7 +619,11 @@ class Telescope(GortDevice):
             ra = float(numpy.clip(ra, 0, 360))
             dec = float(numpy.clip(dec, -90, 90))
 
-            await self.pwi.commands.gotoRaDecJ2000(ra / 15.0, dec)
+            await self.pwi.commands.gotoRaDecJ2000(
+                ra / 15.0,
+                dec,
+                timeout=self.timeouts["slew"],
+            )
 
             # Check the position the PWI reports.
             status = await self.status()
@@ -632,7 +638,11 @@ class Telescope(GortDevice):
             assert is_altaz, "Invalid input parameters"
 
             self.write_to_log(f"Moving to alt={alt:.6f} az={az:.6f}.", level="info")
-            await self.pwi.commands.gotoAltAzJ2000(alt, az)
+            await self.pwi.commands.gotoAltAzJ2000(
+                alt,
+                az,
+                timeout=self.timeouts["slew"],
+            )
 
             # Check the position the PWI reports.
             status = await self.status()
