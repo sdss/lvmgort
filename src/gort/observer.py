@@ -838,7 +838,7 @@ class Standards:
                 with self.observer.register_overhead(f"{overhead_root}-slew"):
                     cotasks = [
                         self.gort.guiders["spec"].stop(),
-                        spec_tel.goto_coordinates(ra=slew_ra, dec=slew_dec),
+                        spec_tel.goto_coordinates(ra=slew_ra, dec=slew_dec, force=True),
                     ]
                     await asyncio.gather(*cotasks)
 
