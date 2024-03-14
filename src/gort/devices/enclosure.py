@@ -200,6 +200,11 @@ class Enclosure(GortDevice):
     async def is_local(self):
         """Returns :obj:`True` if the enclosure is in local mode."""
 
+        # This should generally not be on, but it's useful as a way of disabling
+        # the local mode when the lock or door are not working.
+        if self.gort.config["enclosure"].get("bypass_local_mode", False) is True:
+            return False
+
         status = await self.status()
         safety_status_labels = status.get("safety_status_labels", None)
         if safety_status_labels is None:
@@ -207,11 +212,6 @@ class Enclosure(GortDevice):
                 "Cannot determine if enclosure is in local mode.",
                 error_code=501,
             )
-
-        # This should generally not be on, but it's useful as a way of disabling
-        # the local mode when the lock or door are not working.
-        if self.gort.config["enclosure"].get("bypass_local_mode", False) is True:
-            return False
 
         return "LOCAL" in safety_status_labels
 
