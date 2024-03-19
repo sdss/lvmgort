@@ -716,6 +716,7 @@ class Standards:
     async def cancel(self):
         """Cancels iteration."""
 
+        self.observer.write_to_log("Cancelling standards iteration.", "debug")
         await cancel_task(self.iterate_task)
 
         if len(self.standards) == 0:

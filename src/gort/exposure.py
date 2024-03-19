@@ -439,6 +439,8 @@ class Exposure(asyncio.Future["Exposure"]):
         if hook_name not in self.hooks:
             raise ValueError(f"Invalid hook {hook_name!r}.")
 
+        self.specs.write_to_log(f"Calling hook {hook_name!r}.")
+
         coros = self.hooks[hook_name]
         if not isinstance(coros, list) and asyncio.iscoroutinefunction(coros):
             task = asyncio.create_task(coros(*args, **kwargs))
