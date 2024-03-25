@@ -11,19 +11,22 @@ from __future__ import annotations
 import asyncio
 import json
 import pathlib
+import random
 from copy import deepcopy
 
 from typing import Any
 
 import jsonschema
 
+from gort import Gort
 from gort.exceptions import ErrorCodes, GortSpecError
+from gort.exposure import Exposure
 from gort.tools import cancel_task, move_mask_interval
 
 from .base import BaseRecipe
 
 
-__all__ = ["CalibrationRecipe"]
+__all__ = ["CalibrationRecipe", "QuickCals", "BiasSequence"]
 
 
 class CalibrationRecipe(BaseRecipe):
@@ -262,3 +265,128 @@ class CalibrationRecipe(BaseRecipe):
             raise ValueError(f"Sequence {sequence!r} not found in configuration file.")
 
         return deepcopy(sequences[sequence])
+
+
+class QuickCals(BaseRecipe):
+    """Runs a quick calibration sequence."""
+
+    name = "quick_cals"
+
+    async def recipe(self):
+        """Runs the calibration sequence."""
+
+        gort = self.gort
+        assert isinstance(gort, Gort)
+
+        await gort.cleanup()
+
+        gort.log.info("Moving telescopes to point to the calibration screen.")
+        await gort.telescopes.goto_named_position("calibration")
+
+        ########################
+        # Arcs
+        ########################
+
+        gort.log.info("Turning on the HgNe lamp.")
+        await gort.nps.calib.on("HgNe")
+
+        gort.log.info("Turning on the Ne lamp.")
+        await gort.nps.calib.on("Neon")
+
+        gort.log.info("Turning on the Argon lamp.")
+        await gort.nps.calib.on("Argon")
+
+        gort.log.info("Turning on the Xenon lamp.")
+        await gort.nps.calib.on("Xenon")
+
+        gort.log.info("Waiting 180 seconds for the lamps to warm up.")
+        await asyncio.sleep(180)
+
+        fiber = random.randint(1, 12)  # select random fibre on std telescope
+        fiber_str = f"P1-{fiber}"
+        gort.log.info(f"Taking {fiber_str} exposure.")
+        await gort.telescopes.spec.fibsel.move_to_position(fiber_str)
+
+        for exp_time in [10, 50]:
+            exp = await gort.specs.expose(
+                exp_time,
+                flavour="arc",
+                header={"CALIBFIB": f"P1-{fiber}"},
+            )
+            self.log_files(exp)
+
+        gort.log.info("Turning off all lamps.")
+        await gort.nps.calib.all_off()
+
+        ########################
+        # Flats
+        ########################
+
+        gort.log.info("Turning on the Quartz lamp.")
+        await gort.nps.calib.on("Quartz")
+
+        gort.log.info("Waiting 120 seconds for the lamp to warm up.")
+        await asyncio.sleep(120)
+
+        exp_quartz = 10
+        exp = await gort.specs.expose(
+            exp_quartz,
+            flavour="flat",
+            header={"CALIBFIB": f"P1-{fiber}"},
+        )
+        self.log_files(exp)
+
+        gort.log.info("Turning off the Quartz lamp.")
+        await gort.nps.calib.all_off()
+
+        gort.log.info("Turning on the LDLS lamp.")
+        await gort.nps.calib.on("LDLS")
+
+        gort.log.info("Waiting 300 seconds for the lamp to warm up.")
+        await asyncio.sleep(300)
+
+        exp_LDLS = 150
+
+        exp = await gort.specs.expose(
+            exp_LDLS,
+            flavour="flat",
+            header={"CALIBFIB": f"P1-{fiber}"},
+        )
+        self.log_files(exp)
+
+        gort.log.info("Turning off the LDLS lamp.")
+        await gort.nps.calib.all_off()
+
+    def log_files(self, exposure: Exposure | list[Exposure]):
+        """Logs the files from an exposure or list of exposures."""
+
+        assert isinstance(exposure, Exposure)
+
+        self.gort.log.debug(f"Files are: {exposure.get_files()}")
+
+
+class BiasSequence(BaseRecipe):
+    """Takes a sequence of bias frames."""
+
+    name = "bias_sequence"
+
+    async def recipe(self, count: int = 7):
+        """Takes a sequence of bias frames.
+
+        Parameters
+        ----------
+        count
+            The number of bias frames to take.
+
+        """
+
+        gort = self.gort
+        assert isinstance(gort, Gort)
+
+        gort.log.info("Moving telescopes to point to the selfie position.")
+        await gort.telescopes.goto_named_position("selfie")
+
+        await gort.nps.calib.all_off()
+
+        for _ in range(count):
+            await gort.specs.expose(flavour="bias")
