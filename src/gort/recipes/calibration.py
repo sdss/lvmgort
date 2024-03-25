@@ -17,11 +17,12 @@ from copy import deepcopy
 from typing import Any
 
 import jsonschema
+from astropy.time import Time
+from pyds9 import numpy
 
-from gort import Gort
 from gort.exceptions import ErrorCodes, GortSpecError
 from gort.exposure import Exposure
-from gort.tools import cancel_task, move_mask_interval
+from gort.tools import cancel_task, get_ephemeris_summary, move_mask_interval
 
 from .base import BaseRecipe
 
@@ -275,6 +276,8 @@ class QuickCals(BaseRecipe):
     async def recipe(self):
         """Runs the calibration sequence."""
 
+        from gort import Gort
+
         gort = self.gort
         assert isinstance(gort, Gort)
 
@@ -380,6 +383,8 @@ class BiasSequence(BaseRecipe):
 
         """
 
+        from gort import Gort
+
         gort = self.gort
         assert isinstance(gort, Gort)
 
@@ -390,3 +395,95 @@ class BiasSequence(BaseRecipe):
 
         for _ in range(count):
             await gort.specs.expose(flavour="bias")
+
+
+class TwilightFlats(BaseRecipe):
+    """Takes a sequence of twilight flats."""
+
+    name = "twilight_flats"
+
+    async def recipe(self, wait: bool = False, secondary: bool = False):
+        """Takes a sequence of twilight flats."""
+
+        from gort import Gort
+
+        gort = self.gort
+        assert isinstance(gort, Gort)
+
+        enclosure_status = await gort.enclosure.status()
+        if "OPEN" not in enclosure_status["dome_status_labels"]:
+            raise RuntimeError("Dome must be open to take twilight flats.")
+
+        has_slewed: bool = False
+
+        eph = await get_ephemeris_summary()
+
+        if abs(eph["time_to_sunset"]) < abs(eph["time_to_sunrise"]):
+            is_sunset = True
+            riseset = Time(eph["sunset"], format="jd")
+            alt = 40.0
+            az = 270.0
+        else:
+            is_sunset = False
+            riseset = Time(eph["sunrise"], format="jd")
+            alt = 40.0
+            az = 90.0
+
+        fudge_factor = 2
+        popt = numpy.array([1.09723745, 3.55598039, -1.86597751])
+
+        n_fibre = random.randint(1, 12)
+        n_observed = 0
+
+        while True:
+            now = Time.now()
+
+            if is_sunset:
+                time_diff = (riseset - now).sec / 60.0  # Minutes
+            else:
+                time_diff = (now - riseset).sec / 60.0
+
+            time_diff += fudge_factor
+
+            if time_diff > 5:
+                if wait:
+                    await asyncio.sleep(60)
+                    continue
+            elif time_diff < -40:
+                raise RuntimeError("Too late to take twilight flats.")
+
+            exp_time = popt[0] * numpy.exp(-1.0 * time_diff / popt[1]) + popt[2]
+            exp_time = numpy.ceil(exp_time)
+
+            if exp_time < 1:
+                exp_time = 1.0
+            if exp_time > 300:
+                raise RuntimeError("Too early/late in twilight.")
+
+            if not has_slewed:
+                gort.log.info("Moving telescopes to point to the twilight sky.")
+                await gort.telescopes.goto_coordinates_all(
+                    alt=alt,
+                    az=az,
+                    altaz_tracking=False,
+                )
+
+            fibre_str = f"P1-{n_fibre}"
+            if secondary:
+                fibre_str = f"P2-{n_fibre}"
+            await gort.telescopes.spec.fibsel.move_to_position(fibre_str)
+
+            gort.log.info(f"Taking {fibre_str} exposure with exp_time={exp_time:.2f}.")
+            await gort.specs.expose(
+                exp_time,
+                flavour="flat",
+                header={"CALIBFIB": fibre_str},
+            )
+
+            n_observed += 1
+            if n_observed == 12:
+                break
+
+            n_fibre = n_fibre + 1
+            if n_fibre > 12:
+                n_fibre -= 12

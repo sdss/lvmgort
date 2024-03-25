@@ -374,6 +374,10 @@ kubernetes:
     default: /home/sdss5/config/kube
     notebook: ~/sdss5/config/kube
 
+lvmapi:
+  host: 10.8.38.26
+  port: 8085
+
 websocket:
   host: 0.0.0.0
   port: 9000
