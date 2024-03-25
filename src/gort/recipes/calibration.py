@@ -21,7 +21,6 @@ from astropy.time import Time
 from pyds9 import numpy
 
 from gort.exceptions import ErrorCodes, GortSpecError
-from gort.exposure import Exposure
 from gort.tools import cancel_task, get_ephemeris_summary, move_mask_interval
 
 from .base import BaseRecipe
@@ -311,12 +310,11 @@ class QuickCals(BaseRecipe):
         await gort.telescopes.spec.fibsel.move_to_position(fiber_str)
 
         for exp_time in [10, 50]:
-            exp = await gort.specs.expose(
+            await gort.specs.expose(
                 exp_time,
                 flavour="arc",
                 header={"CALIBFIB": f"P1-{fiber}"},
             )
-            self.log_files(exp)
 
         gort.log.info("Turning off all lamps.")
         await gort.nps.calib.all_off()
@@ -332,12 +330,11 @@ class QuickCals(BaseRecipe):
         await asyncio.sleep(120)
 
         exp_quartz = 10
-        exp = await gort.specs.expose(
+        await gort.specs.expose(
             exp_quartz,
             flavour="flat",
             header={"CALIBFIB": f"P1-{fiber}"},
         )
-        self.log_files(exp)
 
         gort.log.info("Turning off the Quartz lamp.")
         await gort.nps.calib.all_off()
@@ -350,22 +347,14 @@ class QuickCals(BaseRecipe):
 
         exp_LDLS = 150
 
-        exp = await gort.specs.expose(
+        await gort.specs.expose(
             exp_LDLS,
             flavour="flat",
             header={"CALIBFIB": f"P1-{fiber}"},
         )
-        self.log_files(exp)
 
         gort.log.info("Turning off the LDLS lamp.")
         await gort.nps.calib.all_off()
-
-    def log_files(self, exposure: Exposure | list[Exposure]):
-        """Logs the files from an exposure or list of exposures."""
-
-        assert isinstance(exposure, Exposure)
-
-        self.gort.log.debug(f"Files are: {exposure.get_files()}")
 
 
 class BiasSequence(BaseRecipe):
