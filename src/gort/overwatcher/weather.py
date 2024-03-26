@@ -31,7 +31,7 @@ class WeatherOverwatcher(OverwatcherModule):
     async def run(self):
         """Starts the weather monitor."""
 
-        print("here")
+        return await super().run()
 
     @staticmethod
     async def get_weather_report(delta_time=600) -> polars.DataFrame:
