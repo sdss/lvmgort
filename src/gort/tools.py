@@ -741,6 +741,21 @@ def get_by_source_id(source_id: int) -> dict | None:
     return data[0]
 
 
+async def get_ephemeris_summary():
+    """Returns the ephemeris summary from ``lvmapi``."""
+
+    host = config["lvmapi"]["host"]
+    port = config["lvmapi"]["port"]
+    url = f"http://{host}:{port}/ephemeris/"
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url)
+        if resp.status_code != 200:
+            raise httpx.RequestError("Failed request to /ephemeris")
+
+    return resp.json()
+
+
 class GuiderMonitor:
     """A tool to monitor guider outputs and store them in a dataframe."""
 
