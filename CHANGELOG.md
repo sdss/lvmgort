@@ -2,6 +2,10 @@
 
 ## Next version
 
+### 🚀 New
+
+* [#23](https://github.com/sdss/lvmgort/pull/23) Added observer calibration scripts as recipes `quick_cals`, `bias_sequence`, and `twilight_flats`.
+
 ### 🔧 Fixed
 
 * Fixed a serious issue in which if the slew fails, the retry did not send the PA and it would default to PA=0.
