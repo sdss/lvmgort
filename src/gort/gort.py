@@ -645,7 +645,12 @@ class Gort(GortClient):
         self.log.warning("Closing and parking telescopes.")
         await asyncio.gather(*tasks)
 
-    async def observe(self, n_tiles: int | None = None, adjust_focus: bool = True):
+    async def observe(
+        self,
+        n_tiles: int | None = None,
+        adjust_focus: bool = True,
+        show_progress: bool | None = None,
+    ):
         """Runs a fully automatic science observing loop."""
 
         # TODO: add some exception handling for keyboard interrupts.
@@ -661,6 +666,7 @@ class Gort(GortClient):
                 run_cleanup=False,
                 cleanup_on_interrrupt=True,
                 adjust_focus=adjust_focus,
+                show_progress=show_progress,
             )
             if result is False:
                 break

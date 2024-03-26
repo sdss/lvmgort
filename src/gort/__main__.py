@@ -33,6 +33,90 @@ async def websocket():
     await ws.websocket_server.serve_forever()
 
 
+@gort.command()
+@click.option(
+    "--calibrations/--no-calibrations",
+    is_flag=True,
+    default=False,
+    help="Take calibrations as part of the startup sequence.",
+)
+@click.option(
+    "--open-enclosure/--no-open-enclosure",
+    is_flag=True,
+    default=True,
+    help="Open the enclosure.",
+)
+@click.option(
+    "--confirm-open/--no-confirm-open",
+    is_flag=True,
+    default=True,
+    help="Request confirmation before opening the enclosure.",
+)
+@click.option(
+    "--focus/--no-focus",
+    is_flag=True,
+    default=True,
+    help="Focus the telescopes.",
+)
+@cli_coro()
+async def startup(
+    calibrations: bool = False,
+    open_enclosure: bool = True,
+    confirm_open: bool = True,
+    focus: bool = True,
+):
+    """Runs the startup sequence."""
+
+    from gort import Gort
+
+    gort = await Gort(verbosity="debug").init()
+    await gort.startup(
+        calibration_sequence=calibrations,
+        open_enclosure=open_enclosure,
+        confirm_open=confirm_open,
+        focus=focus,
+    )
+
+
+@gort.command()
+@click.option(
+    "--park/--no-park",
+    is_flag=True,
+    default=True,
+    help="Parks the telescopes.",
+)
+@cli_coro()
+async def shutdown(park: bool = True):
+    """Runs the shutdown sequence."""
+
+    from gort import Gort
+
+    gort = await Gort(verbosity="debug").init()
+    await gort.shutdown(park_telescopes=park)
+
+
+@gort.command()
+@cli_coro()
+async def focus():
+    """Focus the telescopes."""
+
+    from gort import Gort
+
+    gort = await Gort(verbosity="debug").init()
+    await gort.guiders.focus()
+
+
+@gort.command()
+@cli_coro()
+async def observe():
+    """Runs the observe loop."""
+
+    from gort import Gort
+
+    gort = await Gort(verbosity="debug").init()
+    await gort.observe(show_progress=True)
+
+
 @gort.command(name="pointing-model")
 @click.argument(
     "TELESCOPES",
