@@ -392,16 +392,30 @@ class TwilightFlats(BaseRecipe):
     name = "twilight_flats"
 
     async def recipe(self, wait: bool = False, secondary: bool = False):
-        """Takes a sequence of twilight flats."""
+        """Takes a sequence of twilight flats.
+
+        Based on K. Kreckel's code.
+
+        """
+
+        # Start sunset flats one minute after sunset.
+        # Positive numbers means "into" the twilight.
+        SUNSET_START = 2
+        # Start sunrise flats 20 minutes before sunrise
+        SUNRISE_START = 20
+
+        # Exposure time model
+        POPT = numpy.array([1.09723745, 3.55598039, -1.86597751])
+        # Tweak factor for the exposure time.
+        FUDGE_FACTOR = 2
 
         from gort import Gort
 
         gort = self.gort
         assert isinstance(gort, Gort)
 
-        enclosure_status = await gort.enclosure.status()
-        if "OPEN" not in enclosure_status["dome_status_labels"]:
-            raise RuntimeError("Dome must be open to take twilight flats.")
+        # if not self.gort.enclosure.is_open():
+        #     raise RuntimeError("Dome must be open to take twilight flats.")
 
         has_slewed: bool = False
 
@@ -418,36 +432,42 @@ class TwilightFlats(BaseRecipe):
             alt = 40.0
             az = 90.0
 
-        fudge_factor = 2
-        popt = numpy.array([1.09723745, 3.55598039, -1.86597751])
-
         n_fibre = random.randint(1, 12)
         n_observed = 0
 
         while True:
+            # Calculate the number of minutes into the twilight.
             now = Time.now()
+            time_diff_sun = (now - riseset).sec / 60.0  # Minutes
+            if not is_sunset:
+                time_diff_sun = -time_diff_sun
 
-            if is_sunset:
-                time_diff = (riseset - now).sec / 60.0  # Minutes
-            else:
-                time_diff = (now - riseset).sec / 60.0
-
-            time_diff += fudge_factor
-
-            if time_diff > 5:
-                if wait:
-                    await asyncio.sleep(60)
-                    continue
-            elif time_diff < -40:
-                raise RuntimeError("Too late to take twilight flats.")
-
-            exp_time = popt[0] * numpy.exp(-1.0 * time_diff / popt[1]) + popt[2]
+            # Calculate exposure time.
+            aa, bb, cc = POPT
+            exp_time = aa * numpy.exp((time_diff_sun + FUDGE_FACTOR) / bb) + cc
             exp_time = numpy.ceil(exp_time)
 
             if exp_time < 1:
                 exp_time = 1.0
+
+            if is_sunset:
+                time_to_flat_twilighs = SUNSET_START - time_diff_sun
+            else:
+                time_to_flat_twilighs = time_diff_sun - SUNRISE_START
+
+            if time_to_flat_twilighs > 0:
+                if wait:
+                    self.gort.log.info(
+                        "Waiting for twilight. Time to twilight flats: "
+                        f"{time_to_flat_twilighs:.1f} minutes."
+                    )
+                    await asyncio.sleep(30)
+                    continue
+                else:
+                    raise RuntimeError("Too early to take twilight flats.")
+
             if exp_time > 300:
-                raise RuntimeError("Too early/late in twilight.")
+                raise RuntimeError("Too early/late to take twilight flats.")
 
             if not has_slewed:
                 gort.log.info("Moving telescopes to point to the twilight sky.")
@@ -456,6 +476,7 @@ class TwilightFlats(BaseRecipe):
                     az=az,
                     altaz_tracking=False,
                 )
+                has_slewed = True
 
             fibre_str = f"P1-{n_fibre}"
             if secondary:
