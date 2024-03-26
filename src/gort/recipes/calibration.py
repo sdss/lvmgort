@@ -17,8 +17,8 @@ from copy import deepcopy
 from typing import Any
 
 import jsonschema
+import numpy
 from astropy.time import Time
-from pyds9 import numpy
 
 from gort.exceptions import ErrorCodes, GortSpecError
 from gort.tools import cancel_task, get_ephemeris_summary, move_mask_interval
