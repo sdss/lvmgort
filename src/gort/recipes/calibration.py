@@ -26,7 +26,7 @@ from gort.tools import cancel_task, get_ephemeris_summary, move_mask_interval
 from .base import BaseRecipe
 
 
-__all__ = ["CalibrationRecipe", "QuickCals", "BiasSequence"]
+__all__ = ["CalibrationRecipe", "QuickCals", "BiasSequence", "TwilightFlats"]
 
 
 class CalibrationRecipe(BaseRecipe):
