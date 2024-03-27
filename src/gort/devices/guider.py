@@ -14,7 +14,7 @@ from functools import partial
 
 from typing import TYPE_CHECKING
 
-import pandas
+import polars
 from packaging.version import Version
 
 from gort import config
@@ -322,13 +322,15 @@ class Guider(GortDevice):
             try:
                 await asyncio.sleep(timeout)
 
-                # Get updated date
-                df = self.guider_monitor.update().copy()
-                df = df.loc[self.name].reset_index()
+                # Get updated data
+                df = self.guider_monitor.get_dataframe()
+                if df is None:
+                    continue
+
+                df = df.filter(polars.col.telescope == self.name)
 
                 # Select columns.
-                df = df.loc[
-                    :,
+                df = df.select(
                     [
                         "frameno",
                         "time",
@@ -341,15 +343,15 @@ class Guider(GortDevice):
                         "dec_offset",
                         "separation",
                         "mode",
-                    ],
-                ]
+                    ]
+                )
 
                 # Remove NaN rows.
-                df = df.dropna()
+                df = df.drop_nulls()
 
                 now = datetime.datetime.now(datetime.timezone.utc)
-                time_range = now - pandas.Timedelta(f"{timeout} seconds")
-                time_data = df.loc[df.time > time_range, :]
+                time_range = now - datetime.timedelta(seconds=timeout)
+                time_data = df.filter(polars.col.time > time_range).sort("time")
 
                 if (
                     len(time_data) == 0
@@ -360,9 +362,9 @@ class Guider(GortDevice):
 
                 # Calculate and report last.
                 last = time_data.tail(1)
-                sep_last = round(last.separation.values[0], 3)
-                fwhm_last = round(last.fwhm.values[0], 2)
-                mode_last = last["mode"].values[0]
+                sep_last = round(last["separation"][0], 3)
+                fwhm_last = round(last["fwhm"][0], 2)
+                mode_last = last["mode"][0]
                 self.write_to_log(
                     f"Last: sep={sep_last} arcsec; fwhm={fwhm_last} arcsec; "
                     f"mode={mode_last!r}",
@@ -370,8 +372,8 @@ class Guider(GortDevice):
                 )
 
                 # Calculate and report averages.
-                sep_avg = round(time_data.separation.mean(), 3)
-                fwhm_avg = round(time_data.fwhm.mean(), 2)
+                sep_avg = round(time_data["separation"].mean(), 3)  # type: ignore
+                fwhm_avg = round(time_data["fwhm"].mean(), 2)  # type: ignore
                 self.write_to_log(
                     f"Average ({timeout} s): sep={sep_avg} arcsec; "
                     f"fwhm={fwhm_avg} arcsec",
@@ -382,6 +384,7 @@ class Guider(GortDevice):
                 return
 
             except Exception as err:
+                raise
                 self.write_to_log(f"Error in guider monitor: {err}", "warning")
 
     async def stop(self) -> None:

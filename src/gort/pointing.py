@@ -15,7 +15,7 @@ from functools import partial
 from typing import Sequence
 
 import numpy
-import pandas
+import polars
 from astropy import units as uu
 from astropy.coordinates import (
     AltAz,
@@ -157,13 +157,13 @@ async def pointing_model(
     telescopes: Sequence[str] = ["sci", "spec", "skye", "skyw"],
     home: bool = True,
     add_points: bool = True,
-) -> pandas.DataFrame | None:
+) -> polars.DataFrame | None:
     """Iterates over a series of points on the sky measuring offsets.
 
     Parameters
     ----------
     output_file
-        The HD5 file where to save the resulting table.
+        A parquet file where to save the resulting table.
     n_points
         Number of points on the sky to measure.
     alt_range
@@ -185,6 +185,8 @@ async def pointing_model(
 
     points = get_random_sample(n_points, alt_range=alt_range, az_range=az_range)
 
+    data: polars.DataFrame | None = None
+
     if output_file is not None:
         outputs_dir = pathlib.Path(__file__).parents[2] / "outputs"
         output_file = pathlib.Path(output_file)
@@ -192,14 +194,9 @@ async def pointing_model(
             output_file = outputs_dir / output_file
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        store = pandas.HDFStore(str(output_file), "a")
-        data = store["data"] if "data" in store else None
+        data = polars.read_parquet(str(output_file))
 
-    else:
-        data = None
-        store = None
-
-    assert data is None or isinstance(data, pandas.DataFrame)
+    assert data is None or isinstance(data, polars.DataFrame)
 
     if home:
         await gort.telescopes.goto_named_position("zenith")
@@ -246,22 +243,18 @@ async def pointing_model(
         if len(valid) == 0:
             continue
 
-        this_offsets = pandas.DataFrame.from_records(valid)
+        this_offsets = polars.DataFrame(valid)
 
         print()
         print(this_offsets)
 
         if data is not None:
-            data = pandas.concat([data, this_offsets])
+            data = polars.concat([data, this_offsets])
         else:
             data = this_offsets
 
-        if store:
-            data = data.reset_index(drop=True)
-            store.put("data", data)
-
-    if store:
-        store.close()
+        if output_file:
+            data.write_parquet(str(output_file))
 
     return data
 
