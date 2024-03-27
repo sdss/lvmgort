@@ -25,11 +25,12 @@ from typing import TYPE_CHECKING, Any, Callable, Coroutine, Sequence
 
 import httpx
 import numpy
-import pandas
 import peewee
-import pyarrow
+import polars
 from astropy import units as uu
 from astropy.coordinates import angular_separation as astropy_angular_separation
+
+from sdsstools import get_sjd
 
 from gort import config
 
@@ -761,15 +762,17 @@ def get_by_source_id(source_id: int) -> dict | None:
     return data[0]
 
 
-async def get_ephemeris_summary():
+async def get_ephemeris_summary(sjd: int | None = None):
     """Returns the ephemeris summary from ``lvmapi``."""
 
     host = config["lvmapi"]["host"]
     port = config["lvmapi"]["port"]
     url = f"http://{host}:{port}/ephemeris/"
 
+    sjd = sjd or get_sjd("LCO")
+
     async with httpx.AsyncClient() as client:
-        resp = await client.get(url)
+        resp = await client.get(url, params={"sjd": sjd})
         if resp.status_code != 200:
             raise httpx.RequestError("Failed request to /ephemeris")
 
@@ -784,32 +787,27 @@ class GuiderMonitor:
         self.gort = gort
         self.actor = actor
 
-        self.data: pandas.DataFrame | None = None
+        self._data: dict[tuple[int, str], dict[str, Any]] = {}
 
-        self.__dtypes = {
-            "frameno": "int32[pyarrow]",
-            "telescope": "string[pyarrow]",
-            "time": pandas.ArrowDtype(pyarrow.timestamp("ms", "UTC")),
-            "n_sources": "int32[pyarrow]",
-            "focus_position": "float32[pyarrow]",
-            "fwhm": "float32[pyarrow]",
-            "ra": "float64[pyarrow]",
-            "dec": "float64[pyarrow]",
-            "ra_offset": "float32[pyarrow]",
-            "dec_offset": "float32[pyarrow]",
-            "separation": "float32[pyarrow]",
-            "pa": "float32[pyarrow]",
-            "pa_offset": "float32[pyarrow]",
-            "zero_point": "float32[pyarrow]",
-            "mode": "string[pyarrow]",
-            "ax0_applied": "float32[pyarrow]",
-            "ax1_applied": "float32[pyarrow]",
-            "rot_applied": "float32[pyarrow]",
-        }
-        self._data: dict[str, dict[tuple[int, str], Any]] = {
-            column: {}
-            for column in self.__dtypes
-            if column not in ["frameno", "telescope"]
+        self._schema = {
+            "frameno": polars.Int32(),
+            "telescope": polars.String(),
+            "time": polars.Datetime(time_zone="UTC"),
+            "n_sources": polars.Int32(),
+            "focus_position": polars.Float32(),
+            "fwhm": polars.Float32(),
+            "ra": polars.Float64(),
+            "dec": polars.Float64(),
+            "ra_offset": polars.Float32(),
+            "dec_offset": polars.Float32(),
+            "separation": polars.Float32(),
+            "pa": polars.Float32(),
+            "pa_offset": polars.Float32(),
+            "zero_point": polars.Float32(),
+            "mode": polars.String(),
+            "ax0_applied": polars.Float32(),
+            "ax1_applied": polars.Float32(),
+            "rot_applied": polars.Float32(),
         }
 
     def reset(self):
@@ -834,29 +832,16 @@ class GuiderMonitor:
     def __del__(self):
         self.stop_monitoring()
 
-    def update(self):
-        """Updates the internal dataframe."""
+    def get_dataframe(self) -> polars.DataFrame | None:
+        """Returns the collected data as a dataframe."""
 
-        series: dict[str, pandas.Series] = {}
-        for column in self._data:
-            series[column] = pandas.Series(
-                list(self._data[column].values()),
-                index=self._data[column],
-                dtype=self.__dtypes[column],
-            )
+        if len(self._data) == 0:
+            return
 
-        df = pandas.DataFrame(series)
-        df.index.names = ["frameno", "telescope"]
-        df.reset_index(inplace=True)
+        values = self._data.values()
+        dfs = [polars.DataFrame([dv], schema=self._schema) for dv in values]
 
-        df.frameno = df.frameno.astype("int32[pyarrow]")
-        df.telescope = df.telescope.astype("string[pyarrow]")
-        df.set_index(["telescope", "frameno"], inplace=True)
-        df.sort_index(inplace=True)
-
-        self.data = df
-
-        return df
+        return polars.concat(dfs).sort(["frameno", "telescope"])
 
     async def _handle_guider_reply(self, reply: AMQPReply):
         """Processes an actor reply and stores the collected data."""
@@ -879,7 +864,9 @@ class GuiderMonitor:
                 frame = body["frame"]
                 frameno = frame["seqno"]
                 new_data = {
-                    "time": pandas.to_datetime(datetime.datetime.now()),
+                    "frameno": frameno,
+                    "telescope": telescope,
+                    "time": datetime.datetime.now(datetime.timezone.utc),
                     "n_sources": frame["n_sources"],
                     "focus_position": frame["focus_position"],
                     "fwhm": frame["fwhm"],
@@ -889,6 +876,8 @@ class GuiderMonitor:
                 measured_pointing = body["measured_pointing"]
                 frameno = measured_pointing["frameno"]
                 new_data = {
+                    "frameno": frameno,
+                    "telescope": telescope,
                     "ra": measured_pointing["ra"],
                     "dec": measured_pointing["dec"],
                     "ra_offset": measured_pointing["radec_offset"][0],
@@ -904,6 +893,8 @@ class GuiderMonitor:
                 correction_applied = body["correction_applied"]
                 frameno = correction_applied["frameno"]
                 new_data = {
+                    "frameno": frameno,
+                    "telescope": telescope,
                     "ax0_applied": correction_applied["motax_applied"][0],
                     "ax1_applied": correction_applied["motax_applied"][1],
                     "rot_applied": correction_applied.get("rot_applied", 0.0),
@@ -914,11 +905,11 @@ class GuiderMonitor:
             if not isinstance(frameno, int):
                 return
 
-            index = (frameno, telescope)
-            for column, value in new_data.items():
-                self._data[column][index] = value
-
-            self.update()
+            key = (frameno, telescope)
+            if key in self._data:
+                self._data[key].update(new_data)
+            else:
+                self._data[key] = new_data
 
         except Exception as err:
             self.gort.log.warning(f"Error processing guider reply: {err}")
@@ -932,16 +923,18 @@ class GuiderMonitor:
         if self.actor is not None:
             telescopes = [self.actor.split(".")[1]]
 
-        if self.data is not None:
+        df = self.get_dataframe()
+
+        if df is not None:
             for tel in telescopes:
                 try:
-                    tel_data = self.data.loc[tel].copy().reset_index()
+                    tel_data = df.filter(polars.col.telescope == tel)
                     if len(tel_data) < 2:
                         frame0 = None
                         framen = None
                     else:
-                        frame0 = int(tel_data.frameno.min())
-                        framen = int(tel_data.frameno.max())
+                        frame0 = int(tel_data["frameno"].min())  # type: ignore
+                        framen = int(tel_data["frameno"].max())  # type: ignore
 
                     header.update(
                         {

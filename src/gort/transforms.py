@@ -16,7 +16,7 @@ import astropy.coordinates
 import astropy.time
 import astropy.units
 import numpy
-import pandas
+import polars
 import yaml
 from astropy.coordinates import Angle
 
@@ -38,13 +38,13 @@ __all__ = [
 ]
 
 
-_FIBERMAP_CACHE: pandas.DataFrame | None = None
+_FIBERMAP_CACHE: polars.DataFrame | None = None
 
 
 def read_fibermap(
     path: str | pathlib.Path | None = None,
     force_cache: bool = False,
-) -> pandas.DataFrame:
+) -> polars.DataFrame:
     """Reads the fibermap file.
 
     Parameters
@@ -59,7 +59,7 @@ def read_fibermap(
     Returns
     -------
     fibermap
-        A pandas DataFrame with the fibermap data.
+        A Polars DataFrame with the fibermap data.
 
     """
 
@@ -84,22 +84,18 @@ def read_fibermap(
     cols = [it["name"] for it in schema]
     dtypes = [it["dtype"] if it["dtype"] != "str" else "<U8" for it in schema]
 
-    fibers = pandas.DataFrame.from_records(
+    fibers = polars.from_numpy(
         numpy.array(
             [tuple(fibs) for fibs in fibermap_y["fibers"]],
             dtype=list(zip(cols, dtypes)),
         ),
     )
-    fibers.convert_dtypes(dtype_backend="pyarrow")
 
     # Lower-case some columns.
-    for col in fibers:
-        is_str = pandas.api.types.is_string_dtype(fibers[col].dtype)
-        if is_str and col in ["targettype", "telescope"]:
-            fibers[col] = fibers[col].str.lower()
-
-    # Add a new column with the full name of the fibre, as ifulabel-finifu
-    fibers["fibername"] = fibers["orig_ifulabel"]
+    fibers = fibers.with_columns(
+        polars.col("targettype", "telescope").str.to_lowercase(),
+        fibername=polars.col.orig_ifulabel,
+    )
 
     _FIBERMAP_CACHE = fibers
 
@@ -240,13 +236,12 @@ def fibre_slew_coordinates(
 
     fibermap = read_fibermap()
 
-    if fibre_name not in fibermap.fibername.values:
+    if fibre_name not in fibermap["fibername"]:
         raise NameError(f"Fibre {fibre_name} not found in fibermap.")
 
-    fibre = fibermap.loc[fibermap.fibername == fibre_name, :]
-    xpmm, ypmm = fibre.loc[:, ["xpmm", "ypmm"]].values[0]
+    fibre = fibermap.row(named=True, by_predicate=polars.col.fibername == fibre_name)
 
-    ra_off, dec_off = xy_to_radec_offset(xpmm, ypmm)
+    ra_off, dec_off = xy_to_radec_offset(fibre["xpmm"], fibre["ypmm"])
 
     if not derotated:
         field_angle = calculate_field_angle(ra, dec, obstime=None)
@@ -325,11 +320,12 @@ def fibre_to_master_frame(fibre_name: str):
 
     fibermap = read_fibermap()
 
-    if fibre_name not in fibermap.fibername.values:
+    if fibre_name not in fibermap["fibername"]:
         raise NameError(f"Fibre {fibre_name} not found in fibermap.")
 
-    fibre = fibermap.loc[fibermap.fibername == fibre_name, :]
-    xpmm, ypmm = fibre.loc[:, ["xpmm", "ypmm"]].values[0]
+    fibre = fibermap.row(named=True, by_predicate=polars.col.fibername == fibre_name)
+    xpmm = fibre["xpmm"]
+    ypmm = fibre["ypmm"]
 
     x_mf, z_mf = offset_to_master_frame_pixel(xmm=xpmm, ymm=ypmm)
 
@@ -363,13 +359,15 @@ def calculate_position_angle(ra: float, dec: float, obstime: astropy.time.Time |
     site = astropy.coordinates.EarthLocation.from_geodetic(**config["site"])
 
     if isinstance(obstime, str):
-        obstime = astropy.time.Time(obstime, format="isot")
+        obstime_ap = astropy.time.Time(obstime, format="isot")
+    else:
+        obstime_ap = obstime
 
     assert isinstance(obstime, astropy.time.Time)
 
-    obstime.location = site
+    obstime_ap.location = site
 
-    lst = obstime.sidereal_time("mean")
+    lst = obstime_ap.sidereal_time("mean")
 
     ha = lst.deg - ra
 

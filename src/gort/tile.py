@@ -12,7 +12,7 @@ import warnings
 
 from typing import Sequence, cast
 
-import pandas
+import polars
 from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.time import Time
 from httpx import RequestError
@@ -175,14 +175,18 @@ class QuerableCoordinates(Coordinates):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            targets = pandas.read_sql(
+            targets = polars.read_database(
                 f"SELECT ra,dec from {cls.__db_table__};",
-                connection,  # type:ignore
+                connection,
             )
 
         # Cache query.
         if cls.targets is None:
-            cls.targets = SkyCoord(ra=targets.ra, dec=targets.dec, unit="deg")
+            cls.targets = SkyCoord(
+                ra=targets["ra"].to_list(),
+                dec=targets["dec"].to_list(),
+                unit="deg",
+            )
 
         skycoords = cls.targets.copy()
 

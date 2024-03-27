@@ -13,11 +13,11 @@ import logging
 import re
 import signal
 from contextlib import contextmanager
+from dataclasses import dataclass
 from time import time
 
 from typing import TYPE_CHECKING, Any, Callable
 
-import pandas
 from astropy.time import Time
 
 from gort.exceptions import ErrorCodes, GortObserverError
@@ -474,9 +474,9 @@ class GortObserver:
             return
 
         standards: list[int] = []
-        for stdn, row in self.standards.standards.iterrows():
-            if row.observed == 1:
-                pk = self.tile.spec_coords[stdn - 1].pk  # type:ignore
+        for stdn, std_data in self.standards.standards.items():
+            if std_data.observed == 1:
+                pk = self.tile.spec_coords[stdn - 1].pk
                 if pk is not None:
                     standards.append(pk)
 
@@ -622,7 +622,7 @@ class GortObserver:
             # having longer exposure time than open shutter.
             if self.has_standards and self._current_exposure is not None:
                 start_time = self._current_exposure.start_time.unix
-                self.standards.standards.loc[1, "t0"] = start_time
+                self.standards.standards[1].t0 = start_time
 
             header.update(self.standards.to_header())
 
@@ -642,6 +642,21 @@ class GortObserver:
         #     )
 
         return
+
+
+@dataclass
+class Standard:
+    """A class to represent a standard star."""
+
+    n: int
+    ra: float
+    dec: float
+    source_id: int = -1
+    acquired: bool = False
+    observed: bool = False
+    t0: float = 0.0
+    t1: float = 0.0
+    fibre: str = ""
 
 
 class Standards:
@@ -667,30 +682,17 @@ class Standards:
     def _get_frame(self):
         """Constructs the standard data frame."""
 
-        stdn = list(range(1, len(self.tile.spec_coords) + 1))
-        source_id = [cc.source_id or -1 for cc in self.tile.spec_coords]
-        ra = [cc.ra for cc in self.tile.spec_coords]
-        dec = [cc.dec for cc in self.tile.spec_coords]
+        standards: dict[int, Standard] = {}
 
-        default = [0] * len(stdn)
+        for stdn, cc in enumerate(self.tile.spec_coords):
+            standards[stdn + 1] = Standard(
+                n=stdn + 1,
+                ra=cc.ra,
+                dec=cc.dec,
+                source_id=cc.source_id or -1,
+            )
 
-        df = pandas.DataFrame(
-            {
-                "n": pandas.Series(stdn, dtype="int16[pyarrow]"),
-                "source_id": pandas.Series(source_id, dtype="int64[pyarrow]"),
-                "ra": pandas.Series(ra, dtype="float64[pyarrow]"),
-                "dec": pandas.Series(dec, dtype="float64[pyarrow]"),
-                "acquired": pandas.Series(default, dtype="int16[pyarrow]"),
-                "observed": pandas.Series(default, dtype="int16[pyarrow]"),
-                "t0": pandas.Series(default, dtype="float64[pyarrow]"),
-                "t1": pandas.Series(default, dtype="float64[pyarrow]"),
-                "fibre": pandas.Series([""] * len(stdn), dtype="string[pyarrow]"),
-            }
-        )
-
-        df.set_index("n", inplace=True)
-
-        return df
+        return standards
 
     async def start_iterating(self, exposure_time: float) -> None:
         """Iterates over the fibre mask positions.
@@ -709,9 +711,9 @@ class Standards:
         self.standards = self._get_frame()
         self.current_standard = 1
 
-        self.standards.loc[1, "acquired"] = 1
-        self.standards.loc[1, "t0"] = time()
-        self.standards.loc[1, "fibre"] = self.mask_positions[0]
+        self.standards[1].acquired = True
+        self.standards[1].t0 = time()
+        self.standards[1].fibre = self.mask_positions[0]
 
         self.iterate_task = asyncio.create_task(self._iterate(exposure_time))
 
@@ -724,10 +726,10 @@ class Standards:
         if len(self.standards) == 0:
             return
 
-        if self.standards.loc[self.current_standard].acquired == 1:
-            if self.standards.loc[self.current_standard, "observed"] != 1:
-                self.standards.loc[self.current_standard, "observed"] = 1
-                self.standards.loc[self.current_standard, "t1"] = time()
+        if self.standards[self.current_standard].acquired:
+            if not self.standards[self.current_standard].observed:
+                self.standards[self.current_standard].observed = True
+                self.standards[self.current_standard].t1 = time()
 
     async def _iterate(self, exposure_time: float):
         """Iterate task."""
@@ -800,9 +802,9 @@ class Standards:
                 await spec_tel.fibsel.move_relative(500)
 
                 # Register the previous standard.
-                if self.standards.loc[self.current_standard, "acquired"] == 1:
-                    self.standards.loc[self.current_standard, "t1"] = time()
-                    self.standards.loc[self.current_standard, "observed"] = 1
+                if self.standards[self.current_standard].acquired:
+                    self.standards[self.current_standard].t1 = time()
+                    self.standards[self.current_standard].observed = True
 
                 # Increase current index and get coordinates.
                 current_std_idx += 1
@@ -883,20 +885,20 @@ class Standards:
                 n_observed += 1
                 t0_last_std = time()
 
-                self.standards.loc[self.current_standard, "acquired"] = 1
-                self.standards.loc[self.current_standard, "t0"] = time()
-                self.standards.loc[self.current_standard, "fibre"] = new_mask_position
+                self.standards[self.current_standard].acquired = True
+                self.standards[self.current_standard].t0 = time()
+                self.standards[self.current_standard].fibre = new_mask_position
 
     def to_header(self):
         """Returns observed standards as a header-ready dictionary."""
 
         header_data = {}
 
-        for nstd, data in self.standards.iterrows():
+        for nstd, data in self.standards.items():
             header_data[f"STD{nstd}ID"] = data.source_id if data.source_id > 0 else None
             header_data[f"STD{nstd}RA"] = data.ra
             header_data[f"STD{nstd}DE"] = data.dec
-            header_data[f"STD{nstd}ACQ"] = bool(data.observed)
+            header_data[f"STD{nstd}ACQ"] = data.observed
 
             if data.observed:
                 header_data[f"STD{nstd}T0"] = Time(data.t0, format="unix").isot
