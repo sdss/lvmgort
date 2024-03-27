@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
 from gort.exceptions import GortError
 from gort.gort import Gort
@@ -27,7 +28,12 @@ class Overwatcher:
         return cls.instance
 
     def __init__(self, gort: Gort | None = None):
-        from gort.overwatcher import EphemerisOverwatcher, WeatherOverwatcher
+        from gort.overwatcher import (
+            CalibrationOverwatcher,
+            EphemerisOverwatcher,
+            ObserverOverwatcher,
+            WeatherOverwatcher,
+        )
 
         # Check if the instance already exists, in which case do nothing.
         if hasattr(self, "gort"):
@@ -35,12 +41,16 @@ class Overwatcher:
 
         self.gort = gort or Gort(verbosity="debug")
 
-        self.tasks: dict[str, asyncio.Task] = {}
+        self.tasks: list[asyncio.Task] = []
 
+        self.calibration = CalibrationOverwatcher(self)
         self.ephemeris = EphemerisOverwatcher(self)
+        self.observer = ObserverOverwatcher(self)
         self.weather = WeatherOverwatcher(self)
 
         self.is_running: bool = False
+
+        self.allow_observations: bool = False
 
     async def run(self):
         """Starts the overwatcher tasks."""
@@ -52,10 +62,14 @@ class Overwatcher:
             await self.gort.init()
 
         for module in OverwatcherModule.instances:
-            self.gort.log.debug(f"Starting overwatcher module {module.name!r}")
+            self.log(f"Starting overwatcher module {module.name!r}")
             await module.run()
 
+        self.tasks.append(asyncio.create_task(self.overwatcher_task()))
+
         self.is_running = True
+
+        await asyncio.sleep(5)
 
         return self
 
@@ -66,14 +80,36 @@ class Overwatcher:
             self.gort.log.debug(f"Cancelling overwatcher module {module.name!r}")
             await module.cancel()
 
-        for _, task in self.tasks.items():
+        for task in self.tasks:
             await cancel_task(task)
 
-        self.tasks = {}
-
+        self.tasks = []
         self.is_running = False
 
-    async def emergency_shutdown(self):
+    async def overwatcher_task(self):
+        """Main overwatcher task."""
+
+        while True:
+            await asyncio.sleep(5)
+
+    def log(self, message: str, level: str = "debug"):
+        """Logs a message to the GORT log."""
+
+        level = logging.getLevelName(level.upper())
+        assert isinstance(level, int)
+
+        message = f"({self.__class__.__name__}) {message}"
+
+        self.gort.log.log(level, message)
+
+    async def emergency_shutdown(self, block: bool = True):
         """Shuts down the observatory in case of an emergency."""
 
-        await self.gort.shutdown()
+        stop_task = asyncio.create_task(self.observer.stop_observing(immediate=True))
+        shutdown_task = asyncio.create_task(self.gort.shutdown())
+
+        if block:
+            await asyncio.gather(stop_task, shutdown_task)
+        else:
+            self.tasks.append(stop_task)
+            self.tasks.append(shutdown_task)

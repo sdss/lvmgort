@@ -8,7 +8,9 @@
 
 from __future__ import annotations
 
+from .calibration import CalibrationOverwatcher
 from .core import OverwatcherModule
 from .ephemeris import EphemerisOverwatcher
+from .observer import ObserverOverwatcher
 from .overwatcher import Overwatcher
 from .weather import WeatherOverwatcher

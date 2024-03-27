@@ -69,6 +69,7 @@ __all__ = [
     "get_md5sum",
     "mark_exposure_bad",
     "handle_signals",
+    "get_lvmapi_route",
     "GuiderMonitor",
 ]
 
@@ -757,6 +758,25 @@ async def get_ephemeris_summary(sjd: int | None = None):
             raise httpx.RequestError("Failed request to /ephemeris")
 
     return resp.json()
+
+
+async def get_lvmapi_route(route: str, params: dict = {}, **kwargs):
+    """Gets an ``lvmapi`` route."""
+
+    params.update(kwargs)
+
+    host, port = config["lvmapi"].values()
+
+    async with httpx.AsyncClient(
+        base_url=f"http://{host}:{port}",
+        follow_redirects=True,
+    ) as client:
+        response = await client.get(route, params=params)
+
+        if response.status_code != 200:
+            raise ValueError("Failed to get weather report.")
+
+    return response.json()
 
 
 class GuiderMonitor:

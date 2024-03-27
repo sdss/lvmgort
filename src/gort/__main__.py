@@ -6,6 +6,7 @@
 # @Filename: __main__.py
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
+import asyncio
 import os
 
 import click
@@ -18,6 +19,20 @@ def gort():
     """Gort CLI."""
 
     pass
+
+
+@gort.command()
+@cli_coro()
+async def overwatcher():
+    """Starts the overwatcher."""
+
+    from gort.overwatcher import Overwatcher
+
+    await Overwatcher().run()
+
+    while True:
+        await asyncio.sleep(5)
+        continue
 
 
 @gort.group(cls=DaemonGroup, prog="gort_ws", workdir=os.getcwd())

@@ -108,10 +108,13 @@ class Enclosure(GortDevice):
 
         await GortDeviceSet.restart(self)  # type: ignore
 
-    async def status(self):
+    async def status(self, get_registers: bool = False):
         """Retrieves the status of the power outlet."""
 
-        reply: ActorReply = await self.actor.commands.status(timeout=5)
+        reply: ActorReply = await self.actor.commands.status(
+            no_registers=(not get_registers),
+            timeout=5,
+        )
 
         return reply.flatten()
 
@@ -190,6 +193,22 @@ class Enclosure(GortDevice):
         self.write_to_log("Closing the enclosure ...", level="info")
         await self.actor.commands.dome.commands.close(force=force)
         self.write_to_log("Enclosure is now closed.", level="info")
+
+    async def is_open(self):
+        """Returns :obj:`True` if the enclosure is open."""
+
+        status = await self.status()
+        labels = status["dome_status_labels"]
+
+        return "OPEN" in labels and "MOVING" not in labels
+
+    async def is_closed(self):
+        """Returns :obj:`True` if the enclosure is closed."""
+
+        status = await self.status()
+        labels = status["dome_status_labels"]
+
+        return "CLOSED" in labels and "MOVING" not in labels
 
     async def stop(self):
         """Stop the enclosure dome."""
