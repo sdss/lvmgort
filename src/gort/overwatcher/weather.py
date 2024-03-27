@@ -83,6 +83,7 @@ class WeatherOverwatcher(OverwatcherModule):
 
         while True:
             try:
+                self.log("Checking weather conditions.")
                 await self.update_weather()
                 await self.check_weather()
             except Exception as err:
@@ -99,7 +100,7 @@ class WeatherOverwatcher(OverwatcherModule):
                     self.log(
                         "Failed to get weather data 5 times. "
                         "Triggering an emergency shutdown.",
-                        "critical"
+                        "critical",
                     )
                     await self.overwatcher.emergency_shutdown(block=False)
 

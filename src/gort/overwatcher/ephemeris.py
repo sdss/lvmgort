@@ -42,6 +42,8 @@ class EphemerisOverwatcher(OverwatcherModule):
         """Monitors SJD change and keeps ephemeris updated."""
 
         while True:
+            self.log("Checking LCO ephemeris.")
+
             new_sjd = get_sjd("LCO")
 
             if self.ephemeris is None or new_sjd != self.sjd:
