@@ -90,7 +90,7 @@ class ObserverOverwatcher(OverwatcherModule):
 
         if not (await self.gort.enclosure.is_open()):
             self.log("Opening the dome.", "info")
-            await self.gort.enclosure.open()
+            await self.gort.startup(confirm_open=False)
 
         self.observe_loop = asyncio.create_task(self.observe_loop_task())
 
