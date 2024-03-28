@@ -118,8 +118,9 @@ class ObserverOverwatcher(OverwatcherModule):
         while True:
             # TODO: add some checks here.
 
+            exp: Exposure | list[Exposure] | bool = False
             try:
-                await self.gort.observe_tile(
+                exp = await self.gort.observe_tile(
                     run_cleanup=False,
                     cleanup_on_interrrupt=False,
                     show_progress=False,
@@ -133,6 +134,10 @@ class ObserverOverwatcher(OverwatcherModule):
             finally:
                 if self.cancelling:
                     self.log("Cancelling observations.", "warning")
+
+                    if exp and isinstance(exp, Exposure):
+                        await exp
+
                     break
 
         self.observing = False
