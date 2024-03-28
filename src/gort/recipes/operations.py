@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from rich.prompt import Confirm
 
@@ -46,7 +46,6 @@ class StartupRecipe(BaseRecipe):
 
     async def recipe(
         self,
-        calibration_sequence: str | None | Literal[False] = False,
         open_enclosure: bool = True,
         confirm_open: bool = True,
         focus: bool = True,
@@ -57,10 +56,6 @@ class StartupRecipe(BaseRecipe):
         ----------
         gort
             The `.Gort` instance to use.
-        calibration_sequence
-            The name of the calibration sequence to use. If :obj:`None`, uses the
-            default sequence from the configuration. If :obj:`False`, skips the
-            calibration sequence.
         open_enclosure
             Whether to open the enclosure.
         confirm_open
@@ -90,11 +85,6 @@ class StartupRecipe(BaseRecipe):
 
         self.gort.log.info("Taking AG darks.")
         await self.gort.guiders.take_darks()
-
-        if calibration_sequence is not False:
-            sequence = calibration_sequence or rconfig["calibration_sequence"]
-            self.gort.log.info(f"Running calibration sequence {sequence!r}.")
-            await self.gort.specs.calibrate(sequence)
 
         if open_enclosure:
             if confirm_open:

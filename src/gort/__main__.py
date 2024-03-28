@@ -50,12 +50,6 @@ async def websocket():
 
 @gort.command()
 @click.option(
-    "--calibrations/--no-calibrations",
-    is_flag=True,
-    default=False,
-    help="Take calibrations as part of the startup sequence.",
-)
-@click.option(
     "--open-enclosure/--no-open-enclosure",
     is_flag=True,
     default=True,
@@ -75,7 +69,6 @@ async def websocket():
 )
 @cli_coro()
 async def startup(
-    calibrations: bool = False,
     open_enclosure: bool = True,
     confirm_open: bool = True,
     focus: bool = True,
@@ -86,7 +79,6 @@ async def startup(
 
     gort = await Gort(verbosity="debug").init()
     await gort.startup(
-        calibration_sequence=calibrations,
         open_enclosure=open_enclosure,
         confirm_open=confirm_open,
         focus=focus,
