@@ -414,8 +414,8 @@ class TwilightFlats(BaseRecipe):
         gort = self.gort
         assert isinstance(gort, Gort)
 
-        # if not self.gort.enclosure.is_open():
-        #     raise RuntimeError("Dome must be open to take twilight flats.")
+        if not self.gort.enclosure.is_open():
+            raise RuntimeError("Dome must be open to take twilight flats.")
 
         has_slewed: bool = False
 
