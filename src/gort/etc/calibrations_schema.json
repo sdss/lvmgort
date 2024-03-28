@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "recipe": {
+        "oneOf": [{ "type": "string" }, { "type": "null" }],
+        "description": "The name of the recipe to execute (takes precedence over scripts)"
+      },
+      "script": {
+        "oneOf": [{ "type": "string" }, { "type": "null" }],
+        "description": "The path to the script to execute"
+      },
+      "min_start_time": {
+        "oneOf": [{ "type": "number" }, { "type": "null" }],
+        "description": "The minimum start time for the observation. The meaning of this value depends on the time_mode field. A null field means that the calibration can be executed at any time."
+      },
+      "max_start_time": {
+        "oneOf": [{ "type": "number" }, { "type": "null" }],
+        "description": "The maximum start time for the observation after which the calibrations are not useful. The meaning of this value depends on the time_mode field."
+      },
+      "time_mode": {
+        "oneOf": [
+          {
+            "type": "string",
+            "enum": ["secs_after_sunset", "secs_before_sunrise", "jd", "utc"]
+          },
+          { "type": "null" }
+        ],
+        "description": "How the start times are defined. sec_after_sunset: number of seconds after the sunset; secs_before_sunrise: seconds before the sunrise; jd: Julian date (executed only once); utc: UTC time (executed every day at this time)."
+      },
+      "expected_duration": {
+        "oneOf": [{ "type": "number" }, { "type": "null" }],
+        "description": "How long the calibrations are expected to take, for scheduling purposes. In seconds."
+      },
+      "required": {
+        "type": "boolean",
+        "description": "Whether the calibrations are required or they can be skipped if it was impossible to take them."
+      },
+      "open_dome": {
+        "oneOf": [{ "type": "boolean" }, { "type": "null" }],
+        "description": "Whether to open the dome for the calibrations or close it. A null value leaves the dome as it is."
+      },
+      "night_mode": {
+        "type": "boolean",
+        "description": "Do the calibrations need to be taken between sunset and sunrise?"
+      },
+      "priority": {
+        "type": "number",
+        "description": "The priority of these calibrations. Larger numbers have higher priorities."
+      }
+    },
+    "required": ["name"],
+    "additionalProperties": false
+  }
+}

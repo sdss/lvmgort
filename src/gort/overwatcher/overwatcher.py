@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import pathlib
 
 from gort.exceptions import GortError
 from gort.gort import Gort
@@ -22,14 +23,20 @@ class Overwatcher:
 
     instance: Overwatcher | None = None
 
-    def __new__(cls):
+    def __new__(cls, *args, **kwargs):
         if not cls.instance:
             cls.instance = super(Overwatcher, cls).__new__(cls)
         return cls.instance
 
-    def __init__(self, gort: Gort | None = None):
+    def __init__(
+        self,
+        gort: Gort | None = None,
+        verbosity: str = "debug",
+        calibrations_file: str | pathlib.Path | None = None,
+        **kwargs,
+    ):
         from gort.overwatcher import (
-            CalibrationOverwatcher,
+            CalibrationsHandler,
             EphemerisOverwatcher,
             ObserverOverwatcher,
             WeatherOverwatcher,
@@ -43,7 +50,10 @@ class Overwatcher:
 
         self.tasks: list[asyncio.Task] = []
 
-        self.calibration = CalibrationOverwatcher(self)
+        self.calibrations = CalibrationsHandler(
+            self,
+            calibrations_file=calibrations_file,
+        )
         self.ephemeris = EphemerisOverwatcher(self)
         self.observer = ObserverOverwatcher(self)
         self.weather = WeatherOverwatcher(self)

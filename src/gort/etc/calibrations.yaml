@@ -1,0 +1,48 @@
+calibrations:
+  - name: twilight_flats_sunset
+    recipe: twilight_flats
+    script:
+    min_start_time: 120
+    max_start_time: 300
+    time_mode: secs_after_sunset
+    expected_duration: 1200
+    required: true
+    open_dome: true
+    night_mode: true
+    priority: 10
+
+  - name: quick_cals
+    recipe: quick_cals
+    script:
+    min_start_time:
+    max_start_time:
+    time_mode:
+    expected_duration: 1200
+    required: true
+    open_dome: false
+    night_mode: true
+    priority: 8
+
+  - name: bias_sequence
+    recipe: bias_sequence
+    script:
+    min_start_time:
+    max_start_time:
+    time_mode:
+    expected_duration: 480
+    required: true
+    open_dome: false
+    night_mode: true
+    priority: 5
+
+  - name: twilight_flats_sunrise
+    recipe: twilight_flats
+    script:
+    min_start_time: 1200
+    max_start_time: 900
+    time_mode: secs_before_sunrise
+    expected_duration: 1200
+    required: true
+    open_dome: true
+    night_mode: true
+    priority: 10

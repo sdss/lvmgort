@@ -9,11 +9,16 @@
 from __future__ import annotations
 
 import asyncio
+from time import time
 
-from typing import Coroutine
+from typing import TYPE_CHECKING, Coroutine
 
 from gort.overwatcher import OverwatcherModule
 from gort.tools import cancel_task, get_lvmapi_route
+
+
+if TYPE_CHECKING:
+    from gort.exposure import Exposure
 
 
 __all__ = ["ObserverOverwatcher"]
@@ -28,6 +33,7 @@ class ObserverOverwatcher(OverwatcherModule):
 
         self.observing: bool = False
         self.cancelling: bool = False
+        self.next_exposure_completes: float = 0.0
 
         self.observe_loop: asyncio.Task | None = None
 
@@ -120,6 +126,8 @@ class ObserverOverwatcher(OverwatcherModule):
 
             exp: Exposure | list[Exposure] | bool = False
             try:
+                # The exposure will complete in 900 seconds + acquisition + readout
+                self.next_exposure_completes = time() + 90 + 900 + 60
                 exp = await self.gort.observe_tile(
                     run_cleanup=False,
                     cleanup_on_interrrupt=False,

@@ -6,13 +6,11 @@
 # @Filename: __init__.py
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
-# isort:skip_file
 
 from __future__ import annotations
 
+from .calibration import CalibrationsHandler
 from .core import OverwatcherModule
-
-from .calibration import CalibrationOverwatcher
 from .ephemeris import EphemerisOverwatcher
 from .observer import ObserverOverwatcher
 from .overwatcher import Overwatcher

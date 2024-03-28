@@ -48,6 +48,7 @@ class EphemerisOverwatcher(OverwatcherModule):
 
             if self.ephemeris is None or new_sjd != self.sjd:
                 self.sjd = new_sjd
+                self.overwatcher.calibration.reset()
 
                 try:
                     self.ephemeris = await get_ephemeris_summary(new_sjd)
