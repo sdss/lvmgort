@@ -628,8 +628,12 @@ class Gort(GortClient):
         self,
         *args,
         verbosity: str | None = None,
+        config_file: str | pathlib.Path | None = None,
         **kwargs,
     ):
+        if config_file:
+            config.load(str(config_file))
+
         super().__init__(*args, **kwargs)
 
         if verbosity:

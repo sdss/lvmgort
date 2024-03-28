@@ -39,7 +39,7 @@ class Overwatcher:
         if hasattr(self, "gort"):
             return
 
-        self.gort = gort or Gort(verbosity="debug")
+        self.gort = gort or Gort(verbosity=verbosity, **kwargs)
 
         self.tasks: list[asyncio.Task] = []
 
