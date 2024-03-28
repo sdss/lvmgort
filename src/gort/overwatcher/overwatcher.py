@@ -92,6 +92,11 @@ class Overwatcher:
         while True:
             await asyncio.sleep(5)
 
+            if self.weather.can_open() and self.ephemeris.is_night():
+                self.allow_observations = True
+            else:
+                self.allow_observations = False
+
     def log(self, message: str, level: str = "debug"):
         """Logs a message to the GORT log."""
 
