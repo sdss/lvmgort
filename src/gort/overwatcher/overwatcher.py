@@ -10,12 +10,10 @@ from __future__ import annotations
 
 import asyncio
 import pathlib
-import re
 import sys
 
 import httpx
 
-from gort import config
 from gort.core import LogNamespace
 from gort.exceptions import GortError
 from gort.gort import Gort
@@ -146,24 +144,6 @@ class Overwatcher:
 
         host, port = self.gort.config["lvmapi"].values()
 
-        if len(mentions) > 0:
-            for mention in mentions[::-1]:
-                if mention[0] != "@":
-                    mention = f"@{mention}"
-                if mention not in text:
-                    text = f"{mention} {text}"
-
-        # Replace @channel, @here, ... with the API format <!here>.
-        text = re.sub(r"(\s|^)@(here|channel|everone)(\s|$)", r"\1<!here>\3", text)
-
-        # The remaining mentions should be users. But in the API these need to be
-        # <@XXXX> where XXXX is the user ID and not the username.
-        users = re.findall(r"(?:\s|^)@([a-zA-Z_]+)(?:\s|$)", text)
-        for user in users:
-            if user in config["slack"]["user_ids"]:
-                user_id = config["slack"]["user_ids"][user]
-                text = text.replace(f"@{user}", f"<@{user_id}>")
-
         try:
             async with httpx.AsyncClient(
                 base_url=f"http://{host}:{port}",
@@ -175,6 +155,7 @@ class Overwatcher:
                         "text": text,
                         "username": username,
                         "icon_url": icon_url,
+                        "mentions": mentions,
                     },
                 )
 
