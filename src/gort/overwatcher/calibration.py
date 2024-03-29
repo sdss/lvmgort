@@ -11,12 +11,14 @@ from __future__ import annotations
 import json
 import pathlib
 
-from typing import TYPE_CHECKING, Coroutine
+from typing import TYPE_CHECKING, Any, Coroutine
 
 import jsonschema
 import polars
 
-from sdsstools import read_yaml_file
+from sdsstools import get_sjd, read_yaml_file
+
+from gort.tools import get_redis_client
 
 
 if TYPE_CHECKING:
@@ -40,7 +42,7 @@ SCHEMA = {
     "priority": polars.Float32(),
     "start_jd": polars.Float32(),
     "end_jd": polars.Float32(),
-    "complete": polars.Boolean(),
+    "done": polars.Boolean(),
 }
 
 
@@ -59,15 +61,30 @@ class CalibrationsHandler:
         self.calibrations_file: str | pathlib.Path | None = calibrations_file
         self.calibrations: polars.DataFrame = polars.DataFrame(None, schema=SCHEMA)
 
-        self.reset()
+        self.ephemeris: dict[str, Any] | None = None
+        self.sjd: int = get_sjd("LCO")
 
     def list_task_coros(self) -> list[Coroutine]:
         """Returns a list of coroutines to schedule as tasks."""
 
         return []
 
-    def reset(self):
-        """Resets the list of calibrations for a new SJD."""
+    async def reset(self):
+        """Resets the list of calibrations for a new SJD.
+
+        This method is usually called by the ephemeris overwatcher when a new SJD
+        is detected.
+
+        """
+
+        self.sjd = self.overwatcher.ephemeris.sjd
+
+        if self.overwatcher.ephemeris.ephemeris is not None:
+            self.ephemeris = self.overwatcher.ephemeris.ephemeris
+        else:
+            self.overwatcher.ephemeris.
+
+
 
         self.load_calibrations()
 
@@ -117,4 +134,27 @@ class CalibrationsHandler:
             is_sunset = False
 
     async def get_from_redis(self):
-        """Gets the status of the calibrations done."""
+        """Gets the status of the calibrations."""
+
+        redis = get_redis_client()
+
+        data = await redis.hgetall(f"overwatcher:calibrations:status:{self.sjd}")
+        if data is None:
+            await self.write_to_redis()
+            return self.get_from_redis()
+
+        for key, value in data.items():
+            data[key] = bool(int(value))
+        return data
+
+    async def write_to_redis(self):
+        """Writes the status of the calibrations to Redis."""
+
+        redis = get_redis_client()
+
+        data = {}
+        for row in self.calibrations.rows(named=True):
+            print(row)
+            data[row["name"]] = str(int(row["done"] or False))
+
+        await redis.hset(f"overwatcher:calibrations:status:{self.sjd}", mapping=data)

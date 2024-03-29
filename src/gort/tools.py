@@ -541,7 +541,7 @@ def get_redis_client():
 
     redis_config = config["redis"]
 
-    client = aioredis.from_url(redis_config["url"])
+    client = aioredis.from_url(redis_config["url"], decode_responses=True)
 
     return client
 
