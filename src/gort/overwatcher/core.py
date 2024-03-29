@@ -8,12 +8,13 @@
 
 from __future__ import annotations
 
-import abc
 import asyncio
+from unittest.mock import Mock
 from weakref import WeakSet
 
-from typing import TYPE_CHECKING, Coroutine
+from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar
 
+from gort.core import LogNamespace
 from gort.exceptions import GortError
 from gort.tools import cancel_task
 
@@ -22,11 +23,126 @@ if TYPE_CHECKING:
     from gort.overwatcher.overwatcher import Overwatcher
 
 
-class OverwatcherModule(metaclass=abc.ABCMeta):
+OverwatcherModule_T = TypeVar("OverwatcherModule_T", bound="OverwatcherModule")
+
+
+class OverwatcherTask:
+    """A task that runs in an overwatcher module."""
+
+    name: ClassVar[str]
+    keep_alive: ClassVar[bool] = False
+    restart_on_error: ClassVar[bool] = True
+
+    def __init__(self):
+        self._task_runner: asyncio.Task | None = None
+        self._heartbeat_task: asyncio.Task | None = None
+
+        self._log = Mock()
+
+    async def run(self):
+        """Runs the task."""
+
+        self._task_runner = asyncio.create_task(self.task())
+        self._log.debug(f"Task {self.name!r} started.")
+
+        self._heartbeat_task = asyncio.create_task(self.monitor_task_heartbeat())
+
+    async def cancel(self):
+        """Cancels the task."""
+
+        await cancel_task(self._task_runner)
+        await cancel_task(self._heartbeat_task)
+
+        self._task_runner = None
+        self._heartbeat_task = None
+
+        self._log.debug(f"Task {self.name!r} was cancelled.")
+
+    async def task(self):
+        """The task to run."""
+
+        raise NotImplementedError("The task coroutine has not been implemented.")
+
+    async def monitor_task_heartbeat(self):
+        """Monitors the task and restarts it if it fails."""
+
+        while True:
+            await asyncio.sleep(1)
+
+            if not self._task_runner:
+                continue
+
+            if self._task_runner.cancelled():
+                if self.keep_alive:
+                    self._log.warning(f"Task {self.name!r} was cancelled. Restarting.")
+                    self._task_runner = asyncio.create_task(self.task())
+                return
+
+            if self._task_runner.done():
+
+                if exception := self._task_runner.exception():
+                    self._log.error(f"Task {self.name!r} failed: {exception!r}")
+                    if self.restart_on_error or self.keep_alive:
+                        self._log.warning(f"Task {self.name!r} failed. Restarting.")
+                        self._task_runner = asyncio.create_task(self.task())
+                        continue
+
+                if self.keep_alive:
+                    self._log.warning(f"Task {self.name!r} finished. Restarting.")
+                    self._task_runner = asyncio.create_task(self.task())
+                    continue
+
+
+class OverwatcherModuleTask(OverwatcherTask, Generic[OverwatcherModule_T]):
+    """A task that runs in an overwatcher module."""
+
+    def __init__(self):
+        super().__init__()
+
+        self._module: OverwatcherModule_T | None = None
+
+    @property
+    def module(self):
+        """Returns the module instance."""
+
+        if not self._module:
+            raise GortError("Task has not been associated with a module.")
+
+        return self._module
+
+    @property
+    def overwatcher(self):
+        """Returns the overwatcher instance."""
+
+        return self.module.overwatcher
+
+    @property
+    def gort(self):
+        """Returns the GORT instance."""
+
+        return self.module.gort
+
+    @property
+    def log(self):
+        """Returns the logger instance."""
+
+        return self.module.log
+
+    async def run(self, module: OverwatcherModule_T):
+        """Runs the task."""
+
+        self._module = module
+
+        await super().run()
+
+
+class OverwatcherModule:
     """A generic overwatcher module."""
 
     instances = WeakSet()
     name: str = "generic"
+
+    tasks: ClassVar[list[OverwatcherModuleTask]]
 
     def __new__(cls, *args, **kwargs):
         instance = object.__new__(cls)
@@ -35,13 +151,17 @@ class OverwatcherModule(metaclass=abc.ABCMeta):
         return instance
 
     def __init__(self, overwatcher: Overwatcher):
+        if not hasattr(self, "tasks"):
+            raise RuntimeError(
+                f"{self.__class__.__name__} must define a `tasks` attribute."
+            )
+
         self.overwatcher = overwatcher
         self.gort = overwatcher.gort
 
-        self.tasks: list[asyncio.Task] = []
         self.is_running: bool = False
 
-        self.log = self.overwatcher.log
+        self.log = LogNamespace(self.gort.log, header=f"({self.__class__.__name__}) ")
 
     async def run(self):
         """Runs the overwatcher module."""
@@ -51,22 +171,15 @@ class OverwatcherModule(metaclass=abc.ABCMeta):
 
         self.is_running = True
 
-        for coro in self.list_task_coros():
-            self.tasks.append(asyncio.create_task(coro))
+        for ov_task in self.tasks:
+            await ov_task.run(self)
 
         return self
 
     async def cancel(self):
         """Stops the overwatcher module."""
 
-        for task in self.tasks:
-            await cancel_task(task)
+        for ov_task in self.tasks:
+            await ov_task.cancel()
 
-        self.tasks = []
         self.is_running = False
-
-    @abc.abstractmethod
-    def list_task_coros(self) -> list[Coroutine]:
-        """ "Returns a list of task coroutines that will be schedule on `.run`."""
-
-        return []

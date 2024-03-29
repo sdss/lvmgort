@@ -29,6 +29,7 @@ import peewee
 import polars
 from astropy import units as uu
 from astropy.coordinates import angular_separation as astropy_angular_separation
+from redis import asyncio as aioredis
 
 from sdsstools import get_sjd
 
@@ -58,6 +59,7 @@ __all__ = [
     "move_mask_interval",
     "angular_separation",
     "get_db_connection",
+    "get_redis_client",
     "run_in_executor",
     "is_interactive",
     "is_notebook",
@@ -533,6 +535,17 @@ def get_db_connection():
     return conn
 
 
+@functools.lru_cache(maxsize=1)
+def get_redis_client():
+    """Returns a Redis connection from the configuration file parameters."""
+
+    redis_config = config["redis"]
+
+    client = aioredis.from_url(redis_config["url"])
+
+    return client
+
+
 async def run_in_executor(fn, *args, catch_warnings=False, executor="thread", **kwargs):
     """Runs a function in an executor.
 
@@ -743,7 +756,7 @@ def get_by_source_id(source_id: int) -> dict | None:
     return data[0]
 
 
-async def get_ephemeris_summary(sjd: int | None = None):
+async def get_ephemeris_summary(sjd: int | None = None) -> dict:
     """Returns the ephemeris summary from ``lvmapi``."""
 
     host = config["lvmapi"]["host"]

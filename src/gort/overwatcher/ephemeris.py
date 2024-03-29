@@ -11,14 +11,47 @@ from __future__ import annotations
 import asyncio
 from time import time
 
-from typing import Coroutine
-
 from astropy.time import Time
 
 from sdsstools import get_sjd
 
 from gort.overwatcher import OverwatcherModule
+from gort.overwatcher.core import OverwatcherModuleTask
 from gort.tools import get_ephemeris_summary
+
+
+__all__ = ["EphemerisOverwatcher"]
+
+
+class EphemerisMonitorTask(OverwatcherModuleTask["EphemerisOverwatcher"]):
+    """Monitors the ephemeris."""
+
+    name = "ephemeris_monitor"
+    keep_alive = True
+    restart_on_error = True
+
+    async def task(self):
+        """Monitors SJD change and keeps ephemeris updated."""
+
+        while True:
+            self.log.debug("Updating LCO ephemeris.")
+
+            new_sjd = get_sjd("LCO")
+
+            if self.module.ephemeris is None or new_sjd != self.sjd:
+                self.sjd = new_sjd
+                self.overwatcher.calibrations.reset()
+
+                try:
+                    self.module.ephemeris = await get_ephemeris_summary(new_sjd)
+                except Exception as err:
+                    self.log.error(f"Failed getting ephemeris data: {err!r}")
+                    await asyncio.sleep(10)
+                    continue
+                else:
+                    self.last_updated = time()
+
+            await asyncio.sleep(600)
 
 
 class EphemerisOverwatcher(OverwatcherModule):
@@ -26,40 +59,14 @@ class EphemerisOverwatcher(OverwatcherModule):
 
     name = "ephemeris"
 
+    tasks = [EphemerisMonitorTask()]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.sjd = get_sjd("LCO")
         self.ephemeris: dict | None = None
         self.last_updated: float = 0.0
-
-    def list_task_coros(self) -> list[Coroutine]:
-        """Returns a list of coroutines to schedule as tasks."""
-
-        return [self.monitor_ephemeris()]
-
-    async def monitor_ephemeris(self):
-        """Monitors SJD change and keeps ephemeris updated."""
-
-        while True:
-            self.log("Checking LCO ephemeris.")
-
-            new_sjd = get_sjd("LCO")
-
-            if self.ephemeris is None or new_sjd != self.sjd:
-                self.sjd = new_sjd
-                self.overwatcher.calibration.reset()
-
-                try:
-                    self.ephemeris = await get_ephemeris_summary(new_sjd)
-                except Exception as err:
-                    self.log(f"Failed getting ephemeris data: {err!r}", "error")
-                    await asyncio.sleep(10)
-                    continue
-                else:
-                    self.last_updated = time()
-
-            await asyncio.sleep(600)
 
     def is_night(self, require_twilight: bool = True):
         """Determines whether it is nightime."""

@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import logging
 import warnings
 from dataclasses import dataclass, field
 from types import SimpleNamespace
@@ -249,3 +250,32 @@ class ActorReply:
                 return reply[key]
 
         return None
+
+
+class LogNamespace:
+    """A namespace for log messages."""
+
+    def __init__(self, logger: logging.Logger, header: str = "") -> None:
+        self.logger = logger
+        self.header = header
+
+    def debug(self, message: str, *args, **kwargs):
+        self.logger.log(logging.DEBUG, self._get_message(message), *args, **kwargs)
+
+    def info(self, message: str, *args, **kwargs):
+        self.logger.log(logging.INFO, self._get_message(message), *args, **kwargs)
+
+    def warning(self, message: str, *args, **kwargs):
+        self.logger.log(logging.WARNING, self._get_message(message), *args, **kwargs)
+
+    def error(self, message: str, *args, **kwargs):
+        self.logger.log(logging.ERROR, self._get_message(message), *args, **kwargs)
+
+    def critical(self, message: str, *args, **kwargs):
+        self.logger.log(logging.CRITICAL, self._get_message(message), *args, **kwargs)
+
+    def exception(self, *args, **kwargs):
+        self.logger.exception(*args, **kwargs)
+
+    def _get_message(self, message: str):
+        return self.header.format(**locals()) + message

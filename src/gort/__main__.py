@@ -103,6 +103,35 @@ async def shutdown(park: bool = True):
 
 
 @gort.command()
+@click.option(
+    "--readout/--no-readout",
+    is_flag=True,
+    default=False,
+    help="Read the spectrographs if an exposure is pending.",
+)
+@cli_coro()
+async def cleanup(readout: bool = False):
+    """Runs the cleanup sequence."""
+
+    from gort import Gort
+
+    gort = await Gort(verbosity="debug").init()
+    await gort.cleanup(readout=readout)
+
+
+@gort.command()
+@click.argument("RECIPE", type=str)
+@cli_coro()
+async def recipe(recipe: str):
+    """Runs a recipe with its default options."""
+
+    from gort import Gort
+
+    gort = await Gort(verbosity="debug").init()
+    await gort.execute_recipe(recipe)
+
+
+@gort.command()
 @cli_coro()
 async def focus():
     """Focus the telescopes."""

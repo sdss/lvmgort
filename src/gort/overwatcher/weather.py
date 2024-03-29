@@ -14,10 +14,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from time import time
 
-from typing import TYPE_CHECKING, Coroutine, cast
+from typing import TYPE_CHECKING, cast
 
 import polars
 
+from gort.overwatcher.core import OverwatcherModuleTask
 from gort.overwatcher.overwatcher import OverwatcherModule
 from gort.tools import get_lvmapi_route
 
@@ -55,40 +56,25 @@ class WeatherState:
     station: str
 
 
-class WeatherOverwatcher(OverwatcherModule):
-    """Monitors weather conditions."""
+class WeatherMonitorTask(OverwatcherModuleTask["WeatherOverwatcher"]):
+    """Monitors the weather state."""
 
-    name = "weather"
+    name = "weather_monitor"
+    keep_alive = True
+    restart_on_error = True
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.data: polars.DataFrame | None = None
-        self.last_updated: float = 0.0
-
-        self.unavailable: bool = False
-
-        self.state: WeatherState | None = None
-        self.risk = WeatherRisk.UNKNOWN
-
-    def list_task_coros(self) -> list[Coroutine]:
-        """Returns a list of coroutines to schedule as tasks."""
-
-        return [self.monitor_weather()]
-
-    async def monitor_weather(self):
+    async def task(self):
         """Updates the weather data."""
 
         n_failures: int = 0
 
         while True:
             try:
-                self.log("Checking weather conditions.")
                 await self.update_weather()
-                await self.check_weather()
+                await self.module.check_weather()
             except Exception as err:
                 if self.unavailable is False:
-                    self.log(f"Failed to get weather data: {err!r}", "error")
+                    self.log.error(f"Failed to get weather data: {err!r}")
                 n_failures += 1
             else:
                 self.last_updated = time()
@@ -97,10 +83,9 @@ class WeatherOverwatcher(OverwatcherModule):
             finally:
                 if self.unavailable is False and n_failures >= 5:
                     self.unavailable = True
-                    self.log(
+                    self.log.critical(
                         "Failed to get weather data 5 times. "
                         "Triggering an emergency shutdown.",
-                        "critical",
                     )
                     await self.overwatcher.emergency_shutdown(block=False)
 
@@ -109,7 +94,7 @@ class WeatherOverwatcher(OverwatcherModule):
     async def update_weather(self):
         """Processes the weather update and determines whether it is safe to observe."""
 
-        self.data = await self.get_weather_report()
+        self.data = await self.module.get_weather_report()
 
         if self.data is None or len(self.data) == 0:
             raise ValueError("No weather data available.")
@@ -159,6 +144,25 @@ class WeatherOverwatcher(OverwatcherModule):
 
         self.risk = new_risk
 
+
+class WeatherOverwatcher(OverwatcherModule):
+    """Monitors weather conditions."""
+
+    name = "weather"
+
+    tasks = [WeatherMonitorTask()]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.data: polars.DataFrame | None = None
+        self.last_updated: float = 0.0
+
+        self.unavailable: bool = False
+
+        self.state: WeatherState | None = None
+        self.risk = WeatherRisk.UNKNOWN
+
     async def check_weather(self):
         """Checks the weather state and triggers an emergency shutdown if necessary."""
 
@@ -167,17 +171,14 @@ class WeatherOverwatcher(OverwatcherModule):
         if "CLOSED" in dome_labels or "MOTOR_CLOSING" in dome_labels:
             return
 
-        if not self.can_open():
-            self.log(
-                "Unsafe weather conditions. Triggering emergency shutdown.",
-                "critical",
-            )
+        if not self.is_safe():
+            self.log.critical("Unsafe weather conditions. Triggering shutdown.")
             await self.overwatcher.emergency_shutdown(block=False)
 
-    def can_open(self):
-        """Determines whether it is possible to open."""
+    def is_safe(self):
+        """Determines whether it is safe to open."""
 
-        if self.state in [WeatherRisk.DANGER, WeatherRisk.EXTREME]:
+        if self.state in [WeatherRisk.DANGER, WeatherRisk.EXTREME, WeatherRisk.UNKNOWN]:
             return False
 
         return True

@@ -256,6 +256,13 @@ lvmapi:
   host: 127.0.0.1
   port: 8085
 
+redis:
+  url: redis://localhost:6379/0
+
+slack:
+  user_ids:
+    gallegoj: U6EHEEHU6
+
 websocket:
   host: 0.0.0.0
   port: 9000

@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 __all__ = ["CalibrationsHandler"]
 
 SCHEMA = {
+    "sjd": polars.Int32(),
     "name": polars.String(),
     "recipe": polars.String(),
     "script": polars.String(),
@@ -37,6 +38,9 @@ SCHEMA = {
     "open_dome": polars.Boolean(),
     "night_mode": polars.Boolean(),
     "priority": polars.Float32(),
+    "start_jd": polars.Float32(),
+    "end_jd": polars.Float32(),
+    "complete": polars.Boolean(),
 }
 
 
@@ -65,7 +69,7 @@ class CalibrationsHandler:
     def reset(self):
         """Resets the list of calibrations for a new SJD."""
 
-        calibrations = self.load_calibrations()
+        self.load_calibrations()
 
     def load_calibrations(self):
         """Loads and validaes the calibrations file."""
@@ -87,10 +91,15 @@ class CalibrationsHandler:
         except jsonschema.ValidationError:
             raise ValueError("Calibrations file is badly formatted.")
 
-        self.calibrations = polars.DataFrame(list(cals_yml), schema=SCHEMA)
+        cals = polars.DataFrame(list(cals_yml), schema=SCHEMA)
+        cals = cals.with_columns(
+            sjd=polars.lit(self.overwatcher.ephemeris.sjd, SCHEMA["sjd"])
+        )
 
-    # def generate_schedule(self):
-    #     """Generates a schedule of calibrations for the night."""
+        self.calibrations = cals
+
+    def generate_schedule(self):
+        """Generates a schedule of calibrations for the night."""
 
     def time_to_calibrations(self):
         """ "Returns the number of minutes to the next calibration window."""
@@ -106,3 +115,6 @@ class CalibrationsHandler:
             return
         else:
             is_sunset = False
+
+    async def get_from_redis(self):
+        """Gets the status of the calibrations done."""

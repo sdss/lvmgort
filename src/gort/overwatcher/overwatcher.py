@@ -9,13 +9,48 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import pathlib
+import re
+import sys
 
+import httpx
+
+from gort import config
+from gort.core import LogNamespace
 from gort.exceptions import GortError
 from gort.gort import Gort
-from gort.overwatcher.core import OverwatcherModule
-from gort.tools import cancel_task
+from gort.overwatcher.core import OverwatcherModule, OverwatcherTask
+
+
+GORT_ICON_URL = "https://github.com/sdss/lvmgort/blob/overwatcher/docs/sphinx/_static/gort_logo_slack.png?raw=true"
+
+
+class OverwatcherMainTask(OverwatcherTask):
+    """The main overwatcher task."""
+
+    name = "overwatcher_task"
+    keep_alive = True
+    restart_on_error = True
+
+    def __init__(self, overwatcher: Overwatcher):
+        super().__init__()
+
+        self.overwatcher = overwatcher
+        self.log = self.overwatcher.log
+
+    async def task(self):
+        """Main overwatcher task."""
+
+        while True:
+            await asyncio.sleep(1)
+
+            if (
+                self.overwatcher.weather.is_safe()
+                and self.overwatcher.ephemeris.is_night()
+            ):
+                self.overwatcher.allow_observations = True
+            else:
+                self.overwatcher.allow_observations = False
 
 
 class Overwatcher:
@@ -47,14 +82,12 @@ class Overwatcher:
             return
 
         self.gort = gort or Gort(verbosity=verbosity, **kwargs)
+        self.log = LogNamespace(self.gort.log, header=f"({self.__class__.__name__}) ")
 
-        self.tasks: list[asyncio.Task] = []
+        self.tasks: list[OverwatcherTask] = [OverwatcherMainTask(self)]
 
-        self.calibrations = CalibrationsHandler(
-            self,
-            calibrations_file=calibrations_file,
-        )
         self.ephemeris = EphemerisOverwatcher(self)
+        self.calibrations = CalibrationsHandler(self, calibrations_file)
         self.observer = ObserverOverwatcher(self)
         self.weather = WeatherOverwatcher(self)
 
@@ -72,14 +105,14 @@ class Overwatcher:
             await self.gort.init()
 
         for module in OverwatcherModule.instances:
-            self.log(f"Starting overwatcher module {module.name!r}")
+            self.log.info(f"Starting overwatcher module {module.name!r}")
             await module.run()
 
-        self.tasks.append(asyncio.create_task(self.overwatcher_task()))
+        for task in self.tasks:
+            await task.run()
 
         self.is_running = True
-
-        await asyncio.sleep(5)
+        await self.write_to_slack("Overwatcher is starting.")
 
         return self
 
@@ -91,31 +124,64 @@ class Overwatcher:
             await module.cancel()
 
         for task in self.tasks:
-            await cancel_task(task)
+            await task.cancel()
 
-        self.tasks = []
         self.is_running = False
 
-    async def overwatcher_task(self):
-        """Main overwatcher task."""
+    async def write_to_slack(
+        self,
+        text: str,
+        as_overwatcher: bool = True,
+        mentions: list[str] = [],
+        log: bool = True,
+        log_level: str = "info",
+    ):
+        """Writes a message to Slack."""
 
-        while True:
-            await asyncio.sleep(5)
+        if log is True:
+            getattr(self.log, log_level)(text)
 
-            if self.weather.can_open() and self.ephemeris.is_night():
-                self.allow_observations = True
-            else:
-                self.allow_observations = False
+        username = "Overwatcher" if as_overwatcher else None
+        icon_url = GORT_ICON_URL if as_overwatcher else None
 
-    def log(self, message: str, level: str = "debug"):
-        """Logs a message to the GORT log."""
+        host, port = self.gort.config["lvmapi"].values()
 
-        level = logging.getLevelName(level.upper())
-        assert isinstance(level, int)
+        if len(mentions) > 0:
+            for mention in mentions[::-1]:
+                if mention[0] != "@":
+                    mention = f"@{mention}"
+                if mention not in text:
+                    text = f"{mention} {text}"
 
-        message = f"({self.__class__.__name__}) {message}"
+        # Replace @channel, @here, ... with the API format <!here>.
+        text = re.sub(r"(\s|^)@(here|channel|everone)(\s|$)", r"\1<!here>\3", text)
 
-        self.gort.log.log(level, message)
+        # The remaining mentions should be users. But in the API these need to be
+        # <@XXXX> where XXXX is the user ID and not the username.
+        users = re.findall(r"(?:\s|^)@([a-zA-Z_]+)(?:\s|$)", text)
+        for user in users:
+            if user in config["slack"]["user_ids"]:
+                user_id = config["slack"]["user_ids"][user]
+                text = text.replace(f"@{user}", f"<@{user_id}>")
+
+        try:
+            async with httpx.AsyncClient(
+                base_url=f"http://{host}:{port}",
+                follow_redirects=True,
+            ) as client:
+                response = await client.post(
+                    "/slack/message",
+                    json={
+                        "text": text,
+                        "username": username,
+                        "icon_url": icon_url,
+                    },
+                )
+
+                if response.status_code != 200:
+                    raise ValueError(response.text)
+        except Exception as err:
+            self.log.error(f"Failed to send message to Slack: {err}")
 
     async def emergency_shutdown(self, block: bool = True):
         """Shuts down the observatory in case of an emergency."""
@@ -125,6 +191,46 @@ class Overwatcher:
 
         if block:
             await asyncio.gather(stop_task, shutdown_task)
-        else:
-            self.tasks.append(stop_task)
-            self.tasks.append(shutdown_task)
+
+    def handle_error(
+        self,
+        message: str | Exception | None = None,
+        error: Exception | None = None,
+        log: bool = True,
+        slack: bool = False,
+        slack_mentions: list[str] = [],
+    ):
+        """Handles an error in the overwatcher."""
+
+        # TODO: actually handle the error and do troubleshooting. Call something
+        # like troubleshoot_error(error).
+
+        if isinstance(message, Exception):
+            error = message
+            message = str(error)
+
+        if message is None and error is None:
+            message = "An unknown error was reported."
+        elif error is not None:
+            if message is not None:
+                message = f"{message}: {error!s}"
+            else:
+                message = f"{error!s}"
+
+        assert isinstance(message, str)
+
+        if log:
+            if error is None:
+                self.log.error(message, exc_info=error)
+            else:
+                self.log.exception(message, exc_info=sys.exc_info())
+
+        if slack:
+            asyncio.create_task(
+                self.write_to_slack(
+                    message,
+                    as_overwatcher=True,
+                    log=False,
+                    mentions=slack_mentions,
+                )
+            )

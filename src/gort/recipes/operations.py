@@ -65,8 +65,6 @@ class StartupRecipe(BaseRecipe):
 
         """
 
-        rconfig = self.gort.config["recipes"]["startup"]
-
         self.gort.log.warning("Running the startup sequence.")
 
         await self.gort.telescopes.home(
