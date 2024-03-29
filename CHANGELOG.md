@@ -9,6 +9,7 @@
 ### 🔧 Fixed
 
 * Fixed a serious issue in which if the slew fails, the retry did not send the PA and it would default to PA=0.
+* After the initial slew, subsequent slews of the spec telescope do not check for whether the enclosure state is remote.
 
 
 ## 0.10.0 - February 7, 2024
