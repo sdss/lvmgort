@@ -69,7 +69,7 @@ class Overwatcher:
         **kwargs,
     ):
         from gort.overwatcher import (
-            CalibrationsHandler,
+            CalibrationsWatcher,
             EphemerisOverwatcher,
             ObserverOverwatcher,
             WeatherOverwatcher,
@@ -85,7 +85,7 @@ class Overwatcher:
         self.tasks: list[OverwatcherTask] = [OverwatcherMainTask(self)]
 
         self.ephemeris = EphemerisOverwatcher(self)
-        self.calibrations = CalibrationsHandler(self, calibrations_file)
+        self.calibrations = CalibrationsWatcher(self, calibrations_file)
         self.observer = ObserverOverwatcher(self)
         self.weather = WeatherOverwatcher(self)
 

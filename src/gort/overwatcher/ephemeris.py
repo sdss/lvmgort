@@ -40,16 +40,13 @@ class EphemerisMonitorTask(OverwatcherModuleTask["EphemerisOverwatcher"]):
 
             if self.module.ephemeris is None or new_sjd != self.sjd:
                 self.sjd = new_sjd
-                self.overwatcher.calibrations.reset()
 
-                try:
-                    self.module.ephemeris = await get_ephemeris_summary(new_sjd)
-                except Exception as err:
-                    self.log.error(f"Failed getting ephemeris data: {err!r}")
-                    await asyncio.sleep(10)
+                new_ephemeris = await self.module.update_ephemeris(new_sjd)
+                if new_ephemeris is None:
+                    await asyncio.sleep(60)
                     continue
-                else:
-                    self.last_updated = time()
+
+                await self.overwatcher.calibrations.reset()
 
             await asyncio.sleep(600)
 
@@ -67,6 +64,21 @@ class EphemerisOverwatcher(OverwatcherModule):
         self.sjd = get_sjd("LCO")
         self.ephemeris: dict | None = None
         self.last_updated: float = 0.0
+
+    async def update_ephemeris(self, sjd: int | None = None):
+        """Updates the ephemeris data."""
+
+        sjd = sjd or get_sjd("LCO")
+
+        try:
+            self.ephemeris = await get_ephemeris_summary(sjd)
+        except Exception as err:
+            self.log.error(f"Failed getting ephemeris data: {err!r}")
+        else:
+            self.last_updated = time()
+            return self.ephemeris
+
+        return None
 
     def is_night(self, require_twilight: bool = True):
         """Determines whether it is nightime."""

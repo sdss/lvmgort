@@ -8,16 +8,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import pathlib
 
-from typing import TYPE_CHECKING, Any, Coroutine
+from typing import TYPE_CHECKING, Any
 
 import jsonschema
 import polars
 
 from sdsstools import get_sjd, read_yaml_file
 
+from gort.overwatcher.core import OverwatcherModule
 from gort.tools import get_redis_client
 
 
@@ -25,7 +27,8 @@ if TYPE_CHECKING:
     from gort.overwatcher.overwatcher import Overwatcher
 
 
-__all__ = ["CalibrationsHandler"]
+__all__ = ["CalibrationsWatcher"]
+
 
 SCHEMA = {
     "sjd": polars.Int32(),
@@ -46,9 +49,10 @@ SCHEMA = {
 }
 
 
-class CalibrationsHandler:
+class CalibrationsWatcher(OverwatcherModule):
 
     name = "calibration"
+    tasks = []
 
     def __init__(
         self,
@@ -56,18 +60,13 @@ class CalibrationsHandler:
         calibrations_file: str | pathlib.Path | None = None,
     ):
 
-        self.overwatcher = overwatcher
+        super().__init__(overwatcher)
 
         self.calibrations_file: str | pathlib.Path | None = calibrations_file
         self.calibrations: polars.DataFrame = polars.DataFrame(None, schema=SCHEMA)
 
         self.ephemeris: dict[str, Any] | None = None
         self.sjd: int = get_sjd("LCO")
-
-    def list_task_coros(self) -> list[Coroutine]:
-        """Returns a list of coroutines to schedule as tasks."""
-
-        return []
 
     async def reset(self):
         """Resets the list of calibrations for a new SJD.
@@ -77,14 +76,12 @@ class CalibrationsHandler:
 
         """
 
+        while self.overwatcher.ephemeris.ephemeris is None:
+            self.log.error("Ephemeris is not available. Cannot reset calibrations.")
+            await asyncio.sleep(5)
+
         self.sjd = self.overwatcher.ephemeris.sjd
-
-        if self.overwatcher.ephemeris.ephemeris is not None:
-            self.ephemeris = self.overwatcher.ephemeris.ephemeris
-        else:
-            self.overwatcher.ephemeris.
-
-
+        self.ephemeris = self.overwatcher.ephemeris.ephemeris
 
         self.load_calibrations()
 
@@ -109,9 +106,7 @@ class CalibrationsHandler:
             raise ValueError("Calibrations file is badly formatted.")
 
         cals = polars.DataFrame(list(cals_yml), schema=SCHEMA)
-        cals = cals.with_columns(
-            sjd=polars.lit(self.overwatcher.ephemeris.sjd, SCHEMA["sjd"])
-        )
+        cals = cals.with_columns(sjd=polars.lit(self.sjd, SCHEMA["sjd"]))
 
         self.calibrations = cals
 

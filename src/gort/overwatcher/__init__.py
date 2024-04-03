@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from .calibration import CalibrationsHandler
+from .calibration import CalibrationsWatcher
 from .core import OverwatcherModule
 from .ephemeris import EphemerisOverwatcher
 from .observer import ObserverOverwatcher
