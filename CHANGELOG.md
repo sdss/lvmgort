@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### 🔧 Fixed
+
+* Manually refresh the progress bar only once a second, and only after an update. Hopefully this helps with the event loop getting sluggish after a while.
+
+
 ## 0.11.0 - March 29, 2024
 
 ### 🚀 New
