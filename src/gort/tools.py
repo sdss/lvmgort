@@ -340,6 +340,26 @@ def mark_exposure_bad(tile_id: int, dither_position: int = 0):
     ).execute()
 
 
+async def set_tile_status(tile_id: int, enabled: bool = True):
+    """Enables/disables a tile in the database."""
+
+    sch_config = config["scheduler"]
+    host = sch_config["host"]
+    port = sch_config["port"]
+
+    disable = "false" if enabled else "true"
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.put(
+            f"http://{host}:{port}/tile_status/?tile_id={tile_id}&disable={disable}",
+            json={},
+            follow_redirects=True,
+        )
+
+        if resp.status_code != 200 or not resp.json()["success"]:
+            raise RuntimeError(f"Failed setting tile status: {resp.text}.")
+
+
 def is_notebook() -> bool:
     """Returns :obj:`True` if the code is run inside a Jupyter Notebook.
 
