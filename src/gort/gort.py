@@ -40,7 +40,7 @@ from sdsstools.time import get_sjd
 
 from gort import config
 from gort.core import RemoteActor
-from gort.exceptions import GortError
+from gort.exceptions import ErrorCodes, GortError
 from gort.kubernetes import Kubernetes
 from gort.observer import GortObserver
 from gort.recipes import recipes as recipe_to_class
@@ -650,6 +650,7 @@ class Gort(GortClient):
         n_tiles: int | None = None,
         adjust_focus: bool = True,
         show_progress: bool | None = None,
+        disable_tile_on_error: bool = True,
     ):
         """Runs a fully automatic science observing loop."""
 
@@ -662,16 +663,40 @@ class Gort(GortClient):
 
         n_completed = 0
         while True:
-            result = await self.observe_tile(
-                run_cleanup=False,
-                cleanup_on_interrrupt=True,
-                adjust_focus=adjust_focus,
-                show_progress=show_progress,
-            )
-            if result is False:
-                break
+            try:
+                result = await self.observe_tile(
+                    run_cleanup=False,
+                    cleanup_on_interrrupt=True,
+                    adjust_focus=adjust_focus,
+                    show_progress=show_progress,
+                )
+                if result is False:
+                    break
 
-            n_completed += 1
+            except GortError as ee:
+                if not disable_tile_on_error:
+                    raise
+
+                if ee.error_code == ErrorCodes.ACQUISITION_FAILED:
+                    observer: GortObserver | None = ee.payload.get("observer", None)
+                    if observer is None:
+                        self.log.error('Cannot disable tile: "observer" not found.')
+                        raise
+                    if observer.tile.tile_id is None:
+                        self.log.error('Cannot disable tile without a "tile_id".')
+                        raise
+
+                    await observer.tile.disable()
+                    self.log.warning(
+                        f"tile_id={observer.tile.tile_id} has been disabled. "
+                        "Continuing observations."
+                    )
+
+                else:
+                    raise
+
+            else:
+                n_completed += 1
 
             if n_tiles is not None and n_completed >= n_tiles:
                 self.log.info("Number of tiles reached. Finishing observing loop.")
