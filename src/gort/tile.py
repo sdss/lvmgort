@@ -24,6 +24,7 @@ from gort.tools import (
     get_calibrators_sync,
     get_db_connection,
     get_next_tile_id_sync,
+    set_tile_status,
 )
 from gort.transforms import fibre_to_master_frame, offset_to_master_frame_pixel
 
@@ -739,3 +740,19 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
         self.spec_coords = valid_spec_coords
 
         return self.spec_coords
+
+    async def enable(self):
+        """Enables the tile for observation."""
+
+        if self.tile_id is None:
+            raise TileError("Cannot enable tile without a tile_id.")
+
+        await set_tile_status(self.tile_id, enabled=True)
+
+    async def disable(self):
+        """Disables the tile for observation."""
+
+        if self.tile_id is None:
+            raise TileError("Cannot disable tile without a tile_id.")
+
+        await set_tile_status(self.tile_id, enabled=False)

@@ -50,12 +50,19 @@ class ErrorCodes(Enum):
 class GortError(Exception):
     """A custom core GortError exception"""
 
-    def __init__(self, message: str | None = None, error_code: int | ErrorCodes = 0):
+    def __init__(
+        self,
+        message: str | None = None,
+        error_code: int | ErrorCodes = 0,
+        payload: dict = {},
+    ):
         try:
             self.error_code = ErrorCodes(error_code)
         except ValueError:
             self.error_code = ErrorCodes.UNKNOWN_ERROR
             error_code = self.error_code.value
+
+        self.payload = payload
 
         prefix = f"Error {self.error_code.value} ({self.error_code.name})"
         if message is not None and message != "":

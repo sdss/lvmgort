@@ -287,7 +287,8 @@ class GortObserver:
                 if tel == "sci" and not is_guiding:
                     raise GortObserverError(
                         "Science telescope is not guiding.",
-                        error_code=801,
+                        error_code=ErrorCodes.ACQUISITION_FAILED,
+                        payload={"observer": self},
                     )
 
                 if tel == "spec":
@@ -295,6 +296,7 @@ class GortObserver:
                         raise GortObserverError(
                             "Spec telescope is not guiding.",
                             error_code=ErrorCodes.ACQUISITION_FAILED,
+                            payload={"observer": self},
                         )
                     else:
                         await self.gort.guiders.spec.apply_corrections(False)

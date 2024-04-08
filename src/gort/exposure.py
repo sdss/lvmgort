@@ -30,6 +30,7 @@ from gort.tools import (
     get_md5sum_from_spectro,
     is_interactive,
     is_notebook,
+    run_in_executor,
 )
 
 
@@ -309,7 +310,8 @@ class Exposure(asyncio.Future["Exposure"]):
             TextColumn("s"),
             expand=True,
             transient=True,
-            auto_refresh=True,
+            auto_refresh=False,
+            refresh_per_second=1,
             console=self.specs.gort._console,  # Need to use same console as logger.
         )
 
@@ -340,6 +342,8 @@ class Exposure(asyncio.Future["Exposure"]):
                         completed=int(exposure_time),
                     )
                     self._progress.update(readout_task, advance=1, visible=True)
+
+                asyncio.create_task(run_in_executor(self._progress.refresh))
 
                 await asyncio.sleep(1)
                 elapsed += 1
