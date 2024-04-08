@@ -33,8 +33,6 @@ from redis import asyncio as aioredis
 
 from sdsstools import get_sjd
 
-from sdsstools import get_sjd
-
 from gort import config
 
 
@@ -226,7 +224,7 @@ def parse_agcam_filename(file_: str | pathlib.Path):
 def get_next_tile_id_sync() -> dict:
     """Retrieves the next ``tile_id`` from the scheduler API. Synchronous version."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -242,7 +240,7 @@ def get_next_tile_id_sync() -> dict:
 async def get_next_tile_id() -> dict:
     """Retrieves the next ``tile_id`` from the scheduler API."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -262,7 +260,7 @@ def get_calibrators_sync(
 ) -> dict:
     """Get calibrators for a ``tile_id`` or science pointing. Synchronous version."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -286,7 +284,7 @@ async def get_calibrators(
 ):
     """Get calibrators for a ``tile_id`` or science pointing."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -306,7 +304,7 @@ async def get_calibrators(
 async def register_observation(payload: dict):
     """Registers an observation with the scheduler."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -349,7 +347,7 @@ def mark_exposure_bad(tile_id: int, dither_position: int = 0):
 async def set_tile_status(tile_id: int, enabled: bool = True):
     """Enables/disables a tile in the database."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -551,7 +549,7 @@ def angular_separation(lon1: float, lat1: float, lon2: float, lat2: float):
 def get_db_connection():
     """Returns a DB connection from the configuration file parameters."""
 
-    conn = peewee.PostgresqlDatabase(**config["database"]["connection"])
+    conn = peewee.PostgresqlDatabase(**config["services"]["database"]["connection"])
     assert conn.connect(), "Database connection failed."
 
     return conn
@@ -561,7 +559,7 @@ def get_db_connection():
 def get_redis_client():
     """Returns a Redis connection from the configuration file parameters."""
 
-    redis_config = config["redis"]
+    redis_config = config["services"]["redis"]
 
     client = aioredis.from_url(redis_config["url"], decode_responses=True)
 
@@ -781,8 +779,8 @@ def get_by_source_id(source_id: int) -> dict | None:
 async def get_ephemeris_summary(sjd: int | None = None) -> dict:
     """Returns the ephemeris summary from ``lvmapi``."""
 
-    host = config["lvmapi"]["host"]
-    port = config["lvmapi"]["port"]
+    host = config["services"]["lvmapi"]["host"]
+    port = config["services"]["lvmapi"]["port"]
     url = f"http://{host}:{port}/ephemeris/"
 
     sjd = sjd or get_sjd("LCO")
@@ -800,7 +798,7 @@ async def get_lvmapi_route(route: str, params: dict = {}, **kwargs):
 
     params.update(kwargs)
 
-    host, port = config["lvmapi"].values()
+    host, port = config["services"]["lvmapi"].values()
 
     async with httpx.AsyncClient(
         base_url=f"http://{host}:{port}",

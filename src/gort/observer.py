@@ -454,7 +454,7 @@ class GortObserver:
         ]
 
         try:
-            table_name = self.gort.config["database"]["tables"]["overhead"]
+            table_name = self.gort.config["services"]["database"]["tables"]["overhead"]
             insert_to_database(table_name, payload)
         except Exception as err:
             self.write_to_log(f"Failed saving overheads to database: {err}", "error")

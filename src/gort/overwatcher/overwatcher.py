@@ -142,7 +142,7 @@ class Overwatcher:
         username = "Overwatcher" if as_overwatcher else None
         icon_url = GORT_ICON_URL if as_overwatcher else None
 
-        host, port = self.gort.config["lvmapi"].values()
+        host, port = self.gort.config["services"]["lvmapi"].values()
 
         try:
             async with httpx.AsyncClient(

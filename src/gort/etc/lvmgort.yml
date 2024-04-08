@@ -236,10 +236,6 @@ enclosure:
 
 recipes:
 
-scheduler:
-  host: 10.8.38.26
-  port: 5100
-
 observer:
   guide_tolerance:
     sci: 2
@@ -252,35 +248,36 @@ kubernetes:
     default: /home/sdss5/config/kube
     notebook: ~/sdss5/config/kube
 
-lvmapi:
-  host: 127.0.0.1
-  port: 8085
-
-redis:
-  url: redis://localhost:6379/0
-
-slack:
-  user_ids:
-    gallegoj: U6EHEEHU6
-
 websocket:
   host: 0.0.0.0
   port: 9000
-
-lvmcore:
-  path: ${LVMCORE_DIR}
-  fibermap: metrology/lvm_fiducial_fibermap.yaml
 
 site:
   lon: -70.70166667
   lat: -29.00333333
   height: 2282.0
 
-database:
-  connection:
-    host: lvm-webapp.lco.cl
-    port: 5432
-    user: sdss
-    database: lvmdb
-  tables:
-    overhead: lvmopsdb.overhead
+services:
+  lvmcore:
+    path: ${LVMCORE_DIR}
+    fibermap: metrology/lvm_fiducial_fibermap.yaml
+
+  scheduler:
+    host: 10.8.38.26
+    port: 5100
+
+  lvmapi:
+    host: 127.0.0.1
+    port: 8085
+
+  redis:
+    url: redis://localhost:6379/0
+
+  database:
+    connection:
+      host: lvm-webapp.lco.cl
+      port: 5432
+      user: sdss
+      database: lvmdb
+    tables:
+      overhead: lvmopsdb.overhead
