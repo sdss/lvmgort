@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from gort.overwatcher.overwatcher import Overwatcher
 
 
-__all__ = ["CalibrationsWatcher"]
+__all__ = ["CalibrationsOverwatcher"]
 
 
 ARRAY_F32 = npt.NDArray[npt.Shape["*, 2"], npt.Float32]
@@ -77,8 +77,8 @@ class Calibration:
     async def get_last_taken(self):
         """Gets the last time the observation was taken from Redis."""
 
-        with redis_client() as redis:
-            data = await redis.hgetall(f"overwatcher:calibrations:{self.name}")
+        client = redis_client()
+        data = await client.hgetall(f"gort:overwatcher:calibrations:{self.name}")
 
         if data == {}:
             return None
@@ -90,11 +90,11 @@ class Calibration:
 
         self.done = True
 
-        with redis_client() as redis:
-            await redis.hset(
-                f"overwatcher:calibrations:{self.name}",
-                mapping={"last_taken": time.Time.now().isot},
-            )
+        client = redis_client()
+        await client.hset(
+            f"gort:overwatcher:calibrations:{self.name}",
+            mapping={"last_taken": time.Time.now().isot},
+        )
 
 
 class CalibrationSchedule:
@@ -372,7 +372,7 @@ class CalibrationSchedule:
         return cls({cal["name"]: Calibration(**cal) for cal in cals_data}, **kwargs)
 
 
-class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsWatcher"]):
+class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
     """Monitors the calibrations schedule."""
 
     name = "calibrations_monitor"
@@ -408,7 +408,7 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsWatcher"]):
             last_update += 60
 
 
-class CalibrationsWatcher(OverwatcherModule):
+class CalibrationsOverwatcher(OverwatcherModule):
 
     name = "calibration"
 

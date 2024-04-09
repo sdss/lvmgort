@@ -242,11 +242,11 @@ class ObserverOverwatcher(OverwatcherModule):
         """Is observing enabled?"""
 
         try:
-            with redis_client() as client:
-                enabled: str | None = await client.get("overwatcher:enabled")
-                if not enabled:
-                    raise ValueError("cannot determine if observing is enabled.")
-                return bool(int(enabled))
+            client = redis_client()
+            enabled: str | None = await client.get("gort:overwatcher:enabled")
+            if not enabled:
+                raise ValueError("cannot determine if observing is enabled.")
+            return bool(int(enabled))
         except Exception as err:
             self.overwatcher.handle_error(
                 f"Cannot determine if observing is enabled: {err!r}",

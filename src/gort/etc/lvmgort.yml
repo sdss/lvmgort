@@ -272,6 +272,9 @@ services:
 
   redis:
     url: redis://localhost:6379/0
+    pubsub:
+      commands: gort:overwatcher:commands
+      notifications: gort:notifications
 
   database:
     connection:

@@ -8,10 +8,33 @@
 
 from __future__ import annotations
 
-from enum import Flag
+from enum import Enum, Flag
 
 
-__all__ = ["GuiderStatus"]
+__all__ = ["ErrorCodes", "GuiderStatus", "Notification"]
+
+
+class ErrorCodes(Enum):
+    """List of error codes."""
+
+    UNCATEGORISED_ERROR = 0
+    NOT_IMPLEMENTED = 1
+    COMMAND_FAILED = 2
+    COMMAND_TIMEDOUT = 3
+    USAGE_ERROR = 4
+    TIMEOUT = 5
+    CANNOT_MOVE_LOCAL_MODE = 101
+    FAILED_REACHING_COMMANDED_POSITION = 102
+    INVALID_TELESCOPE_POSITION = 103
+    FIBSEL_INVALID_POSITION = 201
+    SECTROGRAPH_FAILED_EXPOSING = 301
+    SECTROGRAPH_NOT_IDLE = 302
+    INVALID_CALIBRATION_SEQUENCE = 303
+    LOCAL_MODE_FAILED = 501
+    DOOR_STATUS_FAILED = 502
+    INVALID_PIXEL_NAME = 610
+    ACQUISITION_FAILED = 801
+    UNKNOWN_ERROR = 999
 
 
 class GuiderStatus(Flag):
@@ -46,3 +69,9 @@ class GuiderStatus(Flag):
 
     def __repr__(self):
         return str(" | ".join(self.get_names()))
+
+
+class Notification(Enum):
+    """Enumeration with the notification types."""
+
+    UNCATEGORISED = 0

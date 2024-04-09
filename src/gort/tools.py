@@ -18,7 +18,7 @@ import pathlib
 import re
 import tempfile
 import warnings
-from contextlib import contextmanager, suppress
+from contextlib import suppress
 from functools import partial
 
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Sequence
@@ -557,15 +557,13 @@ def get_db_connection():
     return conn
 
 
-@contextmanager
 def redis_client():
     """Returns a Redis connection from the configuration file parameters."""
 
     redis_config = config["services"]["redis"]
-
     client = aioredis.from_url(redis_config["url"], decode_responses=True)
 
-    yield client
+    return client
 
 
 async def run_in_executor(fn, *args, catch_warnings=False, executor="thread", **kwargs):
