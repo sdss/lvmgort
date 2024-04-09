@@ -7,11 +7,10 @@
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
 import asyncio
-import os
 
 import click
 
-from sdsstools.daemonizer import DaemonGroup, cli_coro
+from sdsstools.daemonizer import cli_coro
 
 
 @click.group()
@@ -33,19 +32,6 @@ async def overwatcher():
     while True:
         await asyncio.sleep(5)
         continue
-
-
-@gort.group(cls=DaemonGroup, prog="gort_ws", workdir=os.getcwd())
-@cli_coro()
-async def websocket():
-    """Launches the websocket server."""
-
-    from gort.websocket import WebsocketServer
-
-    ws = WebsocketServer()
-    await ws.start()
-
-    await ws.websocket_server.serve_forever()
 
 
 @gort.command()

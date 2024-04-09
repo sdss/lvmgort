@@ -11,4 +11,4 @@ RUN pip3 install -U pip setuptools wheel
 RUN cd lvmgort && pip3 install .
 RUN rm -Rf lvmgort
 
-ENTRYPOINT lvmgort websocket start --debug
+ENTRYPOINT lvmgort overwatcher

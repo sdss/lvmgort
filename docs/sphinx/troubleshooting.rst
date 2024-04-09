@@ -57,7 +57,6 @@ If the deployment was not running you may see a message indicating that the depl
     ['local-path-provisioner',
      'rabbitmq',
      'lvmnps',
-     'gort-websocket',
      'lvmieb',
      'lvmtelemetry',
      'restapi',
