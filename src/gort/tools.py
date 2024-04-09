@@ -18,7 +18,7 @@ import pathlib
 import re
 import tempfile
 import warnings
-from contextlib import suppress
+from contextlib import contextmanager, suppress
 from functools import partial
 
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Sequence
@@ -59,11 +59,13 @@ __all__ = [
     "move_mask_interval",
     "angular_separation",
     "get_db_connection",
-    "get_redis_client",
+    "redis_client",
     "run_in_executor",
     "is_interactive",
     "is_notebook",
     "cancel_task",
+    "get_ephemeris_summary",
+    "get_ephemeris_summary_sync",
     "get_temporary_file_path",
     "insert_to_database",
     "get_md5sum_file",
@@ -555,15 +557,15 @@ def get_db_connection():
     return conn
 
 
-@functools.lru_cache(maxsize=1)
-def get_redis_client():
+@contextmanager
+def redis_client():
     """Returns a Redis connection from the configuration file parameters."""
 
     redis_config = config["services"]["redis"]
 
     client = aioredis.from_url(redis_config["url"], decode_responses=True)
 
-    return client
+    yield client
 
 
 async def run_in_executor(fn, *args, catch_warnings=False, executor="thread", **kwargs):
@@ -787,6 +789,23 @@ async def get_ephemeris_summary(sjd: int | None = None) -> dict:
 
     async with httpx.AsyncClient() as client:
         resp = await client.get(url, params={"sjd": sjd})
+        if resp.status_code != 200:
+            raise httpx.RequestError("Failed request to /ephemeris")
+
+    return resp.json()
+
+
+def get_ephemeris_summary_sync(sjd: int | None = None) -> dict:
+    """Returns the ephemeris summary from ``lvmapi``."""
+
+    host = config["services"]["lvmapi"]["host"]
+    port = config["services"]["lvmapi"]["port"]
+    url = f"http://{host}:{port}/ephemeris/"
+
+    sjd = sjd or get_sjd("LCO")
+
+    with httpx.Client() as client:
+        resp = client.get(url, params={"sjd": sjd})
         if resp.status_code != 200:
             raise httpx.RequestError("Failed request to /ephemeris")
 

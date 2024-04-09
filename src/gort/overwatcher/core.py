@@ -123,6 +123,12 @@ class OverwatcherModuleTask(OverwatcherTask, Generic[OverwatcherModule_T]):
         return self.module.gort
 
     @property
+    def config(self):
+        """Returns the configuration dictionary."""
+
+        return self.module.gort.config
+
+    @property
     def log(self):
         """Returns the logger instance."""
 

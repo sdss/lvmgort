@@ -236,6 +236,10 @@ enclosure:
 
 recipes:
 
+overwatcher:
+  scheduler:
+    open_dome_buffer: 300
+
 observer:
   guide_tolerance:
     sci: 2

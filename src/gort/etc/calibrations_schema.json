@@ -27,14 +27,30 @@
         "oneOf": [
           {
             "type": "string",
-            "enum": ["secs_after_sunset", "secs_before_sunrise", "jd", "utc"]
+            "enum": [
+              "anytime",
+              "secs_after_sunset",
+              "secs_before_sunrise",
+              "jd",
+              "utc"
+            ]
           },
           { "type": "null" }
         ],
-        "description": "How the start times are defined. sec_after_sunset: number of seconds after the sunset; secs_before_sunrise: seconds before the sunrise; jd: Julian date (executed only once); utc: UTC time (executed every day at this time)."
+        "description": "How the start times are defined. sec_after_sunset: number of seconds after the sunset; secs_before_sunrise: seconds before the sunrise; jd: Julian date (executed only once, requires repeat=never); utc: UTC time in decimal hours."
+      },
+      "repeat": {
+        "oneOf": [
+          {
+            "type": "string",
+            "enum": ["never", "daily", "weekly", "monthly"]
+          },
+          { "type": "null" }
+        ],
+        "description": "How often to retake the calibration."
       },
       "expected_duration": {
-        "oneOf": [{ "type": "number" }, { "type": "null" }],
+        "type": "number",
         "description": "How long the calibrations are expected to take, for scheduling purposes. In seconds."
       },
       "required": {

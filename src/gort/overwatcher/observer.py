@@ -15,7 +15,7 @@ from time import time
 from gort.exposure import Exposure
 from gort.overwatcher import OverwatcherModule
 from gort.overwatcher.core import OverwatcherModuleTask
-from gort.tools import cancel_task, get_redis_client
+from gort.tools import cancel_task, redis_client
 
 
 __all__ = ["ObserverOverwatcher"]
@@ -241,10 +241,12 @@ class ObserverOverwatcher(OverwatcherModule):
     async def is_enabled(self):
         """Is observing enabled?"""
 
-        client = get_redis_client()
-
         try:
-            return bool(int(await client.get("overwatcher:enabled")))
+            with redis_client() as client:
+                enabled: str | None = await client.get("overwatcher:enabled")
+                if not enabled:
+                    raise ValueError("cannot determine if observing is enabled.")
+                return bool(int(enabled))
         except Exception as err:
             self.overwatcher.handle_error(
                 f"Cannot determine if observing is enabled: {err!r}",

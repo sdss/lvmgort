@@ -70,6 +70,7 @@ pyds9 = "^1.8.1"
 sphinx-autodoc-typehints = "^1.23.2"
 ruff = ">=0.0.282"
 types-redis = "^4.6.0.20240311"
+nptyping = "^2.5.0"
 
 [tool.black]
 line-length = 88
