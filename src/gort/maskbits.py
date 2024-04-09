@@ -11,7 +11,7 @@ from __future__ import annotations
 from enum import Enum, Flag
 
 
-__all__ = ["ErrorCodes", "GuiderStatus", "Notification"]
+__all__ = ["ErrorCodes", "GuiderStatus", "Notification", "Event"]
 
 
 class ErrorCodes(Enum):
@@ -71,7 +71,13 @@ class GuiderStatus(Flag):
         return str(" | ".join(self.get_names()))
 
 
+class Event(Enum):
+    """Enumeration with the event types."""
+
+    UNCATEGORISED = 999
+
+
 class Notification(Enum):
     """Enumeration with the notification types."""
 
-    UNCATEGORISED = 0
+    UNCATEGORISED = 999
