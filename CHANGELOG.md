@@ -6,6 +6,10 @@
 
 * Replace all instances of Pandas with Polars.
 
+### ✨ Improved
+
+* In `Gort.observe()`, retry after a wait period if the scheduler cannot find a valid tile to observe.
+
 ### 🔧 Fixed
 
 * Manually refresh the progress bar only once a second, and only after an update. Hopefully this helps with the event loop getting sluggish after a while.
