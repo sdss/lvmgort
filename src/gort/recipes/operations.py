@@ -153,7 +153,7 @@ class ShutdownRecipe(BaseRecipe):
 
         if additional_close:
             self.gort.log.info("Closing the dome again.")
-            await asyncio.sleep(3)
+            await asyncio.sleep(5)
             await self.gort.enclosure.close(force=True)
 
 
