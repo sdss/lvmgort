@@ -121,7 +121,7 @@ class ShutdownRecipe(BaseRecipe):
 
     name = "shutdown"
 
-    async def recipe(self, park_telescopes: bool = True):
+    async def recipe(self, park_telescopes: bool = True, additional_close: bool = True):
         """Shutdown the telescope, closes the dome, etc.
 
         Parameters
@@ -129,6 +129,11 @@ class ShutdownRecipe(BaseRecipe):
         park_telescopes
             Park telescopes (and disables axes). Set to :obj:`False` if only
             closing for a brief period of time.
+        additional_close
+            Issues an additional ``close`` command after the dome is closed.
+            This is a temporary solution to make sure the dome is closed
+            while we investigate the issue with the dome not fully closing
+            sometimes.
 
         """
 
@@ -145,6 +150,11 @@ class ShutdownRecipe(BaseRecipe):
         if park_telescopes:
             self.gort.log.info("Parking telescopes for the night.")
             await self.gort.telescopes.park()
+
+        if additional_close:
+            self.gort.log.info("Closing the dome again.")
+            await asyncio.sleep(3)
+            await self.gort.enclosure.close(force=True)
 
 
 class CleanupRecipe(BaseRecipe):
