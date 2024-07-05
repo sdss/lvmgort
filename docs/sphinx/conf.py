@@ -1,7 +1,5 @@
 import os
 
-from pkg_resources import parse_version
-
 from gort import __version__
 
 
@@ -54,8 +52,6 @@ author = "José Sánchez-Gallego"
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 
-# The short X.Y version.
-version = parse_version(__version__).base_version
 # The full version, including alpha/beta/rc tags.
 release = __version__
 
