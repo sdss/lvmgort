@@ -40,8 +40,8 @@ Slack:
 
 SHUTDOWN_MESSAGE = """The shutdown recipe has completed.
 
-Please confirm that the dome is closed and the telescopes are parked by
-turning on the dome lights with
+Please confirm that the dome is closed and the telescopes
+are parked by turning on the dome lights with
 
 await g.enclosure.lights.telescope_bright.on()
 
