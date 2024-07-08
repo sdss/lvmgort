@@ -9,6 +9,7 @@
 ### ✨ Improved
 
 * In `Gort.observe()`, retry after a wait period if the scheduler cannot find a valid tile to observe.
+* Output a message after the shutdown recipe instructing observers to check the dome and confirm it's fully closed.
 
 ### 🔧 Fixed
 

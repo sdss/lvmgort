@@ -38,6 +38,30 @@ Slack:
    #lvm-dupont-observing
 """
 
+SHUTDOWN_MESSAGE = """The shutdown recipe has completed.
+
+Please confirm that the dome is closed and the telescopes are parked by
+turning on the dome lights with
+
+await g.enclosure.lights.telescope_bright.on()
+
+and checking webcam LVM-TEL06. Then turn off the lights with
+
+await g.enclosure.lights.telescope_bright.off()
+
+If the dome is not closed, please run
+
+await g.enclosure.close(force=True)
+
+If that does not work, please contact the Du Pont observers.
+
+Du Pont control room:
+   (US) +1 626-310-0436
+   (Chile) +56 51-2203-609
+Slack:
+   #lvm-dupont-observing
+"""
+
 
 class StartupRecipe(BaseRecipe):
     """Starts the telescopes, runs the calibration sequence, and opens the enclosure."""
@@ -156,6 +180,8 @@ class ShutdownRecipe(BaseRecipe):
             self.gort.log.info("Closing the dome again.")
             await asyncio.sleep(5)
             await self.gort.enclosure.close(force=True)
+
+        self.gort.log.warning(SHUTDOWN_MESSAGE)
 
 
 class CleanupRecipe(BaseRecipe):
