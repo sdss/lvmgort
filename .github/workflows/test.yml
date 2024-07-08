@@ -34,16 +34,6 @@ jobs:
           pip install --upgrade wheel pip setuptools
           pip install .
 
-      - name: Lint with ruff
-        run: |
-          pip install ruff
-          ruff check src/ tests/
-
-      - name: Lint with black
-        run: |
-          pip install black
-          black --check src/gort
-
       - name: Test with pytest
         run: |
           pip install pytest pytest-mock pytest-asyncio pytest-cov

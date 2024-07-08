@@ -783,7 +783,6 @@ class GuiderMonitor:
     """A tool to monitor guider outputs and store them in a dataframe."""
 
     def __init__(self, gort: GortClient, actor: str | None = None):
-
         self.gort = gort
         self.actor = actor
 
