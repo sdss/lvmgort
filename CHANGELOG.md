@@ -2,6 +2,10 @@
 
 ## Next version
 
+### 🔥 Deprecated
+
+* Removed the websocket code and CLI. All this functionality is now part of `lvmapi`.
+
 ### ✨ Improved
 
 * Wait for previous exposure to finish reading out in `Observer.expose()`. While this was already happening when calling `Exposure.expose()`, we are now blocking until the exposure finishes a bit earlier which prevents the standard loop to begin too early.
