@@ -1,6 +1,6 @@
 # Changelog
 
-## Next version
+## 1.0.0b1 - July 9, 2024
 
 ### 🔥 Deprecated
 
@@ -12,7 +12,7 @@
 * Upgraded to `polars` 1.0.0.
 
 
-## 0.12.0 - July 9, 2024
+## 0.12.0 - July 8, 2024
 
 ### 🚀 New
 
