@@ -2,13 +2,29 @@
 
 ## Next version
 
+### ✨ Improved
+
+* Wait for previous exposure to finish reading out in `Observer.expose()`. While this was already happening when calling `Exposure.expose()`, we are now blocking until the exposure finishes a bit earlier which prevents the standard loop to begin too early.
+
+## 0.12.0 - July 9, 2024
+
 ### 🚀 New
 
 * Replace all instances of Pandas with Polars.
 
+### ✨ Improved
+
+* In `Gort.observe()`, retry after a wait period if the scheduler cannot find a valid tile to observe.
+* Output a message after the shutdown recipe instructing observers to check the dome and confirm it's fully closed.
+
 ### 🔧 Fixed
 
 * Manually refresh the progress bar only once a second, and only after an update. Hopefully this helps with the event loop getting sluggish after a while.
+* Turn off spectrograph room lights on startup.
+
+### ⚙️ Engineering
+
+* Format code using `ruff` and updated dependencies and workflows.
 
 
 ## 0.11.0 - March 29, 2024

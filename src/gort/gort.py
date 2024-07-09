@@ -655,6 +655,7 @@ class Gort(GortClient):
         adjust_focus: bool = True,
         show_progress: bool | None = None,
         disable_tile_on_error: bool = True,
+        wait_if_no_tiles: bool | float = 60.0,
     ):
         """Runs a fully automatic science observing loop."""
 
@@ -695,6 +696,23 @@ class Gort(GortClient):
                         f"tile_id={observer.tile.tile_id} has been disabled. "
                         "Continuing observations."
                     )
+
+                elif ee.error_code == ErrorCodes.SCHEDULER_CANNOT_FIND_TILE:
+                    if wait_if_no_tiles is False:
+                        raise
+
+                    if wait_if_no_tiles is True:
+                        wait_if_no_tiles = 60.0
+                    else:
+                        wait_if_no_tiles = float(wait_if_no_tiles)
+
+                    self.log.warning(
+                        "The scheduler was not able to find a valid tile to "
+                        f"observe. Waiting {wait_if_no_tiles} seconds before "
+                        "trying again."
+                    )
+                    await asyncio.sleep(wait_if_no_tiles)
+                    continue
 
                 else:
                     raise

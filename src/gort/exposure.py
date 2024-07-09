@@ -360,6 +360,8 @@ class Exposure(asyncio.Future["Exposure"]):
         self._timer_task = None
 
         if self._progress:
+            for task in self._progress.task_ids:
+                self._progress.remove_task(task)
             self._progress.stop()
             self._progress.console.clear_live()
         self._progress = None

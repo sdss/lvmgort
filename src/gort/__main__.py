@@ -187,6 +187,11 @@ async def observe():
     default=True,
     help="Add points to the PWI model.",
 )
+@click.option(
+    "--only-slew",
+    is_flag=True,
+    help="Only slews the telescopes but does not take pointing data.",
+)
 @cli_coro()
 async def pointing_model(
     telescopes: tuple[str, ...] | None,
@@ -196,6 +201,7 @@ async def pointing_model(
     n_points: int = 50,
     home: bool = False,
     add_points: bool = True,
+    only_slew: bool = False,
 ):
     """Acquires a pointing model."""
 
@@ -212,6 +218,7 @@ async def pointing_model(
         telescopes=telescopes,
         home=home,
         add_points=add_points,
+        calculate_offset=not only_slew,
     )
 
 

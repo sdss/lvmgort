@@ -155,6 +155,7 @@ async def pointing_model(
     alt_range: tuple[float, float],
     az_range: tuple[float, float],
     telescopes: Sequence[str] = ["sci", "spec", "skye", "skyw"],
+    calculate_offset: bool = True,
     home: bool = True,
     add_points: bool = True,
 ) -> polars.DataFrame | None:
@@ -172,10 +173,13 @@ async def pointing_model(
         The range of azimuth to which to limit the sample, in degrees.
     telescopes
         The list of telescopes to expose.
+    calculate_offset
+        Determines the offset between the commanded and observed pointings
+        by exposing the AG cameras and solving the field.
     home
         Whether to home the telescope before starting.
     add_points
-        Add points to the PWI model.
+        Add points to the PWI model. Ignored if ``calculate_offset=False``.
 
     """
 
@@ -218,6 +222,16 @@ async def pointing_model(
         dec = icrs.dec.deg
 
         gort.log.info(f"({npoint+1}/{n_points}): Going to {ra:.6f}, {dec:.6f}.")
+
+        if calculate_offset is False:
+            tasks = [
+                gort.telescopes[telescope].goto_coordinates(ra=ra, dec=dec)
+                for telescope in telescopes
+            ]
+            await asyncio.gather(*tasks)
+            await asyncio.sleep(3)
+
+            continue
 
         results = await asyncio.gather(
             *[

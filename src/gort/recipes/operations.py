@@ -38,6 +38,30 @@ Slack:
    #lvm-dupont-observing
 """
 
+SHUTDOWN_MESSAGE = """The shutdown recipe has completed.
+
+Please confirm that the dome is closed and the telescopes
+are parked by turning on the dome lights with
+
+await g.enclosure.lights.telescope_bright.on()
+
+and checking webcam LVM-TEL06. Then turn off the lights with
+
+await g.enclosure.lights.telescope_bright.off()
+
+If the dome is not closed, please run
+
+await g.enclosure.close(force=True)
+
+If that does not work, please contact the Du Pont observers.
+
+Du Pont control room:
+   (US) +1 626-310-0436
+   (Chile) +56 51-2203-609
+Slack:
+   #lvm-dupont-observing
+"""
+
 
 class StartupRecipe(BaseRecipe):
     """Starts the telescopes, runs the calibration sequence, and opens the enclosure."""
@@ -77,6 +101,7 @@ class StartupRecipe(BaseRecipe):
         self.gort.log.info("Turning off all calibration lamps and dome lights.")
         await self.gort.nps.calib.all_off()
         await self.gort.enclosure.lights.dome_all_off()
+        await self.gort.enclosure.lights.spectrograph_room.off()
 
         self.gort.log.info("Reconnecting AG cameras.")
         await self.gort.ags.reconnect()
@@ -109,7 +134,7 @@ class ShutdownRecipe(BaseRecipe):
 
     name = "shutdown"
 
-    async def recipe(self, park_telescopes: bool = True):
+    async def recipe(self, park_telescopes: bool = True, additional_close: bool = True):
         """Shutdown the telescope, closes the dome, etc.
 
         Parameters
@@ -117,6 +142,11 @@ class ShutdownRecipe(BaseRecipe):
         park_telescopes
             Park telescopes (and disables axes). Set to :obj:`False` if only
             closing for a brief period of time.
+        additional_close
+            Issues an additional ``close`` command after the dome is closed.
+            This is a temporary solution to make sure the dome is closed
+            while we investigate the issue with the dome not fully closing
+            sometimes.
 
         """
 
@@ -133,6 +163,13 @@ class ShutdownRecipe(BaseRecipe):
         if park_telescopes:
             self.gort.log.info("Parking telescopes for the night.")
             await self.gort.telescopes.park()
+
+        if additional_close:
+            self.gort.log.info("Closing the dome again.")
+            await asyncio.sleep(5)
+            await self.gort.enclosure.close(force=True)
+
+        self.gort.log.warning(SHUTDOWN_MESSAGE)
 
 
 class CleanupRecipe(BaseRecipe):
