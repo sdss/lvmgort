@@ -364,6 +364,11 @@ class GortObserver:
             elif tile_id is not None and tile_id > 0:
                 object = f"tile_id={tile_id}"
 
+        last_exposure = self.gort.specs.last_exposure
+        if last_exposure is not None and not last_exposure.done():
+            self.write_to_log("Waiting for previous exposure to read out.", "warning")
+            await last_exposure
+
         exposures: list[Exposure] = []
 
         for nexp in range(1, count + 1):

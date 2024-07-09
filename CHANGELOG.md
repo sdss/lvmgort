@@ -1,5 +1,11 @@
 # Changelog
 
+## Next version
+
+### ✨ Improved
+
+* Wait for previous exposure to finish reading out in `Observer.expose()`. While this was already happening when calling `Exposure.expose()`, we are now blocking until the exposure finishes a bit earlier which prevents the standard loop to begin too early.
+
 ## 0.12.0 - July 9, 2024
 
 ### 🚀 New
