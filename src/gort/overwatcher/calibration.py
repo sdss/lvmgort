@@ -18,7 +18,6 @@ from unittest import mock
 from typing import TYPE_CHECKING, Any
 
 import jsonschema
-import nptyping as npt
 import numpy
 import polars
 from astropy import time
@@ -38,9 +37,6 @@ if TYPE_CHECKING:
 
 
 __all__ = ["CalibrationsOverwatcher"]
-
-
-ARRAY_F32 = npt.NDArray[npt.Shape["*, 2"], npt.Float32]
 
 
 @dataclass(kw_only=True)
@@ -228,7 +224,7 @@ class CalibrationSchedule:
                 cal.start_time = start_time
                 cal.end_time = end_time
 
-    def get_start_end_times(self) -> ARRAY_F32:
+    def get_start_end_times(self) -> numpy.ndarray:
         """Returns a numpy array with scheduled times for each calibration."""
 
         return numpy.array(
@@ -237,7 +233,7 @@ class CalibrationSchedule:
                 for cal in list(self.calibrations.values())
                 if cal.active and not cal.done and cal.start_time and cal.end_time
             ]
-        )
+        ).astype(numpy.float16)
 
     def _schedule_one(self, cal: Calibration):
         """Schedules a single calibration."""
