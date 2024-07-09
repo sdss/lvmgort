@@ -194,6 +194,7 @@ class QuerableCoordinates(Coordinates):
                 unit="deg",
             )
 
+        assert cls.targets is not None
         skycoords = cls.targets.copy()
 
         # Exclude regions too close to the exlcuded ones.
