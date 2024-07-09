@@ -7,6 +7,8 @@
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
 
+import asyncio
+
 import click
 
 from sdsstools.daemonizer import cli_coro
@@ -17,6 +19,20 @@ def gort():
     """GORT CLI."""
 
     pass
+
+
+@gort.command()
+@cli_coro()
+async def overwatcher():
+    """Starts the overwatcher."""
+
+    from gort.overwatcher import Overwatcher
+
+    await Overwatcher().run()
+
+    while True:
+        await asyncio.sleep(5)
+        continue
 
 
 @gort.command()
