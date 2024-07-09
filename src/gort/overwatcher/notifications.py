@@ -20,7 +20,6 @@ from gort.pubsub import Subscriber
 
 
 class NotificationsMonitor(OverwatcherModuleTask["NotificationsOverwatcher"]):
-
     name = "notifications_monitor"
     keep_alive = True
     restart_on_error = True

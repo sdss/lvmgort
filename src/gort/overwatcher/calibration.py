@@ -409,7 +409,6 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
 
 
 class CalibrationsOverwatcher(OverwatcherModule):
-
     name = "calibration"
 
     tasks = []
@@ -419,7 +418,6 @@ class CalibrationsOverwatcher(OverwatcherModule):
         overwatcher: Overwatcher,
         calibrations_file: str | pathlib.Path | None = None,
     ):
-
         super().__init__(overwatcher)
 
         self.calibrations_file: str | pathlib.Path | None = calibrations_file

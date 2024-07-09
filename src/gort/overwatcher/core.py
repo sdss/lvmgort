@@ -79,7 +79,6 @@ class OverwatcherTask:
                 return
 
             if self._task_runner.done():
-
                 if exception := self._task_runner.exception():
                     self._log.error(f"Task {self.name!r} failed: {exception!r}")
                     if self.restart_on_error or self.keep_alive:
