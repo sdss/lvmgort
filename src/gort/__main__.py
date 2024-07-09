@@ -14,7 +14,7 @@ from sdsstools.daemonizer import cli_coro
 
 @click.group()
 def gort():
-    """Gort CLI."""
+    """GORT CLI."""
 
     pass
 
