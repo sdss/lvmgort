@@ -1,12 +1,18 @@
 # Changelog
 
-## Next version
+## 1.0.0b1 - July 9, 2024
+
+### 🔥 Deprecated
+
+* Removed the websocket code and CLI. All this functionality is now part of `lvmapi`.
 
 ### ✨ Improved
 
 * Wait for previous exposure to finish reading out in `Observer.expose()`. While this was already happening when calling `Exposure.expose()`, we are now blocking until the exposure finishes a bit earlier which prevents the standard loop to begin too early.
+* Upgraded to `polars` 1.0.0.
 
-## 0.12.0 - July 9, 2024
+
+## 0.12.0 - July 8, 2024
 
 ### 🚀 New
 
