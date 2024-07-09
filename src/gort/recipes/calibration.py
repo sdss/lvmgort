@@ -146,7 +146,12 @@ class TwilightFlats(BaseRecipe):
 
     name = "twilight_flats"
 
-    async def recipe(self, wait: bool = True, secondary: bool = False):
+    async def recipe(
+        self,
+        wait: bool = True,
+        start_fibre: int | None = None,
+        secondary: bool = False,
+    ):
         """Takes a sequence of twilight flats.
 
         Based on K. Kreckel's code.
@@ -156,8 +161,8 @@ class TwilightFlats(BaseRecipe):
         # Start sunset flats one minute after sunset.
         # Positive numbers means "into" the twilight.
         SUNSET_START = 1
-        # Start sunrise flats 20 minutes before sunrise
-        SUNRISE_START = 20
+        # Start sunrise flats 40 minutes before sunrise
+        SUNRISE_START = 40
 
         # Exposure time model
         POPT = numpy.array([1.09723745, 3.55598039, -1.86597751])
@@ -172,8 +177,6 @@ class TwilightFlats(BaseRecipe):
         if not (await self.gort.enclosure.is_open()):
             raise RuntimeError("Dome must be open to take twilight flats.")
 
-        has_slewed: bool = False
-
         eph = await get_ephemeris_summary()
 
         if abs(eph["time_to_sunset"]) < abs(eph["time_to_sunrise"]):
@@ -187,7 +190,14 @@ class TwilightFlats(BaseRecipe):
             alt = 40.0
             az = 90.0
 
-        n_fibre = random.randint(1, 12)
+        gort.log.info("Moving telescopes to point to the twilight sky.")
+        await gort.telescopes.goto_coordinates_all(
+            alt=alt,
+            az=az,
+            altaz_tracking=False,
+        )
+
+        n_fibre = start_fibre or random.randint(1, 12)
         await self.goto_fibre_position(n_fibre, secondary=secondary)
 
         n_observed = 0
@@ -214,35 +224,30 @@ class TwilightFlats(BaseRecipe):
                         "Waiting for twilight. Time to twilight flats: "
                         f"{time_to_flat_twilighs:.1f} minutes."
                     )
-                    await asyncio.sleep(10)
+                    await asyncio.sleep(time_to_flat_twilighs * 60 + 2)
                     continue
                 else:
                     raise RuntimeError("Too early to take twilight flats.")
 
-            if exp_time > 300 or exp_time < 1:
-                if not is_sunset and wait:
-                    self.gort.log.info(
-                        f"Exposure time is too long/short ({exp_time:.1f} s). Waiting."
-                    )
-                    await asyncio.sleep(10)
-                    continue
-
+            if exp_time < 400 and exp_time > 1:
+                pass
+            elif exp_time > 400 and wait and not is_sunset:
+                self.gort.log.info(f"Exposure time is too long ({exp_time:.1f} s).")
+                self.gort.log.info("Waiting 10 seconds ...")
+                await asyncio.sleep(10)
+                continue
+            elif exp_time < 1 and wait and is_sunset:
+                self.gort.log.info("Exposure time is too short.")
+                self.gort.log.info("Waiting 10 seconds ...")
+                await asyncio.sleep(10)
+                continue
+            else:
                 raise RuntimeError("Too early/late to take twilight flats.")
 
             # Round to the nearest second.
             exp_time = numpy.ceil(exp_time)
             if exp_time < 1:
                 exp_time = 1.0
-
-            if not has_slewed:
-                gort.log.info("Moving telescopes to point to the twilight sky.")
-                await gort.telescopes.goto_coordinates_all(
-                    alt=alt,
-                    az=az,
-                    altaz_tracking=False,
-                )
-                has_slewed = True
-                continue  # Force a recalculation of exposure time after slew.
 
             fibre_str = await self.goto_fibre_position(n_fibre, secondary=secondary)
             gort.log.info(f"Taking {fibre_str} exposure with exp_time={exp_time:.2f}.")
