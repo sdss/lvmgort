@@ -129,6 +129,13 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
         if self.overwatcher.weather.is_safe():
             new_status |= ObserverStatus.WEATHER_SAFE
 
+        # Warn about change in enabled status.
+        if self.status.enabled() != new_status.enabled():
+            if new_status.enabled():
+                self.log.info("Overwatcher is now enabled.")
+            else:
+                self.log.info("Overwatcher is now disabled")
+
         self.status = new_status
 
 
