@@ -37,7 +37,7 @@ class QuickCals(BaseRecipe):
 
         await gort.cleanup()
 
-        gort.log.info("Moving telescopes to point to the calibration screen.")
+        gort.log.info("Pointing telescopes to the calibration screen.")
         await gort.telescopes.goto_named_position("calibration")
 
         ########################
@@ -132,7 +132,7 @@ class BiasSequence(BaseRecipe):
         gort = self.gort
         assert isinstance(gort, Gort)
 
-        gort.log.info("Moving telescopes to point to the selfie position.")
+        gort.log.info("Pointing telescopes to the selfie position.")
         await gort.telescopes.goto_named_position("selfie")
 
         await gort.nps.calib.all_off()
