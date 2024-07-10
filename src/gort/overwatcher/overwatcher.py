@@ -169,8 +169,14 @@ class Overwatcher:
         except Exception as err:
             self.log.error(f"Failed to send message to Slack: {err}")
 
-    async def emergency_shutdown(self, block: bool = True):
+    async def emergency_shutdown(self, block: bool = True, reason: str = "undefined"):
         """Shuts down the observatory in case of an emergency."""
+
+        await self.write_to_slack(
+            f"Triggering emergency shutdown. Reason: {reason}.",
+            log=True,
+            log_level="warning",
+        )
 
         stop_task = asyncio.create_task(self.observer.stop_observing(immediate=True))
         shutdown_task = asyncio.create_task(self.gort.shutdown())

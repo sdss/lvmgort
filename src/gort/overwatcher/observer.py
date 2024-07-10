@@ -75,24 +75,24 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
             if not (self.status & ObserverStatus.WEATHER_SAFE):
                 await self.module.stop_observing(
                     immediate=True,
-                    reason="weather not safe.",
+                    reason="weather not safe",
                 )
 
             elif not (self.status & ObserverStatus.NIGHT):
                 await self.module.stop_observing(
                     immediate=True,
-                    reason="not night time.",
+                    reason="not night time",
                 )
 
             elif not (self.status & ObserverStatus.ALLOWED):
                 await self.module.stop_observing(
                     immediate=True,
-                    reason="observations not allowed by the overwatcher.",
+                    reason="observations not allowed by the overwatcher",
                 )
 
             elif not (self.status & ObserverStatus.ENABLED):
                 await self.module.stop_observing(
-                    reason="observing switch has been manually disabled.",
+                    reason="observing switch has been manually disabled",
                 )
 
             elif self.status.can_observe() and not self.status.observing():
@@ -169,7 +169,7 @@ class ObserverOverwatcher(OverwatcherModule):
     async def stop_observing(
         self,
         immediate: bool = False,
-        reason: str = "reason undefined",
+        reason: str = "undefined",
     ):
         """Stops observations."""
 
@@ -178,7 +178,7 @@ class ObserverOverwatcher(OverwatcherModule):
 
         if immediate:
             await self.overwatcher.write_to_slack(
-                f"Stopping observations immediately: {reason}",
+                f"Stopping observations immediately. Reason: {reason}.",
                 log=True,
                 log_level="warning",
             )
@@ -188,8 +188,6 @@ class ObserverOverwatcher(OverwatcherModule):
 
             await self.gort.cleanup(readout=False)
 
-            self.status &= ~ObserverStatus.OBSERVING
-
         elif not self.status.cancelled():
             await self.overwatcher.write_to_slack(
                 f"Stopping observations after this tile: {reason}",
@@ -197,7 +195,7 @@ class ObserverOverwatcher(OverwatcherModule):
                 log_level="warning",
             )
 
-            self.status |= ObserverStatus.CANCELLED
+        self.status.cancel()
 
     async def observe_loop_task(self):
         """Runs the observing loop."""
