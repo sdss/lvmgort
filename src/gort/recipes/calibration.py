@@ -160,7 +160,7 @@ class TwilightFlats(BaseRecipe):
 
         # Start sunset flats one minute after sunset.
         # Positive numbers means "into" the twilight.
-        SUNSET_START = 1
+        SUNSET_START = 0.5
         # Start sunrise flats 40 minutes before sunrise
         SUNRISE_START = 40
 
