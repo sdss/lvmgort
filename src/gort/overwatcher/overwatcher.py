@@ -114,6 +114,9 @@ class Overwatcher:
         self.is_running = True
         await self.write_to_slack("Overwatcher is starting.")
 
+        if not self.observer.status.enabled():
+            self.log.warning("The overwatcher is not enabled.")
+
         return self
 
     async def cancel(self):
