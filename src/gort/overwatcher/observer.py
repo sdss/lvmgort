@@ -156,6 +156,10 @@ class ObserverOverwatcher(OverwatcherModule):
         if self.status.observing():
             return
 
+        weather = self.overwatcher.weather
+        if not weather.is_running or not weather.is_safe():
+            raise GortError("Cannot safely open the telescope.")
+
         await self.overwatcher.write_to_slack("Starting observations.")
 
         if not (await self.gort.enclosure.is_open()):
