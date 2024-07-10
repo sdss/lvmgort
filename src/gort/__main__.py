@@ -8,10 +8,24 @@
 
 
 import asyncio
+from contextlib import asynccontextmanager
 
 import click
 
 from sdsstools.daemonizer import cli_coro
+
+
+@asynccontextmanager
+async def get_gort_client():
+    """Returns a GORT client."""
+
+    from gort import Gort
+
+    gort = await Gort(verbosity="debug").init()
+
+    yield gort
+
+    await gort.stop()
 
 
 @click.group()
@@ -62,14 +76,12 @@ async def startup(
 ):
     """Runs the startup sequence."""
 
-    from gort import Gort
-
-    gort = await Gort(verbosity="debug").init()
-    await gort.startup(
-        open_enclosure=open_enclosure,
-        confirm_open=confirm_open,
-        focus=focus,
-    )
+    async with get_gort_client() as gort:
+        await gort.startup(
+            open_enclosure=open_enclosure,
+            confirm_open=confirm_open,
+            focus=focus,
+        )
 
 
 @gort.command()
@@ -83,10 +95,8 @@ async def startup(
 async def shutdown(park: bool = True):
     """Runs the shutdown sequence."""
 
-    from gort import Gort
-
-    gort = await Gort(verbosity="debug").init()
-    await gort.shutdown(park_telescopes=park)
+    async with get_gort_client() as gort:
+        await gort.shutdown(park_telescopes=park)
 
 
 @gort.command()
@@ -100,10 +110,8 @@ async def shutdown(park: bool = True):
 async def cleanup(readout: bool = False):
     """Runs the cleanup sequence."""
 
-    from gort import Gort
-
-    gort = await Gort(verbosity="debug").init()
-    await gort.cleanup(readout=readout)
+    async with get_gort_client() as gort:
+        await gort.cleanup(readout=readout)
 
 
 @gort.command()
@@ -112,10 +120,26 @@ async def cleanup(readout: bool = False):
 async def recipe(recipe: str):
     """Runs a recipe with its default options."""
 
-    from gort import Gort
+    async with get_gort_client() as gort:
+        await gort.execute_recipe(recipe)
 
-    gort = await Gort(verbosity="debug").init()
-    await gort.execute_recipe(recipe)
+
+@gort.command()
+@cli_coro()
+async def open():
+    """Opens the dome."""
+
+    async with get_gort_client() as gort:
+        await gort.enclosure.open()
+
+
+@gort.command()
+@cli_coro()
+async def close():
+    """Closes the dome."""
+
+    async with get_gort_client() as gort:
+        await gort.enclosure.close(force=True)
 
 
 @gort.command()
@@ -123,10 +147,8 @@ async def recipe(recipe: str):
 async def focus():
     """Focus the telescopes."""
 
-    from gort import Gort
-
-    gort = await Gort(verbosity="debug").init()
-    await gort.guiders.focus()
+    async with get_gort_client() as gort:
+        await gort.guiders.focus()
 
 
 @gort.command()
@@ -134,10 +156,8 @@ async def focus():
 async def observe():
     """Runs the observe loop."""
 
-    from gort import Gort
-
-    gort = await Gort(verbosity="debug").init()
-    await gort.observe(show_progress=True)
+    async with get_gort_client() as gort:
+        await gort.observe(show_progress=True)
 
 
 @gort.command(name="pointing-model")
