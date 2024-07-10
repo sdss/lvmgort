@@ -52,6 +52,7 @@ class WeatherState:
     gust_10: float
     rh_10: float
     rh_30: float
+    lvm_rain_sensor_alarm: bool
     rain_intensity_10: float
     station: str
 
@@ -87,7 +88,10 @@ class WeatherMonitorTask(OverwatcherModuleTask["WeatherOverwatcher"]):
                         "Failed to get weather data 5 times. "
                         "Triggering an emergency shutdown.",
                     )
-                    await self.overwatcher.emergency_shutdown(block=False)
+                    await self.overwatcher.emergency_shutdown(
+                        block=False,
+                        reason="weather data unavailable",
+                    )
 
             await asyncio.sleep(60)
 
@@ -95,6 +99,7 @@ class WeatherMonitorTask(OverwatcherModuleTask["WeatherOverwatcher"]):
         """Processes the weather update and determines whether it is safe to observe."""
 
         self.data = await self.module.get_weather_report()
+        is_raining = await self.module.is_raining()
 
         if self.data is None or len(self.data) == 0:
             raise ValueError("No weather data available.")
@@ -123,6 +128,7 @@ class WeatherMonitorTask(OverwatcherModuleTask["WeatherOverwatcher"]):
             gust_10=cast(float, data_10["wind_speed_max"].max()),
             rh_10=avg_10["relative_humidity"][0],
             rh_30=avg_30["relative_humidity"][0],
+            lvm_rain_sensor_alarm=is_raining,
             rain_intensity_10=cast(float, data_10["rain_intensity"].max()),
             station=self.data["station"][0],
         )
@@ -136,7 +142,7 @@ class WeatherMonitorTask(OverwatcherModuleTask["WeatherOverwatcher"]):
         if self.state.wind_speed_10 > 50 or self.state.wind_speed_30 > 40:
             new_risk = WeatherRisk.DANGER
 
-        if self.state.rain_intensity_10 > 0:
+        if self.state.rain_intensity_10 > 0 or self.state.lvm_rain_sensor_alarm:
             new_risk = WeatherRisk.EXTREME
 
         if self.state.rh_10 > 80:
@@ -198,3 +204,11 @@ class WeatherOverwatcher(OverwatcherModule):
         )
 
         return df.sort("ts")
+
+    @staticmethod
+    async def is_raining():
+        """Determines whether it is raining according to the LVM rain sensor."""
+
+        data = await get_lvmapi_route("/enclosure")
+
+        return "RAIN_SENSOR_ALARM" in data["safety_status"]["labels"]
