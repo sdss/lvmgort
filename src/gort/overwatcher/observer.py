@@ -12,10 +12,17 @@ import asyncio
 import enum
 from time import time
 
+from typing import TYPE_CHECKING
+
+from gort.exceptions import GortError
 from gort.exposure import Exposure
 from gort.overwatcher import OverwatcherModule
 from gort.overwatcher.core import OverwatcherModuleTask
 from gort.tools import cancel_task, redis_client
+
+
+if TYPE_CHECKING:
+    from gort.observer import GortObserver
 
 
 __all__ = ["ObserverOverwatcher"]
@@ -31,8 +38,16 @@ class ObserverStatus(enum.Flag):
     ALLOWED = 1 << 4
     WEATHER_SAFE = 1 << 5
 
+    def cancel(self):
+        """Marks the status as cancelled."""
+
+        self |= ObserverStatus.CANCELLED
+
     def observing(self):
         return self & ObserverStatus.OBSERVING
+
+    def enabled(self):
+        return self & ObserverStatus.ENABLED
 
     def cancelled(self):
         return self & ObserverStatus.CANCELLED
