@@ -107,7 +107,7 @@ class GortObserver:
         self._current_exposure: Exposure | None = None
         self._n_exposures: int = 0
 
-        self.overheads: dict[str, tuple[float, float]] = {}
+        self.overheads: dict[str, dict[str, int | float]] = {}
 
         interrupt_helper.set_callback(on_interrupt)
         interrupt_helper.observer = self
@@ -450,10 +450,11 @@ class GortObserver:
             {
                 "observer_id": id(self),
                 "tile_id": tile_id,
+                "dither_position": value["dither_position"],
                 "stage": name,
-                "start_time": value[0],
-                "end_time": value[0] + value[1],
-                "duration": value[1],
+                "start_time": value["t0"],
+                "end_time": value["t0"] + value["elapsed"],
+                "duration": value["elapsed"],
             }
             for name, value in self.overheads.items()
         ]
@@ -568,7 +569,11 @@ class GortObserver:
 
         yield
 
-        self.overheads[name] = (t0, time() - t0)
+        self.overheads[name] = {
+            "dither_position": self.tile.sci_coords.dither_position,
+            "t0": t0,
+            "elapsed": time() - t0,
+        }
 
     def _get_mask_positions(self, pattern: str):
         """Returns mask positions sorted by motor steps."""
