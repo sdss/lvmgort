@@ -186,7 +186,12 @@ class GortObserver:
             await asyncio.gather(*cotasks)
 
     @handle_signals(interrupt_signals, interrupt_helper.run_callback)
-    async def acquire(self, guide_tolerance: float | None = None, timeout: float = 180):
+    async def acquire(
+        self,
+        guide_tolerance: float | None = None,
+        timeout: float = 180,
+        telescopes: list[str] = ["sci", "skye", "skyw", "spec"],
+    ):
         """Acquires the field in all the telescopes. Blocks until then.
 
         Parameters
@@ -200,6 +205,9 @@ class GortObserver:
             The maximum time allowed for acquisition. In case of timeout
             the acquired fields are evaluated and an exception is
             raised if the acquisition failed.
+        telescopes
+            The list of telescopes to acquire. By default all telescopes are
+            acquired.
 
         Raises
         ------
@@ -219,7 +227,7 @@ class GortObserver:
         guide_coros = []
         guide_on_telescopes: list[str] = []
         n_skies = 0
-        for tel in ["sci", "skye", "skyw", "spec"]:
+        for tel in telescopes:
             coords = self.tile[tel]
 
             if coords is None or (isinstance(coords, list) and len(coords) == 0):
