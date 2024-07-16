@@ -37,6 +37,7 @@ from typing_extensions import Self
 from clu.client import AMQPClient, AMQPReply
 from sdsstools.logger import SDSSLogger, get_logger
 from sdsstools.time import get_sjd
+from sdsstools.utils import GatheringTaskGroup
 
 from gort import config
 from gort.core import RemoteActor
@@ -854,7 +855,12 @@ class Gort(GortClient):
             for idither, dpos in enumerate(dither_positions):
                 if idither != 0:
                     self.log.info(f"Acquiring dither position #{dpos}")
-                    await observer.set_dither_position(dpos)
+
+                    observer.tile.set_dither_position(dpos)
+
+                    async with GatheringTaskGroup() as group:
+                        group.create_task(observer.set_dither_position(dpos))
+                        group.create_task(observer.standards.reset())
 
                     # Need to restart the guider monitor so that the new exposure
                     # gets the range of guider frames that correspond to this dither.

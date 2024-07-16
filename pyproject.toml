@@ -29,7 +29,7 @@ gort = "gort.__main__:main"
 
 [tool.poetry.dependencies]
 python = "^3.10,<4"
-sdsstools = "^1.2.1"
+sdsstools = "^1.8.1"
 sdss-clu = "^2.1.2"
 httpx = "^0.27.0"
 kubernetes = "^26.1.0"

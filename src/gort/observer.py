@@ -718,6 +718,11 @@ class Standards:
         Moving the ``spec`` telescope to each one of the standard star,
         acquires the new field, and adjusts the time to stay on each target.
 
+        # TODO: right now we are assuming that the first standard has been
+        # acquired when we call this method. This is not always the case and
+        # it caused a bug when observing multiple dither positions so we should
+        # check.
+
         """
 
         if len(self.standards) == 0:
@@ -735,30 +740,21 @@ class Standards:
 
         self.iterate_task = asyncio.create_task(self._iterate(exposure_time))
 
-    async def cancel(self):
-        """Cancels iteration."""
+    async def reset(self):
+        """Re-acquires the first standard.
 
-        self.observer.write_to_log("Cancelling standards iteration.", "debug")
-        await cancel_task(self.iterate_task)
+        This method should only be called when observing second and subsequent
+        dithers in a tile.
 
-        if len(self.standards) == 0:
-            return
+        """
 
-        if self.standards[self.current_standard].acquired:
-            if not self.standards[self.current_standard].observed:
-                self.standards[self.current_standard].observed = True
-                self.standards[self.current_standard].t1 = time()
+        if self.iterate_task and not self.iterate_task.done():
+            await self.cancel()
 
-    async def _iterate(self, exposure_time: float):
-        """Iterate task."""
+        self.current_standard = 1
 
-        # Time to acquire a standard.
-        ACQ_PER_STD = 30
-
-        # Tolerance to start guiding
-        guide_tolerance_spec = self.gort.config["observer"]["guide_tolerance"]["spec"]
-
-        spec_coords = self.tile.spec_coords
+        if not (await self.acquire_standard(0)):
+            raise GortObserverError("Failed to re-acquire first standard.")
 
     async def acquire_standard(self, standard_idx: int):
         """Acquires a standard star and starts guiding on it."""
