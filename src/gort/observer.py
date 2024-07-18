@@ -179,7 +179,7 @@ class GortObserver:
 
         # Move fibsel to first position.
         fibsel = self.gort.telescopes.spec.fibsel
-        cotasks.append(fibsel.move_to_position(self.mask_positions[0]))
+        cotasks.append(fibsel.move_to_position(self.mask_positions[0], rehome=True))
 
         # Execute.
         with self.register_overhead("slew:slew"):
@@ -752,6 +752,9 @@ class Standards:
             await self.cancel()
 
         self.current_standard = 1
+
+        # Home the fibsel just to be sure.
+        await self.gort.telescopes.spec.fibsel.home()
 
         if not (await self.acquire_standard(0)):
             raise GortObserverError("Failed to re-acquire first standard.")

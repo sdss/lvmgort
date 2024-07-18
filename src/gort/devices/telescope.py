@@ -288,7 +288,7 @@ class FibSel(MoTanDevice):
             self.write_to_log("Rehoming fibsel before moving.", "warning")
             await self.home()
 
-    async def move_to_position(self, position: str | int):
+    async def move_to_position(self, position: str | int, rehome: bool = False):
         """Moves the spectrophotometric mask to the desired position.
 
         Parameters
@@ -297,11 +297,18 @@ class FibSel(MoTanDevice):
             A position in the form `PN-M` where ``N=1,2`` and ``M=1-12``, in which
             case the mask will rotate to expose the fibre with that name. If
             ``position`` is a number, moves the mask to that value.
+        rehome
+            Home the fibre selector before moving to the new position.
 
         """
 
         if not (await self.is_reachable()):
             raise GortTelescopeError("Device is not reachable.")
+
+        if rehome:
+            await self.home()
+        else:
+            await self._check_home()
 
         if isinstance(position, str):
             mask_positions = self.gort.config["telescopes"]["mask_positions"]
@@ -319,8 +326,6 @@ class FibSel(MoTanDevice):
             self.write_to_log(f"Moving mask to {steps} DT.", level="info")
 
         await self.slew_delay()
-        await self._check_home()
-
         await self.actor.commands.moveAbsolute(
             steps,
             timeout=self.timeouts["moveAbsolute"],
