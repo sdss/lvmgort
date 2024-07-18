@@ -107,7 +107,7 @@ class GortObserver:
         self._current_exposure: Exposure | None = None
         self._n_exposures: int = 0
 
-        self.overheads: dict[str, tuple[float, float]] = {}
+        self.overheads: dict[str, dict[str, int | float]] = {}
 
         interrupt_helper.set_callback(on_interrupt)
         interrupt_helper.observer = self
@@ -179,14 +179,19 @@ class GortObserver:
 
         # Move fibsel to first position.
         fibsel = self.gort.telescopes.spec.fibsel
-        cotasks.append(fibsel.move_to_position(self.mask_positions[0]))
+        cotasks.append(fibsel.move_to_position(self.mask_positions[0], rehome=True))
 
         # Execute.
         with self.register_overhead("slew:slew"):
             await asyncio.gather(*cotasks)
 
     @handle_signals(interrupt_signals, interrupt_helper.run_callback)
-    async def acquire(self, guide_tolerance: float | None = None, timeout: float = 180):
+    async def acquire(
+        self,
+        guide_tolerance: float | None = None,
+        timeout: float = 180,
+        telescopes: list[str] = ["sci", "skye", "skyw", "spec"],
+    ):
         """Acquires the field in all the telescopes. Blocks until then.
 
         Parameters
@@ -200,6 +205,9 @@ class GortObserver:
             The maximum time allowed for acquisition. In case of timeout
             the acquired fields are evaluated and an exception is
             raised if the acquisition failed.
+        telescopes
+            The list of telescopes to acquire. By default all telescopes are
+            acquired.
 
         Raises
         ------
@@ -219,7 +227,7 @@ class GortObserver:
         guide_coros = []
         guide_on_telescopes: list[str] = []
         n_skies = 0
-        for tel in ["sci", "skye", "skyw", "spec"]:
+        for tel in telescopes:
             coords = self.tile[tel]
 
             if coords is None or (isinstance(coords, list) and len(coords) == 0):
@@ -450,10 +458,11 @@ class GortObserver:
             {
                 "observer_id": id(self),
                 "tile_id": tile_id,
+                "dither_position": value["dither_position"],
                 "stage": name,
-                "start_time": value[0],
-                "end_time": value[0] + value[1],
-                "duration": value[1],
+                "start_time": value["t0"],
+                "end_time": value["t0"] + value["elapsed"],
+                "duration": value["elapsed"],
             }
             for name, value in self.overheads.items()
         ]
@@ -568,7 +577,11 @@ class GortObserver:
 
         yield
 
-        self.overheads[name] = (t0, time() - t0)
+        self.overheads[name] = {
+            "dither_position": self.tile.sci_coords.dither_position,
+            "t0": t0,
+            "elapsed": time() - t0,
+        }
 
     def _get_mask_positions(self, pattern: str):
         """Returns mask positions sorted by motor steps."""
@@ -705,6 +718,11 @@ class Standards:
         Moving the ``spec`` telescope to each one of the standard star,
         acquires the new field, and adjusts the time to stay on each target.
 
+        # TODO: right now we are assuming that the first standard has been
+        # acquired when we call this method. This is not always the case and
+        # it caused a bug when observing multiple dither positions so we should
+        # check.
+
         """
 
         if len(self.standards) == 0:
@@ -721,6 +739,118 @@ class Standards:
         self.standards[1].fibre = self.mask_positions[0]
 
         self.iterate_task = asyncio.create_task(self._iterate(exposure_time))
+
+    async def reacquire_first(self):
+        """Re-acquires the first standard.
+
+        This method should only be called when observing second and subsequent
+        dithers in a tile.
+
+        """
+
+        if self.iterate_task and not self.iterate_task.done():
+            await self.cancel()
+
+        self.current_standard = 1
+
+        # Home the fibsel just to be sure.
+        await self.gort.telescopes.spec.fibsel.home()
+
+        if not (await self.acquire_standard(0)):
+            raise GortObserverError("Failed to re-acquire first standard.")
+
+    async def acquire_standard(self, standard_idx: int):
+        """Acquires a standard star and starts guiding on it."""
+
+        guider_pixels: dict[str, tuple[float, float]]
+        guider_pixels = self.gort.config["guiders"]["devices"]["spec"]["named_pixels"]
+
+        # Tolerance to start guiding
+        guide_tolerance_spec = self.gort.config["observer"]["guide_tolerance"]["spec"]
+
+        # Moving the mask to an intermediate position while we move around.
+        spec_tel = self.gort.telescopes.spec
+        await spec_tel.fibsel.move_relative(500)
+
+        # Register the previous standard.
+        if self.standards[self.current_standard].acquired:
+            self.standards[self.current_standard].t1 = time()
+            self.standards[self.current_standard].observed = True
+
+        overhead_root = f"standards:standard-{self.current_standard}"
+
+        # New coordinates to observe.
+        new_coords = self.tile.spec_coords[standard_idx]
+        new_mask_position = self.mask_positions[standard_idx]
+
+        # Pixel on the MF corresponding to the new fibre/mask hole on
+        # which to guide. We use this tabulated list instead of
+        # offset_to_master_frame_pixel() because the latter coordinates
+        # are less precise as they do not include IFU rotation and more
+        # precise metrology.
+        new_guider_pixel = guider_pixels[new_mask_position]
+
+        self.observer.write_to_log(
+            f"Moving to standard #{self.current_standard} ({new_coords}) "
+            f"on fibre {new_mask_position}.",
+            "info",
+        )
+
+        # Slew to new coordinates. We actually slew to the coordinates
+        # that make the new star close to the fibre that will observe it.
+        slew_ra, slew_dec = fibre_slew_coordinates(
+            new_coords.ra,
+            new_coords.dec,
+            new_mask_position,
+            derotated=False,
+        )
+
+        # Finish guiding on spec telescope.
+        self.observer.write_to_log("Re-slewing 'spec' telescope.")
+
+        with self.observer.register_overhead(f"{overhead_root}-slew"):
+            cotasks = [
+                self.gort.guiders["spec"].stop(),
+                spec_tel.goto_coordinates(ra=slew_ra, dec=slew_dec, force=True),
+            ]
+            await asyncio.gather(*cotasks)
+
+        # Start to guide. Note that here we use the original coordinates
+        # of the star along with the pixel on the master frame on which to
+        # guide. See the note in fibre_slew_coordinates().
+        self.observer.write_to_log("Starting to guide on spec telescope.")
+        asyncio.create_task(
+            self.gort.guiders.spec.guide(
+                ra=new_coords.ra,
+                dec=new_coords.dec,
+                guide_tolerance=guide_tolerance_spec,
+                pixel=new_guider_pixel,
+            )
+        )
+
+        with self.observer.register_overhead(f"{overhead_root}-acquire"):
+            result = await self.gort.guiders.spec.wait_until_guiding(timeout=60)
+            if result[0] is False:
+                self.observer.write_to_log(
+                    f"Timed out acquiring standard {self.current_standard}.",
+                    "warning",
+                )
+                return False
+
+            self.observer.write_to_log(
+                f"Standard #{self.current_standard} on "
+                f"{new_mask_position!r} has been acquired."
+            )
+
+            # Move mask to uncover fibre.
+            await spec_tel.fibsel.move_to_position(new_mask_position)
+
+            # Do not guide. This means RA/Dec drifting will happen
+            # but not rotation drifting since we are guiding on a point
+            # source.
+            await self.gort.guiders.spec.apply_corrections(False)
+
+        return True
 
     async def cancel(self):
         """Cancels iteration."""
@@ -742,18 +872,12 @@ class Standards:
         # Time to acquire a standard.
         ACQ_PER_STD = 30
 
-        # Tolerance to start guiding
-        guide_tolerance_spec = self.gort.config["observer"]["guide_tolerance"]["spec"]
-
         spec_coords = self.tile.spec_coords
 
         # If we have zero or one standards, do nothing. The spec telescope
         # is already pointing to the first mask position.
         if len(spec_coords) <= 1:
             return
-
-        guider_pixels: dict[str, tuple[float, float]]
-        guider_pixels = self.gort.config["guiders"]["devices"]["spec"]["named_pixels"]
 
         # Time at which the exposure began.
         t0 = time()
@@ -802,93 +926,17 @@ class Standards:
                 if len(spec_coords) == current_std_idx + 1:
                     continue
 
-                # Moving the mask to an intermediate position while we move around.
-                spec_tel = self.gort.telescopes.spec
-                await spec_tel.fibsel.move_relative(500)
-
-                # Register the previous standard.
-                if self.standards[self.current_standard].acquired:
-                    self.standards[self.current_standard].t1 = time()
-                    self.standards[self.current_standard].observed = True
-
                 # Increase current index and get coordinates.
                 current_std_idx += 1
                 self.current_standard += 1
-                overhead_root = f"standards:standard-{self.current_standard}"
 
-                # New coordinates to observe.
-                new_coords = spec_coords[current_std_idx]
-                new_mask_position = self.mask_positions[current_std_idx]
-
-                # Pixel on the MF corresponding to the new fibre/mask hole on
-                # which to guide. We use this tabulated list instead of
-                # offset_to_master_frame_pixel() because the latter coordinates
-                # are less precise as they do not include IFU rotation and more
-                # precise metrology.
-                new_guider_pixel = guider_pixels[new_mask_position]
-
-                self.observer.write_to_log(
-                    f"Moving to standard #{self.current_standard} ({new_coords}) "
-                    f"on fibre {new_mask_position}.",
-                    "info",
-                )
-
-                # Slew to new coordinates. We actually slew to the coordinates
-                # that make the new star close to the fibre that will observe it.
-                slew_ra, slew_dec = fibre_slew_coordinates(
-                    new_coords.ra,
-                    new_coords.dec,
-                    new_mask_position,
-                    derotated=False,
-                )
-
-                # Finish guiding on spec telescope.
-                self.observer.write_to_log("Re-slewing 'spec' telescope.")
-
-                with self.observer.register_overhead(f"{overhead_root}-slew"):
-                    cotasks = [
-                        self.gort.guiders["spec"].stop(),
-                        spec_tel.goto_coordinates(ra=slew_ra, dec=slew_dec, force=True),
-                    ]
-                    await asyncio.gather(*cotasks)
-
-                # Start to guide. Note that here we use the original coordinates
-                # of the star along with the pixel on the master frame on which to
-                # guide. See the note in fibre_slew_coordinates().
-                self.observer.write_to_log("Starting to guide on spec telescope.")
-                asyncio.create_task(
-                    self.gort.guiders.spec.guide(
-                        ra=new_coords.ra,
-                        dec=new_coords.dec,
-                        guide_tolerance=guide_tolerance_spec,
-                        pixel=new_guider_pixel,
-                    )
-                )
-
-                with self.observer.register_overhead(f"{overhead_root}-acquire"):
-                    result = await self.gort.guiders.spec.wait_until_guiding(timeout=60)
-                    if result[0] is False:
-                        self.observer.write_to_log(
-                            f"Timed out acquiring standard {self.current_standard}.",
-                            "warning",
-                        )
-                        continue
-
-                    self.observer.write_to_log(
-                        f"Standard #{self.current_standard} on "
-                        f"{new_mask_position!r} has been acquired."
-                    )
-
-                    # Move mask to uncover fibre.
-                    await spec_tel.fibsel.move_to_position(new_mask_position)
-
-                    # Do not guide. This means RA/Dec drifting will happen
-                    # but not rotation drifting since we are guiding on a point
-                    # source.
-                    await self.gort.guiders.spec.apply_corrections(False)
+                if not (await self.acquire_standard(current_std_idx)):
+                    continue
 
                 n_observed += 1
                 t0_last_std = time()
+
+                new_mask_position = self.mask_positions[current_std_idx]
 
                 self.standards[self.current_standard].acquired = True
                 self.standards[self.current_standard].t0 = time()

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
+from time import time
 
 from typing import TYPE_CHECKING, ClassVar
 
@@ -243,7 +244,15 @@ class FibSel(MoTanDevice):
 
     # We really don't want a delay here because it would slow down the acquisition
     # of new standards, and anyway the fibre selector usually moves by itself.
-    SLEW_DELAY = 0
+    SLEW_DELAY: float = 0
+
+    # Rehome after this many seconds.
+    HOME_AFTER: float | None = None
+
+    def __init__(self, gort: GortClient, name: str, actor: str):
+        super().__init__(gort, name, actor)
+
+        self.__last_homing: float = 0
 
     async def status(self):
         """Returns the status of the fibre selector."""
@@ -262,12 +271,24 @@ class FibSel(MoTanDevice):
         await self.actor.commands.moveToHome(timeout=self.timeouts["moveToHome"])
         self.write_to_log("Fibsel homing complete.")
 
+        self.__last_homing = time()
+
     def list_positions(self) -> list[str]:
         """Returns a list of valid positions."""
 
         return list(self.gort.config["telescopes"]["mask_positions"])
 
-    async def move_to_position(self, position: str | int):
+    async def _check_home(self):
+        """Checks if a homing is required before moving the mask."""
+
+        if self.HOME_AFTER is None:
+            return
+
+        if time() - self.__last_homing > self.HOME_AFTER:
+            self.write_to_log("Rehoming fibsel before moving.", "warning")
+            await self.home()
+
+    async def move_to_position(self, position: str | int, rehome: bool = False):
         """Moves the spectrophotometric mask to the desired position.
 
         Parameters
@@ -276,11 +297,18 @@ class FibSel(MoTanDevice):
             A position in the form `PN-M` where ``N=1,2`` and ``M=1-12``, in which
             case the mask will rotate to expose the fibre with that name. If
             ``position`` is a number, moves the mask to that value.
+        rehome
+            Home the fibre selector before moving to the new position.
 
         """
 
         if not (await self.is_reachable()):
             raise GortTelescopeError("Device is not reachable.")
+
+        if rehome:
+            await self.home()
+        else:
+            await self._check_home()
 
         if isinstance(position, str):
             mask_positions = self.gort.config["telescopes"]["mask_positions"]
@@ -312,6 +340,8 @@ class FibSel(MoTanDevice):
         self.write_to_log(f"Moving fibre mask {steps} steps.")
 
         await self.slew_delay()
+        await self._check_home()
+
         await self.actor.commands.moveRelative(
             steps,
             timeout=self.timeouts["moveRelative"],
