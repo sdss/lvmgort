@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 from collections import defaultdict
 
+from time import time
 from typing import TYPE_CHECKING, ClassVar
 
 import numpy
@@ -245,6 +246,14 @@ class FibSel(MoTanDevice):
     # of new standards, and anyway the fibre selector usually moves by itself.
     SLEW_DELAY = 0
 
+    # Rehome once an hour.
+    HOME_AFTER = 3600.
+
+    def __init__(self, gort: GortClient, name: str, actor: str):
+        super().__init__(gort, name, actor)
+
+        self.__last_homing: float = 0
+
     async def status(self):
         """Returns the status of the fibre selector."""
 
@@ -262,10 +271,20 @@ class FibSel(MoTanDevice):
         await self.actor.commands.moveToHome(timeout=self.timeouts["moveToHome"])
         self.write_to_log("Fibsel homing complete.")
 
+        self.__last_homing = time()
+
     def list_positions(self) -> list[str]:
         """Returns a list of valid positions."""
 
         return list(self.gort.config["telescopes"]["mask_positions"])
+
+    async def _check_home(self):
+        """Checks if a homing is required before moving the mask."""
+
+        if time() - self.__last_homing > self.HOME_AFTER:
+            self.write_to_log("Rehoming fibsel before moving.", "warning")
+            await self.home()
+
 
     async def move_to_position(self, position: str | int):
         """Moves the spectrophotometric mask to the desired position.
@@ -298,6 +317,8 @@ class FibSel(MoTanDevice):
             self.write_to_log(f"Moving mask to {steps} DT.", level="info")
 
         await self.slew_delay()
+        await self._check_home()
+
         await self.actor.commands.moveAbsolute(
             steps,
             timeout=self.timeouts["moveAbsolute"],
@@ -312,6 +333,8 @@ class FibSel(MoTanDevice):
         self.write_to_log(f"Moving fibre mask {steps} steps.")
 
         await self.slew_delay()
+        await self._check_home()
+
         await self.actor.commands.moveRelative(
             steps,
             timeout=self.timeouts["moveRelative"],
