@@ -860,7 +860,7 @@ class Gort(GortClient):
 
                     async with GatheringTaskGroup() as group:
                         group.create_task(observer.set_dither_position(dpos))
-                        group.create_task(observer.standards.reset())
+                        group.create_task(observer.standards.reacquire_first())
 
                     # Need to restart the guider monitor so that the new exposure
                     # gets the range of guider frames that correspond to this dither.

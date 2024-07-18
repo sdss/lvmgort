@@ -740,7 +740,7 @@ class Standards:
 
         self.iterate_task = asyncio.create_task(self._iterate(exposure_time))
 
-    async def reset(self):
+    async def reacquire_first(self):
         """Re-acquires the first standard.
 
         This method should only be called when observing second and subsequent
