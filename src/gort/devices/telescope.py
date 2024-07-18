@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
-
 from time import time
+
 from typing import TYPE_CHECKING, ClassVar
 
 import numpy
@@ -244,10 +244,10 @@ class FibSel(MoTanDevice):
 
     # We really don't want a delay here because it would slow down the acquisition
     # of new standards, and anyway the fibre selector usually moves by itself.
-    SLEW_DELAY = 0
+    SLEW_DELAY: float = 0
 
-    # Rehome once an hour.
-    HOME_AFTER = 3600.
+    # Rehome after this many seconds.
+    HOME_AFTER: float | None = None
 
     def __init__(self, gort: GortClient, name: str, actor: str):
         super().__init__(gort, name, actor)
@@ -281,10 +281,12 @@ class FibSel(MoTanDevice):
     async def _check_home(self):
         """Checks if a homing is required before moving the mask."""
 
+        if self.HOME_AFTER is None:
+            return
+
         if time() - self.__last_homing > self.HOME_AFTER:
             self.write_to_log("Rehoming fibsel before moving.", "warning")
             await self.home()
-
 
     async def move_to_position(self, position: str | int):
         """Moves the spectrophotometric mask to the desired position.
