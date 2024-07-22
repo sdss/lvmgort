@@ -772,11 +772,6 @@ class Standards:
         spec_tel = self.gort.telescopes.spec
         await spec_tel.fibsel.move_relative(500)
 
-        # Register the previous standard.
-        if self.standards[self.current_standard].acquired:
-            self.standards[self.current_standard].t1 = time()
-            self.standards[self.current_standard].observed = True
-
         overhead_root = f"standards:standard-{self.current_standard}"
 
         # New coordinates to observe.
@@ -926,7 +921,12 @@ class Standards:
                 if len(spec_coords) == current_std_idx + 1:
                     continue
 
-                # Increase current index and get coordinates.
+                # Register the previous standard.
+                if self.standards[self.current_standard].acquired:
+                    self.standards[self.current_standard].t1 = time()
+                    self.standards[self.current_standard].observed = True
+
+                # Increase current index and acquire the next standard.
                 current_std_idx += 1
                 self.current_standard += 1
 
