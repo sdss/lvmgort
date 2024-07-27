@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### 🔧 Fixed
+
+[#33](https://github.com/sdss/lvmgort/pull/33) Fixed an issue in which the first standard would not be reacquired during dithered observations. Also forces a rehoming of the fibre selector mask before each observation.
+
+
 ## 1.0.0b1 - July 9, 2024
 
 ### 🔥 Deprecated
