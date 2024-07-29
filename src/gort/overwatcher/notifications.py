@@ -9,44 +9,12 @@
 from __future__ import annotations
 
 import asyncio
-import json
 
 from typing import Any
 
 from gort.maskbits import Event, Notification
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 from gort.overwatcher.overwatcher import Overwatcher
-from gort.pubsub import Subscriber
-
-
-class NotificationsMonitor(OverwatcherModuleTask["NotificationsOverwatcher"]):
-    name = "notifications_monitor"
-    keep_alive = True
-    restart_on_error = True
-
-    async def task(self):
-        """Runs the task."""
-
-        subscriber = Subscriber(self.config["services.redis.pubsub.notifications"])
-
-        async for message in subscriber.listen():
-            if message["type"] != "message":
-                continue
-
-            payload = json.loads(message["data"])
-
-            try:
-                notification_code: int | None = payload.pop("notification", None)
-                notification_type: str = payload.pop("type", None)
-                if notification_type == "event":
-                    notification = Event(notification_code)
-                else:
-                    notification = Notification(notification_code)
-            except ValueError:
-                self.log.error(f"Invalid notification code {notification_code!r}.")
-                continue
-
-            self.module.queue.put_nowait((notification, payload))
 
 
 class ProcessNotification(OverwatcherModuleTask["NotificationsOverwatcher"]):
@@ -89,7 +57,7 @@ class ProcessNotification(OverwatcherModuleTask["NotificationsOverwatcher"]):
 class NotificationsOverwatcher(OverwatcherModule):
     name = "notifications"
 
-    tasks = [NotificationsMonitor(), ProcessNotification()]
+    tasks = [ProcessNotification()]
 
     def __init__(self, overwatcher: Overwatcher):
         super().__init__(overwatcher)
