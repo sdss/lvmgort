@@ -672,7 +672,7 @@ class Gort(GortClient):
             try:
                 result = await self.observe_tile(
                     run_cleanup=False,
-                    cleanup_on_interrrupt=True,
+                    cleanup_on_interrupt=True,
                     adjust_focus=adjust_focus,
                     show_progress=show_progress,
                 )
@@ -741,7 +741,7 @@ class Gort(GortClient):
         show_progress: bool | None = None,
         run_cleanup: bool = True,
         adjust_focus: bool = True,
-        cleanup_on_interrrupt: bool = True,
+        cleanup_on_interrupt: bool = True,
     ):
         """Performs all the operations necessary to observe a tile.
 
@@ -789,7 +789,7 @@ class Gort(GortClient):
             Adjusts the focuser positions based on temperature drift before
             starting the observation. This works best if the focus has been
             initially determined using a focus sweep.
-        cleanup_on_interrrupt
+        cleanup_on_interrupt
             If ``True``, registers a signal handler to catch interrupts and
             run the cleanup routine.
 
@@ -820,7 +820,7 @@ class Gort(GortClient):
         dither_positions = tile.dither_positions
         tile.set_dither_position(dither_positions[0])
 
-        if cleanup_on_interrrupt:
+        if cleanup_on_interrupt:
             interrupt_cb = partial(self.run_script_sync, "cleanup")
         else:
             interrupt_cb = None
