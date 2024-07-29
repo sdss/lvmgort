@@ -637,8 +637,22 @@ class Gort(GortClient):
 
         super().__init__(*args, **kwargs)
 
+        self._observer: GortObserver | None = None
+
         if verbosity:
             self.set_verbosity(verbosity)
+
+    @property
+    def observer(self) -> GortObserver | None:
+        """Returns the current :ref:`observer <.GortObserver>` instance."""
+
+        return self._observer
+
+    @observer.setter
+    def observer(self, observer: GortObserver | None):
+        """Sets the current :ref:`observer <.GortObserver>` instance."""
+
+        self._observer = observer
 
     async def emergency_close(self):
         """Parks and closes the telescopes."""
@@ -827,6 +841,7 @@ class Gort(GortClient):
 
         # Create observer.
         observer = GortObserver(self, tile, on_interrupt=interrupt_cb)
+        self.observer = observer
 
         # Run the cleanup routine to be extra sure.
         if run_cleanup:
@@ -903,6 +918,8 @@ class Gort(GortClient):
         finally:
             # Finish observation.
             await observer.finish_observation()
+
+            self.observer = None
 
         return exposures
 
