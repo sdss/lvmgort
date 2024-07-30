@@ -73,8 +73,8 @@ class Calibration:
     async def get_last_taken(self):
         """Gets the last time the observation was taken from Redis."""
 
-        client = redis_client()
-        data = await client.hgetall(f"gort:overwatcher:calibrations:{self.name}")
+        async with redis_client() as client:
+            data = await client.hgetall(f"gort:overwatcher:calibrations:{self.name}")
 
         if data == {}:
             return None
@@ -86,11 +86,11 @@ class Calibration:
 
         self.done = True
 
-        client = redis_client()
-        await client.hset(
-            f"gort:overwatcher:calibrations:{self.name}",
-            mapping={"last_taken": time.Time.now().isot},
-        )
+        async with redis_client() as client:
+            await client.hset(
+                f"gort:overwatcher:calibrations:{self.name}",
+                mapping={"last_taken": time.Time.now().isot},
+            )
 
 
 class CalibrationSchedule:

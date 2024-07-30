@@ -22,7 +22,7 @@ from gort.tools import cancel_task, redis_client
 
 
 if TYPE_CHECKING:
-    from gort.observer import GortObserver
+    pass
 
 
 __all__ = ["ObserverOverwatcher"]
@@ -265,8 +265,9 @@ class ObserverOverwatcher(OverwatcherModule):
         """Is observing enabled?"""
 
         try:
-            client = redis_client()
-            enabled: str | None = await client.get("gort:overwatcher:enabled")
+            async with redis_client() as client:
+                enabled: str | None = await client.get("gort:overwatcher:enabled")
+
             if not enabled:
                 raise ValueError("cannot determine if observing is enabled.")
             return bool(int(enabled))

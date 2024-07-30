@@ -18,10 +18,10 @@ import pathlib
 import re
 import tempfile
 import warnings
-from contextlib import suppress
+from contextlib import asynccontextmanager, suppress
 from functools import partial
 
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, Sequence
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Callable, Coroutine, Sequence
 
 import httpx
 import numpy
@@ -75,6 +75,7 @@ __all__ = [
     "handle_signals",
     "get_lvmapi_route",
     "GuiderMonitor",
+    "overwatcher_is_running",
 ]
 
 AnyPath = str | os.PathLike
@@ -557,13 +558,16 @@ def get_db_connection():
     return conn
 
 
-def redis_client():
+@asynccontextmanager
+async def redis_client() -> AsyncGenerator[aioredis.Redis, None]:
     """Returns a Redis connection from the configuration file parameters."""
 
     redis_config = config["services"]["redis"]
     client = aioredis.from_url(redis_config["url"], decode_responses=True)
 
-    return client
+    yield client
+
+    await client.aclose()
 
 
 async def run_in_executor(fn, *args, catch_warnings=False, executor="thread", **kwargs):
@@ -1000,3 +1004,12 @@ class GuiderMonitor:
                     continue
 
         return header
+
+
+async def overwatcher_is_running():
+    """Returns :obj:`True` if the overwatcher is running."""
+
+    async with redis_client() as client:
+        enabled: str | None = await client.get("gort:overwatcher:enabled")
+
+    return bool(int(enabled)) if enabled else False
