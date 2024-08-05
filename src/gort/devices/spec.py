@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Sequence
 from gort.exceptions import ErrorCodes, GortError, GortSpecError
 from gort.exposure import Exposure
 from gort.gort import GortDevice, GortDeviceSet
-from gort.recipes.calibration import CalibrationRecipe
 
 
 if TYPE_CHECKING:
@@ -462,55 +461,3 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         await self.call_device_method(Spectrograph.abort)
         self.last_exposure = None
-
-    async def calibrate(
-        self,
-        sequence: str | dict = "normal",
-        slew_telescopes: bool = True,
-        park_after: bool = False,
-        show_progress: bool | None = None,
-    ):
-        """Runs the calibration sequence.
-
-        Parameters
-        ----------
-        sequence
-            The name calibration sequence to execute. It can also be a
-            dictionary with the calibration sequence definition that
-            follows the :ref:`calibration schema <calibration-schema>`.
-        slew_telescopes
-            Whether to move the telescopes to point to the FF screen.
-        park_after
-            Park the telescopes after a successful calibration sequence.
-        show_progress
-            Displays a progress bar with the elapsed exposure time.
-
-        """
-
-        return await CalibrationRecipe(self.gort)(
-            sequence=sequence,
-            slew_telescopes=slew_telescopes,
-            park_after=park_after,
-            show_progress=show_progress,
-        )
-
-    def get_calibration_sequence(self, sequence: str):
-        """Returns a dictionary with the configuration for a calibration sequence.
-
-        Parameters
-        ----------
-        sequence
-            The name calibration sequence.
-
-        Returns
-        -------
-        sequence_dict
-            The calibration sequence dictionary. This dictionary can be
-            altered and then passed to :obj:`.calibrate` to execute the
-            modified sequence. The returned dictionary if a deep copy of
-            the original sequence; modifying it won't modify the original
-            sequence.
-
-        """
-
-        return CalibrationRecipe(self.gort).get_calibration_sequence(sequence)

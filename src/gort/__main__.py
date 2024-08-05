@@ -7,25 +7,80 @@
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
 
+import asyncio
+import os
+import warnings
+from contextlib import asynccontextmanager
+
 import click
 
-from sdsstools.daemonizer import cli_coro
+from sdsstools.daemonizer import DaemonGroup, cli_coro
+
+
+@asynccontextmanager
+async def get_gort_client():
+    """Returns a GORT client."""
+
+    from gort import Gort
+
+    gort = await Gort(verbosity="debug").init()
+
+    yield gort
+
+    await gort.stop()
 
 
 @click.group()
 def gort():
-    """Gort CLI."""
+    """GORT CLI."""
 
     pass
 
 
-@gort.command()
+@gort.group(cls=DaemonGroup, prog="gort-overwatcher-actor", workdir=os.getcwd())
 @click.option(
-    "--calibrations/--no-calibrations",
-    is_flag=True,
-    default=False,
-    help="Take calibrations as part of the startup sequence.",
+    "--config",
+    "-c",
+    type=click.Path(exists=True),
+    help="Path to the configuration file. Must include a "
+    "section called 'actor' or 'overwatcher.actor'.",
 )
+@cli_coro()
+async def overwatcher(config: str | None = None):
+    """Starts the overwatcher."""
+
+    from sdsstools import read_yaml_file
+
+    from gort import config as gort_config
+    from gort.exceptions import GortUserWarning
+    from gort.overwatcher.actor import OverwatcherActor
+
+    internal_config = gort_config["overwatcher.actor"]
+    if config is None:
+        actor_config = internal_config
+    else:
+        actor_config = read_yaml_file(config)
+        if "actor" in actor_config:
+            actor_config = actor_config["actor"]
+        elif "overwatcher" in actor_config and "actor" in actor_config["overwatcher"]:
+            actor_config = actor_config["overwatcher"]["actor"]
+        else:
+            warnings.warn(
+                "No actor configuration found in the config file. "
+                "Using internal configuration.",
+                GortUserWarning,
+            )
+            actor_config = internal_config
+
+    actor = OverwatcherActor.from_config(actor_config)
+    await actor.start()
+
+    while True:
+        await asyncio.sleep(5)
+        continue
+
+
+@gort.command()
 @click.option(
     "--open-enclosure/--no-open-enclosure",
     is_flag=True,
@@ -46,22 +101,18 @@ def gort():
 )
 @cli_coro()
 async def startup(
-    calibrations: bool = False,
     open_enclosure: bool = True,
     confirm_open: bool = True,
     focus: bool = True,
 ):
     """Runs the startup sequence."""
 
-    from gort import Gort
-
-    gort = await Gort(verbosity="debug").init()
-    await gort.startup(
-        calibration_sequence=calibrations,
-        open_enclosure=open_enclosure,
-        confirm_open=confirm_open,
-        focus=focus,
-    )
+    async with get_gort_client() as gort:
+        await gort.startup(
+            open_enclosure=open_enclosure,
+            confirm_open=confirm_open,
+            focus=focus,
+        )
 
 
 @gort.command()
@@ -75,10 +126,51 @@ async def startup(
 async def shutdown(park: bool = True):
     """Runs the shutdown sequence."""
 
-    from gort import Gort
+    async with get_gort_client() as gort:
+        await gort.shutdown(park_telescopes=park)
 
-    gort = await Gort(verbosity="debug").init()
-    await gort.shutdown(park_telescopes=park)
+
+@gort.command()
+@click.option(
+    "--readout/--no-readout",
+    is_flag=True,
+    default=False,
+    help="Read the spectrographs if an exposure is pending.",
+)
+@cli_coro()
+async def cleanup(readout: bool = False):
+    """Runs the cleanup sequence."""
+
+    async with get_gort_client() as gort:
+        await gort.cleanup(readout=readout)
+
+
+@gort.command()
+@click.argument("RECIPE", type=str)
+@cli_coro()
+async def recipe(recipe: str):
+    """Runs a recipe with its default options."""
+
+    async with get_gort_client() as gort:
+        await gort.execute_recipe(recipe)
+
+
+@gort.command()
+@cli_coro()
+async def open():
+    """Opens the dome."""
+
+    async with get_gort_client() as gort:
+        await gort.enclosure.open()
+
+
+@gort.command()
+@cli_coro()
+async def close():
+    """Closes the dome."""
+
+    async with get_gort_client() as gort:
+        await gort.enclosure.close(force=True)
 
 
 @gort.command()
@@ -86,10 +178,8 @@ async def shutdown(park: bool = True):
 async def focus():
     """Focus the telescopes."""
 
-    from gort import Gort
-
-    gort = await Gort(verbosity="debug").init()
-    await gort.guiders.focus()
+    async with get_gort_client() as gort:
+        await gort.guiders.focus()
 
 
 @gort.command()
@@ -97,10 +187,8 @@ async def focus():
 async def observe():
     """Runs the observe loop."""
 
-    from gort import Gort
-
-    gort = await Gort(verbosity="debug").init()
-    await gort.observe(show_progress=True)
+    async with get_gort_client() as gort:
+        await gort.observe(show_progress=True)
 
 
 @gort.command(name="pointing-model")
@@ -187,7 +275,7 @@ async def pointing_model(
 
 
 def main():
-    gort()
+    gort(auto_envvar_prefix="GORT")
 
 
 if __name__ == "__main__":

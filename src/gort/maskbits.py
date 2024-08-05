@@ -8,10 +8,10 @@
 
 from __future__ import annotations
 
-from enum import Flag
+from enum import Enum, Flag
 
 
-__all__ = ["GuiderStatus"]
+__all__ = ["GuiderStatus", "Notification", "Event"]
 
 
 class GuiderStatus(Flag):
@@ -46,3 +46,15 @@ class GuiderStatus(Flag):
 
     def __repr__(self):
         return str(" | ".join(self.get_names()))
+
+
+class Event(Enum):
+    """Enumeration with the event types."""
+
+    UNCATEGORISED = 999
+
+
+class Notification(Enum):
+    """Enumeration with the notification types."""
+
+    UNCATEGORISED = 999

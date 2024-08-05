@@ -42,11 +42,17 @@ from sdsstools.utils import GatheringTaskGroup
 from gort import config
 from gort.core import RemoteActor
 from gort.exceptions import ErrorCodes, GortError
-from gort.kubernetes import Kubernetes
 from gort.observer import GortObserver
 from gort.recipes import recipes as recipe_to_class
 from gort.tile import Tile
-from gort.tools import get_temporary_file_path, run_in_executor
+from gort.tools import (
+    check_overwatcher_not_running,
+    get_temporary_file_path,
+    kubernetes_list_deployments,
+    kubernetes_restart_deployment,
+    overwatcher_is_running,
+    run_in_executor,
+)
 
 
 if TYPE_CHECKING:
@@ -153,15 +159,6 @@ class GortClient(AMQPClient):
         self.specs = self.add_device(SpectrographSet, self.config["specs"]["devices"])
         self.enclosure = self.add_device(Enclosure, name="enclosure", actor="lvmecp")
         self.telemetry = self.add_device(TelemSet, self.config["telemetry"]["devices"])
-
-        try:
-            self.kubernetes = Kubernetes(log=self.log)
-        except Exception:
-            self.log.warning(
-                "Gort cannot access the Kubernets cluster. "
-                "The Kubernetes module won't be available."
-            )
-            self.kubernetes = None
 
     def _prepare_logger(
         self,
@@ -494,18 +491,15 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
 
         failed: bool = False
 
-        if self.gort.kubernetes is None:
-            raise GortError("The Kubernetes cluster is not accessible.")
-
         self.write_to_log("Restarting Kubernetes deployments.", "info")
         for deployment in self.__DEPLOYMENTS__:
-            self.gort.kubernetes.restart_deployment(deployment, from_file=True)
+            await kubernetes_restart_deployment(deployment)
 
         self.write_to_log("Waiting 15 seconds for deployments to be ready.", "info")
         await asyncio.sleep(15)
 
         # Check that deployments are running.
-        running_deployments = self.gort.kubernetes.list_deployments()
+        running_deployments = await kubernetes_list_deployments()
         for deployment in self.__DEPLOYMENTS__:
             if deployment not in running_deployments:
                 failed = True
@@ -629,15 +623,39 @@ class Gort(GortClient):
         self,
         *args,
         verbosity: str | None = None,
+        config_file: str | pathlib.Path | None = None,
         **kwargs,
     ):
+        if config_file:
+            config.load(str(config_file))
+
         super().__init__(*args, **kwargs)
+
+        self._observer: GortObserver | None = None
 
         if verbosity:
             self.set_verbosity(verbosity)
 
+    @property
+    def observer(self) -> GortObserver | None:
+        """Returns the current :ref:`observer <.GortObserver>` instance."""
+
+        return self._observer
+
+    @observer.setter
+    def observer(self, observer: GortObserver | None):
+        """Sets the current :ref:`observer <.GortObserver>` instance."""
+
+        self._observer = observer
+
     async def emergency_close(self):
         """Parks and closes the telescopes."""
+
+        if await overwatcher_is_running(self):
+            self.log.warning(
+                "Overwatcher is running but overriding. However "
+                "be aware that the Overwatcher could reopen the enclosure."
+            )
 
         tasks = []
         tasks.append(self.telescopes.park(disable=True))
@@ -646,6 +664,7 @@ class Gort(GortClient):
         self.log.warning("Closing and parking telescopes.")
         await asyncio.gather(*tasks)
 
+    @check_overwatcher_not_running
     async def observe(
         self,
         n_tiles: int | None = None,
@@ -668,7 +687,7 @@ class Gort(GortClient):
             try:
                 result = await self.observe_tile(
                     run_cleanup=False,
-                    cleanup_on_interrrupt=True,
+                    cleanup_on_interrupt=True,
                     adjust_focus=adjust_focus,
                     show_progress=show_progress,
                 )
@@ -721,6 +740,7 @@ class Gort(GortClient):
                 self.log.info("Number of tiles reached. Finishing observing loop.")
                 break
 
+    @check_overwatcher_not_running
     async def observe_tile(
         self,
         tile: Tile | int | None = None,
@@ -737,7 +757,7 @@ class Gort(GortClient):
         show_progress: bool | None = None,
         run_cleanup: bool = True,
         adjust_focus: bool = True,
-        cleanup_on_interrrupt: bool = True,
+        cleanup_on_interrupt: bool = True,
     ):
         """Performs all the operations necessary to observe a tile.
 
@@ -785,7 +805,7 @@ class Gort(GortClient):
             Adjusts the focuser positions based on temperature drift before
             starting the observation. This works best if the focus has been
             initially determined using a focus sweep.
-        cleanup_on_interrrupt
+        cleanup_on_interrupt
             If ``True``, registers a signal handler to catch interrupts and
             run the cleanup routine.
 
@@ -816,13 +836,14 @@ class Gort(GortClient):
         dither_positions = tile.dither_positions
         tile.set_dither_position(dither_positions[0])
 
-        if cleanup_on_interrrupt:
+        if cleanup_on_interrupt:
             interrupt_cb = partial(self.run_script_sync, "cleanup")
         else:
             interrupt_cb = None
 
         # Create observer.
         observer = GortObserver(self, tile, on_interrupt=interrupt_cb)
+        self.observer = observer
 
         # Run the cleanup routine to be extra sure.
         if run_cleanup:
@@ -900,6 +921,8 @@ class Gort(GortClient):
             # Finish observation.
             await observer.finish_observation()
 
+            self.observer = None
+
         return exposures
 
     async def run_script(self, script: str):
@@ -943,6 +966,7 @@ class Gort(GortClient):
 
         return await Recipe(self)(**kwargs)
 
+    @check_overwatcher_not_running
     async def startup(self, **kwargs):
         """Executes the :obj:`startup <.StartupRecipe>` sequence."""
 
@@ -951,8 +975,15 @@ class Gort(GortClient):
     async def shutdown(self, **kwargs):
         """Executes the :obj:`shutdown <.ShutdownRecipe>` sequence."""
 
+        if await overwatcher_is_running(self):
+            raise GortError(
+                "Overwatcher is running. Cannot shutdown. If you really need "
+                "to shutdown, execute Gort.emergency_close()."
+            )
+
         return await self.execute_recipe("shutdown", **kwargs)
 
+    @check_overwatcher_not_running
     async def cleanup(self, readout: bool = True, turn_lamps_off: bool = True):
         """Executes the :obj:`shutdown <.CleanupRecipe>` sequence."""
 

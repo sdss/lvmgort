@@ -66,7 +66,8 @@ def read_fibermap(
     global _FIBERMAP_CACHE
 
     if path is None:
-        path = pathlib.Path(config["lvmcore"]["path"]) / config["lvmcore"]["fibermap"]
+        lvmcore_config = config["services"]["lvmcore"]
+        path = pathlib.Path(lvmcore_config["path"]) / lvmcore_config["fibermap"]
     else:
         path = pathlib.Path(path).absolute()
 
