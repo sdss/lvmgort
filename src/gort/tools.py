@@ -81,6 +81,8 @@ __all__ = [
     "get_by_source_id",
     "is_actor_running",
     "check_overwatcher_not_running",
+    "kubernetes_restart_deployment",
+    "kubernetes_list_deployments",
 ]
 
 AnyPath = str | os.PathLike
@@ -833,7 +835,7 @@ async def get_lvmapi_route(route: str, params: dict = {}, **kwargs):
         response = await client.get(route, params=params)
 
         if response.status_code != 200:
-            raise ValueError("Failed to get weather report.")
+            raise ValueError(f"Route {route} failed with error {response.status_code}.")
 
     return response.json()
 
@@ -1048,3 +1050,15 @@ def check_overwatcher_not_running(coro):
         return await coro(*args, **kwargs)
 
     return wrapper
+
+
+async def kubernetes_list_deployments():
+    """Retrieves the Kubernetes deployments from the API."""
+
+    return await get_lvmapi_route("/kubernetes/deployments/list")
+
+
+async def kubernetes_restart_deployment(name: str):
+    """Restarts a Kubernetes deployment via the API."""
+
+    return await get_lvmapi_route(f"/kubernetes/deployments/{name}/restart")

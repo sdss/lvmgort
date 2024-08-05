@@ -18,7 +18,7 @@ import numpy
 
 from gort.exceptions import GortTelescopeError
 from gort.gort import GortClient, GortDevice, GortDeviceSet
-from gort.tools import angular_separation
+from gort.tools import angular_separation, kubernetes_restart_deployment
 
 
 if TYPE_CHECKING:
@@ -890,11 +890,8 @@ class TelescopeSet(GortDeviceSet[Telescope]):
 
         """
 
-        if not self.gort.kubernetes:
-            raise GortTelescopeError("Kubernetes cluster cannot be accessed.")
-
         self.write_to_log("Restarting deployment lvmtan and waiting 25 s.", "info")
-        self.gort.kubernetes.restart_deployment("lvmtan")
+        await kubernetes_restart_deployment("lvmtan")
         await asyncio.sleep(25)
 
         await self.home(

@@ -264,7 +264,7 @@ services:
 
   lvmapi:
     host: 127.0.0.1
-    port: 8085
+    port: 8888
 
   redis:
     url: redis://localhost:6379/0

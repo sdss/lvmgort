@@ -42,13 +42,14 @@ from sdsstools.utils import GatheringTaskGroup
 from gort import config
 from gort.core import RemoteActor
 from gort.exceptions import ErrorCodes, GortError
-from gort.kubernetes import Kubernetes
 from gort.observer import GortObserver
 from gort.recipes import recipes as recipe_to_class
 from gort.tile import Tile
 from gort.tools import (
     check_overwatcher_not_running,
     get_temporary_file_path,
+    kubernetes_list_deployments,
+    kubernetes_restart_deployment,
     overwatcher_is_running,
     run_in_executor,
 )
@@ -158,15 +159,6 @@ class GortClient(AMQPClient):
         self.specs = self.add_device(SpectrographSet, self.config["specs"]["devices"])
         self.enclosure = self.add_device(Enclosure, name="enclosure", actor="lvmecp")
         self.telemetry = self.add_device(TelemSet, self.config["telemetry"]["devices"])
-
-        try:
-            self.kubernetes = Kubernetes(log=self.log)
-        except Exception:
-            self.log.warning(
-                "Gort cannot access the Kubernets cluster. "
-                "The Kubernetes module won't be available."
-            )
-            self.kubernetes = None
 
     def _prepare_logger(
         self,
@@ -499,18 +491,15 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
 
         failed: bool = False
 
-        if self.gort.kubernetes is None:
-            raise GortError("The Kubernetes cluster is not accessible.")
-
         self.write_to_log("Restarting Kubernetes deployments.", "info")
         for deployment in self.__DEPLOYMENTS__:
-            self.gort.kubernetes.restart_deployment(deployment, from_file=True)
+            await kubernetes_restart_deployment(deployment)
 
         self.write_to_log("Waiting 15 seconds for deployments to be ready.", "info")
         await asyncio.sleep(15)
 
         # Check that deployments are running.
-        running_deployments = self.gort.kubernetes.list_deployments()
+        running_deployments = await kubernetes_list_deployments()
         for deployment in self.__DEPLOYMENTS__:
             if deployment not in running_deployments:
                 failed = True
