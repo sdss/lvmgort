@@ -8,11 +8,13 @@
 
 
 import asyncio
+import os
+import warnings
 from contextlib import asynccontextmanager
 
 import click
 
-from sdsstools.daemonizer import cli_coro
+from sdsstools.daemonizer import DaemonGroup, cli_coro
 
 
 @asynccontextmanager
@@ -35,14 +37,43 @@ def gort():
     pass
 
 
-@gort.command()
+@gort.group(cls=DaemonGroup, prog="gort-overwatcher-actor", workdir=os.getcwd())
+@click.option(
+    "--config",
+    "-c",
+    type=click.Path(exists=True),
+    help="Path to the configuration file. Must include a "
+    "section called 'actor' or 'overwatcher.actor'.",
+)
 @cli_coro()
-async def overwatcher():
+async def overwatcher(config: str | None = None):
     """Starts the overwatcher."""
 
-    from gort.overwatcher import Overwatcher
+    from sdsstools import read_yaml_file
 
-    await Overwatcher().run()
+    from gort import config as gort_config
+    from gort.exceptions import GortUserWarning
+    from gort.overwatcher.actor import OverwatcherActor
+
+    internal_config = gort_config["overwatcher.actor"]
+    if config is None:
+        actor_config = internal_config
+    else:
+        actor_config = read_yaml_file(config)
+        if "actor" in actor_config:
+            actor_config = actor_config["actor"]
+        elif "overwatcher" in actor_config and "actor" in actor_config["overwatcher"]:
+            actor_config = actor_config["overwatcher"]["actor"]
+        else:
+            warnings.warn(
+                "No actor configuration found in the config file. "
+                "Using internal configuration.",
+                GortUserWarning,
+            )
+            actor_config = internal_config
+
+    actor = OverwatcherActor.from_config(actor_config)
+    await actor.start()
 
     while True:
         await asyncio.sleep(5)
@@ -244,7 +275,7 @@ async def pointing_model(
 
 
 def main():
-    gort()
+    gort(auto_envvar_prefix="GORT")
 
 
 if __name__ == "__main__":

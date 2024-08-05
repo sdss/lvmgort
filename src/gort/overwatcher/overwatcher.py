@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import pathlib
 import sys
 
@@ -21,6 +22,17 @@ from gort.overwatcher.core import OverwatcherModule, OverwatcherTask
 
 
 GORT_ICON_URL = "https://github.com/sdss/lvmgort/blob/overwatcher/docs/sphinx/_static/gort_logo_slack.png?raw=true"
+
+
+@dataclasses.dataclass
+class OverwatcherState:
+    """Dataclass with the overwatcher state values."""
+
+    running: bool = False
+    enabled: bool = False
+    observing: bool = False
+    calibrating: bool = False
+    allow_observing: bool = False
 
 
 class OverwatcherMainTask(OverwatcherTask):
@@ -42,13 +54,13 @@ class OverwatcherMainTask(OverwatcherTask):
         while True:
             await asyncio.sleep(1)
 
-            if (
-                self.overwatcher.weather.is_safe()
-                and self.overwatcher.ephemeris.is_night()
-            ):
-                self.overwatcher.allow_observations = True
+            is_safe = self.overwatcher.weather.is_safe()
+            is_night = self.overwatcher.ephemeris.is_night()
+
+            if is_safe and is_night:
+                self.overwatcher.state.allow_observing = True
             else:
-                self.overwatcher.allow_observations = False
+                self.overwatcher.state.allow_observing = False
 
 
 class Overwatcher:
@@ -83,22 +95,19 @@ class Overwatcher:
         self.gort = gort or Gort(verbosity=verbosity, **kwargs)
         self.log = LogNamespace(self.gort.log, header=f"({self.__class__.__name__}) ")
 
-        self.tasks: list[OverwatcherTask] = [OverwatcherMainTask(self)]
+        self.state = OverwatcherState()
 
+        self.tasks: list[OverwatcherTask] = [OverwatcherMainTask(self)]
         self.ephemeris = EphemerisOverwatcher(self)
         self.calibrations = CalibrationsOverwatcher(self, calibrations_file)
         self.observer = ObserverOverwatcher(self)
         self.weather = WeatherOverwatcher(self)
         self.notifications = NotificationsOverwatcher(self)
 
-        self.is_running: bool = False
-
-        self.allow_observations: bool = False
-
     async def run(self):
         """Starts the overwatcher tasks."""
 
-        if self.is_running:
+        if self.state.running:
             raise GortError("Overwatcher is already running.")
 
         if not self.gort.is_connected():
@@ -111,11 +120,8 @@ class Overwatcher:
         for task in self.tasks:
             await task.run()
 
-        self.is_running = True
+        self.state.running = True
         await self.write_to_slack("Overwatcher is starting.")
-
-        if not self.observer.status.enabled():
-            self.log.warning("The overwatcher is not enabled.")
 
         return self
 
@@ -129,7 +135,7 @@ class Overwatcher:
         for task in self.tasks:
             await task.cancel()
 
-        self.is_running = False
+        self.state.running = False
 
     async def write_to_slack(
         self,

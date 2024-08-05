@@ -30,7 +30,7 @@ class OverwatcherTask:
     """A task that runs in an overwatcher module."""
 
     name: ClassVar[str]
-    keep_alive: ClassVar[bool] = False
+    keep_alive: ClassVar[bool] = True
     restart_on_error: ClassVar[bool] = True
 
     def __init__(self):

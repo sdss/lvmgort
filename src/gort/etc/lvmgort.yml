@@ -236,10 +236,6 @@ enclosure:
 
 recipes:
 
-overwatcher:
-  scheduler:
-    open_dome_buffer: 300
-
 observer:
   guide_tolerance:
     sci: 2
@@ -247,17 +243,17 @@ observer:
     skye: 3
     skyw: 3
 
-kubernetes:
-  path:
-    default: /home/sdss5/config/kube
-    notebook: ~/sdss5/config/kube
-
 site:
   lon: -70.70166667
   lat: -29.00333333
   height: 2282.0
 
 services:
+  kubernetes:
+    path:
+      default: /home/sdss5/config/kube
+      notebook: ~/sdss5/config/kube
+
   lvmcore:
     path: ${LVMCORE_DIR}
     fibermap: metrology/lvm_fiducial_fibermap.yaml
@@ -284,3 +280,13 @@ services:
       database: lvmdb
     tables:
       overhead: lvmopsdb.overhead
+
+overwatcher:
+  scheduler:
+    open_dome_buffer: 300
+
+  actor:
+    name: lvm.overwatcher
+    host: lvm-hub.lco.cl
+    port: 5672
+    log_dir: /data/logs/lvmgort/overwatcher

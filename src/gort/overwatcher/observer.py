@@ -18,7 +18,7 @@ from gort.exceptions import GortError
 from gort.exposure import Exposure
 from gort.overwatcher import OverwatcherModule
 from gort.overwatcher.core import OverwatcherModuleTask
-from gort.tools import cancel_task, redis_client
+from gort.tools import cancel_task
 
 
 if TYPE_CHECKING:
@@ -135,10 +135,10 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
         if self.overwatcher.ephemeris.is_night():
             new_status |= ObserverStatus.NIGHT
 
-        if self.overwatcher.allow_observations:
+        if self.overwatcher.state.allow_observing:
             new_status |= ObserverStatus.ALLOWED
 
-        if await self.module.is_enabled():
+        if self.overwatcher.state.enabled:
             new_status |= ObserverStatus.ENABLED
 
         if self.overwatcher.weather.is_safe():
@@ -260,21 +260,3 @@ class ObserverOverwatcher(OverwatcherModule):
             log=True,
             log_level="info",
         )
-
-    async def is_enabled(self):
-        """Is observing enabled?"""
-
-        try:
-            async with redis_client() as client:
-                enabled: str | None = await client.get("gort:overwatcher:enabled")
-
-            if not enabled:
-                raise ValueError("cannot determine if observing is enabled.")
-            return bool(int(enabled))
-        except Exception as err:
-            self.overwatcher.handle_error(
-                f"Cannot determine if observing is enabled: {err!r}",
-                err,
-            )
-
-        return False

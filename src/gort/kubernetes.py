@@ -76,9 +76,9 @@ class Kubernetes:
         """Finds and returns the contents of a Kubernetes YAML file."""
 
         if self.is_notebook or self.is_pod:
-            path = pathlib.Path(config["kubernetes"]["path"]["notebook"])
+            path = pathlib.Path(config["services"]["kubernetes"]["path"]["notebook"])
         else:
-            path = pathlib.Path(config["kubernetes"]["path"]["default"])
+            path = pathlib.Path(config["services"]["kubernetes"]["path"]["default"])
 
         path = path.expanduser()
 
