@@ -46,7 +46,12 @@ from gort.kubernetes import Kubernetes
 from gort.observer import GortObserver
 from gort.recipes import recipes as recipe_to_class
 from gort.tile import Tile
-from gort.tools import get_temporary_file_path, run_in_executor
+from gort.tools import (
+    check_overwatcher_not_running,
+    get_temporary_file_path,
+    overwatcher_is_running,
+    run_in_executor,
+)
 
 
 if TYPE_CHECKING:
@@ -657,6 +662,12 @@ class Gort(GortClient):
     async def emergency_close(self):
         """Parks and closes the telescopes."""
 
+        if await overwatcher_is_running(self):
+            self.log.warning(
+                "Overwatcher is running but overriding. However "
+                "be aware that the Overwatcher could reopen the enclosure."
+            )
+
         tasks = []
         tasks.append(self.telescopes.park(disable=True))
         tasks.append(self.enclosure.close(force=True))
@@ -664,6 +675,7 @@ class Gort(GortClient):
         self.log.warning("Closing and parking telescopes.")
         await asyncio.gather(*tasks)
 
+    @check_overwatcher_not_running
     async def observe(
         self,
         n_tiles: int | None = None,
@@ -739,6 +751,7 @@ class Gort(GortClient):
                 self.log.info("Number of tiles reached. Finishing observing loop.")
                 break
 
+    @check_overwatcher_not_running
     async def observe_tile(
         self,
         tile: Tile | int | None = None,
@@ -964,6 +977,7 @@ class Gort(GortClient):
 
         return await Recipe(self)(**kwargs)
 
+    @check_overwatcher_not_running
     async def startup(self, **kwargs):
         """Executes the :obj:`startup <.StartupRecipe>` sequence."""
 
@@ -972,8 +986,15 @@ class Gort(GortClient):
     async def shutdown(self, **kwargs):
         """Executes the :obj:`shutdown <.ShutdownRecipe>` sequence."""
 
+        if await overwatcher_is_running(self):
+            raise GortError(
+                "Overwatcher is running. Cannot shutdown. If you really need "
+                "to shutdown, execute Gort.emergency_close()."
+            )
+
         return await self.execute_recipe("shutdown", **kwargs)
 
+    @check_overwatcher_not_running
     async def cleanup(self, readout: bool = True, turn_lamps_off: bool = True):
         """Executes the :obj:`shutdown <.CleanupRecipe>` sequence."""
 

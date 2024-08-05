@@ -19,7 +19,7 @@ import re
 import tempfile
 import warnings
 from contextlib import asynccontextmanager, suppress
-from functools import partial
+from functools import partial, wraps
 
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Callable, Coroutine, Sequence
 
@@ -31,9 +31,11 @@ from astropy import units as uu
 from astropy.coordinates import angular_separation as astropy_angular_separation
 from redis import asyncio as aioredis
 
+from clu import AMQPClient
 from sdsstools import get_sjd
 
 from gort import config
+from gort.exceptions import ErrorCodes, GortError
 
 
 if TYPE_CHECKING:
@@ -76,6 +78,9 @@ __all__ = [
     "get_lvmapi_route",
     "GuiderMonitor",
     "overwatcher_is_running",
+    "get_by_source_id",
+    "is_actor_running",
+    "check_overwatcher_not_running",
 ]
 
 AnyPath = str | os.PathLike
@@ -1006,10 +1011,40 @@ class GuiderMonitor:
         return header
 
 
-async def overwatcher_is_running():
+async def is_actor_running(actor: str, client: AMQPClient | None = None):
+    """Returns :obj:`True` if the actor is running.
+
+    This assumes that the actor implements a `ping` command.
+
+    """
+
+    if not client:
+        client = await AMQPClient().start()
+
+    ping = await client.send_command(actor, "ping")
+    if ping.status.did_succeed:
+        return True
+
+    return False
+
+
+async def overwatcher_is_running(client: AMQPClient | None = None):
     """Returns :obj:`True` if the overwatcher is running."""
 
-    async with redis_client() as client:
-        enabled: str | None = await client.get("gort:overwatcher:enabled")
+    overwatcher_actor_name = config["overwatcher"]["actor"]["name"]
+    return await is_actor_running(overwatcher_actor_name, client=client)
 
-    return bool(int(enabled)) if enabled else False
+
+def check_overwatcher_not_running(coro):
+    """Decorator that fails a coroutine if the overwatcher is running."""
+
+    @wraps(coro)
+    async def wrapper(*args, **kwargs):
+        if await overwatcher_is_running():
+            raise GortError(
+                f"Overwatcher is running. Cannot execute {coro.__name__}.",
+                ErrorCodes.OVERATCHER_RUNNING,
+            )
+        return await coro(*args, **kwargs)
+
+    return wrapper
