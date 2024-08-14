@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "observing": { "type": "boolean" },
+        "calibrating": { "type": "boolean" },
+        "allow_dome_calibrations": { "type": "boolean" }
+      }
+    }
+  },
+  "additionalProperties": false
+}

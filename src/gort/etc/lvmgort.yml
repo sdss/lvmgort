@@ -264,7 +264,7 @@ services:
 
   lvmapi:
     host: 127.0.0.1
-    port: 8888
+    port: 8085
 
   redis:
     url: redis://localhost:6379/0
@@ -287,6 +287,6 @@ overwatcher:
 
   actor:
     name: lvm.overwatcher
-    host: lvm-hub.lco.cl
+    host: localhost
     port: 5672
     log_dir: /data/logs/lvmgort/overwatcher

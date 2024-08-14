@@ -33,6 +33,7 @@ class OverwatcherState:
     observing: bool = False
     calibrating: bool = False
     allow_observing: bool = False
+    allow_dome_calibrations: bool = False
 
 
 class OverwatcherMainTask(OverwatcherTask):
