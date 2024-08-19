@@ -26,6 +26,7 @@ async def status(command: OverwatcherCommand):
     return command.finish(
         message={
             "status": {
+                "running": True,
                 "enabled": overwatcher.state.enabled,
                 "observing": overwatcher.state.observing,
                 "calibrating": overwatcher.state.calibrating,
