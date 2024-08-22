@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING, Any, Type
 
 from gort.maskbits import Event
 from gort.pubsub import notify_event
@@ -64,15 +64,20 @@ class BaseRecipe(object, metaclass=RegisterRecipe):
     async def __call__(self, *args, **kwargs):
         """Executes the recipe and sends event notifications."""
 
-        await notify_event(Event.RECIPE_START, payload={"recipe": self.name})
+        payload: dict[str, Any] = {
+            "recipe_name": self.name,
+            "args": list(args),
+            "kwargs": kwargs,
+        }
+
+        await notify_event(Event.RECIPE_START, payload=payload)
 
         try:
             await self.recipe(*args, **kwargs)
         except Exception as err:
-            await notify_event(
-                Event.RECIPE_FAILED,
-                payload={"recipe": self.name, "error": str(err)},
-            )
+            error_payload = payload.copy()
+            error_payload["error"] = str(err)
+            await notify_event(Event.RECIPE_FAILED, payload=error_payload)
             raise
         else:
-            await notify_event(Event.RECIPE_END, payload={"recipe": self.name})
+            await notify_event(Event.RECIPE_END, payload=payload)
