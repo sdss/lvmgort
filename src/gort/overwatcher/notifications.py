@@ -9,55 +9,68 @@
 from __future__ import annotations
 
 import asyncio
+import json
+from datetime import UTC, datetime
 
-from typing import Any
-
-from gort.maskbits import Event, Notification
+from gort.maskbits import Event
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 from gort.overwatcher.overwatcher import Overwatcher
+from gort.pubsub import GortMessage, GortSubscriber
+from gort.tools import insert_to_database
 
 
-class ProcessNotification(OverwatcherModuleTask["NotificationsOverwatcher"]):
+class MonitorNotifications(OverwatcherModuleTask["NotificationsOverwatcher"]):
     """Processes the notification queue."""
 
-    name = "process_notification"
+    name = "monitor_notifications"
     keep_alive = True
     restart_on_error = True
+
+    _running_tasks: list[asyncio.Task] = []
 
     async def task(self):
         """Runs the task."""
 
-        while True:
-            notification, payload = await self.module.queue.get()
+        async for message in GortSubscriber().iterator(decode=True):
+            # Clean done tasks.
+            self._running_tasks = [t for t in self._running_tasks if not t.done()]
 
-            asyncio.create_task(self.process(notification, payload))
+            task = asyncio.create_task(self.process(message))
+            self._running_tasks.append(task)
 
-    async def process(
-        self,
-        notification: Notification,
-        payload: dict[str, Any] = {},
-    ):
+    async def process(self, message: GortMessage):
         """Processes a notification"""
 
-        self.log_notification(notification, payload)
+        message_type = message.message_type
 
-    def log_notification(
-        self,
-        notification: Notification,
-        payload: dict[str, Any] = {},
-    ):
-        """Logs a notification."""
+        if message_type != "event":
+            return
 
-        type_ = "event" if isinstance(notification, Event) else "notification"
-        name = notification.name
+        event = Event(message.event or Event.UNCATEGORISED)
+        event_name = event.name
+        payload = message.payload
 
-        self.log.debug(f"Received {type_} {name!r} with payload {payload!r}.")
+        try:
+            self.write_to_db(event, payload)
+        except Exception as ee:
+            self.log.error(f"Failed to write event {event_name} to the database: {ee}")
+
+
+    def write_to_db(self, event: Event, payload: dict):
+        """Writes the event to the database."""
+
+        dt = datetime.now(tz=UTC)
+
+        insert_to_database(
+            self.gort.config["overwatcher"]["events_table"],
+            [{"date": dt, "event": event.name.upper(), "payload": json.dumps(payload)}],
+        )
 
 
 class NotificationsOverwatcher(OverwatcherModule):
     name = "notifications"
 
-    tasks = [ProcessNotification()]
+    tasks = [MonitorNotifications()]
 
     def __init__(self, overwatcher: Overwatcher):
         super().__init__(overwatcher)

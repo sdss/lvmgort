@@ -46,7 +46,6 @@ from gort.observer import GortObserver
 from gort.recipes import recipes as recipe_to_class
 from gort.tile import Tile
 from gort.tools import (
-    check_overwatcher_not_running,
     get_temporary_file_path,
     kubernetes_list_deployments,
     kubernetes_restart_deployment,
@@ -664,7 +663,6 @@ class Gort(GortClient):
         self.log.warning("Closing and parking telescopes.")
         await asyncio.gather(*tasks)
 
-    @check_overwatcher_not_running
     async def observe(
         self,
         n_tiles: int | None = None,
@@ -740,7 +738,6 @@ class Gort(GortClient):
                 self.log.info("Number of tiles reached. Finishing observing loop.")
                 break
 
-    @check_overwatcher_not_running
     async def observe_tile(
         self,
         tile: Tile | int | None = None,
@@ -966,7 +963,6 @@ class Gort(GortClient):
 
         return await Recipe(self)(**kwargs)
 
-    @check_overwatcher_not_running
     async def startup(self, **kwargs):
         """Executes the :obj:`startup <.StartupRecipe>` sequence."""
 
@@ -983,7 +979,6 @@ class Gort(GortClient):
 
         return await self.execute_recipe("shutdown", **kwargs)
 
-    @check_overwatcher_not_running
     async def cleanup(self, readout: bool = True, turn_lamps_off: bool = True):
         """Executes the :obj:`shutdown <.CleanupRecipe>` sequence."""
 
