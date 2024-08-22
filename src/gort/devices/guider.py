@@ -285,7 +285,10 @@ class Guider(GortDevice):
         config = self.gort.config
         if isinstance(pixel, str):
             if pixel not in config["guiders"]["devices"][self.name]["named_pixels"]:
-                raise GortGuiderError(f"Invalid pixel name {pixel!r}.", error_code=610)
+                raise GortGuiderError(
+                    f"Invalid pixel name {pixel!r}.",
+                    error_code=ErrorCodes.INVALID_PIXEL_NAME,
+                )
             pixel = config["guiders"]["devices"][self.name]["named_pixels"][pixel]
 
         log_msg = f"Guiding at RA={ra:.6f}, Dec={dec:.6f}"
@@ -418,7 +421,10 @@ class Guider(GortDevice):
         config = self.gort.config
         if isinstance(pixel, str):
             if pixel not in config["guiders"]["devices"][self.name]["named_pixels"]:
-                raise GortGuiderError(f"Invalid pixel name {pixel!r}.", error_code=610)
+                raise GortGuiderError(
+                    f"Invalid pixel name {pixel!r}.",
+                    error_code=ErrorCodes.INVALID_PIXEL_NAME,
+                )
             pixel = config["guiders"]["devices"][self.name]["named_pixels"][pixel]
 
         if pixel is None:

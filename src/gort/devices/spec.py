@@ -308,7 +308,7 @@ class Spectrograph(GortDevice):
         if not (await self.is_idle()):
             raise GortSpecError(
                 "Spectrographs is not idle. Cannot expose.",
-                error_code=301,
+                error_code=ErrorCodes.SECTROGRAPH_FAILED_EXPOSING,
             )
 
         self.write_to_log(f"Exposing spectrograph {self.name}.")

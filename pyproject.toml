@@ -41,6 +41,7 @@ unclick = "^0.1.0"
 rich = "^13.4.2"
 polars = "^1.0.0"
 redis = {version = "^5.0.3", extras = ["hiredis"]}
+pydantic = "^2.8.2"
 
 [tool.poetry.group.dev.dependencies]
 ipython = ">=8.0.0"

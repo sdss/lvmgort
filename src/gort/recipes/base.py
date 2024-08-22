@@ -10,6 +10,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Type
 
+from gort.maskbits import Event
+from gort.pubsub import notify_event
+
 
 if TYPE_CHECKING:
     from gort.gort import Gort, GortClient
@@ -59,4 +62,17 @@ class BaseRecipe(object, metaclass=RegisterRecipe):
         return
 
     async def __call__(self, *args, **kwargs):
-        await self.recipe(*args, **kwargs)
+        """Executes the recipe and sends event notifications."""
+
+        await notify_event(Event.RECIPE_START, payload={"recipe": self.name})
+
+        try:
+            await self.recipe(*args, **kwargs)
+        except Exception as err:
+            await notify_event(
+                Event.RECIPE_FAILED,
+                payload={"recipe": self.name, "error": str(err)},
+            )
+            raise
+        else:
+            await notify_event(Event.RECIPE_END, payload={"recipe": self.name})

@@ -8,10 +8,10 @@
 
 from __future__ import annotations
 
-from enum import Enum, Flag
+from enum import Flag, ReprEnum, auto
 
 
-__all__ = ["GuiderStatus", "Notification", "Event"]
+__all__ = ["GuiderStatus", "Event"]
 
 
 class GuiderStatus(Flag):
@@ -48,13 +48,19 @@ class GuiderStatus(Flag):
         return str(" | ".join(self.get_names()))
 
 
-class Event(Enum):
+class UpperStrEnum(str, ReprEnum):
+    """A string enum in which the auto value is the uppercase name."""
+
+    @staticmethod
+    def _generate_next_value_(name, *_):
+        return name.upper()
+
+
+class Event(UpperStrEnum):
     """Enumeration with the event types."""
 
-    UNCATEGORISED = 999
-
-
-class Notification(Enum):
-    """Enumeration with the notification types."""
-
-    UNCATEGORISED = 999
+    ERROR = auto()
+    RECIPE_START = auto()
+    RECIPE_END = auto()
+    RECIPE_FAILED = auto()
+    UNCATEGORISED = auto()
