@@ -18,15 +18,24 @@ import pathlib
 import re
 import tempfile
 import warnings
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager, contextmanager, suppress
 from functools import partial, wraps
 
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Callable, Coroutine, Sequence
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncGenerator,
+    Callable,
+    Coroutine,
+    Generator,
+    Sequence,
+)
 
 import httpx
 import numpy
 import peewee
 import polars
+import redis
 from astropy import units as uu
 from astropy.coordinates import angular_separation as astropy_angular_separation
 from redis import asyncio as aioredis
@@ -61,7 +70,8 @@ __all__ = [
     "move_mask_interval",
     "angular_separation",
     "get_db_connection",
-    "redis_client",
+    "redis_client_async",
+    "redis_client_sync",
     "run_in_executor",
     "is_interactive",
     "is_notebook",
@@ -566,7 +576,7 @@ def get_db_connection():
 
 
 @asynccontextmanager
-async def redis_client() -> AsyncGenerator[aioredis.Redis, None]:
+async def redis_client_async() -> AsyncGenerator[aioredis.Redis, None]:
     """Returns a Redis connection from the configuration file parameters."""
 
     redis_config = config["services"]["redis"]
@@ -575,6 +585,18 @@ async def redis_client() -> AsyncGenerator[aioredis.Redis, None]:
     yield client
 
     await client.aclose()
+
+
+@contextmanager
+def redis_client_sync() -> Generator[redis.Redis, None]:
+    """Returns a Redis connection from the configuration file parameters."""
+
+    redis_config = config["services"]["redis"]
+    client = redis.from_url(redis_config["url"], decode_responses=True)
+
+    yield client
+
+    client.close()
 
 
 async def run_in_executor(fn, *args, catch_warnings=False, executor="thread", **kwargs):
