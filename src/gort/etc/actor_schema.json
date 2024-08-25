@@ -10,6 +10,27 @@
         "calibrating": { "type": "boolean" },
         "allow_dome_calibrations": { "type": "boolean" }
       }
+    },
+    "calibrations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "start_time": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+          "max_start_time": {
+            "oneOf": [{ "type": "string" }, { "type": "null" }]
+          },
+          "after": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+          "time_to_cal": {
+            "oneOf": [{ "type": "number" }, { "type": "null" }]
+          },
+          "status": { "type": "string" },
+          "requires_dome": {
+            "oneOf": [{ "type": "string" }, { "type": "null" }]
+          }
+        }
+      }
     }
   },
   "additionalProperties": false

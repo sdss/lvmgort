@@ -136,6 +136,7 @@ class BiasSequence(BaseRecipe):
         await gort.telescopes.goto_named_position("selfie")
 
         await gort.nps.calib.all_off()
+        await gort.cleanup()
 
         for _ in range(count):
             await gort.specs.expose(flavour="bias")
@@ -173,6 +174,8 @@ class TwilightFlats(BaseRecipe):
 
         gort = self.gort
         assert isinstance(gort, Gort)
+
+        await gort.cleanup()
 
         if not (await self.gort.enclosure.is_open()):
             raise RuntimeError("Dome must be open to take twilight flats.")

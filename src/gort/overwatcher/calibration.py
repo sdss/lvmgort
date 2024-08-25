@@ -9,363 +9,403 @@
 from __future__ import annotations
 
 import asyncio
-import json
-import logging
+import enum
+import os
 import pathlib
-from dataclasses import dataclass
-from unittest import mock
+import time
+import warnings
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, Self, cast
 
-import jsonschema
-import numpy
-import polars
-from astropy import time
+from astropy import time as ap_time
+from pydantic import BaseModel, Field, model_validator
 
-from sdsstools import get_sjd, read_yaml_file
+from sdsstools import read_yaml_file
 
+from gort.exceptions import GortUserWarning, OverwatcherError
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
-from gort.tools import (
-    get_ephemeris_summary_sync,
-    redis_client,
-    run_in_executor,
-)
+from gort.tools import redis_client_sync
 
 
 if TYPE_CHECKING:
+    from gort.overwatcher.ephemeris import EphemerisModel
+    from gort.overwatcher.notifier import NotificationLevel
     from gort.overwatcher.overwatcher import Overwatcher
 
 
 __all__ = ["CalibrationsOverwatcher"]
 
 
-@dataclass(kw_only=True)
-class Calibration:
-    name: str
-    expected_duration: float
-    time_mode: str | None = None
-    recipe: str | None = None
-    script: str | None = None
-    min_start_time: float | None = None
-    max_start_time: float | None = None
-    repeat: str = "never"
-    required: bool = False
-    open_dome: bool | None = None
-    night_mode: bool = False
-    priority: float = 5
-    min_start_time_schedule: float | None = None
-    max_start_time_schedule: float | None = None
-    start_time: float | None = None
-    end_time: float | None = None
-    done: bool = False
-    active: bool = False
+ETC_DIR = pathlib.Path(__file__).parent / "../etc/"
 
-    def time_to_calibration(self):
-        """Returns the number of seconds to the beginning of the observation window."""
+PathType = os.PathLike | str | pathlib.Path
+TimeModeType = Literal["secs_after_sunset", "secs_before_sunrise", "jd", "utc"]
+CalsDataType = PathType | list["CalibrationModel"] | list[dict[str, Any]]
 
-        jd_now = time.Time.now().jd
 
-        if self.start_time is None:
-            raise ValueError("Calibration does not have a start JD.")
+class CalibrationModel(BaseModel):
+    """Calibration model."""
 
-        return (self.start_time - jd_now) * 86400
+    name: str = Field(
+        ...,
+        title="The name of the calibration.",
+    )
+    recipe: str = Field(
+        ...,
+        title="The recipe to use.",
+    )
+    min_start_time: float | None = Field(
+        None,
+        title="The minimum start time. The format depends on time_mode.",
+    )
+    max_start_time: float | None = Field(
+        None,
+        title="The maximum start time. The format depends on time_mode.",
+    )
+    time_mode: TimeModeType | None = Field(
+        None,
+        title="The time mode for the calibration.",
+    )
+    after: str | None = Field(
+        None,
+        title="Run after this calibration. Incompatible with min/max_start_time.",
+    )
+    required: bool = Field(
+        True,
+        title="Whether the calibration is required. Currently not used.",
+    )
+    dome: Literal["open", "closed"] | None = Field(
+        False,
+        title="Whether the dome should be open during the calibration. A null value "
+        "will keep the dome in the current position.",
+    )
+    close_dome_after: bool = Field(
+        False,
+        title="Whether the dome should be closed after the calibration.",
+    )
+    abort_observing: bool = Field(
+        False,
+        title="Whether observing should be immediately aborted to "
+        "allow the calibration to start.",
+    )
+    priority: int = Field(
+        5,
+        title="The priority of the calibration. Currently not used.",
+    )
+    max_try_time: float = Field(
+        300,
+        title="The maximum time in seconds to attempt the calibration if it fails. "
+        "If max_start_time is reached during this period, the calibrations fails.",
+    )
 
-    async def get_last_taken(self):
-        """Gets the last time the observation was taken from Redis."""
+    @model_validator(mode="after")
+    def validate_start_time(self) -> Self:
+        """Validates ``min/max_start_time``, ``time_mode`` and ``after``."""
 
-        async with redis_client() as client:
-            data = await client.hgetall(f"gort:overwatcher:calibrations:{self.name}")
+        if not self.after and not self.min_start_time:
+            raise OverwatcherError("min_start_time or after are required.")
 
-        if data == {}:
-            return None
+        if self.after and self.min_start_time:
+            raise OverwatcherError("Cannot specify min_start_time and after.")
 
-        return time.Time(data.get("last_taken"), format="isot")
-
-    async def mark_done(self):
-        """Stores that the calibration was taken to Redis."""
-
-        self.done = True
-
-        async with redis_client() as client:
-            await client.hset(
-                f"gort:overwatcher:calibrations:{self.name}",
-                mapping={"last_taken": time.Time.now().isot},
+        if self.after and self.max_start_time and self.time_mode:
+            warnings.warn(
+                "Ignoring time_mode when after is specified.",
+                GortUserWarning,
             )
 
+        return self
 
-class CalibrationSchedule:
-    """A class to handle how to schedule calibrations."""
+
+class CalibrationState(enum.StrEnum):
+    """The state of a calibration."""
+
+    WAITING = "waiting"
+    RUNNING = "running"
+    RETRYING = "retrying"
+    FAILED = "failed"
+    DONE = "done"
+
+
+class Calibration:
+    """Keeps track of the state of a calibration."""
 
     def __init__(
         self,
-        calibrations: dict[str, Calibration],
-        sjd: int | None = None,
-        ephemeris: dict[str, Any] | None = None,
-        log: logging.Logger | None = None,
+        schedule: CalibrationSchedule,
+        calibration: CalibrationModel | dict[str, Any],
     ):
-        self.calibrations = calibrations
-        self.sjd = sjd or get_sjd("LCO")
-        self.ephemeris = ephemeris or get_ephemeris_summary_sync(sjd)
+        self.schedule = schedule
+        self.ephemeris = self.schedule.ephemeris
 
-        self.log = log or mock.Mock(spec=logging.Logger)
-
-    async def update_schedule(self):
-        """Generates a schedule of calibrations for the night."""
-
-        sunrise = self.ephemeris["sunrise"]
-        sunset = self.ephemeris["sunset"]
-
-        cals = self.calibrations.values()
-
-        # Step 1. Disable calibrations that do not need to be taken tonight.
-        # Set the scheduleable start and end time depending on time_mode.
-
-        for cal in cals:
-            last_taken = await cal.get_last_taken()
-            last_taken_sjd = get_sjd("LCO", last_taken.datetime) if last_taken else None
-
-            cal.done = False
-            cal.active = False
-            cal.start_time = None
-            cal.end_time = None
-
-            if last_taken_sjd == self.sjd:
-                # The calibration has already been taken today.
-                cal.done = True
-                continue
-
-            if last_taken_sjd:
-                if (
-                    (cal.repeat == "weekly" and self.sjd - last_taken_sjd < 7)
-                    or (cal.repeat == "monthly" and self.sjd - last_taken_sjd < 30)
-                    or cal.repeat == "never"
-                ):
-                    # The calibration has been taken recently or should not be repeated.
-                    continue
-
-            cal.active = True
-
-            if cal.min_start_time is None and cal.time_mode in [
-                "secs_after_sunset",
-                "secs_before_sunrise",
-                "jd",
-                "utc",
-            ]:
-                self.log.warning(f"Calibration {cal.name} has no min_start_time.")
-                cal.max_start_time = None
-                continue
-
-            if cal.max_start_time is None and cal.time_mode in ["jd", "utc"]:
-                self.log.warning(f"Calibration {cal.name} has no max_start_time.")
-                cal.min_start_time = None
-                continue
-
-            if cal.min_start_time is None and cal.max_start_time is None:
-                # No time constraints.
-                continue
-
-            if cal.min_start_time is None or cal.max_start_time is None:
-                raise ValueError(
-                    f"Calibration {cal.name} must have both min_start_time "
-                    "and max_start_time set or none."
-                )
-
-            if cal.time_mode == "jd" and cal.repeat != "never":
-                self.log.warning(
-                    f"Calibration {cal.name} must use "
-                    "repeat=never with time_mode=jd."
-                )
-                cal.repeat = "never"
-
-            if cal.time_mode == "secs_after_sunset":
-                cal.min_start_time_schedule = sunset + cal.min_start_time / 86400
-                cal.max_start_time_schedule = sunset + cal.max_start_time / 86400
-
-            elif cal.time_mode == "secs_before_sunrise":
-                cal.min_start_time_schedule = sunrise - cal.min_start_time / 86400
-                cal.max_start_time_schedule = sunrise - cal.max_start_time / 86400
-
-            elif cal.time_mode == "jd":
-                cal.min_start_time_schedule = cal.min_start_time
-                cal.max_start_time_schedule = cal.max_start_time
-
-            elif cal.time_mode == "utc":
-                if cal.max_start_time < cal.min_start_time:
-                    cal.max_start_time += 24
-
-                # SJD at the time of observation is always the following midnight.
-                # In this case we want to refer times from the previous midnight.
-                base_date = time.Time(self.sjd - 1, format="mjd")
-
-                min_time_delta = time.TimeDelta(cal.min_start_time * 3600, format="sec")
-                max_time_delta = time.TimeDelta(cal.max_start_time * 3600, format="sec")
-
-                cal.min_start_time_schedule = (base_date + min_time_delta).jd
-                cal.max_start_time_schedule = (base_date + max_time_delta).jd
-
-            else:
-                self.log.warning(
-                    f"Calibration {cal.name} has invalid "
-                    f"time_mode={cal.time_mode!r}."
-                )
-                cal.active = False
-                continue
-
-        # Step 2. Schedule calibration by priority order.
-        # TODO: Right now this is done using a simple priority scheme. This can
-        # probably be generalised to use something like
-        # https://www.sciencedirect.com/science/article/pii/0020019094900434
-        for cal in sorted(cals, key=lambda x: x.priority, reverse=True):
-            try:
-                (start_time, end_time) = await run_in_executor(self._schedule_one, cal)
-            except ValueError:
-                self.log.warning(f"Unable schedule calibration {cal.name!r}.")
-            else:
-                cal.start_time = start_time
-                cal.end_time = end_time
-
-    def get_start_end_times(self) -> numpy.ndarray:
-        """Returns a numpy array with scheduled times for each calibration."""
-
-        return numpy.array(
-            [
-                [cal.start_time, cal.end_time]
-                for cal in list(self.calibrations.values())
-                if cal.active and not cal.done and cal.start_time and cal.end_time
-            ]
-        ).astype(numpy.float16)
-
-    def _schedule_one(self, cal: Calibration):
-        """Schedules a single calibration."""
-
-        if cal.done or not cal.active:
-            return
-
-        scheduled = self.get_start_end_times()
-
-        if cal.min_start_time_schedule is None and cal.max_start_time_schedule is None:
-            if cal.night_mode:
-                # Schedule for the entire night.
-                cal.min_start_time_schedule = self.ephemeris["sunset"]
-                cal.max_start_time_schedule = self.ephemeris["sunrise"]
-            else:
-                # Schedule from three hours before the sunset.
-                cal.min_start_time_schedule = self.ephemeris["sunset"] - 3.0 / 24.0
-                cal.max_start_time_schedule = self.ephemeris["sunset"]
-        else:
-            assert cal.min_start_time_schedule and cal.max_start_time_schedule
-
-        start_time = 0.0
-        end_time = 0.0
-
-        delay = 0
-        now = time.Time.now().jd
-        TIME_STEP = 60  # 1 minute.
-        while True:
-            start_time = cal.min_start_time_schedule + delay / 86400
-            end_time = start_time + cal.expected_duration / 86400
-
-            if start_time < now:
-                delay += TIME_STEP
-                continue
-
-            if start_time > cal.max_start_time_schedule:
-                raise ValueError(f"Could not schedule calibration {cal.name!r}.")
-
-            # Check if the calibration window overlaps with any other calibration.
-            if len(scheduled) > 0:
-                if (
-                    ((start_time >= scheduled[:, 0]) & (start_time <= scheduled[:, 1]))
-                    | ((end_time >= scheduled[:, 0]) & (end_time <= scheduled[:, 1]))
-                ).any():
-                    delay += TIME_STEP  # Blocks of 1 minute.
-                    continue
-
-            # The calibration window does not overlap with any other calibration.
-            cal.start_time = start_time
-            cal.end_time = end_time
-
-            break
-
-        return (start_time, end_time)
-
-    def get_schedule(self):
-        """Returns a dataframe with the schedule of calibrations."""
-
-        df = polars.DataFrame(list(self.calibrations.values()))
-
-        return df.select(
-            [
-                "name",
-                "recipe",
-                "script",
-                "start_time",
-                "end_time",
-                "expected_duration",
-                "min_start_time_schedule",
-                "max_start_time_schedule",
-                "open_dome",
-                "night_mode",
-                "priority",
-                "done",
-                "active",
-            ]
+        self.model = (
+            calibration
+            if isinstance(calibration, CalibrationModel)
+            else CalibrationModel(**calibration)
         )
 
-    async def get_next(self) -> tuple[Calibration | None, float | None]:
-        """Gets the next calibration to observe and the time to it."""
+        self.name = self.model.name
+        self.start_time, self.max_start_time = self.get_start_time()
 
-        sch = self.get_schedule().sort("start_time")
-        sch = sch.filter(polars.col("active") & ~polars.col("done"))
+        self.state = CalibrationState.WAITING
 
-        now = time.Time.now().jd
+    def get_start_time(self) -> tuple[float | None, float | None]:
+        """Determines the actual time at which the calibration will start.
 
-        if len(sch) > 0:
-            for cal in sch.rows(named=True):
-                name = cal["name"]
-                if cal["start_time"] < now:
-                    max_time = cal["max_start_time_schedule"]
-                    if max_time is None or now < cal["max_start_time_schedule"]:
-                        self.log.warning(
-                            f"Calibration {name!r} is late but can be observed."
-                        )
-                        return (self.calibrations[name], 0)
+        Also returns the latest time at which the calibration can start (which
+        could be ``None`` if there is no limit). All times are returned as UNIX
+        timestamps.
+
+        """
+
+        cal = self.model
+
+        if not cal.min_start_time and not cal.max_start_time:
+            return None, None
+
+        sunrise = self.ephemeris.sunrise
+        sunset = self.ephemeris.sunset
+
+        min_start_time: float | None = None
+        max_start_time: float | None = None
+
+        # Convert everything to JD for now.
+        if cal.time_mode == "secs_after_sunset":
+            if cal.min_start_time:
+                min_start_time = sunset + cal.min_start_time / 86400
+            if cal.max_start_time:
+                max_start_time = sunset + cal.max_start_time / 86400
+
+        elif cal.time_mode == "secs_before_sunrise":
+            if cal.min_start_time:
+                min_start_time = sunrise - cal.min_start_time / 86400
+            if cal.max_start_time:
+                max_start_time = sunrise - cal.max_start_time / 86400
+
+        elif cal.time_mode == "jd":
+            if cal.min_start_time:
+                min_start_time = cal.min_start_time
+            if cal.max_start_time:
+                max_start_time = cal.max_start_time
+
+        elif cal.time_mode == "utc":
+            # SJD at the time of observation is always the following midnight.
+            # In this case we want to refer times from the previous midnight.
+            base_date = ap_time.Time(self.ephemeris.SJD - 1, format="mjd")
+
+            if cal.min_start_time:
+                min_time_d = ap_time.TimeDelta(cal.min_start_time * 3600, format="sec")
+                min_start_time = (base_date + min_time_d).jd
+
+            if cal.max_start_time:
+                max_start_time_c = cal.max_start_time
+                if cal.min_start_time and max_start_time_c < cal.min_start_time:
+                    max_start_time_c += 24
+                max_time_d = ap_time.TimeDelta(max_start_time_c * 3600, format="sec")
+                max_start_time = (base_date + max_time_d).jd
+
+        # Now convert JD to UNIX ap_time.
+        min_start_time_unix: float | None = None
+        max_start_time_unix: float | None = None
+
+        if min_start_time:
+            min_start_time_unix = ap_time.Time(min_start_time, format="jd").unix
+
+        if max_start_time:
+            max_start_time_unix = ap_time.Time(max_start_time, format="jd").unix
+
+        return min_start_time_unix, max_start_time_unix
+
+    def to_dict(self) -> dict[str, Any]:
+        """Returns the calibration as a dictionary."""
+
+        return {
+            "name": self.name,
+            "start_time": self.start_time,
+            "max_start_time": self.max_start_time,
+            "state": self.state.name.lower(),
+        }
+
+    def is_finished(self):
+        """Returns ``True`` if the calibration is done or has failed."""
+
+        if self.state in (CalibrationState.DONE, CalibrationState.FAILED):
+            return True
+
+    def record_state(self, state: CalibrationState | None = None):
+        """Records the state of the calibration in Redis."""
+
+        if state is not None:
+            self.state = state
+
+        with redis_client_sync() as redis:
+            key = f"overwatcher:calibrations:{self.schedule.sjd}"
+            redis.json().set(key, f".{self.name}.state", self.state.name.lower())
+
+
+class CalibrationSchedule:
+    """A class to handle how to schedule calibrations.
+
+    Parameters
+    ----------
+    cals_overwatcher
+        The calibrations overwatcher instance that will monitor the schedule.
+    cals_data
+        The calibration data to use to generate the schedule. Either a YAML file
+        with the calibrations to be taken, or a list of ``CalibrationModel`` instances.
+    update
+        Update the schedule on init.
+
+    """
+
+    def __init__(
+        self,
+        cals_overwatcher: CalibrationsOverwatcher,
+        cals_data: CalsDataType,
+        update: bool = True,
+    ):
+        self.cals_overwatcher = cals_overwatcher
+        self.log = self.cals_overwatcher.log
+
+        self.calibrations: list[Calibration] = []
+
+        # These are set by .refresh()
+        self.sjd: int
+        self.ephemeris: EphemerisModel
+
+        if update:
+            self.update_schedule(cals_data=cals_data)
+
+    def update_schedule(self, cals_data: CalsDataType, clear: bool = False):
+        """Generates a schedule of calibrations for the night."""
+
+        if not self.cals_overwatcher.overwatcher.ephemeris.ephemeris:
+            self.log.error("Ephemeris are not available. Not updating schedule.")
+            return
+
+        self.ephemeris = self.cals_overwatcher.overwatcher.ephemeris.ephemeris
+        self.sjd = self.cals_overwatcher.overwatcher.ephemeris.sjd
+
+        # Update the calibration models.
+        if cals_data is not None:
+            if isinstance(cals_data, (list, tuple)):
+                cals_data = [
+                    CalibrationModel(**cal) if isinstance(cal, dict) else cal
+                    for cal in cals_data
+                ]
+            else:
+                cals_data = self.read_file(cals_data)
+
+        if len(cals_data) == 0:
+            self.log.warning("No calibrations found.")
+            return
+
+        self.calibrations = [Calibration(self, cal) for cal in cals_data]
+
+        self.log.info(f"Updating calibrations schedule for SJD {self.sjd}.")
+
+        # Get the state of the calibrations from Redis. This is important if for
+        # example the overwatcher is restarted after some calibrations have already
+        # been taken. We use sync Redis because this should be fast and allows
+        # update_schedule() to be called by __init__().
+        with redis_client_sync() as redis:
+            # The key we use to store the information for this SJD.
+            key = f"overwatcher:calibrations:{self.sjd}"
+
+            # Check if the key exists. If it does not, it means we haven't done
+            # anything yet for this SJD.
+            if not redis.exists(key):
+                clear = True
+
+            if clear:
+                # Purge all existing data.
+                data = {cal.name: cal.to_dict() for cal in self.calibrations}
+                redis.json().set(key, "$", data)
+            else:
+                # Get calibration data from Redis and update the object.
+                redis_cal_keys = redis.json().objkeys(key, "$")[0]
+
+                for cal in self.calibrations:
+                    if redis_cal_keys and cal.name in redis_cal_keys:
+                        state = cast(str, redis.json().get(key, f".{cal.name}.state"))
+                        cal.state = CalibrationState(state.lower())
                     else:
-                        self.log.warning(
-                            f"Calibration {name!r} is late and cannot be observed."
-                        )
-                        self.calibrations[name].active = False
-                        continue
+                        redis.json().set(key, f".{cal.name}", cal.to_dict())
 
-                return (self.calibrations[name], (cal["start_time"] - now) * 86400)
-
-        return (None, None)
-
-    @classmethod
-    def from_file(cls, filename: str | pathlib.Path | None = None, **kwargs):
+    def read_file(self, filename: PathType) -> list[CalibrationModel]:
         """Loads calibrations from a file."""
 
-        etc_dir = pathlib.Path(__file__).parent / "../etc/"
-        default_cals_file = etc_dir / "calibrations.yaml"
-
-        cals_file = filename or default_cals_file
-
-        cals_yml = read_yaml_file(cals_file)
-        if "calibrations" not in cals_yml:
+        cal_data: list = read_yaml_file(filename, return_class=list)  # type: ignore
+        if not isinstance(cal_data, (list, tuple)):
             raise ValueError("Calibrations file is badly formatted.")
 
-        cals_data: list[dict] = list(cals_yml["calibrations"])
+        return [CalibrationModel(**cal) for cal in cal_data]
 
-        json_schema_file = etc_dir / "calibrations_schema.json"
-        json_schema = json.loads(open(json_schema_file).read())
-        validator = jsonschema.Draft7Validator(json_schema)
+    async def get_next(self):
+        """Returns the next calibration or ``None`` if no calibration is due.
 
-        try:
-            validator.validate(cals_data)
-        except jsonschema.ValidationError:
-            raise ValueError("Calibrations file is badly formatted.")
+        Takes into account open dome buffer time.
 
-        return cls({cal["name"]: Calibration(**cal) for cal in cals_data}, **kwargs)
+        """
+
+        # First check if any calibration is running. In that case just return None.
+        for cal in self.calibrations:
+            if cal.state == CalibrationState.RUNNING:
+                return None
+
+        overwatcher = self.cals_overwatcher.overwatcher
+        open_dome_buffer = overwatcher.config["overwatcher.scheduler.open_dome_buffer"]
+
+        now: float = time.time()
+        done_cals: set[str] = set()
+
+        for cal in self.calibrations:
+            if cal.name in done_cals or cal.is_finished():
+                done_cals.add(cal.name)
+                continue
+
+            # If it's too late to start the calibration, skip it.
+            if cal.max_start_time is not None and now > cal.max_start_time:
+                await overwatcher.notify(
+                    f"Skipping calibration {cal.name!r} as it's too late to start it.",
+                    level="warning",
+                )
+                cal.record_state(CalibrationState.FAILED)
+                continue
+
+            if cal.model.after is not None:
+                if cal.model.after in done_cals:
+                    return cal
+                continue
+
+            if cal.start_time is None:
+                self.log.warning(
+                    f"Calibration {cal.name!r} has no start time and after is null. "
+                    "This should not happen."
+                )
+                cal.record_state(CalibrationState.FAILED)
+                continue
+
+            # If the calibration start time is too fast in the future even considering
+            # that we may need to move the dome, continue. This is mostly to avoid
+            # too many calls to gort.enclosure.is_open() which are kind of slow.
+            if now < cal.start_time - open_dome_buffer:
+                continue
+
+            # If the calibration requires a specific position for the dome,
+            # check the current dome position and adjust the start time if needed.
+            min_start_time_dome: float = cal.start_time
+            if (dome_requested := cal.model.dome) is not None:
+                dome_open = await overwatcher.gort.enclosure.is_open()
+                dome_requested_bool = True if dome_requested == "open" else False
+
+                if dome_requested_bool is not dome_open:
+                    min_start_time_dome = cal.start_time - open_dome_buffer
+
+            if now >= min_start_time_dome:
+                return cal
+
+        return None
 
 
 class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
@@ -378,53 +418,47 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
     async def task(self):
         """Runs the calibration monitor."""
 
-        open_dome_buffer = self.config["overwatcher"]["scheduler"]["open_dome_buffer"]
-
-        # Small delay to make sure the schedule has been updated.
-        await asyncio.sleep(10)
-
-        last_update: float = 0
+        # Small delay to make sure the ephemeris have been update and we can
+        # then update the schedule.
+        await asyncio.sleep(5)
+        await self.module.reset()
 
         while True:
-            if last_update > 3600:
-                await self.module.schedule.update_schedule()
-                last_update = 0
+            next_calibration = await self.module.schedule.get_next()
 
-            next_cal, time_to_cal = await self.module.schedule.get_next()
-            if next_cal is not None:
-                if (open_dome := next_cal.open_dome) is not None:
-                    is_open = await self.gort.enclosure.is_open()
-                    if (open_dome and not is_open) or (not open_dome and is_open):
-                        time_to_cal -= open_dome_buffer
+            if next_calibration is not None:
+                try:
+                    await self.module.run_calibration(next_calibration)
+                except Exception as ee:
+                    await self.module.overwatcher.notify(
+                        f"Error running calibration {next_calibration.name!r}: {ee}",
+                        level="error",
+                    )
+                    next_calibration.record_state(CalibrationState.FAILED)
 
-            if next_cal is not None and time_to_cal is not None and time_to_cal < 60:
-                asyncio.create_task(self.module.run_calibration(next_cal))
-
-            await asyncio.sleep(60)
-            last_update += 60
+            await asyncio.sleep(10)
 
 
 class CalibrationsOverwatcher(OverwatcherModule):
     name = "calibration"
 
-    tasks = []
+    tasks = [CalibrationsMonitor()]
 
     def __init__(
         self,
         overwatcher: Overwatcher,
-        calibrations_file: str | pathlib.Path | None = None,
+        cals_file: str | pathlib.Path | None = None,
     ):
         super().__init__(overwatcher)
 
-        self.calibrations_file: str | pathlib.Path | None = calibrations_file
-        self.schedule = CalibrationSchedule.from_file(self.calibrations_file)
+        self._default_cals_file = ETC_DIR / "calibrations.yaml"
+        self.cals_file = pathlib.Path(cals_file or self._default_cals_file)
 
-        self.ephemeris: dict[str, Any] | None = None
-        self.sjd: int = get_sjd("LCO")
+        self.schedule = CalibrationSchedule(self, self.cals_file, update=False)
 
-        self.calibration_runnning: bool = False
+        self._failing_cals: dict[str, float] = {}
 
-    async def reset(self):
+    async def reset(self, cals_file: str | pathlib.Path | None = None):
         """Resets the list of calibrations for a new SJD.
 
         This method is usually called by the ephemeris overwatcher when a new SJD
@@ -436,19 +470,135 @@ class CalibrationsOverwatcher(OverwatcherModule):
             self.log.error("Ephemeris is not available. Cannot reset calibrations.")
             await asyncio.sleep(5)
 
-        self.sjd = self.overwatcher.ephemeris.sjd
-        self.ephemeris = self.overwatcher.ephemeris.ephemeris
+        if cals_file is not None:
+            self.cals_file = cals_file
 
-        self.schedule = CalibrationSchedule.from_file(
-            self.calibrations_file,
-            sjd=self.sjd,
-            ephemeris=self.ephemeris,
-        )
-        await self.schedule.update_schedule()
+        self.schedule.update_schedule(self.cals_file)
+
+    def is_calibration_running(self):
+        """Returns ``True`` if a calibration is currently running."""
+
+        for cal in self.schedule.calibrations:
+            if cal.state == CalibrationState.RUNNING:
+                return True
+
+        return False
 
     async def run_calibration(self, calibration: Calibration):
         """Runs a calibration."""
 
-        self.calibration_runnning = True
+        notify = self.overwatcher.notify
 
-        self.log.info(f"Running calibration {calibration.name!r}.")
+        name = calibration.name
+        max_start_time = calibration.max_start_time
+        dome = calibration.model.dome
+        close_dome_after = calibration.model.close_dome_after
+        recipe = calibration.model.recipe
+
+        if self.is_calibration_running():
+            await self._fail_calibration(
+                calibration,
+                f"Cannot run {name!r}. A calibration is already running!",
+                level="warning",
+            )
+            return
+
+        if not self.overwatcher.state.allow_dome_calibrations:
+            await self._fail_calibration(
+                calibration,
+                f"Cannot run {name!r}. Dome calibrations are disabled.",
+                level="error",
+            )
+
+            return
+
+        if name not in self._failing_cals:
+            await notify(f"Running calibration {name!r}.")
+        calibration.record_state(CalibrationState.RUNNING)
+
+        if self.overwatcher.state.observing:
+            immediate = calibration.model.abort_observing
+
+            await notify(f"Aborting observations to run calibration {name}.")
+            await self.overwatcher.observer.stop_observing(
+                reason="Scheduled calibration", immediate=immediate, block=True
+            )
+
+        now = time.time()
+        if max_start_time is not None and now > max_start_time:
+            await notify(
+                f"Skipping calibration {name!r} as it's too late to start it.",
+                level="warning",
+            )
+            calibration.record_state(CalibrationState.FAILED)
+            return
+
+        if dome is not None:
+            if not self.overwatcher.state.enabled:
+                await self._fail_calibration(
+                    calibration,
+                    f"Cannot move dome for {name!r} cal. Overwatcher is disabled.",
+                    level="error",
+                )
+                return
+
+            dome_current = await self.overwatcher.gort.enclosure.is_open()
+            if dome == "open" and not dome_current:
+                await notify("Opening the dome for calibration.")
+                await self.overwatcher.gort.enclosure.open()
+            elif dome == "closed" and dome_current:
+                await notify("Closing the dome for calibration.")
+                await self.overwatcher.gort.enclosure.close()
+
+        await notify(f"Running recipe {recipe!r} for calibration {name!r}.")
+        await self.overwatcher.gort.execute_recipe(recipe)
+
+        if close_dome_after:
+            await notify(f"Closing the dome after calibration {name!r}.")
+            await self.overwatcher.gort.enclosure.close()
+
+        await notify(f"Calibration {name!r} is done.")
+
+        if name in self._failing_cals:
+            self._failing_cals.pop(name)
+
+        calibration.record_state(CalibrationState.DONE)
+
+    async def _fail_calibration(
+        self,
+        calibration: Calibration,
+        message: str,
+        level: NotificationLevel = "error",
+        repeat_notifications: bool = False,
+    ):
+        """Decides whether to fail a calibration or continue trying."""
+
+        name = calibration.name
+        max_try_time = calibration.model.max_try_time
+
+        if max_try_time <= 0:
+            await self.overwatcher.notify(message, level=level)
+            calibration.record_state(CalibrationState.FAILED)
+            return
+
+        calibration.record_state(CalibrationState.RETRYING)
+
+        if name not in self._failing_cals:
+            await self.overwatcher.notify(message, level=level)
+            self._failing_cals[name] = time.time()
+            return
+
+        if time.time() - self._failing_cals[name] > max_try_time:
+            await self.overwatcher.notify(
+                f"Maximum try time reached for calibration {name!r}. "
+                "Failing the calibration now.",
+                level=level,
+            )
+            calibration.record_state(CalibrationState.FAILED)
+            self._failing_cals.pop(name)
+            return
+
+        if repeat_notifications:
+            await self.overwatcher.notify(message, level=level)
+
+        return

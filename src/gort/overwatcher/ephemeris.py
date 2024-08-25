@@ -12,6 +12,7 @@ import asyncio
 from time import time
 
 from astropy.time import Time
+from pydantic import BaseModel
 
 from sdsstools import get_sjd
 
@@ -21,6 +22,22 @@ from gort.tools import get_ephemeris_summary
 
 
 __all__ = ["EphemerisOverwatcher"]
+
+
+class EphemerisModel(BaseModel):
+    SJD: int
+    request_jd: float
+    date: str
+    sunset: float
+    twilight_end: float
+    twilight_start: float
+    sunrise: float
+    is_night: bool
+    is_twilight: bool
+    time_to_sunset: float
+    time_to_sunrise: float
+    moon_illumination: float
+    from_file: bool
 
 
 class EphemerisMonitorTask(OverwatcherModuleTask["EphemerisOverwatcher"]):
@@ -62,7 +79,7 @@ class EphemerisOverwatcher(OverwatcherModule):
         super().__init__(*args, **kwargs)
 
         self.sjd = get_sjd("LCO")
-        self.ephemeris: dict | None = None
+        self.ephemeris: EphemerisModel | None = None
         self.last_updated: float = 0.0
 
     async def update_ephemeris(self, sjd: int | None = None):
@@ -71,7 +88,8 @@ class EphemerisOverwatcher(OverwatcherModule):
         sjd = sjd or get_sjd("LCO")
 
         try:
-            self.ephemeris = await get_ephemeris_summary(sjd)
+            ephemeris_response = await get_ephemeris_summary(sjd)
+            self.ephemeris = EphemerisModel(**ephemeris_response)
         except Exception as err:
             self.log.error(f"Failed getting ephemeris data: {err!r}")
         else:
@@ -89,9 +107,9 @@ class EphemerisOverwatcher(OverwatcherModule):
         if not ephemeris:
             return False
 
-        between_twl = ephemeris["twilight_end"] < now_jd < ephemeris["twilight_start"]
+        between_twl = ephemeris.twilight_end < now_jd < ephemeris.twilight_start
 
-        if ephemeris["is_night"]:
+        if ephemeris.is_night:
             if require_twilight and between_twl:
                 return True
             elif not require_twilight:
