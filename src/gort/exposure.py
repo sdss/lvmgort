@@ -23,7 +23,7 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 
 from sdsstools.time import get_sjd
 
-from gort.exceptions import ErrorCodes, GortSpecError
+from gort.exceptions import ErrorCode, GortSpecError
 from gort.tools import (
     cancel_task,
     get_md5sum,
@@ -121,7 +121,7 @@ class Exposure(asyncio.Future["Exposure"]):
         if self.flavour not in ["arc", "object", "flat", "bias", "dark"]:
             raise GortSpecError(
                 "Invalid flavour type.",
-                error_code=ErrorCodes.USAGE_ERROR,
+                error_code=ErrorCode.USAGE_ERROR,
             )
 
         super().__init__()
@@ -182,13 +182,13 @@ class Exposure(asyncio.Future["Exposure"]):
             if "IDLE" not in spec_status["status_names"]:
                 raise GortSpecError(
                     "Some spectrographs are not IDLE.",
-                    error_code=ErrorCodes.SECTROGRAPH_NOT_IDLE,
+                    error_code=ErrorCode.SECTROGRAPH_NOT_IDLE,
                 )
             if "ERROR" in spec_status["status_names"]:
                 raise GortSpecError(
                     "Some spectrographs have ERROR status. "
                     "Solve this manually before exposing.",
-                    error_code=ErrorCodes.SECTROGRAPH_NOT_IDLE,
+                    error_code=ErrorCode.SECTROGRAPH_NOT_IDLE,
                 )
 
         await self.specs.reset()
@@ -212,7 +212,7 @@ class Exposure(asyncio.Future["Exposure"]):
         if exposure_time is None and self.flavour != "bias":
             raise GortSpecError(
                 "Exposure time required for all flavours except bias.",
-                error_code=ErrorCodes.USAGE_ERROR,
+                error_code=ErrorCode.USAGE_ERROR,
             )
 
         warnings.filterwarnings("ignore", message=".*cannot modify a done command.*")
@@ -283,7 +283,7 @@ class Exposure(asyncio.Future["Exposure"]):
             if raise_on_error:
                 raise GortSpecError(
                     f"Exposure failed with error {err}",
-                    error_code=ErrorCodes.SECTROGRAPH_FAILED_EXPOSING,
+                    error_code=ErrorCode.SECTROGRAPH_FAILED_EXPOSING,
                 )
             else:
                 log.warning(f"Exposure failed with error {err}")

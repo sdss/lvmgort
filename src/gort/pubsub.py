@@ -29,7 +29,7 @@ from aio_pika.abc import AbstractIncomingMessage
 from pydantic import BaseModel, Field
 
 from gort import config
-from gort.maskbits import Event
+from gort.enums import Event
 
 
 if TYPE_CHECKING:

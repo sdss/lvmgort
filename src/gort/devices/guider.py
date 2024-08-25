@@ -18,9 +18,9 @@ import polars
 from packaging.version import Version
 
 from gort import config
-from gort.exceptions import ErrorCodes, GortError, GortGuiderError
+from gort.enums import GuiderStatus
+from gort.exceptions import ErrorCode, GortError, GortGuiderError
 from gort.gort import GortDevice, GortDeviceSet
-from gort.maskbits import GuiderStatus
 from gort.tools import GuiderMonitor, cancel_task
 
 
@@ -271,7 +271,7 @@ class Guider(GortDevice):
         if self.status & GuiderStatus.NON_IDLE:
             raise GortGuiderError(
                 "Guider is not IDLE",
-                error_code=ErrorCodes.COMMAND_FAILED,
+                error_code=ErrorCode.COMMAND_FAILED,
             )
 
         if ra is None or dec is None:
@@ -287,7 +287,7 @@ class Guider(GortDevice):
             if pixel not in config["guiders"]["devices"][self.name]["named_pixels"]:
                 raise GortGuiderError(
                     f"Invalid pixel name {pixel!r}.",
-                    error_code=ErrorCodes.INVALID_PIXEL_NAME,
+                    error_code=ErrorCode.INVALID_PIXEL_NAME,
                 )
             pixel = config["guiders"]["devices"][self.name]["named_pixels"][pixel]
 
@@ -423,7 +423,7 @@ class Guider(GortDevice):
             if pixel not in config["guiders"]["devices"][self.name]["named_pixels"]:
                 raise GortGuiderError(
                     f"Invalid pixel name {pixel!r}.",
-                    error_code=ErrorCodes.INVALID_PIXEL_NAME,
+                    error_code=ErrorCode.INVALID_PIXEL_NAME,
                 )
             pixel = config["guiders"]["devices"][self.name]["named_pixels"][pixel]
 

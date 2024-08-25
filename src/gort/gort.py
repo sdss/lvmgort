@@ -41,8 +41,10 @@ from sdsstools.utils import GatheringTaskGroup
 
 from gort import config
 from gort.core import RemoteActor
-from gort.exceptions import ErrorCodes, GortError
+from gort.enums import Event
+from gort.exceptions import ErrorCode, GortError
 from gort.observer import GortObserver
+from gort.pubsub import notify_event
 from gort.recipes import recipes as recipe_to_class
 from gort.tile import Tile
 from gort.tools import (
@@ -647,6 +649,19 @@ class Gort(GortClient):
 
         self._observer = observer
 
+    async def notify_event(self, event: Event, payload: dict[str, Any] = {}):
+        """Emits an event notification."""
+
+        try:
+            await notify_event(event, payload=payload)
+        except TypeError as err:
+            if "is not JSON serializable" in str(err):
+                self.log.error(
+                    f"Failed to notify event {event.name}: payload is not"
+                    "serialisable. The event will be emitted without payload."
+                )
+                await notify_event(event)
+
     async def emergency_close(self):
         """Parks and closes the telescopes."""
 
@@ -696,7 +711,7 @@ class Gort(GortClient):
                 if not disable_tile_on_error:
                     raise
 
-                if ee.error_code == ErrorCodes.ACQUISITION_FAILED:
+                if ee.error_code == ErrorCode.ACQUISITION_FAILED:
                     observer: GortObserver | None = ee.payload.get("observer", None)
                     if observer is None:
                         self.log.error('Cannot disable tile: "observer" not found.')
@@ -711,7 +726,7 @@ class Gort(GortClient):
                         "Continuing observations."
                     )
 
-                elif ee.error_code == ErrorCodes.SCHEDULER_CANNOT_FIND_TILE:
+                elif ee.error_code == ErrorCode.SCHEDULER_CANNOT_FIND_TILE:
                     if wait_if_no_tiles is False:
                         raise
 

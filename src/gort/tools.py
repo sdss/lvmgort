@@ -44,7 +44,7 @@ from clu import AMQPClient
 from sdsstools import get_sjd
 
 from gort import config
-from gort.exceptions import ErrorCodes, GortError
+from gort.exceptions import ErrorCode, GortError
 
 
 if TYPE_CHECKING:
@@ -1067,7 +1067,7 @@ def check_overwatcher_not_running(coro):
         if await overwatcher_is_running():
             raise GortError(
                 f"Overwatcher is running. Cannot execute {coro.__name__}.",
-                ErrorCodes.OVERATCHER_RUNNING,
+                ErrorCode.OVERATCHER_RUNNING,
             )
         return await coro(*args, **kwargs)
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Type
 
-from gort.maskbits import Event
+from gort.enums import Event
 from gort.pubsub import notify_event
 
 

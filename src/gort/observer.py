@@ -20,9 +20,9 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from astropy.time import Time
 
-from gort.exceptions import ErrorCodes, GortObserverError
+from gort.enums import Event, GuiderStatus
+from gort.exceptions import ErrorCode, GortObserverError
 from gort.exposure import Exposure
-from gort.maskbits import GuiderStatus
 from gort.tile import Coordinates
 from gort.tools import (
     GuiderMonitor,
@@ -295,16 +295,25 @@ class GortObserver:
                 if tel == "sci" and not is_guiding:
                     raise GortObserverError(
                         "Science telescope is not guiding.",
-                        error_code=ErrorCodes.ACQUISITION_FAILED,
-                        payload={"observer": self},
+                        error_code=ErrorCode.ACQUISITION_FAILED,
+                        payload={
+                            "observer": True,
+                            "tile_id": self.tile.tile_id,
+                            "telescope": "sci",
+                        },
                     )
 
                 if tel == "spec":
                     if not is_guiding:
                         raise GortObserverError(
                             "Spec telescope is not guiding.",
-                            error_code=ErrorCodes.ACQUISITION_FAILED,
-                            payload={"observer": self},
+                            error_code=ErrorCode.ACQUISITION_FAILED,
+                            payload={
+                                "observer": True,
+                                "tile_id": self.tile.tile_id,
+                                "telescope": "spec",
+                                "fibsel_position": self.mask_positions[0],
+                            },
                         )
                     else:
                         await self.gort.guiders.spec.apply_corrections(False)
@@ -544,6 +553,8 @@ class GortObserver:
         message: str,
         level: str = "debug",
         header: str | None = None,
+        event: Event | None = None,
+        extra_payload: dict[str, Any] = {},
     ):
         """Writes a message to the log with a custom header.
 
@@ -556,6 +567,10 @@ class GortObserver:
             ``'error'``.
         header
             The header to prepend to the message. By default uses the class name.
+        event
+            If specified, emits an event of this type.
+        extra_payload
+            Additional payload to include in the event.
 
         """
 
@@ -564,10 +579,19 @@ class GortObserver:
 
         message = f"{header}{message}"
 
-        level = logging.getLevelName(level.upper())
-        assert isinstance(level, int)
+        level_int = logging._nameToLevel[level.upper()]
+        self.gort.log.log(level_int, message)
 
-        self.gort.log.log(level, message)
+        if event:
+            payload = {
+                "observer": True,
+                "message": message,
+                "level": level,
+                "tile_id": self.tile.tile_id,
+            }
+            payload.update(extra_payload)
+
+            asyncio.create_task(self.gort.notify_event(event, payload=payload))
 
     @contextmanager
     def register_overhead(self, name: str):
@@ -778,6 +802,15 @@ class Standards:
         new_coords = self.tile.spec_coords[standard_idx]
         new_mask_position = self.mask_positions[standard_idx]
 
+        event_payload = {
+            "observer": True,
+            "tile_id": self.tile.tile_id,
+            "telescope": "spec",
+            "n_standard": self.current_standard,
+            "fibsel_position":  new_mask_position,
+            "coordinates": [new_coords.ra, new_coords.dec],
+        }
+
         # Pixel on the MF corresponding to the new fibre/mask hole on
         # which to guide. We use this tabulated list instead of
         # offset_to_master_frame_pixel() because the latter coordinates
@@ -790,6 +823,8 @@ class Standards:
             f"on fibre {new_mask_position}.",
             "info",
         )
+
+        await self.gort.notify_event(Event.OBSERVER_ACQUISITION_START, payload=event_payload,)
 
         # Slew to new coordinates. We actually slew to the coordinates
         # that make the new star close to the fibre that will observe it.
@@ -829,6 +864,8 @@ class Standards:
                 self.observer.write_to_log(
                     f"Timed out acquiring standard {self.current_standard}.",
                     "warning",
+                    event=Event.OBSERVER_STANDARD_ACQUISITION_FAILED,
+                    extra_payload={**event_payload, 'reason': 'timeout'},
                 )
                 return False
 

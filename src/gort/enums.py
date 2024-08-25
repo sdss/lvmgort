@@ -8,10 +8,45 @@
 
 from __future__ import annotations
 
-from enum import Flag, ReprEnum, auto
+from enum import Enum, Flag, ReprEnum, auto
 
 
-__all__ = ["GuiderStatus", "Event"]
+__all__ = ["ErrorCode", "GuiderStatus", "Event"]
+
+
+class ErrorCode(Enum):
+    """List of error codes."""
+
+    UNCATEGORISED_ERROR = 0
+    NOT_IMPLEMENTED = 1
+    COMMAND_FAILED = 2
+    COMMAND_TIMEDOUT = 3
+    USAGE_ERROR = 4
+    TIMEOUT = 5
+    OVERATCHER_RUNNING = 6
+    DEVICE_ERROR = 10
+    TELESCOPE_ERROR = 100
+    CANNOT_MOVE_LOCAL_MODE = 101
+    FAILED_REACHING_COMMANDED_POSITION = 102
+    INVALID_TELESCOPE_POSITION = 103
+    FIBSEL_INVALID_POSITION = 110
+    AG_ERROR = 200
+    SPECTROGRAPH_ERROR = 300
+    SECTROGRAPH_FAILED_EXPOSING = 301
+    SECTROGRAPH_NOT_IDLE = 302
+    INVALID_CALIBRATION_SEQUENCE = 303
+    NPS_ERROR = 400
+    ENCLOSURE_ERROR = 500
+    LOCAL_MODE_FAILED = 501
+    DOOR_STATUS_FAILED = 502
+    GUIDER_ERROR = 600
+    INVALID_PIXEL_NAME = 601
+    SCHEDULER_UNCATEGORISED = 701
+    SCHEDULER_TILE_ERROR = 702
+    SCHEDULER_CANNOT_FIND_TILE = 703
+    OBSERVER_ERROR = 800
+    ACQUISITION_FAILED = 801
+    UNKNOWN_ERROR = 9999
 
 
 class GuiderStatus(Flag):
@@ -63,4 +98,9 @@ class Event(UpperStrEnum):
     RECIPE_START = auto()
     RECIPE_END = auto()
     RECIPE_FAILED = auto()
+    OBSERVER_STAGE_RUNNING = auto()
+    OBSERVER_STAGE_DONE = auto()
+    OBSERVER_ACQUISITION_START = auto()
+    OBSERVER_ACQUISITION_DONE = auto()
+    OBSERVER_STANDARD_ACQUISITION_FAILED = auto()
     UNCATEGORISED = auto()

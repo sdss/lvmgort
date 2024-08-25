@@ -12,7 +12,7 @@ import asyncio
 
 from typing import TYPE_CHECKING, Sequence
 
-from gort.exceptions import ErrorCodes, GortError, GortSpecError
+from gort.exceptions import ErrorCode, GortError, GortSpecError
 from gort.exposure import Exposure
 from gort.gort import GortDevice, GortDeviceSet
 
@@ -84,7 +84,7 @@ class IEB(GortDevice):
             if device not in ["shutter", "hartmann_left", "hartmann_right"]:
                 raise GortSpecError(
                     f"Invalid device {device}.",
-                    error_code=ErrorCodes.USAGE_ERROR,
+                    error_code=ErrorCode.USAGE_ERROR,
                 )
 
             self.write_to_log(f"Powering {'on' if on else 'off'} {device}.", "info")
@@ -118,7 +118,7 @@ class IEB(GortDevice):
         if action not in ["open", "close", "home", "init"]:
             raise GortSpecError(
                 f"Invalid action {action}.",
-                error_code=ErrorCodes.USAGE_ERROR,
+                error_code=ErrorCode.USAGE_ERROR,
             )
 
         status = await self.status()
@@ -134,7 +134,7 @@ class IEB(GortDevice):
             if device not in ["shutter", "hartmann_left", "hartmann_right"]:
                 raise GortSpecError(
                     f"Invalid device {device}.",
-                    error_code=ErrorCodes.USAGE_ERROR,
+                    error_code=ErrorCode.USAGE_ERROR,
                 )
 
             self.write_to_log(f"Performing {action!r} on {device}.", "info")
@@ -308,7 +308,7 @@ class Spectrograph(GortDevice):
         if not (await self.is_idle()):
             raise GortSpecError(
                 "Spectrographs is not idle. Cannot expose.",
-                error_code=ErrorCodes.SECTROGRAPH_FAILED_EXPOSING,
+                error_code=ErrorCode.SECTROGRAPH_FAILED_EXPOSING,
             )
 
         self.write_to_log(f"Exposing spectrograph {self.name}.")
@@ -412,11 +412,11 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         if not (await self.are_idle()):
             raise GortSpecError(
                 "Spectrographs are not idle. Cannot expose.",
-                error_code=ErrorCodes.SECTROGRAPH_NOT_IDLE,
+                error_code=ErrorCode.SECTROGRAPH_NOT_IDLE,
             )
 
         if count <= 0:
-            raise GortSpecError("Invalid count.", error_code=ErrorCodes.USAGE_ERROR)
+            raise GortSpecError("Invalid count.", error_code=ErrorCode.USAGE_ERROR)
 
         if exposure_time is None or exposure_time == 0.0:
             flavour = "bias"

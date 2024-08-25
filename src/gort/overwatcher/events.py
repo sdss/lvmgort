@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 
 from typing import TYPE_CHECKING
 
-from gort.maskbits import Event
+from gort.enums import Event
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 from gort.pubsub import GortMessage, GortSubscriber
 from gort.tools import insert_to_database

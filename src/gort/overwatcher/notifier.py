@@ -130,8 +130,8 @@ class NotifierMixIn(OverwatcherProtocol):
             level = "error" if error is not None else "info"
 
         message = message or ""
-        if error is not None and message  == "":
-                message = f" {str(error)}"
+        if error is not None and message == "":
+            message = f" {str(error)}"
 
         trace: str | None = None
         if with_traceback and isinstance(error, Exception):
