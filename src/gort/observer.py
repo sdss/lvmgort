@@ -807,7 +807,7 @@ class Standards:
             "tile_id": self.tile.tile_id,
             "telescope": "spec",
             "n_standard": self.current_standard,
-            "fibsel_position":  new_mask_position,
+            "fibsel_position": new_mask_position,
             "coordinates": [new_coords.ra, new_coords.dec],
         }
 
@@ -824,7 +824,10 @@ class Standards:
             "info",
         )
 
-        await self.gort.notify_event(Event.OBSERVER_ACQUISITION_START, payload=event_payload,)
+        await self.gort.notify_event(
+            Event.OBSERVER_ACQUISITION_START,
+            payload=event_payload,
+        )
 
         # Slew to new coordinates. We actually slew to the coordinates
         # that make the new star close to the fibre that will observe it.
@@ -865,7 +868,7 @@ class Standards:
                     f"Timed out acquiring standard {self.current_standard}.",
                     "warning",
                     event=Event.OBSERVER_STANDARD_ACQUISITION_FAILED,
-                    extra_payload={**event_payload, 'reason': 'timeout'},
+                    extra_payload={**event_payload, "reason": "timeout"},
                 )
                 return False
 
