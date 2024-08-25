@@ -286,7 +286,11 @@ services:
 overwatcher:
   scheduler:
     open_dome_buffer: 300
-  events_table: lvmopsdb.overwatcher_event
+  slack:
+    notifications_channel: lvm-overwatcher
+    alerts_channel: lvm-alerts
+  events_table: overwatcher.event
+  notification_table: overwatcher.notification
 
   actor:
     name: lvm.overwatcher

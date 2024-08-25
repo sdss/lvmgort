@@ -85,7 +85,7 @@ class GortError(Exception):
 
         if emit_event:
             event_payload = self.payload.copy()
-            event_payload["error"] = message
+            event_payload["error"] = message or ""
             event_payload["error_code"] = self.error_code.value
 
             asyncio.create_task(notify_event(Event.ERROR, payload=event_payload))
@@ -96,6 +96,12 @@ class GortError(Exception):
             super().__init__(f"{prefix}: {message}")
         else:
             super().__init__(prefix)
+
+
+class OverwatcherError(GortError):
+    """An error in the overwatcher."""
+
+    pass
 
 
 class RemoteCommandError(GortError):

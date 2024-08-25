@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 OverwatcherModule_T = TypeVar("OverwatcherModule_T", bound="OverwatcherModule")
 
 
-class OverwatcherTask:
+class OverwatcherBaseTask:
     """A task that runs in an overwatcher module."""
 
     name: ClassVar[str]
@@ -92,7 +92,7 @@ class OverwatcherTask:
                     continue
 
 
-class OverwatcherModuleTask(OverwatcherTask, Generic[OverwatcherModule_T]):
+class OverwatcherModuleTask(OverwatcherBaseTask, Generic[OverwatcherModule_T]):
     """A task that runs in an overwatcher module."""
 
     def __init__(self):
