@@ -276,7 +276,11 @@ class CalibrationSchedule:
         if update:
             self.update_schedule(cals_data=cals_data)
 
-    def update_schedule(self, cals_data: CalsDataType, clear: bool = False):
+    def update_schedule(
+        self,
+        cals_data: CalsDataType | None = None,
+        clear: bool = False,
+    ):
         """Generates a schedule of calibrations for the night."""
 
         if not self.cals_overwatcher.overwatcher.ephemeris.ephemeris:
@@ -296,11 +300,14 @@ class CalibrationSchedule:
             else:
                 cals_data = self.read_file(cals_data)
 
-        if len(cals_data) == 0:
+            self.calibrations = [Calibration(self, cal) for cal in cals_data]
+
+        else:
+            pass
+
+        if len(self.calibrations) == 0:
             self.log.warning("No calibrations found.")
             return
-
-        self.calibrations = [Calibration(self, cal) for cal in cals_data]
 
         self.log.info(f"Updating calibrations schedule for SJD {self.sjd}.")
 
@@ -440,6 +447,8 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
 
 
 class CalibrationsOverwatcher(OverwatcherModule):
+    """Calibrations overwatcher module."""
+
     name = "calibration"
 
     tasks = [CalibrationsMonitor()]
@@ -521,7 +530,9 @@ class CalibrationsOverwatcher(OverwatcherModule):
 
             await notify(f"Aborting observations to run calibration {name}.")
             await self.overwatcher.observer.stop_observing(
-                reason="Scheduled calibration", immediate=immediate, block=True
+                reason="Scheduled calibration",
+                immediate=immediate,
+                block=True,
             )
 
         now = time.time()

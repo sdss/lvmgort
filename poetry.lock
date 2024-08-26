@@ -136,13 +136,13 @@ typing = ["typing-extensions (>=4.0.0)"]
 
 [[package]]
 name = "astropy-iers-data"
-version = "0.2024.8.19.0.32.16"
+version = "0.2024.8.26.0.31.57"
 description = "IERS Earth Rotation and Leap Second tables for the astropy core package"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "astropy_iers_data-0.2024.8.19.0.32.16-py3-none-any.whl", hash = "sha256:c39d920dfff92c82ef501df066692eb0d546e4885370bd8010ce2ddcc3252d46"},
-    {file = "astropy_iers_data-0.2024.8.19.0.32.16.tar.gz", hash = "sha256:f8bea6abbdc8a3076b67a0941e3c1e6c89e5dffb5582a92c1a6e43e4a2e51c4a"},
+    {file = "astropy_iers_data-0.2024.8.26.0.31.57-py3-none-any.whl", hash = "sha256:6f9f68afb18babe736a5ae1ea5467ed05a2cf32aa376d83e941dd6fb6723f7aa"},
+    {file = "astropy_iers_data-0.2024.8.26.0.31.57.tar.gz", hash = "sha256:e48eeb3b6b11e510297159e5e5587a42cd2c16577cafd716cd36e6dd28415622"},
 ]
 
 [package.extras]
@@ -2319,13 +2319,13 @@ windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
 name = "pyparsing"
-version = "3.1.2"
+version = "3.1.4"
 description = "pyparsing module - Classes and methods to define and execute parsing grammars"
 optional = false
 python-versions = ">=3.6.8"
 files = [
-    {file = "pyparsing-3.1.2-py3-none-any.whl", hash = "sha256:f9db75911801ed778fe61bb643079ff86601aca99fcae6345aa67292038fb742"},
-    {file = "pyparsing-3.1.2.tar.gz", hash = "sha256:a1bac0ce561155ecc3ed78ca94d3c9378656ad4c94c1270de543f621420f94ad"},
+    {file = "pyparsing-3.1.4-py3-none-any.whl", hash = "sha256:a6a7ee4235a3f944aa1fa2249307708f893fe5717dc603503c6c7969c070fb7c"},
+    {file = "pyparsing-3.1.4.tar.gz", hash = "sha256:f86ec8d1a83f11977c9a6ea7598e8c27fc5cddfa5b07ea2241edbbde1d7bc032"},
 ]
 
 [package.extras]
@@ -2600,13 +2600,13 @@ docutils = ">=0.11,<1.0"
 
 [[package]]
 name = "rich"
-version = "13.7.1"
+version = "13.8.0"
 description = "Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal"
 optional = false
 python-versions = ">=3.7.0"
 files = [
-    {file = "rich-13.7.1-py3-none-any.whl", hash = "sha256:4edbae314f59eb482f54e9e30bf00d33350aaa94f4bfcd4e9e3110e64d0d7222"},
-    {file = "rich-13.7.1.tar.gz", hash = "sha256:9be308cb1fe2f1f57d67ce99e95af38a1e2bc71ad9813b0e247cf7ffbcc3a432"},
+    {file = "rich-13.8.0-py3-none-any.whl", hash = "sha256:2e85306a063b9492dffc86278197a60cbece75bcb766022f3436f567cae11bdc"},
+    {file = "rich-13.8.0.tar.gz", hash = "sha256:a5ac1f1cd448ade0d59cc3356f7db7a7ccda2c8cbae9c7a90c28ff463d3e91f4"},
 ]
 
 [package.dependencies]

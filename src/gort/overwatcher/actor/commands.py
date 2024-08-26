@@ -120,3 +120,13 @@ async def list(command: OverwatcherCommand):
         )
 
     return command.finish(calibrations=response)
+
+
+@calibrations.command()
+async def reset(command: OverwatcherCommand):
+    """Resets the calibration schedule. Clears done calibrations."""
+
+    overwatcher = command.actor.overwatcher
+    overwatcher.calibrations.schedule.update_schedule(clear=True)
+
+    return command.finish()
