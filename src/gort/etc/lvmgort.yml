@@ -281,7 +281,8 @@ services:
       user: sdss
       database: lvmdb
     tables:
-      overhead: gortdb.overhead
+      overheads: gortdb.overhead
+      exposures: gortdb.exposure
       events: gortdb.event
       notifications: gortdb.notification
 

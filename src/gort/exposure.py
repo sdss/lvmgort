@@ -28,6 +28,7 @@ from gort.tools import (
     cancel_task,
     get_md5sum,
     get_md5sum_from_spectro,
+    insert_to_database,
     is_interactive,
     is_notebook,
     run_in_executor,
@@ -98,6 +99,7 @@ class Exposure(asyncio.Future["Exposure"]):
         object: str | None = "",
         specs: Sequence[str] | None = None,
     ):
+        self.gort = gort
         self.specs = gort.specs
         self.devices = specs
         self.exp_no = exp_no or self.specs.get_expno()
@@ -417,6 +419,8 @@ class Exposure(asyncio.Future["Exposure"]):
             pattern_path = re.sub("([rbz][1-3])", "*", str(files[0]))
             self.specs.write_to_log(f"Files saved to {pattern_path!r}.")
 
+        return files
+
     def get_files(self):
         """Returns the files written by the exposure."""
 
@@ -443,10 +447,52 @@ class Exposure(asyncio.Future["Exposure"]):
             if "ERROR" in reply["status_names"]:
                 self.error = True
 
-        await self.verify_files()
+        files = await self.verify_files()
+        asyncio.create_task(self._write_to_db(files))
 
         # Set the Future.
         self.set_result(self)
+
+    async def _write_to_db(self, files: list[pathlib.Path] | None = None):
+        """Records the exposures in ``gortdb.exposure``."""
+
+        files = files or self.get_files()
+
+        headers: list[dict[str, Any]] = []
+        for file in files:
+            header = dict(await run_in_executor(fits.getheader, str(file)))
+            headers.append({kk.upper(): vv for kk, vv in header.items()})
+
+        column_data: list[dict[str, Any]] = []
+        for header in headers:
+            exposure_no = header.get("EXPOSURE", None)
+            image_type = header.get("IMAGETYP", None)
+            exposure_time = header.get("EXPTIME", None)
+            spec = header.get("SPEC", None)
+            ccd = header.get("CCD", None)
+            mjd = header.get("MJD", None)
+            start_time = header.get("INTSTART", None)
+            tile_id = header.get("TILE_ID", None)
+
+            if start_time is not None:
+                start_time = Time(start_time, format="isot").datetime
+
+            column_data.append(
+                {
+                    "exposure_no": exposure_no,
+                    "image_type": image_type,
+                    "exposure_time": exposure_time,
+                    "spec": spec,
+                    "ccd": ccd,
+                    "mjd": mjd,
+                    "start_time": start_time,
+                    "tile_id": tile_id,
+                    "header": json.dumps(header),
+                }
+            )
+
+        table = self.gort.config["services.database.tables.exposures"]
+        await run_in_executor(insert_to_database, table, column_data)
 
     async def _call_hook(self, hook_name: str, *args, as_task: bool = False, **kwargs):
         """Calls the coroutines associated with a hook."""
