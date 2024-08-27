@@ -366,7 +366,7 @@ class Exposure(asyncio.Future["Exposure"]):
             self._progress.console.clear_live()
         self._progress = None
 
-    def verify_files(self):
+    async def verify_files(self):
         """Checks that the files have been written and have the right contents."""
 
         config = self.specs.gort.config["specs"]
@@ -374,16 +374,25 @@ class Exposure(asyncio.Future["Exposure"]):
         HEADERS_CRITICAL = config["verification"]["headers"]["critical"]
         HEADERS_WARNING = config["verification"]["headers"]["warning"]
 
-        files = self.get_files()
+        for retry in range(3):
+            # Very infrequently we have cases in which this check fails even if the
+            # files are there. It may be a delay in the NFS disk or a race condition
+            # somewhere. As a hotfile, we try three times with a delay before giving up.
 
-        n_spec = len(self.devices) if self.devices else len(config["devices"])
-        n_files_expected = n_spec * 3
+            files = self.get_files()
 
-        if (n_files_found := len(files)) < n_files_expected:
-            raise RuntimeError(
-                f"Expected {n_files_expected} files but found {n_files_found}. "
-                "Verification failed."
-            )
+            n_spec = len(self.devices) if self.devices else len(config["devices"])
+            n_files_expected = n_spec * 3
+
+            if (n_files_found := len(files)) < n_files_expected:
+                if retry < 2:
+                    await asyncio.sleep(3)
+                    continue
+
+                raise RuntimeError(
+                    f"Expected {n_files_expected} files but found {n_files_found}. "
+                    "Verification failed."
+                )
 
         for file in files:
             header = fits.getheader(str(file))
@@ -434,7 +443,7 @@ class Exposure(asyncio.Future["Exposure"]):
             if "ERROR" in reply["status_names"]:
                 self.error = True
 
-        self.verify_files()
+        await self.verify_files()
 
         # Set the Future.
         self.set_result(self)

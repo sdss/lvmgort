@@ -14,6 +14,8 @@ import random
 import numpy
 from astropy.time import Time
 
+from gort.enums import ErrorCode, Event
+from gort.pubsub import notify_event
 from gort.tools import get_ephemeris_summary
 
 from .base import BaseRecipe
@@ -254,11 +256,26 @@ class TwilightFlats(BaseRecipe):
 
             fibre_str = await self.goto_fibre_position(n_fibre, secondary=secondary)
             gort.log.info(f"Taking {fibre_str} exposure with exp_time={exp_time:.2f}.")
-            await gort.specs.expose(
-                exp_time,
-                flavour="flat",
-                header={"CALIBFIB": fibre_str},
-            )
+
+            try:
+                await gort.specs.expose(
+                    exp_time,
+                    flavour="flat",
+                    header={"CALIBFIB": fibre_str},
+                )
+            except Exception as err:
+                gort.log.error(
+                    "Error taking twilight flat exposure. Will ignore since we "
+                    f"are on a schedule here. Error is: {err}"
+                )
+                await notify_event(
+                    Event.ERROR,
+                    payload={
+                        "error": str(err),
+                        "error_code": ErrorCode.CALIBRATION_ERROR.value,
+                        "ignore": True,
+                    },
+                )
 
             n_observed += 1
             if n_observed == 12:
