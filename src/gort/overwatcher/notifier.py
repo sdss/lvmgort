@@ -123,6 +123,9 @@ class NotifierMixIn(OverwatcherProtocol):
             Whether to record the notification in the database.
         log
             Whether to record the notification in the log.
+        payload
+            Additional notification payload as a JSON-like dictionary. Only
+            saved to the database notifications table.
 
         """
 
@@ -176,7 +179,6 @@ class NotifierMixIn(OverwatcherProtocol):
         if database:
             table = self.config["overwatcher.notification_table"]
 
-            payload: dict = {}
             if trace:
                 payload["traceback"] = trace
 

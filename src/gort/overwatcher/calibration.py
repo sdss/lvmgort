@@ -466,6 +466,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
         self.schedule = CalibrationSchedule(self, self.cals_file, update=False)
 
         self._failing_cals: dict[str, float] = {}
+        self._ignore_cals: set[str] = set()
 
     async def reset(self, cals_file: str | pathlib.Path | None = None):
         """Resets the list of calibrations for a new SJD.
@@ -503,6 +504,14 @@ class CalibrationsOverwatcher(OverwatcherModule):
         dome = calibration.model.dome
         close_dome_after = calibration.model.close_dome_after
         recipe = calibration.model.recipe
+
+        if name in self._ignore_cals:
+            return
+
+        if self.overwatcher.state.dry_run:
+            self.log.warning(f"Dry-run mode. Not running calibration {name!r}.")
+            self._ignore_cals.add(name)
+            return
 
         if self.is_calibration_running():
             await self._fail_calibration(

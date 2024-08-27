@@ -33,6 +33,7 @@ class OverwatcherState:
     calibrating: bool = False
     allow_observing: bool = False
     allow_dome_calibrations: bool = True
+    dry_run: bool = False
 
 
 class OverwatcherTask(OverwatcherBaseTask):
@@ -63,7 +64,7 @@ class OverwatcherMainTask(OverwatcherTask):
             is_safe = ow.weather.is_safe()
             is_night = ow.ephemeris.is_night()
 
-            if is_safe and is_night:
+            if ow.state.enabled and is_safe and is_night:
                 ow.state.allow_observing = True
             else:
                 ow.state.allow_observing = False
@@ -104,6 +105,7 @@ class Overwatcher(NotifierMixIn):
         gort: Gort | None = None,
         verbosity: str = "debug",
         calibrations_file: str | pathlib.Path | None = None,
+        dry_run: bool = False,
         **kwargs,
     ):
         from gort.overwatcher import (
@@ -123,6 +125,7 @@ class Overwatcher(NotifierMixIn):
         self.log = LogNamespace(self.gort.log, header=f"({self.__class__.__name__}) ")
 
         self.state = OverwatcherState()
+        self.state.dry_run = dry_run
 
         self.tasks: list[OverwatcherTask] = [
             OverwatcherMainTask(self),
@@ -152,7 +155,10 @@ class Overwatcher(NotifierMixIn):
             await task.run()
 
         self.state.running = True
-        await self.notify("Overwatcher is starting.")
+        await self.notify(
+            "Overwatcher is starting.",
+            payload={"dry-run": self.state.dry_run},
+        )
 
         return self
 
@@ -164,11 +170,14 @@ class Overwatcher(NotifierMixIn):
             level="warning",
         )
 
-        stop_task = asyncio.create_task(self.observer.stop_observing(immediate=True))
-        shutdown_task = asyncio.create_task(self.gort.shutdown())
+        if not self.state.dry_run:
+            stop = asyncio.create_task(self.observer.stop_observing(immediate=True))
+            shutdown = asyncio.create_task(self.gort.shutdown())
+        else:
+            self.log.warning("Dry run enabled. Not shutting down.")
 
         if block:
-            await asyncio.gather(stop_task, shutdown_task)
+            await asyncio.gather(stop, shutdown)
 
     async def cancel(self):
         """Cancels the overwatcher tasks."""

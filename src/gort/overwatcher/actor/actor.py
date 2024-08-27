@@ -27,13 +27,13 @@ class OverwatcherActor(AMQPActor):
 
     parser = overwatcher_cli
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, dry_run: bool = False, **kwargs):
         gort_root = pathlib.Path(gort.__file__).parent
         schema = gort_root / "etc" / "actor_schema.json"
 
         super().__init__(*args, schema=schema, **kwargs)
 
-        self.overwatcher = Overwatcher()
+        self.overwatcher = Overwatcher(dry_run=dry_run)
 
         self.log.info("OverwatcherActor initialised.")
 

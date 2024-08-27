@@ -87,7 +87,10 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
             # will always call start/stop_observing, but those methods return quickly
             # if there's nothing to do.
 
-            if not (self.status & ObserverStatus.WEATHER_SAFE):
+            if self.overwatcher.state.dry_run:
+                pass
+
+            elif not (self.status & ObserverStatus.WEATHER_SAFE):
                 await self.module.stop_observing(
                     immediate=True,
                     reason="weather not safe",
@@ -168,6 +171,9 @@ class ObserverOverwatcher(OverwatcherModule):
     async def start_observing(self):
         """Starts observations."""
 
+        if self.overwatcher.state.dry_run:
+            return
+
         if self.status.observing():
             return
 
@@ -192,6 +198,9 @@ class ObserverOverwatcher(OverwatcherModule):
         block: bool = False,
     ):
         """Stops observations."""
+
+        if self.overwatcher.state.dry_run:
+            return
 
         if not self.status.observing():
             return
@@ -235,7 +244,7 @@ class ObserverOverwatcher(OverwatcherModule):
                 )
 
             except Exception as err:
-                self.overwatcher.handle_error(err)
+                # self.overwatcher.handle_error(err)
                 await self.gort.cleanup(readout=False)
 
             finally:
@@ -244,11 +253,12 @@ class ObserverOverwatcher(OverwatcherModule):
                     try:
                         if exp and isinstance(exp[0], Exposure):
                             await asyncio.wait_for(exp[0], timeout=80)
-                    except Exception as err:
-                        self.overwatcher.handle_error(
-                            f"Error cancelling observation: {err!r}",
-                            err,
-                        )
+                    except Exception:
+                        pass
+                        # self.overwatcher.handle_error(
+                        #     f"Error cancelling observation: {err!r}",
+                        #     err,
+                        # )
 
                     break
 
