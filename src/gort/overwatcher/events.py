@@ -66,7 +66,7 @@ class MonitorEvents(OverwatcherModuleTask["EventsOverwatcher"]):
         dt = datetime.now(tz=UTC)
 
         insert_to_database(
-            self.gort.config["overwatcher"]["events_table"],
+            self.gort.config["services.database.tables.events"],
             [{"date": dt, "event": event.name.upper(), "payload": json.dumps(payload)}],
         )
 

@@ -13,7 +13,7 @@ import json
 import logging
 from traceback import format_exception
 
-from typing import TYPE_CHECKING, Literal, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 import httpx
 
@@ -90,6 +90,7 @@ class NotifierMixIn(OverwatcherProtocol):
         slack_channels: list[str] | None = None,
         database: bool = True,
         log: bool = True,
+        payload: dict[str, Any] = {},
     ):
         """Emits a notification.
 
@@ -177,7 +178,7 @@ class NotifierMixIn(OverwatcherProtocol):
                     )
 
         if database:
-            table = self.config["overwatcher.notification_table"]
+            table = self.config["services.database.tables.notifications"]
 
             if trace:
                 payload["traceback"] = trace

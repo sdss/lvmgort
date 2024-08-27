@@ -281,7 +281,9 @@ services:
       user: sdss
       database: lvmdb
     tables:
-      overhead: lvmopsdb.overhead
+      overhead: gortdb.overhead
+      events: gortdb.event
+      notifications: gortdb.notification
 
 overwatcher:
   scheduler:
@@ -289,8 +291,6 @@ overwatcher:
   slack:
     notifications_channel: lvm-overwatcher
     alerts_channel: lvm-alerts
-  events_table: overwatcher.event
-  notification_table: overwatcher.notification
 
   actor:
     name: lvm.overwatcher
