@@ -448,15 +448,15 @@ class Exposure(asyncio.Future["Exposure"]):
                 self.error = True
 
         files = await self.verify_files()
-        asyncio.create_task(self._write_to_db(files))
+        exposure_table = self.gort.config["services.database.tables.exposures"]
+        asyncio.create_task(self.write_to_db(files, exposure_table))
 
         # Set the Future.
         self.set_result(self)
 
-    async def _write_to_db(self, files: list[pathlib.Path] | None = None):
+    @staticmethod
+    async def write_to_db(files: list[pathlib.Path], table_name: str):
         """Records the exposures in ``gortdb.exposure``."""
-
-        files = files or self.get_files()
 
         headers: list[dict[str, Any]] = []
         for file in files:
@@ -491,8 +491,7 @@ class Exposure(asyncio.Future["Exposure"]):
                 }
             )
 
-        table = self.gort.config["services.database.tables.exposures"]
-        await run_in_executor(insert_to_database, table, column_data)
+        await run_in_executor(insert_to_database, table_name, column_data)
 
     async def _call_hook(self, hook_name: str, *args, as_task: bool = False, **kwargs):
         """Calls the coroutines associated with a hook."""
