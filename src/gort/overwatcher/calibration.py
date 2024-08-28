@@ -554,15 +554,18 @@ class CalibrationsOverwatcher(OverwatcherModule):
             return
 
         if dome is not None:
-            if not self.overwatcher.state.enabled:
+            dome_new = True if dome == "open" else False
+            dome_current = await self.overwatcher.gort.enclosure.is_open()
+            needs_dome_change = dome_new != dome_current
+
+            if needs_dome_change and not self.overwatcher.state.enabled:
                 await self._fail_calibration(
                     calibration,
-                    f"Cannot move dome for {name!r} cal. Overwatcher is disabled.",
+                    f"Cannot move dome for {name!r}. Overwatcher is disabled.",
                     level="error",
                 )
                 return
 
-            dome_current = await self.overwatcher.gort.enclosure.is_open()
             if dome == "open" and not dome_current:
                 await notify("Opening the dome for calibration.")
                 await self.overwatcher.gort.enclosure.open()
