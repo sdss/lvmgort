@@ -481,7 +481,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
         """Returns ``True`` if a calibration is currently running."""
 
         for cal in self.schedule.calibrations:
-            if cal.state == CalibrationState.RUNNING:
+            if cal.state in [CalibrationState.RUNNING, CalibrationState.RETRYING]:
                 return True
 
         return False
