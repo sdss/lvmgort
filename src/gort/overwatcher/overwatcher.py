@@ -160,6 +160,9 @@ class Overwatcher(NotifierMixIn):
             payload={"dry-run": self.state.dry_run},
         )
 
+        if self.state.dry_run:
+            self.log.warning("Overatcher is running in dry-mode.")
+
         return self
 
     async def emergency_shutdown(self, block: bool = True, reason: str = "undefined"):
