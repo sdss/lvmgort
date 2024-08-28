@@ -458,13 +458,14 @@ class Exposure(asyncio.Future["Exposure"]):
     async def write_to_db(files: list[pathlib.Path], table_name: str):
         """Records the exposures in ``gortdb.exposure``."""
 
-        headers: list[dict[str, Any]] = []
-        for file in files:
-            header = dict(await run_in_executor(fits.getheader, str(file)))
-            headers.append({kk.upper(): vv for kk, vv in header.items()})
-
         column_data: list[dict[str, Any]] = []
-        for header in headers:
+
+        for file in files:
+            header_ap = dict(await run_in_executor(fits.getheader, str(file)))
+            header_ap.pop("COMMENT", None)
+
+            header = {kk.upper(): vv for kk, vv in header_ap.items() if vv is not None}
+
             exposure_no = header.get("EXPOSURE", None)
             image_type = header.get("IMAGETYP", None)
             exposure_time = header.get("EXPTIME", None)
