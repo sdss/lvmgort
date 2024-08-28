@@ -13,7 +13,6 @@ import enum
 import os
 import pathlib
 import time
-import warnings
 
 from typing import TYPE_CHECKING, Any, Literal, Self, cast
 
@@ -22,7 +21,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from sdsstools import read_yaml_file
 
-from gort.exceptions import GortUserWarning, OverwatcherError
+from gort.exceptions import OverwatcherError
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 from gort.tools import redis_client_sync
 
@@ -55,64 +54,55 @@ class CalibrationModel(BaseModel):
         title="The recipe to use.",
     )
     min_start_time: float | None = Field(
-        None,
+        default=None,
         title="The minimum start time. The format depends on time_mode.",
     )
     max_start_time: float | None = Field(
-        None,
+        default=None,
         title="The maximum start time. The format depends on time_mode.",
     )
     time_mode: TimeModeType | None = Field(
-        None,
+        default=None,
         title="The time mode for the calibration.",
     )
     after: str | None = Field(
-        None,
-        title="Run after this calibration. Incompatible with min/max_start_time.",
+        default=None,
+        title="Run after this calibration.",
     )
     required: bool = Field(
-        True,
+        default=True,
         title="Whether the calibration is required. Currently not used.",
     )
     dome: Literal["open", "closed"] | None = Field(
-        False,
+        default=False,
         title="Whether the dome should be open during the calibration. A null value "
         "will keep the dome in the current position.",
     )
     close_dome_after: bool = Field(
-        False,
+        default=False,
         title="Whether the dome should be closed after the calibration.",
     )
     abort_observing: bool = Field(
-        False,
+        default=False,
         title="Whether observing should be immediately aborted to "
         "allow the calibration to start.",
     )
     priority: int = Field(
-        5,
+        default=5,
         title="The priority of the calibration. Currently not used.",
     )
     max_try_time: float = Field(
-        300,
+        default=300,
         title="The maximum time in seconds to attempt the calibration if it fails. "
         "If max_start_time is reached during this period, the calibrations fails.",
     )
 
     @model_validator(mode="after")
     def validate_start_time(self) -> Self:
-        """Validates ``min/max_start_time``, ``time_mode`` and ``after``."""
+        """Ensure that ``after`` or ``min_start_time`` are defined."""
 
-        if not self.after and not self.min_start_time:
+        if not self.after and self.min_start_time is None:
             raise OverwatcherError("min_start_time or after are required.")
-
-        if self.after and self.min_start_time:
-            raise OverwatcherError("Cannot specify min_start_time and after.")
-
-        if self.after and self.max_start_time and self.time_mode:
-            warnings.warn(
-                "Ignoring time_mode when after is specified.",
-                GortUserWarning,
-            )
 
         return self
 
@@ -221,8 +211,6 @@ class Calibration:
 
         return {
             "name": self.name,
-            "start_time": self.start_time,
-            "max_start_time": self.max_start_time,
             "state": self.state.name.lower(),
         }
 
@@ -381,11 +369,13 @@ class CalibrationSchedule:
                 continue
 
             if cal.model.after is not None:
-                if cal.model.after in done_cals:
-                    return cal
-                continue
+                if cal.model.after not in done_cals:
+                    continue
 
             if cal.start_time is None:
+                if cal.model.after is not None:
+                    return cal
+
                 self.log.warning(
                     f"Calibration {cal.name!r} has no start time and after is null. "
                     "This should not happen."
@@ -428,7 +418,6 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
         # Small delay to make sure the ephemeris have been update and we can
         # then update the schedule.
         await asyncio.sleep(5)
-        await self.module.reset()
 
         while True:
             next_calibration = await self.module.schedule.get_next()
@@ -483,7 +472,10 @@ class CalibrationsOverwatcher(OverwatcherModule):
         if cals_file is not None:
             self.cals_file = cals_file
 
-        self.schedule.update_schedule(self.cals_file)
+        try:
+            self.schedule.update_schedule(self.cals_file)
+        except Exception as ee:
+            self.log.error(f"Error updating calibrations schedule: {ee!r}")
 
     def is_calibration_running(self):
         """Returns ``True`` if a calibration is currently running."""
