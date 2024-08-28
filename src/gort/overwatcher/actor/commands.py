@@ -119,6 +119,7 @@ async def list(command: OverwatcherCommand):
                 "time_to_cal": time_to_cal,
                 "status": cal.state.name.lower(),
                 "requires_dome": cal.model.dome,
+                "close_dome_after": cal.model.close_dome_after,
             }
         )
 
