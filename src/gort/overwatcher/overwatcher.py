@@ -31,6 +31,8 @@ class OverwatcherState:
     enabled: bool = False
     observing: bool = False
     calibrating: bool = False
+    night: bool = False
+    safe: bool = False
     allow_observing: bool = False
     allow_dome_calibrations: bool = True
     dry_run: bool = False
@@ -69,6 +71,8 @@ class OverwatcherMainTask(OverwatcherTask):
             else:
                 ow.state.allow_observing = False
 
+            ow.state.night = is_night
+            ow.state.safe = is_safe
             ow.state.observing = ow.observer.status.observing()
             ow.state.calibrating = ow.calibrations.is_calibration_running()
 
