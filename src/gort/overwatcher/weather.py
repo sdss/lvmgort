@@ -184,7 +184,7 @@ class WeatherOverwatcher(OverwatcherModule):
     def is_safe(self):
         """Determines whether it is safe to open."""
 
-        if self.state in [WeatherRisk.DANGER, WeatherRisk.EXTREME, WeatherRisk.UNKNOWN]:
+        if self.risk in [WeatherRisk.DANGER, WeatherRisk.EXTREME, WeatherRisk.UNKNOWN]:
             return False
 
         return True
