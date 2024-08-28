@@ -449,7 +449,20 @@ class Exposure(asyncio.Future["Exposure"]):
 
         files = await self.verify_files()
         exposure_table = self.gort.config["services.database.tables.exposures"]
-        asyncio.create_task(self.write_to_db(files, exposure_table))
+
+        try:
+            async with asyncio.timeout(10):
+                await self.write_to_db(files, exposure_table)
+        except asyncio.TimeoutError:
+            self.specs.write_to_log(
+                "Timeout writing to database. Data may not have been recorded.",
+                "warning",
+            )
+        except Exception as err:
+            self.specs.write_to_log(
+                f"Error writing to database: {err!r}. Data may not have been recorded.",
+                "warning",
+            )
 
         # Set the Future.
         self.set_result(self)
