@@ -484,7 +484,7 @@ class Exposure(asyncio.Future["Exposure"]):
             exposure_time = header.get("EXPTIME", None)
             spec = header.get("SPEC", None)
             ccd = header.get("CCD", None)
-            mjd = header.get("MJD", None)
+            mjd = header.get("SMJD", None)
             start_time = header.get("INTSTART", None)
             tile_id = header.get("TILE_ID", None)
 
