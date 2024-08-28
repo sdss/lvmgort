@@ -243,7 +243,7 @@ class ObserverOverwatcher(OverwatcherModule):
                     show_progress=False,
                 )
 
-            except Exception as err:
+            except Exception:
                 # self.overwatcher.handle_error(err)
                 await self.gort.cleanup(readout=False)
 
