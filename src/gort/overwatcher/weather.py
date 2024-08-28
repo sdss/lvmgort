@@ -142,7 +142,7 @@ class WeatherMonitorTask(OverwatcherModuleTask["WeatherOverwatcher"]):
         if self.state.wind_speed_10 > 50 or self.state.wind_speed_30 > 40:
             new_risk = WeatherRisk.DANGER
 
-        if self.state.rain_intensity_10 > 0 or self.state.lvm_rain_sensor_alarm:
+        if self.state.lvm_rain_sensor_alarm:
             new_risk = WeatherRisk.EXTREME
 
         if self.state.rh_10 > 80:
