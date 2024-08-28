@@ -150,7 +150,7 @@ class Calibration:
 
         cal = self.model
 
-        if not cal.min_start_time and not cal.max_start_time:
+        if cal.min_start_time is None and cal.max_start_time is None:
             return None, None
 
         sunrise = self.ephemeris.sunrise
@@ -161,21 +161,21 @@ class Calibration:
 
         # Convert everything to JD for now.
         if cal.time_mode == "secs_after_sunset":
-            if cal.min_start_time:
+            if cal.min_start_time is not None:
                 min_start_time = sunset + cal.min_start_time / 86400
-            if cal.max_start_time:
+            if cal.max_start_time is not None:
                 max_start_time = sunset + cal.max_start_time / 86400
 
         elif cal.time_mode == "secs_before_sunrise":
-            if cal.min_start_time:
+            if cal.min_start_time is not None:
                 min_start_time = sunrise - cal.min_start_time / 86400
-            if cal.max_start_time:
+            if cal.max_start_time is not None:
                 max_start_time = sunrise - cal.max_start_time / 86400
 
         elif cal.time_mode == "jd":
-            if cal.min_start_time:
+            if cal.min_start_time is not None:
                 min_start_time = cal.min_start_time
-            if cal.max_start_time:
+            if cal.max_start_time is not None:
                 max_start_time = cal.max_start_time
 
         elif cal.time_mode == "utc":
@@ -183,11 +183,11 @@ class Calibration:
             # In this case we want to refer times from the previous midnight.
             base_date = ap_time.Time(self.ephemeris.SJD - 1, format="mjd")
 
-            if cal.min_start_time:
+            if cal.min_start_time is not None:
                 min_time_d = ap_time.TimeDelta(cal.min_start_time * 3600, format="sec")
                 min_start_time = (base_date + min_time_d).jd
 
-            if cal.max_start_time:
+            if cal.max_start_time is not None:
                 max_start_time_c = cal.max_start_time
                 if cal.min_start_time and max_start_time_c < cal.min_start_time:
                     max_start_time_c += 24
@@ -198,10 +198,10 @@ class Calibration:
         min_start_time_unix: float | None = None
         max_start_time_unix: float | None = None
 
-        if min_start_time:
+        if min_start_time is not None:
             min_start_time_unix = ap_time.Time(min_start_time, format="jd").unix
 
-        if max_start_time:
+        if max_start_time is not None:
             max_start_time_unix = ap_time.Time(max_start_time, format="jd").unix
 
         return min_start_time_unix, max_start_time_unix
