@@ -45,8 +45,9 @@ def gort():
     help="Path to the configuration file. Must include a "
     "section called 'actor' or 'overwatcher.actor'.",
 )
+@click.option("--dry-run", is_flag=True, help="Runs the actor in dry-run mode.")
 @cli_coro()
-async def overwatcher(config: str | None = None):
+async def overwatcher(config: str | None = None, dry_run: bool = False):
     """Starts the overwatcher."""
 
     from sdsstools import read_yaml_file
@@ -72,7 +73,7 @@ async def overwatcher(config: str | None = None):
             )
             actor_config = internal_config
 
-    actor = OverwatcherActor.from_config(actor_config)
+    actor = OverwatcherActor.from_config(actor_config, dry_run=dry_run)
     await actor.start()
 
     while True:
