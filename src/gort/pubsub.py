@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 import uuid
@@ -26,6 +27,7 @@ from typing import (
 
 import aio_pika
 from aio_pika.abc import AbstractIncomingMessage
+from aio_pika.exceptions import AMQPConnectionError
 from pydantic import BaseModel, Field
 
 from gort import config
@@ -143,7 +145,7 @@ class BasePubSub:
             await self.connection.close()
 
     async def __aenter__(self):
-        if not self.connection or self.connection.is_closed:
+        if not self.connection or self.connection.is_closed or self.channel.is_closed:
             await self.connect()
 
         return self
@@ -184,15 +186,26 @@ class GortPublisher(BasePubSub):
 
         """
 
+        # Give the event loop a chance to run. This should only matter if the
+        # library is being used in IPython.
+        await asyncio.sleep(0.1)
+
         if not self.channel or not self.exchange or self.channel.is_closed:
             await self.connect()
 
         assert self.exchange, "exchange not defined."
 
-        await self.exchange.publish(
-            aio_pika.Message(body=json.dumps(message).encode()),
-            routing_key=routing_key or config["services.pubsub.routing_key"],
-        )
+        for _ in range(3):
+            try:
+                await self.exchange.publish(
+                    aio_pika.Message(body=json.dumps(message).encode()),
+                    routing_key=routing_key or config["services.pubsub.routing_key"],
+                )
+            except AMQPConnectionError:
+                # Try a reconnect.
+                await self.connect()
+            else:
+                break
 
 
 class GortSubscriber(BasePubSub):
