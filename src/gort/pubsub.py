@@ -188,7 +188,10 @@ class GortPublisher(BasePubSub):
 
         # Give the event loop a chance to run. This should only matter if the
         # library is being used in IPython.
-        await asyncio.sleep(0.1)
+        try:
+            await asyncio.sleep(0.1)
+        except Exception:
+            pass
 
         if not self.channel or not self.exchange or self.channel.is_closed:
             await self.connect()
