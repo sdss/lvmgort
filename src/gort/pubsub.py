@@ -12,6 +12,7 @@ import asyncio
 import json
 import time
 import uuid
+import warnings
 
 from typing import (
     TYPE_CHECKING,
@@ -32,6 +33,7 @@ from pydantic import BaseModel, Field
 
 from gort import config
 from gort.enums import Event
+from gort.exceptions import GortWarning
 
 
 if TYPE_CHECKING:
@@ -145,7 +147,12 @@ class BasePubSub:
             await self.connection.close()
 
     async def __aenter__(self):
-        if not self.connection or self.connection.is_closed or self.channel.is_closed:
+        if (
+            not self.connection
+            or self.connection.is_closed
+            or not self.channel
+            or self.channel.is_closed
+        ):
             await self.connect()
 
         return self
@@ -187,14 +194,15 @@ class GortPublisher(BasePubSub):
         """
 
         # Give the event loop a chance to run. This should only matter if the
-        # library is being used in IPython.
+        # library is being used in IPython, which does run the loop unless there
+        # is a command running.
         try:
             await asyncio.sleep(0.1)
         except Exception:
             pass
-
-        if not self.channel or not self.exchange or self.channel.is_closed:
-            await self.connect()
+        finally:
+            if not self.channel or not self.exchange or self.channel.is_closed:
+                await self.connect()
 
         assert self.exchange, "exchange not defined."
 
@@ -204,10 +212,11 @@ class GortPublisher(BasePubSub):
                     aio_pika.Message(body=json.dumps(message).encode()),
                     routing_key=routing_key or config["services.pubsub.routing_key"],
                 )
+                return
             except AMQPConnectionError:
-                # Try a reconnect.
                 await self.connect()
-            else:
+            except Exception as err:
+                warnings.warn(f"Unexpected error in GortPublisher: {err}", GortWarning)
                 break
 
 
