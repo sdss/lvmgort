@@ -33,7 +33,6 @@ from pydantic import BaseModel, Field
 
 from gort import config
 from gort.enums import Event
-from gort.exceptions import GortWarning
 
 
 if TYPE_CHECKING:
@@ -216,6 +215,8 @@ class GortPublisher(BasePubSub):
             except AMQPConnectionError:
                 await self.connect()
             except Exception as err:
+                from gort.exceptions import GortWarning
+
                 warnings.warn(f"Unexpected error in GortPublisher: {err}", GortWarning)
                 break
 
