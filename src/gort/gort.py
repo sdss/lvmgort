@@ -1002,3 +1002,9 @@ class Gort(GortClient):
             readout=readout,
             turn_lamps_off=turn_lamps_off,
         )
+
+    async def restart_kubernetes_deployments(self, deployment: str):
+        """Restarts a Kubernetes deployment."""
+
+        self.log.warning(f"Restarting deployment {deployment!r}.")
+        await kubernetes_restart_deployment(deployment)
