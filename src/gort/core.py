@@ -171,7 +171,7 @@ class RemoteCommand:
         *args,
         reply_callback: Callable[[AMQPReply], None] | None | Literal[False] = None,
         timeout: float | None = None,
-        __current_retry: int = 1,
+        _current_retry: int = 1,
         **kwargs,
     ):
         """Executes the remote command with some given arguments."""
@@ -207,7 +207,7 @@ class RemoteCommand:
             )
 
         if not cmd.status.did_succeed:
-            if __current_retry == self._n_retries:
+            if _current_retry == self._n_retries:
                 raise RemoteCommandError(
                     f"Actor {actor!r} failed executing command {command_name!r}.",
                     command=cmd,
@@ -225,7 +225,7 @@ class RemoteCommand:
                 *args,
                 reply_callback=reply_callback,
                 timeout=timeout,
-                __current_retry=__current_retry + 1,
+                _current_retry=_current_retry + 1,
                 **kwargs,
             )
 
