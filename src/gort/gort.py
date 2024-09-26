@@ -52,6 +52,7 @@ from gort.tools import (
     kubernetes_list_deployments,
     kubernetes_restart_deployment,
     run_in_executor,
+    set_tile_status,
 )
 
 
@@ -711,17 +712,17 @@ class Gort(GortClient):
                     raise
 
                 if ee.error_code == ErrorCode.ACQUISITION_FAILED:
-                    observer: GortObserver | None = ee.payload.get("observer", None)
-                    if observer is None:
-                        self.log.error('Cannot disable tile: "observer" not found.')
-                        raise
-                    if observer.tile.tile_id is None:
-                        self.log.error('Cannot disable tile without a "tile_id".')
-                        raise
+                    tile_id: int | None = ee.payload.get("tile_id", None)
+                    if tile_id is None:
+                        self.log.error(
+                            'Cannot disable tile without a "tile_id. '
+                            "Continuing observations without disabling tile."
+                        )
+                        continue
 
-                    await observer.tile.disable()
+                    await set_tile_status(tile_id, enabled=False)
                     self.log.warning(
-                        f"tile_id={observer.tile.tile_id} has been disabled. "
+                        f"tile_id={tile_id} has been disabled. "
                         "Continuing observations."
                     )
 
