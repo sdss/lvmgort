@@ -1045,6 +1045,7 @@ async def is_actor_running(actor: str, client: AMQPClient | None = None):
     if not client:
         client = await AMQPClient().start()
 
+    # TODO: this can fail if the event loop has closed the client connection.
     ping = await client.send_command(actor, "ping")
     if ping.status.did_succeed:
         return True

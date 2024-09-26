@@ -51,7 +51,6 @@ from gort.tools import (
     get_temporary_file_path,
     kubernetes_list_deployments,
     kubernetes_restart_deployment,
-    overwatcher_is_running,
     run_in_executor,
 )
 
@@ -665,11 +664,11 @@ class Gort(GortClient):
     async def emergency_close(self):
         """Parks and closes the telescopes."""
 
-        if await overwatcher_is_running(self):
-            self.log.warning(
-                "Overwatcher is running but overriding. However "
-                "be aware that the Overwatcher could reopen the enclosure."
-            )
+        # if await overwatcher_is_running(self):
+        #     self.log.warning(
+        #         "Overwatcher is running but overriding. However "
+        #         "be aware that the Overwatcher could reopen the enclosure."
+        #     )
 
         tasks = []
         tasks.append(self.telescopes.park(disable=True))
@@ -986,11 +985,11 @@ class Gort(GortClient):
     async def shutdown(self, **kwargs):
         """Executes the :obj:`shutdown <.ShutdownRecipe>` sequence."""
 
-        if await overwatcher_is_running(self):
-            raise GortError(
-                "Overwatcher is running. Cannot shutdown. If you really need "
-                "to shutdown, execute Gort.emergency_close()."
-            )
+        # if await overwatcher_is_running(self):
+        #     raise GortError(
+        #         "Overwatcher is running. Cannot shutdown. If you really need "
+        #         "to shutdown, execute Gort.emergency_close()."
+        #     )
 
         return await self.execute_recipe("shutdown", **kwargs)
 
