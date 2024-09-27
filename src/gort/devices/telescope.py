@@ -749,7 +749,7 @@ class Telescope(GortDevice):
         if alt is not None and az is not None and altaz_tracking:
             await self.pwi.commands.setTracking(enable=True)
 
-        if kmirror_task is not None and not kmirror_task.done():
+        if kmirror_task is not None:
             await kmirror_task
 
     async def goto_named_position(
