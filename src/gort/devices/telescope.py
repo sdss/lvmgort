@@ -212,7 +212,7 @@ class Focuser(MoTanDevice):
 
         return await self.run_command("status")
 
-    async def home(self, restore_position: bool = True):
+    async def home(self):
         """Homes the focuser.
 
         Parameters
