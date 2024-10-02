@@ -343,10 +343,11 @@ class CalibrationSchedule:
 
         """
 
-        # First check if any calibration is running. In that case just return None.
+        # First check if any calibration is running. If that's the case,
+        # return it immediately.
         for cal in self.calibrations:
             if cal.state == CalibrationState.RUNNING:
-                return None
+                return cal
 
         overwatcher = self.cals_overwatcher.overwatcher
         open_dome_buffer = overwatcher.config["overwatcher.scheduler.open_dome_buffer"]
@@ -456,6 +457,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
 
         self._failing_cals: dict[str, float] = {}
         self._ignore_cals: set[str] = set()
+        self._running_calibration: str | None = None
 
     async def reset(self, cals_file: str | pathlib.Path | None = None):
         """Resets the list of calibrations for a new SJD.
@@ -477,14 +479,10 @@ class CalibrationsOverwatcher(OverwatcherModule):
         except Exception as ee:
             self.log.error(f"Error updating calibrations schedule: {ee!r}")
 
-    def is_calibration_running(self):
+    def get_running_calibration(self):
         """Returns ``True`` if a calibration is currently running."""
 
-        for cal in self.schedule.calibrations:
-            if cal.state in [CalibrationState.RUNNING, CalibrationState.RETRYING]:
-                return True
-
-        return False
+        return self._running_calibration
 
     async def run_calibration(self, calibration: Calibration):
         """Runs a calibration."""
@@ -505,7 +503,8 @@ class CalibrationsOverwatcher(OverwatcherModule):
             self._ignore_cals.add(name)
             return
 
-        if self.is_calibration_running():
+        running_cal = self.get_running_calibration()
+        if running_cal is not None:
             await self._fail_calibration(
                 calibration,
                 f"Cannot run {name!r}. A calibration is already running!",
@@ -513,13 +512,19 @@ class CalibrationsOverwatcher(OverwatcherModule):
             )
             return
 
+        if calibration.state == CalibrationState.RUNNING:
+            self.log.warning(
+                f"Calibration {name!r} is recorded as running but it is not. "
+                "Setting its status to WAITING."
+            )
+            calibration.record_state(CalibrationState.WAITING)
+
         if not self.overwatcher.state.allow_dome_calibrations:
             await self._fail_calibration(
                 calibration,
                 f"Cannot run {name!r}. Dome calibrations are disabled.",
                 level="error",
             )
-
             return
 
         if name not in self._failing_cals:
