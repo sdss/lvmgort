@@ -632,22 +632,10 @@ class Gort(GortClient):
 
         super().__init__(*args, **kwargs)
 
-        self._observer: GortObserver | None = None
+        self.observer = GortObserver(self)
 
         if verbosity:
             self.set_verbosity(verbosity)
-
-    @property
-    def observer(self) -> GortObserver | None:
-        """Returns the current :ref:`observer <.GortObserver>` instance."""
-
-        return self._observer
-
-    @observer.setter
-    def observer(self, observer: GortObserver | None):
-        """Sets the current :ref:`observer <.GortObserver>` instance."""
-
-        self._observer = observer
 
     async def notify_event(self, event: Event, payload: dict[str, Any] = {}):
         """Emits an event notification."""
@@ -853,9 +841,8 @@ class Gort(GortClient):
         else:
             interrupt_cb = None
 
-        # Create observer.
-        observer = GortObserver(self, tile, on_interrupt=interrupt_cb)
-        self.observer = observer
+        # Reset observer and set the tile.
+        self.observer.reset(tile, on_interrupt=interrupt_cb)
 
         # Run the cleanup routine to be extra sure.
         if run_cleanup:
@@ -875,10 +862,10 @@ class Gort(GortClient):
 
         try:
             # Slew telescopes and move fibsel mask.
-            await observer.slew()
+            await self.observer.slew()
 
             # Start guiding.
-            await observer.acquire(
+            await self.observer.acquire(
                 guide_tolerance=guide_tolerance,
                 timeout=acquisition_timeout,
             )
@@ -889,17 +876,17 @@ class Gort(GortClient):
                 if idither != 0:
                     self.log.info(f"Acquiring dither position #{dpos}")
 
-                    observer.tile.set_dither_position(dpos)
+                    self.observer.tile.set_dither_position(dpos)
 
                     async with GatheringTaskGroup() as group:
-                        group.create_task(observer.set_dither_position(dpos))
-                        group.create_task(observer.standards.reacquire_first())
+                        group.create_task(self.observer.set_dither_position(dpos))
+                        group.create_task(self.observer.standards.reacquire_first())
 
                     # Need to restart the guider monitor so that the new exposure
                     # gets the range of guider frames that correspond to this dither.
                     # GortObserver.expose() doesn't do this because we ask for a single
                     # exposure.
-                    observer.guider_monitor.reset()
+                    self.observer.guider_monitor.reset()
 
                     # Refocus for the new dither position.
                     if adjust_focus:
@@ -911,7 +898,7 @@ class Gort(GortClient):
                 keep_guiding_exp = keep_guiding or idither != len(dither_positions) - 1
 
                 # Exposing
-                exposure = await observer.expose(
+                exposure = await self.observer.expose(
                     exposure_time=exposure_time,
                     show_progress=show_progress,
                     count=n_exposures,
@@ -931,9 +918,7 @@ class Gort(GortClient):
 
         finally:
             # Finish observation.
-            await observer.finish_observation()
-
-            self.observer = None
+            await self.observer.finish_observation()
 
         return exposures
 

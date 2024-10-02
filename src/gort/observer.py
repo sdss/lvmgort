@@ -9,14 +9,16 @@
 from __future__ import annotations
 
 import asyncio
+import enum
 import logging
 import re
 import signal
 from contextlib import contextmanager
 from dataclasses import dataclass
+from functools import wraps
 from time import time
 
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, TypedDict
 
 from astropy.time import Time
 
@@ -71,6 +73,42 @@ interrupt_helper = InterrupHandlerHelper()
 interrupt_signals = [signal.SIGINT, signal.SIGTERM]
 
 
+class StageStatus(enum.StrEnum):
+    """An enumeration of observer stages."""
+
+    WAITING = enum.auto()
+    RUNNING = enum.auto()
+    DONE = enum.auto()
+    FAILED = enum.auto()
+
+
+class StagesDict(TypedDict):
+    """A dictionary of observer stages."""
+
+    slew: StageStatus
+    acquisition: StageStatus
+    expose: StageStatus
+
+
+def register_stage_status(coro: Callable):
+    """Records the status of the stage."""
+
+    @wraps(coro)
+    async def wrapper(self: GortObserver, *args, **kwargs):
+        self.stages[coro.__name__] = StageStatus.RUNNING
+
+        try:
+            result = await coro(self, *args, **kwargs)
+        except Exception:
+            self.stages[coro.__name__] = StageStatus.FAILED
+            raise
+        else:
+            self.stages[coro.__name__] = StageStatus.DONE
+            return result
+
+    return wrapper
+
+
 class GortObserver:
     """A class to handle tile observations.
 
@@ -90,42 +128,85 @@ class GortObserver:
     def __init__(
         self,
         gort: Gort,
-        tile: Tile,
+        tile: Tile | None = None,
         mask_positions_pattern: str = "P1-*",
         on_interrupt: Callable | None = None,
     ):
         self.gort = gort
-        self.tile = tile
+        self._tile = tile
 
         self.mask_positions = self._get_mask_positions(mask_positions_pattern)
 
         self.guide_task: asyncio.Future | None = None
         self.guider_monitor = GuiderMonitor(self.gort)
 
-        self.standards = Standards(self, tile, self.mask_positions)
+        self.standards: Standards | None = None
 
         self._current_exposure: Exposure | None = None
-        self._n_exposures: int = 0
 
         self.overheads: dict[str, dict[str, int | float]] = {}
+
+        self.stages: StagesDict = {
+            "slew": StageStatus.WAITING,
+            "acquisition": StageStatus.WAITING,
+            "expose": StageStatus.WAITING,
+        }
 
         interrupt_helper.set_callback(on_interrupt)
         interrupt_helper.observer = self
 
+    def reset(self, tile: Tile | None = None, on_interrupt: Callable | None = None):
+        """Resets the observer."""
+
+        self._tile = tile
+        self.standards = Standards(self, tile) if tile else None
+
+        self.guide_task = None
+        self.guider_monitor.reset()
+
+        self._current_exposure = None
+        self.overheads = {}
+
+        self.stages: StagesDict = {
+            "slew": StageStatus.WAITING,
+            "acquisition": StageStatus.WAITING,
+            "expose": StageStatus.WAITING,
+        }
+
+        if on_interrupt is not None:
+            interrupt_helper.set_callback(on_interrupt)
+
+    @property
+    def tile(self):
+        """Returns the current tile being observed."""
+
+        if not self._tile:
+            raise GortObserverError("No tile has been set.")
+
+        return self._tile
+
+    def set_tile(self, tile: Tile):
+        """Sets the current tile. Implies reset."""
+
+        self.reset(tile)
+
     def __repr__(self):
-        return f"<GortObserver (tile_id={self.tile.tile_id})>"
+        tile_id = self._tile.tile_id if self._tile else "none"
+        return f"<GortObserver (tile_id={tile_id})>"
 
     @property
     def has_standards(self):
         """Returns :obj:`True` if standards will be observed."""
 
+        if not self.standards:
+            return False
+
         return len(self.standards.standards) > 0
 
     @handle_signals(interrupt_signals, interrupt_helper.run_callback)
+    @register_stage_status
     async def slew(self):
         """Slew to the telescope fields."""
-
-        tile = self.tile
 
         cotasks = []
 
@@ -134,14 +215,18 @@ class GortObserver:
             await self.gort.guiders.stop()
 
         # Slew telescopes.
-        self.write_to_log(f"Slewing to tile_id={tile.tile_id}.", level="info")
+        self.write_to_log(f"Slewing to tile_id={self.tile.tile_id}.", level="info")
 
-        sci = (tile.sci_coords.ra, tile.sci_coords.dec, tile.sci_coords.pa)
-        self.write_to_log(f"Science: {str(tile.sci_coords)}")
+        sci = (
+            self.tile.sci_coords.ra,
+            self.tile.sci_coords.dec,
+            self.tile.sci_coords.pa,
+        )
+        self.write_to_log(f"Science: {str(self.tile.sci_coords)}")
 
         spec = None
-        if tile.spec_coords and len(tile.spec_coords) > 0:
-            first_spec = tile.spec_coords[0]
+        if self.tile.spec_coords and len(self.tile.spec_coords) > 0:
+            first_spec = self.tile.spec_coords[0]
 
             # For spec we slew to the fibre with which we'll observe first.
             # This should save a bit of time converging.
@@ -156,8 +241,8 @@ class GortObserver:
 
         sky = {}
         for skytel in ["SkyE", "SkyW"]:
-            if skytel.lower() in tile.sky_coords:
-                sky_coords_tel = tile.sky_coords[skytel.lower()]
+            if skytel.lower() in self.tile.sky_coords:
+                sky_coords_tel = self.tile.sky_coords[skytel.lower()]
                 if sky_coords_tel is not None:
                     sky[skytel.lower()] = (sky_coords_tel.ra, sky_coords_tel.dec)
                     self.write_to_log(f"{skytel}: {sky_coords_tel}")
@@ -186,6 +271,7 @@ class GortObserver:
             await asyncio.gather(*cotasks)
 
     @handle_signals(interrupt_signals, interrupt_helper.run_callback)
+    @register_stage_status
     async def acquire(
         self,
         guide_tolerance: float | None = None,
@@ -330,6 +416,7 @@ class GortObserver:
         self.write_to_log("All telescopes are now guiding.")
 
     @handle_signals(interrupt_signals, interrupt_helper.run_callback)
+    @register_stage_status
     async def expose(
         self,
         exposure_time: float = 900.0,
@@ -387,6 +474,7 @@ class GortObserver:
             await last_exposure
 
         exposures: list[Exposure] = []
+        _n_exposures = 0
 
         for nexp in range(1, count + 1):
             self.write_to_log(
@@ -396,12 +484,13 @@ class GortObserver:
 
             with self.register_overhead(f"expose:pre-exposure-{nexp}"):
                 # Refresh guider data for this exposure.
-                if self._n_exposures > 0:
+                if _n_exposures > 0:
                     self.guider_monitor.reset()
 
                 # Move fibre selector to the first position. Should be there unless
                 # count > 1 in which case we need to move it back.
-                await self.standards.start_iterating(exposure_time)
+                if self.standards:
+                    await self.standards.start_iterating(exposure_time)
 
                 exposure = Exposure(self.gort, flavour="object", object=object)
                 self._current_exposure = exposure
@@ -437,7 +526,7 @@ class GortObserver:
                 await exposure
 
             exposures.append(exposure)
-            self._n_exposures += 1
+            _n_exposures += 1
 
         if len(exposures) == 1:
             return exposures[0]
@@ -452,7 +541,8 @@ class GortObserver:
 
         with self.register_overhead("finish-observation"):
             # Should have been cancelled in _update_header(), but just in case.
-            await self.standards.cancel()
+            if self.standards is not None:
+                await self.standards.cancel()
 
             if self.guide_task is not None and not self.guide_task.done():
                 await self.gort.guiders.stop()
@@ -497,11 +587,12 @@ class GortObserver:
             return
 
         standards: list[int] = []
-        for stdn, std_data in self.standards.standards.items():
-            if std_data.observed == 1:
-                pk = self.tile.spec_coords[stdn - 1].pk
-                if pk is not None:
-                    standards.append(pk)
+        if self.standards:
+            for stdn, std_data in self.standards.standards.items():
+                if std_data.observed == 1:
+                    pk = self.tile.spec_coords[stdn - 1].pk
+                    if pk is not None:
+                        standards.append(pk)
 
         skies = [sky.pk for sky in self.tile.sky_coords.values() if sky.pk is not None]
 
@@ -656,7 +747,7 @@ class GortObserver:
 
         # At this point the shutter is closed so let's stop observing standards.
         # This also finishes updating the standards table.
-        if self.has_standards:
+        if self.has_standards and self.standards:
             await self.standards.cancel()
 
             # There is some overhead between when we set t0 for the first standard
@@ -704,7 +795,11 @@ class Standard:
 class Standards:
     """Iterates over standards and monitors observed standards."""
 
-    def __init__(self, observer: GortObserver, tile: Tile, mask_positions: list[str]):
+    def __init__(
+        self,
+        observer: GortObserver,
+        tile: Tile,
+    ):
         self.observer = observer
         self.gort = observer.gort
 
