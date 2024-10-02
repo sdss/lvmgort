@@ -178,8 +178,10 @@ class WeatherOverwatcher(OverwatcherModule):
             return
 
         if not self.is_safe():
-            self.log.critical("Unsafe weather conditions. Triggering shutdown.")
-            await self.overwatcher.emergency_shutdown(block=False)
+            await self.overwatcher.emergency_shutdown(
+                block=False,
+                reason="unsafe weather conditions",
+            )
 
     def is_safe(self):
         """Determines whether it is safe to open."""

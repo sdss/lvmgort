@@ -12,6 +12,8 @@ import time
 
 from typing import TYPE_CHECKING, Any
 
+import click
+
 from clu.parsers.click import command_parser as overwatcher_cli
 
 
@@ -52,10 +54,18 @@ async def enable(command: OverwatcherCommand):
 
 
 @overwatcher_cli.command()
-async def disable(command: OverwatcherCommand):
+@click.option("--now", is_flag=True, help="Stops observing immediately.")
+async def disable(command: OverwatcherCommand, now: bool = False):
     """Disables the overwatcher."""
 
     overwatcher = command.actor.overwatcher
+
+    if now:
+        await overwatcher.observer.stop_observing(
+            immediate=True,
+            reason="user disabled observing mode",
+        )
+
     overwatcher.state.enabled = False
 
     return command.finish()

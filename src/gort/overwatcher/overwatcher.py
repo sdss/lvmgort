@@ -33,7 +33,6 @@ class OverwatcherState:
     calibrating: bool = False
     night: bool = False
     safe: bool = False
-    allow_observing: bool = False
     allow_dome_calibrations: bool = True
     dry_run: bool = False
 
@@ -65,11 +64,6 @@ class OverwatcherMainTask(OverwatcherTask):
 
             is_safe = ow.weather.is_safe()
             is_night = ow.ephemeris.is_night()
-
-            if ow.state.enabled and is_safe and is_night:
-                ow.state.allow_observing = True
-            else:
-                ow.state.allow_observing = False
 
             ow.state.night = is_night
             ow.state.safe = is_safe
@@ -172,8 +166,16 @@ class Overwatcher(NotifierMixIn):
     async def emergency_shutdown(self, block: bool = True, reason: str = "undefined"):
         """Shuts down the observatory in case of an emergency."""
 
+        # Check if the dome is already closed, then do nothing.
+        dome_open = await self.gort.enclosure.is_open()
+        if not dome_open:
+            return
+
+        if not reason.endswith("."):
+            reason += "."
+
         await self.notify(
-            f"Triggering emergency shutdown. Reason: {reason}.",
+            f"Triggering emergency shutdown. Reason: {reason}",
             level="warning",
         )
 
