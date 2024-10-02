@@ -814,14 +814,14 @@ async def get_ephemeris_summary(sjd: int | None = None) -> dict:
 
     host = config["services"]["lvmapi"]["host"]
     port = config["services"]["lvmapi"]["port"]
-    url = f"http://{host}:{port}/ephemeris/"
+    url = f"http://{host}:{port}/ephemeris/summary"
 
     sjd = sjd or get_sjd("LCO")
 
     async with httpx.AsyncClient() as client:
         resp = await client.get(url, params={"sjd": sjd})
         if resp.status_code != 200:
-            raise httpx.RequestError("Failed request to /ephemeris")
+            raise httpx.RequestError("Failed request to /ephemeris/summary")
 
     return resp.json()
 
@@ -831,14 +831,14 @@ def get_ephemeris_summary_sync(sjd: int | None = None) -> dict:
 
     host = config["services"]["lvmapi"]["host"]
     port = config["services"]["lvmapi"]["port"]
-    url = f"http://{host}:{port}/ephemeris/"
+    url = f"http://{host}:{port}/ephemeris/summary"
 
     sjd = sjd or get_sjd("LCO")
 
     with httpx.Client() as client:
         resp = client.get(url, params={"sjd": sjd})
         if resp.status_code != 200:
-            raise httpx.RequestError("Failed request to /ephemeris")
+            raise httpx.RequestError("Failed request to /ephemeris/summary")
 
     return resp.json()
 

@@ -29,7 +29,7 @@ Repository = "https://github.com/sdss/lvmgort"
 Documentation = "https://lvmgort.readthedocs.org"
 
 [project.scripts]
-main = "gort.__main__:main"
+gort = "gort.__main__:main"
 
 [project.optional-dependencies]
 docs = [
