@@ -148,7 +148,7 @@ class WeatherMonitorTask(OverwatcherModuleTask["WeatherOverwatcher"]):
         if self.state.rh_10 > 80:
             new_risk = WeatherRisk.DANGER
 
-        self.risk = new_risk
+        self.module.risk = new_risk
 
 
 class WeatherOverwatcher(OverwatcherModule):
