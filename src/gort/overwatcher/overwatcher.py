@@ -74,7 +74,7 @@ class OverwatcherMainTask(OverwatcherTask):
             ow.state.night = is_night
             ow.state.safe = is_safe
             ow.state.observing = ow.observer.status.observing()
-            ow.state.calibrating = ow.calibrations.is_calibration_running()
+            ow.state.calibrating = ow.calibrations.get_running_calibration() is not None
 
 
 class OverwatcherPingTask(OverwatcherTask):
