@@ -105,6 +105,7 @@ class EphemerisOverwatcher(OverwatcherModule):
         now_jd = Time.now().jd
 
         if not ephemeris:
+            self.log.warning("Ephemeris data not available. is_night() returns False.")
             return False
 
         between_twl = ephemeris.twilight_end < now_jd < ephemeris.twilight_start
