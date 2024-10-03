@@ -146,6 +146,7 @@ class OverwatcherModule:
 
     instances = WeakSet()
     name: str = "generic"
+    delay: float = 0
 
     tasks: ClassVar[list[OverwatcherModuleTask]]
 
@@ -173,6 +174,8 @@ class OverwatcherModule:
 
         if self.is_running:
             raise GortError(f"{self.name!r} overwatcher is already running.")
+
+        await asyncio.sleep(self.delay)
 
         self.is_running = True
 

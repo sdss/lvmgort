@@ -146,6 +146,7 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
 
 class ObserverOverwatcher(OverwatcherModule):
     name = "observer"
+    delay = 5
 
     tasks = [ObserverMonitorTask()]
 

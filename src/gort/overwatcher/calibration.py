@@ -440,6 +440,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
     """Calibrations overwatcher module."""
 
     name = "calibration"
+    delay = 3
 
     tasks = [CalibrationsMonitor()]
 

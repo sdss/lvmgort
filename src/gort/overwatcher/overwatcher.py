@@ -15,6 +15,7 @@ import pathlib
 from typing import cast
 
 from sdsstools import Configuration
+from sdsstools.utils import GatheringTaskGroup
 
 from gort.core import LogNamespace
 from gort.exceptions import GortError
@@ -145,12 +146,14 @@ class Overwatcher(NotifierMixIn):
         if not self.gort.is_connected():
             await self.gort.init()
 
-        for module in OverwatcherModule.instances:
-            self.log.info(f"Starting overwatcher module {module.name!r}")
-            await module.run()
+        async with GatheringTaskGroup() as group:
+            for module in OverwatcherModule.instances:
+                self.log.info(f"Starting overwatcher module {module.name!r}")
+                group.create_task(module.run())
 
-        for task in self.tasks:
-            await task.run()
+        async with GatheringTaskGroup() as group:
+            for task in self.tasks:
+                group.create_task(task.run())
 
         self.state.running = True
         await self.notify(
