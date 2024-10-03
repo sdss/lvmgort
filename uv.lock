@@ -745,7 +745,7 @@ requires-dist = [
     { name = "peewee", specifier = ">=3.16.2" },
     { name = "polars", specifier = ">=1.0.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.6" },
-    { name = "pydantic", specifier = ">=2.8.2" },
+    { name = "pydantic", specifier = ">=2.9.2" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=5.2.2" },
     { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.10.0" },
     { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=2.8.1" },
@@ -1740,7 +1740,7 @@ wheels = [
 
 [[package]]
 name = "sphinx-autobuild"
-version = "2024.10.2"
+version = "2024.10.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama" },
@@ -1750,9 +1750,9 @@ dependencies = [
     { name = "watchfiles" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9c/05/a82fa081c5a1f668c3af7dd87a295d71de6bbbdfe4bc0e786f5e19526ec5/sphinx_autobuild-2024.10.2.tar.gz", hash = "sha256:032fffb752ab8d99dfbde055968694da44b03862694f5a703be171362444456b", size = 13975 }
+sdist = { url = "https://files.pythonhosted.org/packages/a5/2c/155e1de2c1ba96a72e5dba152c509a8b41e047ee5c2def9e9f0d812f8be7/sphinx_autobuild-2024.10.3.tar.gz", hash = "sha256:248150f8f333e825107b6d4b86113ab28fa51750e5f9ae63b59dc339be951fb1", size = 14023 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8e/b9/3f6f320f3867b33bbf41cc7849a1f39ba0e447800b85796ffbf1e1522881/sphinx_autobuild-2024.10.2-py3-none-any.whl", hash = "sha256:8a3c4f19d4e0ba5995c23c973ad0538e7dc284f1918b85d919e73cd821a15223", size = 11881 },
+    { url = "https://files.pythonhosted.org/packages/18/c0/eba125db38c84d3c74717008fd3cb5000b68cd7e2cbafd1349c6a38c3d3b/sphinx_autobuild-2024.10.3-py3-none-any.whl", hash = "sha256:158e16c36f9d633e613c9aaf81c19b0fc458ca78b112533b20dafcda430d60fa", size = 11908 },
 ]
 
 [[package]]

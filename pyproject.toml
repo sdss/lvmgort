@@ -20,7 +20,7 @@ dependencies = [
     "rich>=13.4.2",
     "polars>=1.0.0",
     "redis[hiredis]>=5.0.3",
-    "pydantic>=2.8.2"
+    "pydantic>=2.9.2",
 ]
 
 [project.urls]
