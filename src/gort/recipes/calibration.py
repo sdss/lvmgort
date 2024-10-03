@@ -15,7 +15,6 @@ import numpy
 from astropy.time import Time
 
 from gort.enums import ErrorCode, Event
-from gort.pubsub import notify_event
 from gort.tools import get_ephemeris_summary
 
 from .base import BaseRecipe
@@ -268,7 +267,7 @@ class TwilightFlats(BaseRecipe):
                     "Error taking twilight flat exposure. Will ignore since we "
                     f"are on a schedule here. Error is: {err}"
                 )
-                await notify_event(
+                await gort.notify_event(
                     Event.ERROR,
                     payload={
                         "error": str(err),
