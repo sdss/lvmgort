@@ -37,11 +37,6 @@ class ObserverStatus(enum.Flag):
     ENABLED = 1 << 3
     WEATHER_SAFE = 1 << 4
 
-    def cancel(self):
-        """Marks the status as cancelling."""
-
-        self |= ObserverStatus.CANCELLING
-
     def observing(self) -> bool:
         return bool(self & ObserverStatus.OBSERVING)
 
@@ -122,7 +117,7 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
         ):
             new_status |= ObserverStatus.OBSERVING
 
-        if new_status & ObserverStatus.OBSERVING and self.status.cancelling():
+        if new_status.observing() and self.status.cancelling():
             new_status |= ObserverStatus.CANCELLING
 
         if self.overwatcher.ephemeris.is_night():
@@ -203,7 +198,8 @@ class ObserverOverwatcher(OverwatcherModule):
             await self.overwatcher.notify(
                 f"Stopping observations after this tile: {reason}"
             )
-            self.status.cancel()
+            self.status |= ObserverStatus.CANCELLING
+            self.gort.observer.cancelling = True
 
         if block and self.observe_loop and not self.observe_loop.done():
             await self.observe_loop

@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import asyncio
-import enum
 import logging
 import re
 import signal
@@ -22,8 +21,8 @@ from typing import TYPE_CHECKING, Any, Callable, TypedDict
 
 from astropy.time import Time
 
-from gort.enums import Event, GuiderStatus
-from gort.exceptions import ErrorCode, GortObserverError
+from gort.enums import Event, GuiderStatus, ObserverStageStatus
+from gort.exceptions import ErrorCode, GortObserverCancelledError, GortObserverError
 from gort.exposure import Exposure
 from gort.tile import Coordinates
 from gort.tools import (
@@ -73,38 +72,49 @@ interrupt_helper = InterrupHandlerHelper()
 interrupt_signals = [signal.SIGINT, signal.SIGTERM]
 
 
-class StageStatus(enum.StrEnum):
-    """An enumeration of observer stages."""
-
-    WAITING = enum.auto()
-    RUNNING = enum.auto()
-    DONE = enum.auto()
-    FAILED = enum.auto()
-
-
 class StagesDict(TypedDict):
     """A dictionary of observer stages."""
 
-    slew: StageStatus
-    acquisition: StageStatus
-    expose: StageStatus
+    slew: ObserverStageStatus
+    acquisition: ObserverStageStatus
+    expose: ObserverStageStatus
 
 
-def register_stage_status(coro: Callable):
+def register_stage_status(coro):
     """Records the status of the stage."""
 
     @wraps(coro)
-    async def wrapper(self: GortObserver, *args, **kwargs):
-        self.stages[coro.__name__] = StageStatus.RUNNING
+    async def wrapper(*args, **kwargs):
+        self: GortObserver = args[0]
+        stage = coro.__name__
+
+        tile = self._tile
+        tile_id = tile.tile_id if tile else None
+        dither_position = self.dither_position if tile else None
+
+        payload = {
+            "tile_id": tile_id,
+            "dither_position": dither_position,
+            "stage": stage,
+        }
+
+        if self.cancelling:
+            raise GortObserverCancelledError()
+
+        self.stages[stage] = ObserverStageStatus.RUNNING
+        await self.gort.notify_event(Event.OBSERVER_STAGE_RUNNING, payload=payload)
 
         try:
-            result = await coro(self, *args, **kwargs)
+            result = await coro(*args, **kwargs)
         except Exception:
-            self.stages[coro.__name__] = StageStatus.FAILED
+            self.stages[stage] = ObserverStageStatus.FAILED
+            await self.gort.notify_event(Event.OBSERVER_STAGE_FAILED, payload=payload)
             raise
-        else:
-            self.stages[coro.__name__] = StageStatus.DONE
-            return result
+
+        self.stages[stage] = ObserverStageStatus.DONE
+        await self.gort.notify_event(Event.OBSERVER_STAGE_DONE, payload=payload)
+
+        return result
 
     return wrapper
 
@@ -142,15 +152,18 @@ class GortObserver:
 
         self.standards: Standards | None = None
 
+        self.dither_position: int = 0
         self._current_exposure: Exposure | None = None
 
         self.overheads: dict[str, dict[str, int | float]] = {}
 
         self.stages: StagesDict = {
-            "slew": StageStatus.WAITING,
-            "acquisition": StageStatus.WAITING,
-            "expose": StageStatus.WAITING,
+            "slew": ObserverStageStatus.WAITING,
+            "acquisition": ObserverStageStatus.WAITING,
+            "expose": ObserverStageStatus.WAITING,
         }
+
+        self.cancelling: bool = False
 
         interrupt_helper.set_callback(on_interrupt)
         interrupt_helper.observer = self
@@ -160,6 +173,7 @@ class GortObserver:
 
         self._tile = tile
         self.standards = Standards(self, tile) if tile else None
+        self.dither_position = 0
 
         self.guide_task = None
         self.guider_monitor.reset()
@@ -167,10 +181,12 @@ class GortObserver:
         self._current_exposure = None
         self.overheads = {}
 
+        self.cancelling = False
+
         self.stages: StagesDict = {
-            "slew": StageStatus.WAITING,
-            "acquisition": StageStatus.WAITING,
-            "expose": StageStatus.WAITING,
+            "slew": ObserverStageStatus.WAITING,
+            "acquisition": ObserverStageStatus.WAITING,
+            "expose": ObserverStageStatus.WAITING,
         }
 
         if on_interrupt is not None:
@@ -189,6 +205,15 @@ class GortObserver:
         """Sets the current tile. Implies reset."""
 
         self.reset(tile)
+
+    def get_running_stage(self):
+        """Returns the running stage."""
+
+        for stage, status in self.stages.items():
+            if status == ObserverStageStatus.RUNNING:
+                return stage
+
+        return None
 
     def __repr__(self):
         tile_id = self._tile.tile_id if self._tile else "none"
@@ -472,6 +497,10 @@ class GortObserver:
         if last_exposure is not None and not last_exposure.done():
             self.write_to_log("Waiting for previous exposure to read out.", "warning")
             await last_exposure
+
+        # Last chance to bail out before the exposure.
+        if self.cancelling:
+            raise GortObserverCancelledError()
 
         exposures: list[Exposure] = []
         _n_exposures = 0

@@ -42,7 +42,7 @@ from sdsstools.utils import GatheringTaskGroup
 from gort import config
 from gort.core import RemoteActor
 from gort.enums import Event
-from gort.exceptions import ErrorCode, GortError
+from gort.exceptions import ErrorCode, GortError, GortObserverCancelledError
 from gort.observer import GortObserver
 from gort.pubsub import notify_event
 from gort.recipes import recipes as recipe_to_class
@@ -860,6 +860,11 @@ class Gort(GortClient):
 
         exposures: list[Exposure] = []
 
+        await self.notify_event(
+            Event.OBSERVER_NEW_TILE,
+            payload={"tile_id": tile.tile_id, "dither_position": dither_positions[0]},
+        )
+
         try:
             # Slew telescopes and move fibsel mask.
             await self.observer.slew()
@@ -876,11 +881,17 @@ class Gort(GortClient):
                 if idither != 0:
                     self.log.info(f"Acquiring dither position #{dpos}")
 
+                    await self.notify_event(
+                        Event.OBSERVER_NEW_TILE,
+                        payload={"tile_id": tile.tile_id, "dither_position": dpos},
+                    )
+
                     self.observer.tile.set_dither_position(dpos)
 
                     async with GatheringTaskGroup() as group:
                         group.create_task(self.observer.set_dither_position(dpos))
-                        group.create_task(self.observer.standards.reacquire_first())
+                        if self.observer.standards:
+                            group.create_task(self.observer.standards.reacquire_first())
 
                     # Need to restart the guider monitor so that the new exposure
                     # gets the range of guider frames that correspond to this dither.
@@ -912,9 +923,23 @@ class Gort(GortClient):
                 else:
                     exposures.append(exposure)
 
+                if self.observer.cancelling:
+                    self.log.warning("Reading exposure before cancelling.")
+
+                    if isinstance(exposure, list):
+                        await asyncio.gather(*exposure)
+                    else:
+                        await exposure
+
+                    raise GortObserverCancelledError()
+
+        except GortObserverCancelledError:
+            self.log.warning("Observation cancelled.")
+            return exposures
+
         except KeyboardInterrupt:
             self.log.warning("Observation interrupted by user.")
-            return False
+            return exposures
 
         finally:
             # Finish observation.

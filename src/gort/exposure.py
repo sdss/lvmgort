@@ -225,7 +225,7 @@ class Exposure(asyncio.Future["Exposure"]):
 
         self._exposure_time = exposure_time or 0.0
 
-        log_msg = f"Taking spectrograph exposure {self.exp_no} "
+        log_msg = f"Starting integration on spectrograph exposure {self.exp_no} "
         if self.flavour == "bias":
             log_msg += f"({self.flavour})."
         else:
@@ -253,6 +253,7 @@ class Exposure(asyncio.Future["Exposure"]):
 
             # At this point we have integrated and are ready to read.
             self.reading = True
+            log(f"Reading spectrograph exposure {self.exp_no} ...", "info")
             readout_task = asyncio.create_task(
                 self.specs.send_command_all(
                     "read",
@@ -271,7 +272,6 @@ class Exposure(asyncio.Future["Exposure"]):
             if not async_readout:
                 await readout_task
                 await monitor_task
-                log(f"Exposure {self.exp_no} completed.")
             else:
                 self.stop_timer()
 
@@ -391,9 +391,9 @@ class Exposure(asyncio.Future["Exposure"]):
                     await asyncio.sleep(3)
                     continue
 
-                raise RuntimeError(
-                    f"Expected {n_files_expected} files but found {n_files_found}. "
-                    "Verification failed."
+                self.specs.write_to_log(
+                    f"Expected {n_files_expected} files but found {n_files_found}."
+                    "warning"
                 )
 
         for file in files:
@@ -438,6 +438,8 @@ class Exposure(asyncio.Future["Exposure"]):
     async def _done_monitor(self):
         """Waits until the spectrographs are idle, and marks the Future done."""
 
+        log = self.specs.write_to_log
+
         await self.specs.send_command_all("wait_until_idle", allow_errored=True)
 
         self.reading = False
@@ -447,6 +449,8 @@ class Exposure(asyncio.Future["Exposure"]):
             if "ERROR" in reply["status_names"]:
                 self.error = True
 
+        log(f"Spectrograph exposure {self.exp_no} has completed.", "info")
+
         files = await self.verify_files()
         exposure_table = self.gort.config["services.database.tables.exposures"]
 
@@ -454,12 +458,12 @@ class Exposure(asyncio.Future["Exposure"]):
             async with asyncio.timeout(10):
                 await self.write_to_db(files, exposure_table)
         except asyncio.TimeoutError:
-            self.specs.write_to_log(
+            log(
                 "Timeout writing to database. Data may not have been recorded.",
                 "warning",
             )
         except Exception as err:
-            self.specs.write_to_log(
+            log(
                 f"Error writing to database: {err!r}. Data may not have been recorded.",
                 "warning",
             )

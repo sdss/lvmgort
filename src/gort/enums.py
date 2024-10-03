@@ -11,7 +11,7 @@ from __future__ import annotations
 from enum import Enum, Flag, ReprEnum, auto
 
 
-__all__ = ["ErrorCode", "GuiderStatus", "Event"]
+__all__ = ["ErrorCode", "GuiderStatus", "Event", "ObserverStageStatus"]
 
 
 class ErrorCode(Enum):
@@ -99,9 +99,21 @@ class Event(UpperStrEnum):
     RECIPE_START = auto()
     RECIPE_END = auto()
     RECIPE_FAILED = auto()
+    OBSERVER_NEW_TILE = auto()
     OBSERVER_STAGE_RUNNING = auto()
     OBSERVER_STAGE_DONE = auto()
+    OBSERVER_STAGE_FAILED = auto()
     OBSERVER_ACQUISITION_START = auto()
     OBSERVER_ACQUISITION_DONE = auto()
     OBSERVER_STANDARD_ACQUISITION_FAILED = auto()
     UNCATEGORISED = auto()
+
+
+class ObserverStageStatus(UpperStrEnum):
+    """An enumeration of observer stages."""
+
+    WAITING = auto()
+    RUNNING = auto()
+    DONE = auto()
+    FAILED = auto()
+    CANCELLED = auto()

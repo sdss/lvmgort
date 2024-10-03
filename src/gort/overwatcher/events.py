@@ -60,6 +60,15 @@ class MonitorEvents(OverwatcherModuleTask["EventsOverwatcher"]):
         except Exception as ee:
             self.log.error(f"Failed to write event {event_name} to the database: {ee}")
 
+        if event == Event.OBSERVER_NEW_TILE:
+            tile_id = payload.get("tile_id", None)
+            dither_position = payload.get("dither_position", 0)
+            if tile_id is not None:
+                await self.overwatcher.notify(
+                    f"Observing tile {tile_id} on dither "
+                    f"position #{dither_position}."
+                )
+
     def write_to_db(self, event: Event, payload: dict):
         """Writes the event to the database."""
 

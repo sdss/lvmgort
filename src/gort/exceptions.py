@@ -31,19 +31,23 @@ class GortError(Exception):
     """A custom core GortError exception."""
 
     DEFAULT_ERROR_CODE: ClassVar[ErrorCode] = ErrorCode.UNCATEGORISED_ERROR
+    EMIT_EVENT: ClassVar[bool] = True
 
     def __init__(
         self,
         message: str | None = None,
         error_code: int | ErrorCode | None = None,
         payload: dict = {},
-        emit_event: bool = True,
+        emit_event: bool | None = None,
     ):
         try:
             self.error_code = ErrorCode(error_code or self.DEFAULT_ERROR_CODE)
         except ValueError:
             self.error_code = ErrorCode.UNKNOWN_ERROR
             error_code = self.error_code.value
+
+        if emit_event is None:
+            emit_event = self.EMIT_EVENT
 
         self.payload = payload
 
@@ -193,6 +197,14 @@ class GortObserverError(GortError):
     """An error associated with the `.Observer`."""
 
     DEFAULT_ERROR_CODE = ErrorCode.OBSERVER_ERROR
+
+
+class GortObserverCancelledError(GortObserverError):
+    """An error issued when the observer is cancelled."""
+
+    EMIT_EVENT = False  # Only used to trigger a cancellation of the observing loop.
+
+    pass
 
 
 class GortWarning(Warning):
