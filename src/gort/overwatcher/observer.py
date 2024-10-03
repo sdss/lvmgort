@@ -173,7 +173,7 @@ class ObserverOverwatcher(OverwatcherModule):
         if not (await self.gort.enclosure.is_open()):
             # TODO: this should be an overwatcher function with exception wrapping.
             self.log.info("Opening the dome.")
-            await self.gort.startup(confirm_open=False)
+            await self.gort.startup(confirm_open=False, focus=False)
 
         self.observe_loop = asyncio.create_task(self.observe_loop_task())
         self.status |= ObserverStatus.OBSERVING
@@ -212,8 +212,18 @@ class ObserverOverwatcher(OverwatcherModule):
 
         await self.gort.cleanup(readout=True)
 
+        n_tile = 0
+
         while True:
             # TODO: add some checks here.
+
+            focus_info = await self.gort.guiders.sci.get_focus_info()
+            focus_age = focus_info["reference_focus"]["age"]
+
+            # Focus when the loop starts or every 1 hour.
+            if n_tile == 0 or focus_age > 3600.0:
+                await self.overwatcher.notify("Focusing telescope.")
+                await self.gort.guiders.focus()
 
             exp: Exposure | list[Exposure] | bool = False
             try:
@@ -224,6 +234,8 @@ class ObserverOverwatcher(OverwatcherModule):
                     cleanup_on_interrupt=False,
                     show_progress=False,
                 )
+
+                n_tile += 1
 
             except asyncio.CancelledError:
                 break
