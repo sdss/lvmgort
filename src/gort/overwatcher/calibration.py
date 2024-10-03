@@ -574,18 +574,20 @@ class CalibrationsOverwatcher(OverwatcherModule):
                     return
 
                 if dome == "open" and not dome_current:
-                    await notify("Opening the dome for calibration.")
+                    await notify(f"Opening the dome for calibration {name!r}.")
                     await self.overwatcher.gort.enclosure.open()
                 elif dome == "closed" and dome_current:
-                    await notify("Closing the dome for calibration.")
+                    await notify(f"Closing the dome for calibration {name!r}.")
                     await self.overwatcher.gort.enclosure.close()
 
         await notify(f"Running recipe {recipe!r} for calibration {name!r}.")
-        await self.overwatcher.gort.execute_recipe(recipe)
 
-        if close_dome_after:
-            await notify(f"Closing the dome after calibration {name!r}.")
-            await self.overwatcher.gort.enclosure.close()
+        try:
+            await self.overwatcher.gort.execute_recipe(recipe)
+        finally:
+            if close_dome_after:
+                await notify(f"Closing the dome after calibration {name!r}.")
+                await self.overwatcher.gort.enclosure.close()
 
         await notify(f"Calibration {name!r} is done.")
 
