@@ -54,6 +54,7 @@ from gort.tools import (
     run_in_executor,
     set_tile_status,
 )
+from gort.transforms import wrap_pa_hex
 
 
 if TYPE_CHECKING:
@@ -850,6 +851,12 @@ class Gort(GortClient):
 
         if adjust_focus:
             await self.guiders.adjust_focus()
+
+        # Wrap the PA to the range -30 to 30.
+        new_pa = wrap_pa_hex(tile.sci_coords.pa)
+        if new_pa != tile.sci_coords.pa:
+            self.log.debug(f"Wrapping sci PA from {tile.sci_coords.pa} to {new_pa}.")
+            tile.sci_coords.pa = new_pa
 
         if tile.tile_id is not None:
             dither_positions_str = ", ".join(map(str, dither_positions))
