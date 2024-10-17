@@ -687,7 +687,7 @@ class Gort(GortClient):
         n_completed = 0
         while True:
             try:
-                result = await self.observe_tile(
+                result, _ = await self.observe_tile(
                     run_cleanup=False,
                     cleanup_on_interrupt=True,
                     adjust_focus=adjust_focus,
@@ -942,17 +942,17 @@ class Gort(GortClient):
 
         except GortObserverCancelledError:
             self.log.warning("Observation cancelled.")
-            return exposures
+            return (False, exposures)
 
         except KeyboardInterrupt:
             self.log.warning("Observation interrupted by user.")
-            return exposures
+            return (False, exposures)
 
         finally:
             # Finish observation.
             await self.observer.finish_observation()
 
-        return exposures
+        return (True, exposures)
 
     async def run_script(self, script: str):
         """Runs a script."""

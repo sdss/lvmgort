@@ -226,7 +226,7 @@ class ObserverOverwatcher(OverwatcherModule):
             try:
                 # The exposure will complete in 900 seconds + acquisition + readout
                 self.next_exposure_completes = time() + 90 + 900 + 60
-                exp = await self.gort.observe_tile(
+                _, exp = await self.gort.observe_tile(
                     run_cleanup=False,
                     cleanup_on_interrupt=False,
                     show_progress=False,
