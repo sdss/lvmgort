@@ -18,21 +18,33 @@ import pathlib
 import re
 import tempfile
 import warnings
-from contextlib import suppress
-from functools import partial
+from contextlib import asynccontextmanager, contextmanager, suppress
+from functools import partial, wraps
 
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, Sequence
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncGenerator,
+    Callable,
+    Coroutine,
+    Generator,
+    Sequence,
+)
 
 import httpx
 import numpy
 import peewee
 import polars
+import redis
 from astropy import units as uu
 from astropy.coordinates import angular_separation as astropy_angular_separation
+from redis import asyncio as aioredis
 
+from clu import AMQPClient
 from sdsstools import get_sjd
 
 from gort import config
+from gort.exceptions import ErrorCode, GortError
 
 
 if TYPE_CHECKING:
@@ -58,10 +70,14 @@ __all__ = [
     "move_mask_interval",
     "angular_separation",
     "get_db_connection",
+    "redis_client_async",
+    "redis_client_sync",
     "run_in_executor",
     "is_interactive",
     "is_notebook",
     "cancel_task",
+    "get_ephemeris_summary",
+    "get_ephemeris_summary_sync",
     "get_temporary_file_path",
     "insert_to_database",
     "get_md5sum_file",
@@ -69,7 +85,14 @@ __all__ = [
     "get_md5sum",
     "mark_exposure_bad",
     "handle_signals",
+    "get_lvmapi_route",
     "GuiderMonitor",
+    "overwatcher_is_running",
+    "get_by_source_id",
+    "is_actor_running",
+    "check_overwatcher_not_running",
+    "kubernetes_restart_deployment",
+    "kubernetes_list_deployments",
 ]
 
 AnyPath = str | os.PathLike
@@ -221,7 +244,7 @@ def parse_agcam_filename(file_: str | pathlib.Path):
 def get_next_tile_id_sync() -> dict:
     """Retrieves the next ``tile_id`` from the scheduler API. Synchronous version."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -237,7 +260,7 @@ def get_next_tile_id_sync() -> dict:
 async def get_next_tile_id() -> dict:
     """Retrieves the next ``tile_id`` from the scheduler API."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -257,7 +280,7 @@ def get_calibrators_sync(
 ) -> dict:
     """Get calibrators for a ``tile_id`` or science pointing. Synchronous version."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -281,7 +304,7 @@ async def get_calibrators(
 ):
     """Get calibrators for a ``tile_id`` or science pointing."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -301,7 +324,7 @@ async def get_calibrators(
 async def register_observation(payload: dict):
     """Registers an observation with the scheduler."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -344,7 +367,7 @@ def mark_exposure_bad(tile_id: int, dither_position: int = 0):
 async def set_tile_status(tile_id: int, enabled: bool = True):
     """Enables/disables a tile in the database."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -546,10 +569,34 @@ def angular_separation(lon1: float, lat1: float, lon2: float, lat2: float):
 def get_db_connection():
     """Returns a DB connection from the configuration file parameters."""
 
-    conn = peewee.PostgresqlDatabase(**config["database"]["connection"])
+    conn = peewee.PostgresqlDatabase(**config["services"]["database"]["connection"])
     assert conn.connect(), "Database connection failed."
 
     return conn
+
+
+@asynccontextmanager
+async def redis_client_async() -> AsyncGenerator[aioredis.Redis, None]:
+    """Returns a Redis connection from the configuration file parameters."""
+
+    redis_config = config["services"]["redis"]
+    client = aioredis.from_url(redis_config["url"], decode_responses=True)
+
+    yield client
+
+    await client.aclose()
+
+
+@contextmanager
+def redis_client_sync() -> Generator[redis.Redis, None]:
+    """Returns a Redis connection from the configuration file parameters."""
+
+    redis_config = config["services"]["redis"]
+    client = redis.from_url(redis_config["url"], decode_responses=True)
+
+    yield client
+
+    client.close()
 
 
 async def run_in_executor(fn, *args, catch_warnings=False, executor="thread", **kwargs):
@@ -762,21 +809,57 @@ def get_by_source_id(source_id: int) -> dict | None:
     return data[0]
 
 
-async def get_ephemeris_summary(sjd: int | None = None):
+async def get_ephemeris_summary(sjd: int | None = None) -> dict:
     """Returns the ephemeris summary from ``lvmapi``."""
 
-    host = config["lvmapi"]["host"]
-    port = config["lvmapi"]["port"]
-    url = f"http://{host}:{port}/ephemeris/"
+    host = config["services"]["lvmapi"]["host"]
+    port = config["services"]["lvmapi"]["port"]
+    url = f"http://{host}:{port}/ephemeris/summary"
 
     sjd = sjd or get_sjd("LCO")
 
     async with httpx.AsyncClient() as client:
         resp = await client.get(url, params={"sjd": sjd})
         if resp.status_code != 200:
-            raise httpx.RequestError("Failed request to /ephemeris")
+            raise httpx.RequestError("Failed request to /ephemeris/summary")
 
     return resp.json()
+
+
+def get_ephemeris_summary_sync(sjd: int | None = None) -> dict:
+    """Returns the ephemeris summary from ``lvmapi``."""
+
+    host = config["services"]["lvmapi"]["host"]
+    port = config["services"]["lvmapi"]["port"]
+    url = f"http://{host}:{port}/ephemeris/summary"
+
+    sjd = sjd or get_sjd("LCO")
+
+    with httpx.Client() as client:
+        resp = client.get(url, params={"sjd": sjd})
+        if resp.status_code != 200:
+            raise httpx.RequestError("Failed request to /ephemeris/summary")
+
+    return resp.json()
+
+
+async def get_lvmapi_route(route: str, params: dict = {}, **kwargs):
+    """Gets an ``lvmapi`` route."""
+
+    params.update(kwargs)
+
+    host, port = config["services"]["lvmapi"].values()
+
+    async with httpx.AsyncClient(
+        base_url=f"http://{host}:{port}",
+        follow_redirects=True,
+    ) as client:
+        response = await client.get(route, params=params)
+
+        if response.status_code != 200:
+            raise ValueError(f"Route {route} failed with error {response.status_code}.")
+
+    return response.json()
 
 
 class GuiderMonitor:
@@ -950,3 +1033,55 @@ class GuiderMonitor:
                     continue
 
         return header
+
+
+async def is_actor_running(actor: str, client: AMQPClient | None = None):
+    """Returns :obj:`True` if the actor is running.
+
+    This assumes that the actor implements a `ping` command.
+
+    """
+
+    if not client:
+        client = await AMQPClient().start()
+
+    # TODO: this can fail if the event loop has closed the client connection.
+    ping = await client.send_command(actor, "ping")
+    if ping.status.did_succeed:
+        return True
+
+    return False
+
+
+async def overwatcher_is_running(client: AMQPClient | None = None):
+    """Returns :obj:`True` if the overwatcher is running."""
+
+    overwatcher_actor_name = config["overwatcher"]["actor"]["name"]
+    return await is_actor_running(overwatcher_actor_name, client=client)
+
+
+def check_overwatcher_not_running(coro):
+    """Decorator that fails a coroutine if the overwatcher is running."""
+
+    @wraps(coro)
+    async def wrapper(*args, **kwargs):
+        if await overwatcher_is_running():
+            raise GortError(
+                f"Overwatcher is running. Cannot execute {coro.__name__}.",
+                ErrorCode.OVERATCHER_RUNNING,
+            )
+        return await coro(*args, **kwargs)
+
+    return wrapper
+
+
+async def kubernetes_list_deployments():
+    """Retrieves the Kubernetes deployments from the API."""
+
+    return await get_lvmapi_route("/kubernetes/deployments/list")
+
+
+async def kubernetes_restart_deployment(name: str):
+    """Restarts a Kubernetes deployment via the API."""
+
+    return await get_lvmapi_route(f"/kubernetes/deployments/{name}/restart")

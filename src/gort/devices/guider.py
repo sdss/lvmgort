@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 import asyncio
-import datetime
+from datetime import UTC, datetime, timedelta
 from functools import partial
 
 from typing import TYPE_CHECKING
@@ -18,15 +18,16 @@ import polars
 from packaging.version import Version
 
 from gort import config
-from gort.exceptions import ErrorCodes, GortError, GortGuiderError
+from gort.enums import GuiderStatus
+from gort.exceptions import ErrorCode, GortError, GortGuiderError
 from gort.gort import GortDevice, GortDeviceSet
-from gort.maskbits import GuiderStatus
 from gort.tools import GuiderMonitor, cancel_task
 
 
 if TYPE_CHECKING:
     from clu import AMQPReply
 
+    from gort.core import ActorReply
     from gort.gort import GortClient
 
 
@@ -271,7 +272,7 @@ class Guider(GortDevice):
         if self.status & GuiderStatus.NON_IDLE:
             raise GortGuiderError(
                 "Guider is not IDLE",
-                error_code=ErrorCodes.COMMAND_FAILED,
+                error_code=ErrorCode.COMMAND_FAILED,
             )
 
         if ra is None or dec is None:
@@ -285,7 +286,10 @@ class Guider(GortDevice):
         config = self.gort.config
         if isinstance(pixel, str):
             if pixel not in config["guiders"]["devices"][self.name]["named_pixels"]:
-                raise GortGuiderError(f"Invalid pixel name {pixel!r}.", error_code=610)
+                raise GortGuiderError(
+                    f"Invalid pixel name {pixel!r}.",
+                    error_code=ErrorCode.INVALID_PIXEL_NAME,
+                )
             pixel = config["guiders"]["devices"][self.name]["named_pixels"][pixel]
 
         log_msg = f"Guiding at RA={ra:.6f}, Dec={dec:.6f}"
@@ -349,8 +353,8 @@ class Guider(GortDevice):
                 # Remove NaN rows.
                 df = df.drop_nulls()
 
-                now = datetime.datetime.now(datetime.timezone.utc)
-                time_range = now - datetime.timedelta(seconds=timeout)
+                now = datetime.now(UTC)
+                time_range = now - timedelta(seconds=timeout)
                 time_data = df.filter(polars.col.time > time_range).sort("time")
 
                 if (
@@ -418,7 +422,10 @@ class Guider(GortDevice):
         config = self.gort.config
         if isinstance(pixel, str):
             if pixel not in config["guiders"]["devices"][self.name]["named_pixels"]:
-                raise GortGuiderError(f"Invalid pixel name {pixel!r}.", error_code=610)
+                raise GortGuiderError(
+                    f"Invalid pixel name {pixel!r}.",
+                    error_code=ErrorCode.INVALID_PIXEL_NAME,
+                )
             pixel = config["guiders"]["devices"][self.name]["named_pixels"][pixel]
 
         if pixel is None:
@@ -488,6 +495,36 @@ class Guider(GortDevice):
             exposure_time=exposure_time,
             sleep=sleep,
         )
+
+    async def get_focus_info(self):
+        """Returns the guider focus information."""
+
+        info_reply: ActorReply = await self.actor.commands.focus_info()
+        info = info_reply.flatten()
+
+        for key in ["reference_focus", "current_focus"]:
+            focus_ts = info[key]["timestamp"]
+
+            if focus_ts is None:
+                continue
+
+            time = focus_ts.split("T")[1]
+            if not focus_ts.endswith("Z") and "+" not in time and "-" not in time:
+                focus_ts += "Z"
+
+            info[key]["timestamp"] = datetime.fromisoformat(focus_ts)
+
+        now = info["current_focus"]["timestamp"]
+        ref_ts = info["reference_focus"]["timestamp"]
+
+        if now is not None and ref_ts is not None:
+            age = (now - ref_ts).total_seconds()
+        else:
+            age = None
+
+        info["reference_focus"]["age"] = age
+
+        return info
 
 
 class GuiderSet(GortDeviceSet[Guider]):

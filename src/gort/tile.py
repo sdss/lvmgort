@@ -19,7 +19,7 @@ from httpx import RequestError
 
 from gort import config
 from gort.exceptions import (
-    ErrorCodes,
+    ErrorCode,
     GortError,
     GortNotImplemented,
     GortWarning,
@@ -541,7 +541,7 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
             except RequestError:
                 raise TileError(
                     "Cannot retrieve tile_id from scheduler.",
-                    error_code=ErrorCodes.SCHEDULER_CANNOT_FIND_TILE,
+                    error_code=ErrorCode.SCHEDULER_CANNOT_FIND_TILE,
                 )
 
             tile_id = tile_id_data["tile_id"]
@@ -551,7 +551,7 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
             if tile_id is None or tile_id < 0:
                 raise GortError(
                     "The scheduler could not find a valid tile to observe.",
-                    error_code=ErrorCodes.SCHEDULER_CANNOT_FIND_TILE,
+                    error_code=ErrorCode.SCHEDULER_CANNOT_FIND_TILE,
                 )
 
         elif tile_id is not None:

@@ -41,12 +41,20 @@ from sdsstools.utils import GatheringTaskGroup
 
 from gort import config
 from gort.core import RemoteActor
-from gort.exceptions import ErrorCodes, GortError
-from gort.kubernetes import Kubernetes
+from gort.enums import Event
+from gort.exceptions import ErrorCode, GortError, GortObserverCancelledError
 from gort.observer import GortObserver
+from gort.pubsub import notify_event
 from gort.recipes import recipes as recipe_to_class
 from gort.tile import Tile
-from gort.tools import get_temporary_file_path, run_in_executor
+from gort.tools import (
+    get_temporary_file_path,
+    kubernetes_list_deployments,
+    kubernetes_restart_deployment,
+    run_in_executor,
+    set_tile_status,
+)
+from gort.transforms import wrap_pa_hex
 
 
 if TYPE_CHECKING:
@@ -153,15 +161,6 @@ class GortClient(AMQPClient):
         self.specs = self.add_device(SpectrographSet, self.config["specs"]["devices"])
         self.enclosure = self.add_device(Enclosure, name="enclosure", actor="lvmecp")
         self.telemetry = self.add_device(TelemSet, self.config["telemetry"]["devices"])
-
-        try:
-            self.kubernetes = Kubernetes(log=self.log)
-        except Exception:
-            self.log.warning(
-                "Gort cannot access the Kubernets cluster. "
-                "The Kubernetes module won't be available."
-            )
-            self.kubernetes = None
 
     def _prepare_logger(
         self,
@@ -494,18 +493,15 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
 
         failed: bool = False
 
-        if self.gort.kubernetes is None:
-            raise GortError("The Kubernetes cluster is not accessible.")
-
         self.write_to_log("Restarting Kubernetes deployments.", "info")
         for deployment in self.__DEPLOYMENTS__:
-            self.gort.kubernetes.restart_deployment(deployment, from_file=True)
+            await kubernetes_restart_deployment(deployment)
 
         self.write_to_log("Waiting 15 seconds for deployments to be ready.", "info")
         await asyncio.sleep(15)
 
         # Check that deployments are running.
-        running_deployments = self.gort.kubernetes.list_deployments()
+        running_deployments = await kubernetes_list_deployments()
         for deployment in self.__DEPLOYMENTS__:
             if deployment not in running_deployments:
                 failed = True
@@ -629,15 +625,40 @@ class Gort(GortClient):
         self,
         *args,
         verbosity: str | None = None,
+        config_file: str | pathlib.Path | None = None,
         **kwargs,
     ):
+        if config_file:
+            config.load(str(config_file))
+
         super().__init__(*args, **kwargs)
+
+        self.observer = GortObserver(self)
 
         if verbosity:
             self.set_verbosity(verbosity)
 
+    async def notify_event(self, event: Event, payload: dict[str, Any] = {}):
+        """Emits an event notification."""
+
+        try:
+            await notify_event(event, payload=payload)
+        except TypeError as err:
+            if "is not JSON serializable" in str(err):
+                self.log.error(
+                    f"Failed to notify event {event.name}: payload is not"
+                    "serialisable. The event will be emitted without payload."
+                )
+                await notify_event(event)
+
     async def emergency_close(self):
         """Parks and closes the telescopes."""
+
+        # if await overwatcher_is_running(self):
+        #     self.log.warning(
+        #         "Overwatcher is running but overriding. However "
+        #         "be aware that the Overwatcher could reopen the enclosure."
+        #     )
 
         tasks = []
         tasks.append(self.telescopes.park(disable=True))
@@ -666,9 +687,9 @@ class Gort(GortClient):
         n_completed = 0
         while True:
             try:
-                result = await self.observe_tile(
+                result, _ = await self.observe_tile(
                     run_cleanup=False,
-                    cleanup_on_interrrupt=True,
+                    cleanup_on_interrupt=True,
                     adjust_focus=adjust_focus,
                     show_progress=show_progress,
                 )
@@ -679,22 +700,22 @@ class Gort(GortClient):
                 if not disable_tile_on_error:
                     raise
 
-                if ee.error_code == ErrorCodes.ACQUISITION_FAILED:
-                    observer: GortObserver | None = ee.payload.get("observer", None)
-                    if observer is None:
-                        self.log.error('Cannot disable tile: "observer" not found.')
-                        raise
-                    if observer.tile.tile_id is None:
-                        self.log.error('Cannot disable tile without a "tile_id".')
-                        raise
+                if ee.error_code == ErrorCode.ACQUISITION_FAILED:
+                    tile_id: int | None = ee.payload.get("tile_id", None)
+                    if tile_id is None:
+                        self.log.error(
+                            'Cannot disable tile without a "tile_id. '
+                            "Continuing observations without disabling tile."
+                        )
+                        continue
 
-                    await observer.tile.disable()
+                    await set_tile_status(tile_id, enabled=False)
                     self.log.warning(
-                        f"tile_id={observer.tile.tile_id} has been disabled. "
+                        f"tile_id={tile_id} has been disabled. "
                         "Continuing observations."
                     )
 
-                elif ee.error_code == ErrorCodes.SCHEDULER_CANNOT_FIND_TILE:
+                elif ee.error_code == ErrorCode.SCHEDULER_CANNOT_FIND_TILE:
                     if wait_if_no_tiles is False:
                         raise
 
@@ -737,7 +758,7 @@ class Gort(GortClient):
         show_progress: bool | None = None,
         run_cleanup: bool = True,
         adjust_focus: bool = True,
-        cleanup_on_interrrupt: bool = True,
+        cleanup_on_interrupt: bool = True,
     ):
         """Performs all the operations necessary to observe a tile.
 
@@ -785,7 +806,7 @@ class Gort(GortClient):
             Adjusts the focuser positions based on temperature drift before
             starting the observation. This works best if the focus has been
             initially determined using a focus sweep.
-        cleanup_on_interrrupt
+        cleanup_on_interrupt
             If ``True``, registers a signal handler to catch interrupts and
             run the cleanup routine.
 
@@ -816,13 +837,13 @@ class Gort(GortClient):
         dither_positions = tile.dither_positions
         tile.set_dither_position(dither_positions[0])
 
-        if cleanup_on_interrrupt:
+        if cleanup_on_interrupt:
             interrupt_cb = partial(self.run_script_sync, "cleanup")
         else:
             interrupt_cb = None
 
-        # Create observer.
-        observer = GortObserver(self, tile, on_interrupt=interrupt_cb)
+        # Reset observer and set the tile.
+        self.observer.reset(tile, on_interrupt=interrupt_cb)
 
         # Run the cleanup routine to be extra sure.
         if run_cleanup:
@@ -830,6 +851,12 @@ class Gort(GortClient):
 
         if adjust_focus:
             await self.guiders.adjust_focus()
+
+        # Wrap the PA to the range -30 to 30.
+        new_pa = wrap_pa_hex(tile.sci_coords.pa)
+        if new_pa != tile.sci_coords.pa:
+            self.log.debug(f"Wrapping sci PA from {tile.sci_coords.pa} to {new_pa}.")
+            tile.sci_coords.pa = new_pa
 
         if tile.tile_id is not None:
             dither_positions_str = ", ".join(map(str, dither_positions))
@@ -840,12 +867,17 @@ class Gort(GortClient):
 
         exposures: list[Exposure] = []
 
+        await self.notify_event(
+            Event.OBSERVER_NEW_TILE,
+            payload={"tile_id": tile.tile_id, "dither_position": dither_positions[0]},
+        )
+
         try:
             # Slew telescopes and move fibsel mask.
-            await observer.slew()
+            await self.observer.slew()
 
             # Start guiding.
-            await observer.acquire(
+            await self.observer.acquire(
                 guide_tolerance=guide_tolerance,
                 timeout=acquisition_timeout,
             )
@@ -856,17 +888,23 @@ class Gort(GortClient):
                 if idither != 0:
                     self.log.info(f"Acquiring dither position #{dpos}")
 
-                    observer.tile.set_dither_position(dpos)
+                    await self.notify_event(
+                        Event.OBSERVER_NEW_TILE,
+                        payload={"tile_id": tile.tile_id, "dither_position": dpos},
+                    )
+
+                    self.observer.tile.set_dither_position(dpos)
 
                     async with GatheringTaskGroup() as group:
-                        group.create_task(observer.set_dither_position(dpos))
-                        group.create_task(observer.standards.reacquire_first())
+                        group.create_task(self.observer.set_dither_position(dpos))
+                        if self.observer.standards:
+                            group.create_task(self.observer.standards.reacquire_first())
 
                     # Need to restart the guider monitor so that the new exposure
                     # gets the range of guider frames that correspond to this dither.
                     # GortObserver.expose() doesn't do this because we ask for a single
                     # exposure.
-                    observer.guider_monitor.reset()
+                    self.observer.guider_monitor.reset()
 
                     # Refocus for the new dither position.
                     if adjust_focus:
@@ -878,7 +916,7 @@ class Gort(GortClient):
                 keep_guiding_exp = keep_guiding or idither != len(dither_positions) - 1
 
                 # Exposing
-                exposure = await observer.expose(
+                exposure = await self.observer.expose(
                     exposure_time=exposure_time,
                     show_progress=show_progress,
                     count=n_exposures,
@@ -892,15 +930,29 @@ class Gort(GortClient):
                 else:
                     exposures.append(exposure)
 
+                if self.observer.cancelling:
+                    self.log.warning("Reading exposure before cancelling.")
+
+                    if isinstance(exposure, list):
+                        await asyncio.gather(*exposure)
+                    else:
+                        await exposure
+
+                    raise GortObserverCancelledError()
+
+        except GortObserverCancelledError:
+            self.log.warning("Observation cancelled.")
+            return (False, exposures)
+
         except KeyboardInterrupt:
             self.log.warning("Observation interrupted by user.")
-            return False
+            return (False, exposures)
 
         finally:
             # Finish observation.
-            await observer.finish_observation()
+            await self.observer.finish_observation()
 
-        return exposures
+        return (True, exposures)
 
     async def run_script(self, script: str):
         """Runs a script."""
@@ -951,6 +1003,12 @@ class Gort(GortClient):
     async def shutdown(self, **kwargs):
         """Executes the :obj:`shutdown <.ShutdownRecipe>` sequence."""
 
+        # if await overwatcher_is_running(self):
+        #     raise GortError(
+        #         "Overwatcher is running. Cannot shutdown. If you really need "
+        #         "to shutdown, execute Gort.emergency_close()."
+        #     )
+
         return await self.execute_recipe("shutdown", **kwargs)
 
     async def cleanup(self, readout: bool = True, turn_lamps_off: bool = True):
@@ -961,3 +1019,9 @@ class Gort(GortClient):
             readout=readout,
             turn_lamps_off=turn_lamps_off,
         )
+
+    async def restart_kubernetes_deployments(self, deployment: str):
+        """Restarts a Kubernetes deployment."""
+
+        self.log.warning(f"Restarting deployment {deployment!r}.")
+        await kubernetes_restart_deployment(deployment)

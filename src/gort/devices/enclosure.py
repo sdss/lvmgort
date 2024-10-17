@@ -12,7 +12,7 @@ import asyncio
 
 from typing import TYPE_CHECKING
 
-from gort.exceptions import GortEnclosureError
+from gort.exceptions import ErrorCode, GortEnclosureError
 from gort.gort import GortDevice, GortDeviceSet
 
 
@@ -229,7 +229,7 @@ class Enclosure(GortDevice):
         if safety_status_labels is None:
             raise GortEnclosureError(
                 "Cannot determine if enclosure is in local mode.",
-                error_code=501,
+                error_code=ErrorCode.LOCAL_MODE_FAILED,
             )
 
         return "LOCAL" in safety_status_labels
@@ -242,7 +242,7 @@ class Enclosure(GortDevice):
         if safety_status_labels is None:
             raise GortEnclosureError(
                 "Cannot determine door status.",
-                error_code=502,
+                error_code=ErrorCode.DOOR_STATUS_FAILED,
             )
 
         reply = {

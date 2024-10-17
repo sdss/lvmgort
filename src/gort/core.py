@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import logging
 import warnings
 from dataclasses import dataclass, field
 from types import SimpleNamespace
@@ -144,12 +145,21 @@ class RemoteCommand:
         self._name = model["name"]
         self.commands = SimpleNamespace()
 
+        self._n_retries: int = 1
+        self._retry_delay: float = 1
+
         self.is_group = "commands" in model and len(model["commands"]) > 0
         if self.is_group:
             for command_info in model["commands"].values():
                 command_name = get_valid_variable_name(command_info["name"])
                 child_command = RemoteCommand(remote_actor, command_info, parent=self)
                 setattr(self.commands, command_name, child_command)
+
+    def set_retries(self, n_retries: int, retry_delay: float | None = None):
+        """Sets the number of retries and the delay between retries."""
+
+        self._n_retries = n_retries
+        self._retry_delay = retry_delay or self._retry_delay
 
     def get_command_string(self, *args, **kwargs):
         """Gets the command string for a set of arguments."""
@@ -161,6 +171,7 @@ class RemoteCommand:
         *args,
         reply_callback: Callable[[AMQPReply], None] | None | Literal[False] = None,
         timeout: float | None = None,
+        _current_retry: int = 1,
         **kwargs,
     ):
         """Executes the remote command with some given arguments."""
@@ -196,12 +207,26 @@ class RemoteCommand:
             )
 
         if not cmd.status.did_succeed:
+            if _current_retry == self._n_retries:
+                raise RemoteCommandError(
+                    f"Actor {actor!r} failed executing command {command_name!r}.",
+                    command=cmd,
+                    remote_command=self,
+                )
+
             error = actor_reply.get("error")
             error = f" {error!s}" if error is not None else ""
-            raise RemoteCommandError(
-                f"Actor {actor!r} failed executing command {command_name!r}.{error}",
-                command=cmd,
-                remote_command=self,
+            self._remote_actor.client.log.warning(
+                f"Actor {actor!r} failed executing command "
+                f"{command_name!r}.{error} Retrying.",
+            )
+
+            return await self(
+                *args,
+                reply_callback=reply_callback,
+                timeout=timeout,
+                _current_retry=_current_retry + 1,
+                **kwargs,
             )
 
         return actor_reply
@@ -249,3 +274,32 @@ class ActorReply:
                 return reply[key]
 
         return None
+
+
+class LogNamespace:
+    """A namespace for log messages."""
+
+    def __init__(self, logger: logging.Logger, header: str = "") -> None:
+        self.logger = logger
+        self.header = header
+
+    def debug(self, message: str, *args, **kwargs):
+        self.logger.log(logging.DEBUG, self._get_message(message), *args, **kwargs)
+
+    def info(self, message: str, *args, **kwargs):
+        self.logger.log(logging.INFO, self._get_message(message), *args, **kwargs)
+
+    def warning(self, message: str, *args, **kwargs):
+        self.logger.log(logging.WARNING, self._get_message(message), *args, **kwargs)
+
+    def error(self, message: str, *args, **kwargs):
+        self.logger.log(logging.ERROR, self._get_message(message), *args, **kwargs)
+
+    def critical(self, message: str, *args, **kwargs):
+        self.logger.log(logging.CRITICAL, self._get_message(message), *args, **kwargs)
+
+    def exception(self, *args, **kwargs):
+        self.logger.exception(*args, **kwargs)
+
+    def _get_message(self, message: str):
+        return self.header.format(**locals()) + message

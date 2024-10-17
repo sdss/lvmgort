@@ -29,7 +29,6 @@ Contents
   observing
   tiles
   recipes
-  calibrations
   configuration
   troubleshooting
   api
