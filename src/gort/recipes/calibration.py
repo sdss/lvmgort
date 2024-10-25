@@ -85,7 +85,7 @@ class QuickCals(BaseRecipe):
         gort.log.info("Waiting 120 seconds for the lamp to warm up.")
         await asyncio.sleep(120)
 
-        exp_quartz = 10
+        exp_quartz = 20
         await gort.specs.expose(
             exp_quartz,
             flavour="flat",
