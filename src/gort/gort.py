@@ -853,9 +853,10 @@ class Gort(GortClient):
             await self.guiders.adjust_focus()
 
         # Wrap the PA to the range -30 to 30.
+        pa = tile.sci_coords.pa
         new_pa = wrap_pa_hex(tile.sci_coords.pa)
-        if new_pa != tile.sci_coords.pa:
-            self.log.debug(f"Wrapping sci PA from {tile.sci_coords.pa} to {new_pa}.")
+        if new_pa != pa:
+            self.log.debug(f"Wrapping sci PA from {pa:.3f} to {new_pa:.3f}.")
             tile.sci_coords.pa = new_pa
 
         if tile.tile_id is not None:
