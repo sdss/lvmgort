@@ -63,13 +63,22 @@ class OverwatcherMainTask(OverwatcherTask):
         while True:
             await asyncio.sleep(1)
 
-            is_safe = ow.weather.is_safe()
-            is_night = ow.ephemeris.is_night()
+            try:
+                is_safe = ow.weather.is_safe()
+                is_night = ow.ephemeris.is_night()
 
-            ow.state.night = is_night
-            ow.state.safe = is_safe
-            ow.state.observing = ow.observer.status.observing()
-            ow.state.calibrating = ow.calibrations.get_running_calibration() is not None
+                ow.state.night = is_night
+                ow.state.safe = is_safe
+                ow.state.observing = ow.observer.status.observing()
+
+                running_calibration = ow.calibrations.get_running_calibration()
+                ow.state.calibrating = running_calibration is not None
+
+            except Exception as err:
+                await ow.notify(
+                    f"Error in main overwatcher task: {err!r}",
+                    level="error",
+                )
 
 
 class OverwatcherPingTask(OverwatcherTask):
