@@ -217,7 +217,7 @@ class ObserverOverwatcher(OverwatcherModule):
 
             # Focus when the loop starts or every 1 hour.
             if focus_age is None or focus_age > 3600.0:
-                await self.overwatcher.notify("Focusing telescope.")
+                await self.overwatcher.notify("Focusing telescopes.")
                 await self.gort.guiders.focus()
 
             exp: Exposure | list[Exposure] | bool = False
