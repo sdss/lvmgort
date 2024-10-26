@@ -11,6 +11,8 @@ from __future__ import annotations
 import asyncio
 import random
 
+from typing import ClassVar
+
 import numpy
 from astropy.time import Time
 
@@ -148,6 +150,19 @@ class TwilightFlats(BaseRecipe):
 
     name = "twilight_flats"
 
+    # Tweak factor for the exposure time.
+    FUDGE_FACTOR: ClassVar[int] = 1
+
+    # Exposure time model
+    POPT: ClassVar[numpy.ndarray] = numpy.array([1.09723745, 3.55598039, -1.86597751])
+
+    # Start sunset flats three minute before sunset.
+    # Positive numbers means "into" the twilight.
+    SUNSET_START: ClassVar[float] = -3
+
+    # Start sunrise flats 25 minutes before sunrise
+    SUNRISE_START: ClassVar[float] = 25
+
     async def recipe(
         self,
         wait: bool = True,
@@ -159,17 +174,6 @@ class TwilightFlats(BaseRecipe):
         Based on K. Kreckel's code.
 
         """
-
-        # Start sunset flats one minute after sunset.
-        # Positive numbers means "into" the twilight.
-        SUNSET_START = 0.5
-        # Start sunrise flats 40 minutes before sunrise
-        SUNRISE_START = 40
-
-        # Exposure time model
-        POPT = numpy.array([1.09723745, 3.55598039, -1.86597751])
-        # Tweak factor for the exposure time.
-        FUDGE_FACTOR = 2
 
         from gort import Gort
 
@@ -183,14 +187,17 @@ class TwilightFlats(BaseRecipe):
 
         eph = await get_ephemeris_summary()
 
+        is_sunset: bool = False
+        is_sunrise: bool = False
+
         if abs(eph["time_to_sunset"]) < abs(eph["time_to_sunrise"]):
             is_sunset = True
-            riseset = Time(eph["sunset"], format="jd")
+            riseset = Time(eph["sunset"], format="jd", scale="utc")
             alt = 40.0
             az = 270.0
         else:
-            is_sunset = False
-            riseset = Time(eph["sunrise"], format="jd")
+            is_sunrise = True
+            riseset = Time(eph["sunrise"], format="jd", scale="utc")
             alt = 40.0
             az = 90.0
 
@@ -207,20 +214,23 @@ class TwilightFlats(BaseRecipe):
         n_observed = 0
 
         while True:
-            # Calculate the number of minutes into the twilight.
+            # Calculate the number of minutes into the twilight. Positive values
+            # mean minutes into daytime (before sunset or after sunrise).
             now = Time.now()
             time_diff_sun = (now - riseset).sec / 60.0  # Minutes
-            if not is_sunset:
+            if is_sunset:
                 time_diff_sun = -time_diff_sun
 
+            time_diff_sun += self.FUDGE_FACTOR
+
             # Calculate exposure time.
-            aa, bb, cc = POPT
-            exp_time = aa * numpy.exp((time_diff_sun + FUDGE_FACTOR) / bb) + cc
+            aa, bb, cc = self.POPT
+            exp_time = aa * numpy.exp(-time_diff_sun / bb) + cc
 
             if is_sunset:
-                time_to_flat_twilighs = SUNSET_START - time_diff_sun
+                time_to_flat_twilighs = self.SUNSET_START + time_diff_sun
             else:
-                time_to_flat_twilighs = time_diff_sun - SUNRISE_START
+                time_to_flat_twilighs = -(self.SUNRISE_START + time_diff_sun)
 
             if time_to_flat_twilighs > 0:
                 if wait:
@@ -228,20 +238,15 @@ class TwilightFlats(BaseRecipe):
                         "Waiting for twilight. Time to twilight flats: "
                         f"{time_to_flat_twilighs:.1f} minutes."
                     )
-                    await asyncio.sleep(time_to_flat_twilighs * 60 + 2)
+                    await asyncio.sleep(time_to_flat_twilighs * 60)
                     continue
                 else:
                     raise RuntimeError("Too early to take twilight flats.")
 
-            if exp_time < 400 and exp_time > 1:
+            if exp_time < 400:  # We allow negative times, which will be rounded to 1 s
                 pass
-            elif exp_time > 400 and wait and not is_sunset:
+            elif exp_time > 400 and wait and is_sunrise:
                 self.gort.log.info(f"Exposure time is too long ({exp_time:.1f} s).")
-                self.gort.log.info("Waiting 10 seconds ...")
-                await asyncio.sleep(10)
-                continue
-            elif exp_time < 1 and wait and is_sunset:
-                self.gort.log.info("Exposure time is too short.")
                 self.gort.log.info("Waiting 10 seconds ...")
                 await asyncio.sleep(10)
                 continue
