@@ -14,15 +14,22 @@ import re
 import signal
 from contextlib import contextmanager
 from dataclasses import dataclass
-from functools import wraps
+from functools import partial, wraps
 from time import time
 
 from typing import TYPE_CHECKING, Any, Callable, TypedDict
 
 from astropy.time import Time
 
+from sdsstools.utils import GatheringTaskGroup
+
 from gort.enums import Event, GuiderStatus, ObserverStageStatus
-from gort.exceptions import ErrorCode, GortObserverCancelledError, GortObserverError
+from gort.exceptions import (
+    ErrorCode,
+    GortError,
+    GortObserverCancelledError,
+    GortObserverError,
+)
 from gort.exposure import Exposure
 from gort.tile import Coordinates
 from gort.tools import (
@@ -31,8 +38,9 @@ from gort.tools import (
     handle_signals,
     insert_to_database,
     register_observation,
+    run_in_executor,
 )
-from gort.transforms import fibre_slew_coordinates
+from gort.transforms import fibre_slew_coordinates, wrap_pa_hex
 
 
 if TYPE_CHECKING:
@@ -206,6 +214,11 @@ class GortObserver:
 
         self.reset(tile)
 
+    def is_running(self):
+        """Returns :obj:`True` if the observer is running."""
+
+        return self.get_running_stage() is not None
+
     def get_running_stage(self):
         """Returns the running stage."""
 
@@ -227,6 +240,222 @@ class GortObserver:
             return False
 
         return len(self.standards.standards) > 0
+
+    async def observe_tile(
+        self,
+        tile: Tile | int | None = None,
+        ra: float | None = None,
+        dec: float | None = None,
+        pa: float = 0.0,
+        use_scheduler: bool = True,
+        exposure_time: float = 900.0,
+        n_exposures: int = 1,
+        async_readout: bool = True,
+        keep_guiding: bool = False,
+        guide_tolerance: float = 1.0,
+        acquisition_timeout: float = 180.0,
+        show_progress: bool | None = None,
+        run_cleanup: bool = True,
+        adjust_focus: bool = True,
+        cleanup_on_interrupt: bool = True,
+    ):
+        """Performs all the operations necessary to observe a tile.
+
+        Parameters
+        ----------
+        tile
+            The ``tile_id`` to observe, or a :obj:`.Tile` object. If not
+            provided, observes the next tile suggested by the scheduler
+            (requires ``use_scheduler=True``).
+        ra,dec
+            The RA and Dec where to point the science telescopes. The other
+            telescopes are pointed to calibrators that fit the science pointing.
+            Cannot be used with ``tile``.
+        pa
+            Position angle of the IFU. Defaults to PA=0.
+        use_scheduler
+            Whether to use the scheduler to determine the ``tile_id`` or
+            select calibrators.
+        exposure_time
+            The length of the exposure in seconds.
+        n_exposures
+            Number of exposures to take while guiding.
+        async_readout
+            Whether to wait for the readout to complete or return as soon
+            as the readout begins. If :obj:`False`, the exposure is registered
+            but the observation is not finished. This should be :obj:`True`
+            during normal science operations to allow the following acquisition
+            to occur during readout.
+        keep_guiding
+            If :obj:`True`, keeps the guider running after the last exposure.
+            This should be :obj:`False` during normal science operations.
+        guide_tolerance
+            The guide tolerance in arcsec. A telescope will not be considered
+            to be guiding if its separation to the commanded field is larger
+            than this value.
+        acquisition_timeout
+            The maximum time allowed for acquisition. In case of timeout
+            the acquired fields are evaluated and an exception is
+            raised if the acquisition failed.
+        show_progress
+            Displays a progress bar with the elapsed exposure time.
+        run_cleanup
+            Whether to run the cleanup routine.
+        adjust_focus
+            Adjusts the focuser positions based on temperature drift before
+            starting the observation. This works best if the focus has been
+            initially determined using a focus sweep.
+        cleanup_on_interrupt
+            If ``True``, registers a signal handler to catch interrupts and
+            run the cleanup routine.
+
+        """
+
+        write_log = self.write_to_log
+
+        # Create tile.
+        if isinstance(tile, Tile):
+            pass
+        elif tile is not None or (tile is None and ra is None and dec is None):
+            if use_scheduler:
+                tile = await run_in_executor(Tile.from_scheduler, tile_id=tile)
+            else:
+                raise GortError("Not enough information to create a tile.")
+
+        elif ra is not None and dec is not None:
+            if use_scheduler:
+                tile = await run_in_executor(Tile.from_scheduler, ra=ra, dec=dec, pa=pa)
+            else:
+                tile = await run_in_executor(Tile.from_coordinates, ra, dec, pa=pa)
+
+        else:
+            raise GortError("Not enough information to create a tile.")
+
+        assert isinstance(tile, Tile)
+
+        # Set the initial dither position. This will make
+        # the initial acquisition on that pixel.
+        dither_positions = tile.dither_positions
+        tile.set_dither_position(dither_positions[0])
+
+        if cleanup_on_interrupt:
+            interrupt_cb = partial(self.gort.run_script_sync, "cleanup")
+        else:
+            interrupt_cb = None
+
+        # Reset observer and set the tile.
+        self.reset(tile, on_interrupt=interrupt_cb)
+
+        # Run the cleanup routine to be extra sure.
+        if run_cleanup:
+            await self.gort.cleanup(turn_lamps_off=False)
+
+        if adjust_focus:
+            await self.gort.guiders.adjust_focus()
+
+        # Wrap the PA to the range -30 to 30.
+        pa = tile.sci_coords.pa
+        new_pa = wrap_pa_hex(tile.sci_coords.pa)
+        if new_pa != pa:
+            write_log(f"Wrapping sci PA from {pa:.3f} to {new_pa:.3f}.")
+            tile.sci_coords.pa = new_pa
+
+        if tile.tile_id is not None:
+            dither_positions_str = ", ".join(map(str, dither_positions))
+            write_log(
+                f"Observing tile_id={tile.tile_id} on "
+                f"dither positions #{dither_positions_str}.",
+                "info",
+            )
+
+        exposures: list[Exposure] = []
+
+        await self.gort.notify_event(
+            Event.OBSERVER_NEW_TILE,
+            payload={"tile_id": tile.tile_id, "dither_position": dither_positions[0]},
+        )
+
+        try:
+            # Slew telescopes and move fibsel mask.
+            await self.slew()
+
+            # Start guiding.
+            await self.acquire(
+                guide_tolerance=guide_tolerance,
+                timeout=acquisition_timeout,
+            )
+
+            # Loop over the dither positions. For the first one do nothing
+            # since we have already acquired for that position.
+            for idither, dpos in enumerate(dither_positions):
+                if idither != 0:
+                    write_log(f"Acquiring dither position #{dpos}", "info")
+
+                    await self.gort.notify_event(
+                        Event.OBSERVER_NEW_TILE,
+                        payload={"tile_id": tile.tile_id, "dither_position": dpos},
+                    )
+
+                    self.tile.set_dither_position(dpos)
+
+                    async with GatheringTaskGroup() as group:
+                        group.create_task(self.set_dither_position(dpos))
+                        if self.standards:
+                            group.create_task(self.standards.reacquire_first())
+
+                    # Need to restart the guider monitor so that the new exposure
+                    # gets the range of guider frames that correspond to this dither.
+                    # GortObserver.expose() doesn't do this because we ask for a single
+                    # exposure.
+                    self.guider_monitor.reset()
+
+                    # Refocus for the new dither position.
+                    if adjust_focus:
+                        await self.gort.guiders.adjust_focus()
+
+                write_log(f"Taking exposure for dither position #{dpos}", "info")
+
+                # Should we keep the guider alive during readout?
+                keep_guiding_exp = keep_guiding or idither != len(dither_positions) - 1
+
+                # Exposing
+                exposure = await self.expose(
+                    exposure_time=exposure_time,
+                    show_progress=show_progress,
+                    count=n_exposures,
+                    async_readout=async_readout,
+                    keep_guiding=keep_guiding_exp,
+                    dither_position=dpos,
+                )
+
+                if isinstance(exposure, list):
+                    exposures += exposure
+                else:
+                    exposures.append(exposure)
+
+                if self.cancelling:
+                    write_log("Reading exposure before cancelling.", "warning")
+
+                    if isinstance(exposure, list):
+                        await asyncio.gather(*exposure)
+                    else:
+                        await exposure
+
+                    raise GortObserverCancelledError()
+
+        except GortObserverCancelledError:
+            write_log("Observation cancelled.", "warning")
+            return (False, exposures)
+
+        except KeyboardInterrupt:
+            write_log("Observation interrupted by user.", "warning")
+            return (False, exposures)
+
+        finally:
+            # Finish observation.
+            await self.finish_observation()
+
+        return (True, exposures)
 
     @handle_signals(interrupt_signals, interrupt_helper.run_callback)
     @register_stage_status

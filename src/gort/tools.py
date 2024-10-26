@@ -28,7 +28,9 @@ from typing import (
     Callable,
     Coroutine,
     Generator,
+    Generic,
     Sequence,
+    TypeVar,
 )
 
 import httpx
@@ -1085,3 +1087,11 @@ async def kubernetes_restart_deployment(name: str):
     """Restarts a Kubernetes deployment via the API."""
 
     return await get_lvmapi_route(f"/kubernetes/deployments/{name}/restart")
+
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+class copy_signature(Generic[F]):
+    def __init__(self, target: F) -> None: ...
+    def __call__(self, wrapped: Callable[..., Any]) -> F: ...

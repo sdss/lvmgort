@@ -199,7 +199,7 @@ class ObserverOverwatcher(OverwatcherModule):
                 f"Stopping observations after this tile: {reason}"
             )
             self.status |= ObserverStatus.CANCELLING
-            self.gort.observer.cancelling = True
+            self.gort.observer.cancelling = True  # Prevent multiple dithers
 
         if block and self.observe_loop and not self.observe_loop.done():
             await self.observe_loop
@@ -208,6 +208,7 @@ class ObserverOverwatcher(OverwatcherModule):
         """Runs the observing loop."""
 
         await self.gort.cleanup(readout=True)
+        observer = self.gort.observer
 
         while True:
             # TODO: add some checks here.
@@ -224,7 +225,7 @@ class ObserverOverwatcher(OverwatcherModule):
             try:
                 # The exposure will complete in 900 seconds + acquisition + readout
                 self.next_exposure_completes = time() + 90 + 900 + 60
-                result, exp = await self.gort.observe_tile(
+                result, exp = await observer.observe_tile(
                     run_cleanup=False,
                     cleanup_on_interrupt=False,
                     show_progress=False,
