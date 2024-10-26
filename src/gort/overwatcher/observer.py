@@ -224,18 +224,24 @@ class ObserverOverwatcher(OverwatcherModule):
             try:
                 # The exposure will complete in 900 seconds + acquisition + readout
                 self.next_exposure_completes = time() + 90 + 900 + 60
-                _, exp = await self.gort.observe_tile(
+                result, exp = await self.gort.observe_tile(
                     run_cleanup=False,
                     cleanup_on_interrupt=False,
                     show_progress=False,
                 )
 
-                n_tile += 1
+                if not result:
+                    raise GortError("The observation ended with error state.")
 
             except asyncio.CancelledError:
                 break
 
-            except Exception:
+            except Exception as err:
+                await self.overwatcher.notify(
+                    f"An error occurred during the observation: {err} "
+                    "Running the cleanup recipe.",
+                    level="error",
+                )
                 await self.gort.cleanup(readout=False)
 
             finally:
