@@ -195,7 +195,7 @@ class WeatherOverwatcher(OverwatcherModule):
     async def get_weather_report(delta_time=3600) -> polars.DataFrame:
         """Returns a weather report."""
 
-        data = await get_lvmapi_route("/weather", delta_time=delta_time)
+        data = await get_lvmapi_route("/weather/report", delta_time=delta_time)
 
         df = polars.DataFrame(data)
         df = df.with_columns(
