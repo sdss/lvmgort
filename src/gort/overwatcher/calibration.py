@@ -458,7 +458,6 @@ class CalibrationsOverwatcher(OverwatcherModule):
 
         self._failing_cals: dict[str, float] = {}
         self._ignore_cals: set[str] = set()
-        self._running_calibration: str | None = None
 
     async def reset(self, cals_file: str | pathlib.Path | None = None):
         """Resets the list of calibrations for a new SJD.
@@ -481,9 +480,11 @@ class CalibrationsOverwatcher(OverwatcherModule):
             self.log.error(f"Error updating calibrations schedule: {ee!r}")
 
     def get_running_calibration(self):
-        """Returns ``True`` if a calibration is currently running."""
+        """Returns the calibration currently running."""
 
-        return self._running_calibration
+        for cal in self.schedule.calibrations:
+            if cal.state == CalibrationState.RUNNING:
+                return cal
 
     async def run_calibration(self, calibration: Calibration):
         """Runs a calibration."""
@@ -530,6 +531,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
 
         if name not in self._failing_cals:
             await notify(f"Running calibration {name!r}.")
+
         calibration.record_state(CalibrationState.RUNNING)
 
         if self.overwatcher.state.observing:
