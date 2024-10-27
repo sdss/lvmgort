@@ -648,15 +648,9 @@ class Gort(GortClient):
     async def emergency_close(self):
         """Parks and closes the telescopes."""
 
-        # if await overwatcher_is_running(self):
-        #     self.log.warning(
-        #         "Overwatcher is running but overriding. However "
-        #         "be aware that the Overwatcher could reopen the enclosure."
-        #     )
-
         tasks = []
         tasks.append(self.telescopes.park(disable=True))
-        tasks.append(self.enclosure.close(force=True))
+        tasks.append(self.enclosure.close(force=True, retry_without_parking=True))
 
         self.log.warning("Closing and parking telescopes.")
         await asyncio.gather(*tasks)
@@ -788,12 +782,6 @@ class Gort(GortClient):
 
     async def shutdown(self, **kwargs):
         """Executes the :obj:`shutdown <.ShutdownRecipe>` sequence."""
-
-        # if await overwatcher_is_running(self):
-        #     raise GortError(
-        #         "Overwatcher is running. Cannot shutdown. If you really need "
-        #         "to shutdown, execute Gort.emergency_close()."
-        #     )
 
         return await self.execute_recipe("shutdown", **kwargs)
 

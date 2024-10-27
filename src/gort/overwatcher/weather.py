@@ -88,9 +88,8 @@ class WeatherMonitorTask(OverwatcherModuleTask["WeatherOverwatcher"]):
                         "Failed to get weather data 5 times. "
                         "Triggering an emergency shutdown.",
                     )
-                    await self.overwatcher.emergency_shutdown(
-                        block=False,
-                        reason="weather data unavailable",
+                    asyncio.create_task(
+                        self.overwatcher.shutdown(reason="weather data unavailable")
                     )
 
             await asyncio.sleep(60)
@@ -172,16 +171,11 @@ class WeatherOverwatcher(OverwatcherModule):
     async def check_weather(self):
         """Checks the weather state and triggers an emergency shutdown if necessary."""
 
-        ecp_status = await self.gort.enclosure.status()
-        dome_labels = ecp_status["dome_status_labels"]
-        if "CLOSED" in dome_labels or "MOTOR_CLOSING" in dome_labels:
+        if await self.overwatcher.dome.is_closing():
             return
 
         if not self.is_safe():
-            await self.overwatcher.emergency_shutdown(
-                block=False,
-                reason="unsafe weather conditions",
-            )
+            await self.overwatcher.shutdown(reason="unsafe weather conditions")
 
     def is_safe(self):
         """Determines whether it is safe to open."""

@@ -394,7 +394,7 @@ class CalibrationSchedule:
             # check the current dome position and adjust the start time if needed.
             min_start_time_dome: float = cal.start_time
             if (dome_requested := cal.model.dome) is not None:
-                dome_open = await overwatcher.gort.enclosure.is_open()
+                dome_open = await overwatcher.dome.is_opening()
                 dome_requested_bool = True if dome_requested == "open" else False
 
                 if dome_requested_bool is not dome_open:
@@ -555,7 +555,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
 
         if dome is not None:
             dome_new = True if dome == "open" else False
-            dome_current = await self.overwatcher.gort.enclosure.is_open()
+            dome_current = await self.overwatcher.dome.is_opening()
             needs_dome_change = dome_new != dome_current
 
             if needs_dome_change:
@@ -577,10 +577,10 @@ class CalibrationsOverwatcher(OverwatcherModule):
 
                 if dome == "open" and not dome_current:
                     await notify(f"Opening the dome for calibration {name!r}.")
-                    await self.overwatcher.gort.enclosure.open()
+                    await self.overwatcher.dome.open()
                 elif dome == "closed" and dome_current:
                     await notify(f"Closing the dome for calibration {name!r}.")
-                    await self.overwatcher.gort.enclosure.close()
+                    await self.overwatcher.dome.close()
 
         await notify(f"Running recipe {recipe!r} for calibration {name!r}.")
 
@@ -589,7 +589,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
         finally:
             if close_dome_after:
                 await notify(f"Closing the dome after calibration {name!r}.")
-                await self.overwatcher.gort.enclosure.close()
+                await self.overwatcher.dome.close()
 
         await notify(f"Calibration {name!r} is done.")
 

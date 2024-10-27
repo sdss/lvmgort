@@ -13,6 +13,7 @@ from .calibration import CalibrationsOverwatcher
 from .core import OverwatcherModule
 from .ephemeris import EphemerisOverwatcher
 from .events import EventsOverwatcher
+from .helpers import DomeHelper, DomeStatus
 from .observer import ObserverOverwatcher
 from .overwatcher import Overwatcher
 from .weather import WeatherOverwatcher

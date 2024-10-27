@@ -21,6 +21,7 @@ from gort.core import LogNamespace
 from gort.exceptions import GortError
 from gort.gort import Gort
 from gort.overwatcher.core import OverwatcherBaseTask, OverwatcherModule
+from gort.overwatcher.helpers import DomeHelper
 from gort.overwatcher.notifier import NotifierMixIn
 
 
@@ -135,6 +136,8 @@ class Overwatcher(NotifierMixIn):
         self.state = OverwatcherState()
         self.state.dry_run = dry_run
 
+        self.dome = DomeHelper(self)
+
         self.tasks: list[OverwatcherTask] = [
             OverwatcherMainTask(self),
             OverwatcherPingTask(self),
@@ -175,30 +178,33 @@ class Overwatcher(NotifierMixIn):
 
         return self
 
-    async def emergency_shutdown(self, block: bool = True, reason: str = "undefined"):
-        """Shuts down the observatory in case of an emergency."""
+    async def shutdown(self, reason: str = "undefined", retry: bool = True):
+        """Shuts down the observatory."""
 
         # Check if the dome is already closed, then do nothing.
-        dome_open = await self.gort.enclosure.is_open()
-        if not dome_open:
+        if await self.dome.is_closing():
             return
 
         if not reason.endswith("."):
             reason += "."
 
-        await self.notify(
-            f"Triggering emergency shutdown. Reason: {reason}",
-            level="warning",
-        )
+        await self.notify(f"Triggering shutdown. Reason: {reason}", level="warning")
 
         if not self.state.dry_run:
             stop = asyncio.create_task(self.observer.stop_observing(immediate=True))
-            shutdown = asyncio.create_task(self.gort.shutdown())
+            shutdown = asyncio.create_task(self.dome.shutdown(retry=retry))
         else:
             self.log.warning("Dry run enabled. Not shutting down.")
+            return
 
-        if block:
+        try:
             await asyncio.gather(stop, shutdown)
+        except Exception as err:
+            await self.notify(
+                f"Error during shutdown: {err!r}",
+                level="error",
+                error=err,
+            )
 
     async def cancel(self):
         """Cancels the overwatcher tasks."""

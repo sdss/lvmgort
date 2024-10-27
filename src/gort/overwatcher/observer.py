@@ -166,10 +166,8 @@ class ObserverOverwatcher(OverwatcherModule):
 
         await self.overwatcher.write_to_slack("Starting observations.")
 
-        if not (await self.gort.enclosure.is_open()):
-            # TODO: this should be an overwatcher function with exception wrapping.
-            self.log.info("Opening the dome.")
-            await self.gort.startup(confirm_open=False, focus=False)
+        if not (await self.overwatcher.dome.is_opening()):
+            await self.overwatcher.dome.startup()
 
         self.observe_loop = asyncio.create_task(self.observe_loop_task())
         self.status |= ObserverStatus.OBSERVING
@@ -188,6 +186,9 @@ class ObserverOverwatcher(OverwatcherModule):
         if not self.status.observing():
             return
 
+        self.status |= ObserverStatus.CANCELLING
+        self.gort.observer.cancelling = True  # Prevent multiple dithers
+
         if immediate:
             await self.overwatcher.notify(
                 f"Stopping observations immediately. Reason: {reason}."
@@ -198,8 +199,6 @@ class ObserverOverwatcher(OverwatcherModule):
             await self.overwatcher.notify(
                 f"Stopping observations after this tile: {reason}"
             )
-            self.status |= ObserverStatus.CANCELLING
-            self.gort.observer.cancelling = True  # Prevent multiple dithers
 
         if block and self.observe_loop and not self.observe_loop.done():
             await self.observe_loop

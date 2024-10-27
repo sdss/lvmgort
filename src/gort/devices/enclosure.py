@@ -160,7 +160,12 @@ class Enclosure(GortDevice):
         await self.actor.commands.dome.commands.open()
         self.write_to_log("Enclosure is now open.", level="info")
 
-    async def close(self, park_telescopes: bool = True, force: bool = False):
+    async def close(
+        self,
+        park_telescopes: bool = True,
+        force: bool = False,
+        retry_without_parking: bool = False,
+    ):
         """Close the enclosure dome.
 
         Parameters
@@ -171,6 +176,9 @@ class Enclosure(GortDevice):
         force
             Tries to closes the dome even if the system believes it is
             already closed.
+        retry_without_parking
+            If the dome fails to close with ``park_telescopes=True``, it will
+            try again without parking the telescopes.
 
         """
 
@@ -191,7 +199,16 @@ class Enclosure(GortDevice):
                     self.write_to_log("Closing anyway because force=True", "warning")
 
         self.write_to_log("Closing the enclosure ...", level="info")
-        await self.actor.commands.dome.commands.close(force=force)
+        try:
+            await self.actor.commands.dome.commands.close(force=force)
+        except Exception as err:
+            if retry_without_parking is False or park_telescopes is False:
+                raise
+
+            self.write_to_log(f"Failed to close the dome: {err}", "warning")
+            self.write_to_log("Retrying without parking the telescopes.", "warning")
+            await self.close(park_telescopes=False, force=force)
+
         self.write_to_log("Enclosure is now closed.", level="info")
 
     async def is_open(self):

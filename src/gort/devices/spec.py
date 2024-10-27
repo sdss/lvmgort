@@ -451,6 +451,8 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         await self.call_device_method(Spectrograph.reset, full=full)
 
+        self.last_exposure = None
+
     async def initialise(self):
         """Initialises the spectrographs and flashes the ACF configuration file."""
 
