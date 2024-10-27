@@ -98,22 +98,14 @@ class EphemerisOverwatcher(OverwatcherModule):
 
         return None
 
-    def is_night(self, require_twilight: bool = True):
+    def is_night(self):
         """Determines whether it is nightime."""
 
         ephemeris = self.ephemeris
-        now_jd = Time.now().jd
+        now_jd = float(Time.now().jd)
 
         if not ephemeris:
             self.log.warning("Ephemeris data not available. is_night() returns False.")
             return False
 
-        between_twl = ephemeris.twilight_end < now_jd < ephemeris.twilight_start
-
-        if ephemeris.is_night:
-            if require_twilight and between_twl:
-                return True
-            elif not require_twilight:
-                return True
-
-        return False
+        return float(ephemeris.twilight_end) < now_jd < float(ephemeris.twilight_start)
