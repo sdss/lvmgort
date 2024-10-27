@@ -31,7 +31,7 @@ from gort.exceptions import (
     GortObserverError,
 )
 from gort.exposure import Exposure
-from gort.tile import Coordinates
+from gort.tile import Coordinates, Tile
 from gort.tools import (
     GuiderMonitor,
     cancel_task,
@@ -45,7 +45,6 @@ from gort.transforms import fibre_slew_coordinates, wrap_pa_hex
 
 if TYPE_CHECKING:
     from gort.gort import Gort
-    from gort.tile import Tile
 
 
 __all__ = ["GortObserver"]
