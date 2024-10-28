@@ -11,6 +11,8 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import pathlib
+from copy import copy
+from time import time
 
 from typing import cast
 
@@ -56,30 +58,143 @@ class OverwatcherMainTask(OverwatcherTask):
     keep_alive = True
     restart_on_error = True
 
+    def __init__(self, overwatcher: Overwatcher):
+        super().__init__(overwatcher)
+
+        self._lock = asyncio.Lock()
+
+        self.previous_state = OverwatcherState()
+
     async def task(self):
         """Main overwatcher task."""
+
+        await asyncio.sleep(1)
 
         ow = self.overwatcher
 
         while True:
-            await asyncio.sleep(1)
+            self.previous_state = copy(ow.state)
 
             try:
-                is_safe = ow.weather.is_safe()
+                is_safe = ow.alerts.is_safe()
                 is_night = ow.ephemeris.is_night()
 
                 ow.state.night = is_night
                 ow.state.safe = is_safe
-                ow.state.observing = ow.observer.status.observing()
+                ow.state.observing = ow.observer.is_observing
 
                 running_calibration = ow.calibrations.get_running_calibration()
                 ow.state.calibrating = running_calibration is not None
+
+                async with self._lock:
+                    if not is_safe:
+                        await self.handle_unsafe()
+                    elif not is_night:
+                        await self.handle_daytime()
+                    elif not ow.state.enabled:
+                        await self.handle_disabled()
 
             except Exception as err:
                 await ow.notify(
                     f"Error in main overwatcher task: {err!r}",
                     level="error",
                 )
+
+                # Avoid rapid fire errors. Sleep a bit longer before trying again.
+                await asyncio.sleep(30)
+
+            await asyncio.sleep(5)
+
+    async def handle_unsafe(self):
+        """Closes the dome if the conditions are unsafe."""
+
+        closed = await self.overwatcher.dome.is_closing()
+
+        observing = self.overwatcher.observer.is_observing
+        cancelling = self.overwatcher.observer.is_cancelling
+
+        # TODO: cancel calibrations if any are running.
+
+        if not closed or observing:
+            await self.overwatcher.notify(
+                "Closing the dome due to unsafe conditions.",
+                level="warning",
+            )
+
+            if observing and not cancelling:
+                try:
+                    await self.overwatcher.observer.stop_observing(
+                        immediate=True,
+                        reason="unsafe conditions",
+                    )
+                except Exception as err:
+                    await self.overwatcher.notify(
+                        f"Error stopping observing: {err!r}",
+                        level="error",
+                    )
+                    await self.overwatcher.notify(
+                        "I will close the dome anyway.",
+                        level="warning",
+                    )
+
+            if not closed:
+                await self.overwatcher.dome.shutdown(retry=True)
+
+    async def handle_daytime(self):
+        """Handles daytime."""
+
+        # Don't do anything if we are calibrating. If a calibration script opened the
+        # dome it should close it afterwards.
+        if self.overwatcher.state.calibrating:
+            return
+
+        # Also don't do anything if the overwatcher is not enabled.
+        if not self.overwatcher.state.enabled:
+            return
+
+        observing = self.overwatcher.observer.is_observing
+        cancelling = self.overwatcher.observer.is_cancelling
+
+        if observing and not cancelling:
+            # Decide whether to complete the current exposure or stop immediately.
+            exposure_finishes_at = self.overwatcher.observer.next_exposure_completes
+            now = time()
+
+            if exposure_finishes_at > 0 and (exposure_finishes_at - now) < 300:
+                immediate = False
+            else:
+                immediate = True
+
+            await self.overwatcher.observer.stop_observing(
+                immediate=immediate,
+                reason="daytime conditions",
+            )
+
+            if not immediate:
+                return
+
+        # Only close the dome if we have changed from night to day. handle_unsafe()
+        # will close it if it's really unsafe.
+        if not self.previous_state.night and not self.overwatcher.state.night:
+            return
+
+        closed = await self.overwatcher.dome.is_closing()
+        if not closed:
+            await self.overwatcher.notify("Daytime conditions. Closing the dome.")
+            await self.overwatcher.dome.shutdown(retry=True)
+
+    async def handle_disabled(self):
+        """Handles the disabled state."""
+
+        observing = self.overwatcher.observer.is_observing
+        cancelling = self.overwatcher.observer.is_cancelling
+
+        if observing and not cancelling:
+            # Disable after this tile.
+            await self.overwatcher.observer.stop_observing(
+                immediate=False,
+                reason="overwatcher was disabled",
+            )
 
 
 class OverwatcherPingTask(OverwatcherTask):
@@ -89,7 +204,7 @@ class OverwatcherPingTask(OverwatcherTask):
     keep_alive = True
     restart_on_error = True
 
-    delay: float = 300
+    delay: float = 900
 
     async def task(self):
         """Ping task."""
@@ -118,11 +233,11 @@ class Overwatcher(NotifierMixIn):
         **kwargs,
     ):
         from gort.overwatcher import (
+            AlertsOverwatcher,
             CalibrationsOverwatcher,
             EphemerisOverwatcher,
             EventsOverwatcher,
             ObserverOverwatcher,
-            WeatherOverwatcher,
         )
 
         # Check if the instance already exists, in which case do nothing.
@@ -146,7 +261,7 @@ class Overwatcher(NotifierMixIn):
         self.ephemeris = EphemerisOverwatcher(self)
         self.calibrations = CalibrationsOverwatcher(self, calibrations_file)
         self.observer = ObserverOverwatcher(self)
-        self.weather = WeatherOverwatcher(self)
+        self.alerts = AlertsOverwatcher(self)
         self.events = EventsOverwatcher(self)
 
     async def run(self):

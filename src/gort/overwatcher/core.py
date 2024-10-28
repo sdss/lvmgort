@@ -37,7 +37,7 @@ class OverwatcherBaseTask:
         self._task_runner: asyncio.Task | None = None
         self._heartbeat_task: asyncio.Task | None = None
 
-        self._log = Mock()
+        self._log: Mock | LogNamespace = Mock()
 
     async def run(self):
         """Runs the task."""
@@ -168,6 +168,8 @@ class OverwatcherModule:
         self.is_running: bool = False
 
         self.log = LogNamespace(self.gort.log, header=f"({self.__class__.__name__}) ")
+        for task in self.tasks:
+            task._log = self.log
 
     async def run(self):
         """Runs the overwatcher module."""

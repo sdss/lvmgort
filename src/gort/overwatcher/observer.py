@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import asyncio
-import enum
 from time import time
 
 from typing import TYPE_CHECKING
@@ -28,30 +27,6 @@ if TYPE_CHECKING:
 __all__ = ["ObserverOverwatcher"]
 
 
-class ObserverStatus(enum.Flag):
-    """An enumeration of observer statuses."""
-
-    OBSERVING = 1 << 0
-    CANCELLING = 1 << 1
-    NIGHT = 1 << 2
-    ENABLED = 1 << 3
-    WEATHER_SAFE = 1 << 4
-
-    def observing(self) -> bool:
-        return bool(self & ObserverStatus.OBSERVING)
-
-    def enabled(self) -> bool:
-        return bool(self & ObserverStatus.ENABLED)
-
-    def cancelling(self) -> bool:
-        return bool(self & ObserverStatus.CANCELLING)
-
-    def can_observe(self) -> bool:
-        return bool(
-            (self & self.NIGHT) and (self & self.ENABLED) and (self & self.WEATHER_SAFE)
-        )
-
-
 class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
     """Monitors the observer status."""
 
@@ -59,84 +34,33 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
     keep_alive = False
     restart_on_error = True
 
-    @property
-    def status(self):
-        return self.module.status
-
-    @status.setter
-    def status(self, value: ObserverStatus):
-        self.module.status = value
-
     async def task(self):
         """Handles whether we should start the observing loop."""
 
+        # These checks will only start the observing loop. If the weather is
+        # unsafe or daytime has been reached the main task will handle stopping
+        # the loop.
+
+        state = self.overwatcher.state
+
         while True:
-            # Update the status of the observer.
-            await self.update_status()
-
-            # Now check if we should start/stop the observing loop. Note that these
-            # will always call start/stop_observing, but those methods return quickly
-            # if there's nothing to do.
-
-            if self.overwatcher.state.dry_run:
+            if state.dry_run:
                 pass
 
-            elif not (self.status & ObserverStatus.WEATHER_SAFE):
-                await self.module.stop_observing(
-                    immediate=True,
-                    reason="weather not safe",
-                )
+            elif self.module.is_observing or self.module.is_cancelling:
+                pass
 
-            elif not (self.status & ObserverStatus.NIGHT):
-                await self.module.stop_observing(
-                    immediate=True,
-                    reason="not night time",
-                )
-
-            elif not (self.status & ObserverStatus.ENABLED):
-                await self.module.stop_observing(
-                    reason="observing switch has been manually disabled",
-                )
-
-            elif self.status.can_observe() and not self.status.observing():
-                await self.module.start_observing()
+            elif state.safe and state.night and state.enabled:
+                try:
+                    await self.module.start_observing()
+                except Exception as err:
+                    await self.overwatcher.notify(
+                        f"An error occurred while starting the observing loop: {err}",
+                        level="error",
+                    )
+                    await asyncio.sleep(15)
 
             await asyncio.sleep(1)
-
-    async def update_status(self):
-        """Updates the observer status."""
-
-        new_status = ObserverStatus(0)
-
-        # Set new status. Do not do any actions here, we'll evaluate actions to
-        # take once the new status has been set.
-        if (
-            self.status.observing()
-            and self.module.observe_loop
-            and not self.module.observe_loop.done()
-        ):
-            new_status |= ObserverStatus.OBSERVING
-
-        if new_status.observing() and self.status.cancelling():
-            new_status |= ObserverStatus.CANCELLING
-
-        if self.overwatcher.ephemeris.is_night():
-            new_status |= ObserverStatus.NIGHT
-
-        if self.overwatcher.state.enabled:
-            new_status |= ObserverStatus.ENABLED
-
-        if self.overwatcher.weather.is_safe():
-            new_status |= ObserverStatus.WEATHER_SAFE
-
-        # Warn about change in enabled status.
-        if self.status.enabled() != new_status.enabled():
-            if new_status.enabled():
-                await self.overwatcher.notify("Overwatcher is now ENABLED.")
-            else:
-                await self.overwatcher.notify("Overwatcher is now DISABLED")
-
-        self.status = new_status
 
 
 class ObserverOverwatcher(OverwatcherModule):
@@ -148,8 +72,37 @@ class ObserverOverwatcher(OverwatcherModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.status = ObserverStatus(0)
         self.observe_loop: asyncio.Task | None = None
+        self.next_exposure_completes: float = 0
+
+        self._starting_observations: bool = False
+        self._cancelling: bool = False
+
+    @property
+    def is_observing(self):
+        """Returns whether the observer is currently observing."""
+
+        if self._starting_observations:
+            return True
+
+        return self.observe_loop is not None and not self.observe_loop.done()
+
+    @property
+    def is_cancelling(self):
+        """Returns whether the observer is currently cancelling."""
+
+        if not self.is_observing:
+            self._cancelling = False
+            return False
+
+        return self._cancelling
+
+    def cancel(self):
+        """Requests the cancellation of the observing loop."""
+
+        if not self.is_observing and not self.is_cancelling:
+            self._cancelling = True
+            self.gort.observer.cancelling = True
 
     async def start_observing(self):
         """Starts observations."""
@@ -157,20 +110,20 @@ class ObserverOverwatcher(OverwatcherModule):
         if self.overwatcher.state.dry_run:
             return
 
-        if self.status.observing():
+        if self.is_observing or self.is_cancelling:
             return
 
-        weather = self.overwatcher.weather
-        if not weather.is_running or not weather.is_safe():
+        if not self.overwatcher.state.safe:
             raise GortError("Cannot safely open the telescope.")
 
         await self.overwatcher.write_to_slack("Starting observations.")
+        self._starting_observations = True
 
         if not (await self.overwatcher.dome.is_opening()):
             await self.overwatcher.dome.startup()
 
         self.observe_loop = asyncio.create_task(self.observe_loop_task())
-        self.status |= ObserverStatus.OBSERVING
+        self._starting_observations = False
 
     async def stop_observing(
         self,
@@ -183,11 +136,10 @@ class ObserverOverwatcher(OverwatcherModule):
         if self.overwatcher.state.dry_run:
             return
 
-        if not self.status.observing():
+        if not self.is_observing:
             return
 
-        self.status |= ObserverStatus.CANCELLING
-        self.gort.observer.cancelling = True  # Prevent multiple dithers
+        self.cancel()
 
         if immediate:
             await self.overwatcher.notify(
@@ -195,13 +147,14 @@ class ObserverOverwatcher(OverwatcherModule):
             )
             self.observe_loop = await cancel_task(self.observe_loop)
 
-        elif not self.status.cancelling():
+        else:
             await self.overwatcher.notify(
                 f"Stopping observations after this tile: {reason}"
             )
 
         if block and self.observe_loop and not self.observe_loop.done():
             await self.observe_loop
+            self.observe_loop = None
 
     async def observe_loop_task(self):
         """Runs the observing loop."""
@@ -230,7 +183,7 @@ class ObserverOverwatcher(OverwatcherModule):
                     show_progress=False,
                 )
 
-                if not result and not self.status.cancelling():
+                if not result and not self.is_cancelling:
                     raise GortError("The observation ended with error state.")
 
             except asyncio.CancelledError:
@@ -245,7 +198,7 @@ class ObserverOverwatcher(OverwatcherModule):
                 await self.gort.cleanup(readout=False)
 
             finally:
-                if self.status.cancelling():
+                if self.is_cancelling:
                     self.log.warning("Cancelling observations.")
                     try:
                         if exp and isinstance(exp[0], Exposure):
@@ -255,7 +208,6 @@ class ObserverOverwatcher(OverwatcherModule):
 
                     break
 
-        self.status &= ~(ObserverStatus.CANCELLING | ObserverStatus.OBSERVING)
         await self.gort.cleanup()
 
         await self.overwatcher.notify("The observing loop has ended.")

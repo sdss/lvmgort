@@ -41,6 +41,8 @@ class DomeHelper:
         self.gort = overwatcher.gort
         self.log = overwatcher.log
 
+        # This includes not only if the dome is physically moving but also
+        # if the telescopes are parking in preparation for closing the dome.
         self._moving: bool = False
 
         self._action_lock = asyncio.Lock()
@@ -58,11 +60,11 @@ class DomeHelper:
             return DomeStatus.CLOSING | DomeStatus.MOVING
         elif "OPEN" in labels:
             if self._moving:
-                return DomeStatus.CLOSING | DomeStatus.MOVING
+                return DomeStatus.OPENING | DomeStatus.MOVING
             return DomeStatus.OPEN
         elif "CLOSED" in labels:
             if self._moving:
-                return DomeStatus.OPENING | DomeStatus.MOVING
+                return DomeStatus.CLOSING | DomeStatus.MOVING
             return DomeStatus.CLOSED
 
         return DomeStatus.UNKNOWN
@@ -115,12 +117,19 @@ class DomeHelper:
                 )
 
         except Exception:
+            await asyncio.sleep(3)
+
             status = await self.status()
+
             if status & DomeStatus.MOVING:
                 self.log.warning("Dome is still moving after an error. Stopping.")
                 await self.stop()
 
-            raise
+            # Sometimes the open/close could fail but actually the dome is open/closed.
+            if open and not (status & DomeStatus.OPEN):
+                raise
+            elif not open and not (status & DomeStatus.CLOSED):
+                raise
 
         self._moving = False
 
@@ -183,8 +192,6 @@ class DomeHelper:
         """Runs the startup sequence."""
 
         async with self._action_lock:
-            self._moving = True
-
             self.log.info("Starting the dome startup sequence.")
             await self.gort.startup(open_enclosure=False, focus=False)
 
@@ -200,8 +207,6 @@ class DomeHelper:
             return
 
         async with self._action_lock:
-            self._moving = True
-
             self.log.info("Running the shutdown sequence.")
 
             async with GatheringTaskGroup() as group:

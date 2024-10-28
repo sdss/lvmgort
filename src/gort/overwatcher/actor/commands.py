@@ -16,6 +16,8 @@ import click
 
 from clu.parsers.click import command_parser as overwatcher_cli
 
+from gort.overwatcher.calibration import CalibrationState
+
 
 if TYPE_CHECKING:
     from gort.overwatcher.actor.actor import OverwatcherCommand
@@ -50,6 +52,8 @@ async def enable(command: OverwatcherCommand):
     overwatcher = command.actor.overwatcher
     overwatcher.state.enabled = True
 
+    await overwatcher.notify("Overwatcher has been enabled.")
+
     return command.finish()
 
 
@@ -67,6 +71,7 @@ async def disable(command: OverwatcherCommand, now: bool = False):
         )
 
     overwatcher.state.enabled = False
+    await overwatcher.notify("Overwatcher has been disabled.")
 
     return command.finish()
 
@@ -137,10 +142,27 @@ async def list(command: OverwatcherCommand):
 
 
 @calibrations.command()
-async def reset(command: OverwatcherCommand):
-    """Resets the calibration schedule. Clears done calibrations."""
+@click.argument("CALIBRATION", type=str, required=False)
+@click.option("--include-done", is_flag=True, help="Include done calibrations.")
+async def reset(
+    command: OverwatcherCommand,
+    calibration: str | None = None,
+    include_done: bool = False,
+):
+    """Resets the status of a calibration."""
 
     overwatcher = command.actor.overwatcher
-    overwatcher.calibrations.schedule.update_schedule(clear=True)
+
+    schedule = overwatcher.calibrations.schedule
+    for cal in schedule.calibrations:
+        if calibration is not None and cal.name != calibration:
+            continue
+
+        if (cal.state == CalibrationState.DONE) and not include_done:
+            continue
+
+        cal.state = CalibrationState.WAITING
+
+    overwatcher.calibrations.schedule.update_schedule(reset=True)
 
     return command.finish()

@@ -114,6 +114,7 @@ class CalibrationState(enum.StrEnum):
     RUNNING = "running"
     RETRYING = "retrying"
     FAILED = "failed"
+    CANCELLED = "cancelled"
     DONE = "done"
 
 
@@ -267,7 +268,7 @@ class CalibrationSchedule:
     def update_schedule(
         self,
         cals_data: CalsDataType | None = None,
-        clear: bool = False,
+        reset: bool = False,
     ):
         """Generates a schedule of calibrations for the night."""
 
@@ -310,9 +311,6 @@ class CalibrationSchedule:
             # Check if the key exists. If it does not, it means we haven't done
             # anything yet for this SJD.
             if not redis.exists(key):
-                clear = True
-
-            if clear:
                 # Purge all existing data.
                 data = {cal.name: cal.to_dict() for cal in self.calibrations}
                 redis.json().set(key, "$", data)
@@ -321,7 +319,7 @@ class CalibrationSchedule:
                 redis_cal_keys = redis.json().objkeys(key, "$")[0]
 
                 for cal in self.calibrations:
-                    if redis_cal_keys and cal.name in redis_cal_keys:
+                    if not reset and redis_cal_keys and cal.name in redis_cal_keys:
                         state = cast(str, redis.json().get(key, f".{cal.name}.state"))
                         cal.state = CalibrationState(state.lower())
                     else:
@@ -425,7 +423,16 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
 
             if next_calibration is not None:
                 try:
-                    await self.module.run_calibration(next_calibration)
+                    self.module._calibration_task = asyncio.create_task(
+                        self.module.run_calibration(next_calibration)
+                    )
+                    await self.module._calibration_task
+                except asyncio.CancelledError:
+                    await self.module.overwatcher.notify(
+                        f"Calibration {next_calibration.name!r} has been cancelled.",
+                        level="warning",
+                    )
+                    next_calibration.record_state(CalibrationState.CANCELLED)
                 except Exception as ee:
                     await self.module.overwatcher.notify(
                         f"Error running calibration {next_calibration.name!r}: {ee}",
@@ -455,6 +462,8 @@ class CalibrationsOverwatcher(OverwatcherModule):
         self.cals_file = pathlib.Path(cals_file or self._default_cals_file)
 
         self.schedule = CalibrationSchedule(self, self.cals_file, update=False)
+
+        self._calibration_task: asyncio.Task | None = None
 
         self._failing_cals: dict[str, float] = {}
         self._ignore_cals: set[str] = set()
@@ -597,6 +606,12 @@ class CalibrationsOverwatcher(OverwatcherModule):
             self._failing_cals.pop(name)
 
         calibration.record_state(CalibrationState.DONE)
+
+    async def cancel(self):
+        """Cancel the running calibration."""
+
+        if self._calibration_task is not None and not self._calibration_task.done():
+            self._calibration_task.cancel()
 
     async def _fail_calibration(
         self,

@@ -35,8 +35,8 @@
 
 - name: twilight_flats_sunrise
   recipe: twilight_flats
-  min_start_time: 1500
-  max_start_time: 1200
+  min_start_time: 900
+  max_start_time: 600
   time_mode: secs_before_sunrise
   after: null
   required: true
