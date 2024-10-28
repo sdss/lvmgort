@@ -229,7 +229,7 @@ async def post_observing(gort: Gort):
 
     notifier = BasicNotifier(gort)
 
-    await notifier.notify("Starting post-observing tasks.")
+    await notifier.notify("Running post-observing tasks.")
 
     closed = await gort.enclosure.is_closed()
     if not closed:
