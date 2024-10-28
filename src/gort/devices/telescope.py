@@ -772,7 +772,7 @@ class Telescope(GortDevice):
 
         """
 
-        if (await self.gort.enclosure.is_local()) and not force:
+        if not force and (await self.gort.enclosure.is_local()):
             raise GortTelescopeError(
                 "Cannot move telescope in local mode.",
                 error_code=ErrorCode.CANNOT_MOVE_LOCAL_MODE,

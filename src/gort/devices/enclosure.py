@@ -13,7 +13,7 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from gort.enums import Event
-from gort.exceptions import ErrorCode, GortEnclosureError
+from gort.exceptions import ErrorCode, GortEnclosureError, GortTelescopeError
 from gort.gort import Gort, GortClient, GortDevice, GortDeviceSet
 
 
@@ -134,8 +134,15 @@ class Enclosure(GortDevice):
             "warning",
         )
 
+        # Check local only once here.
+        if await self.gort.enclosure.is_local():
+            raise GortTelescopeError(
+                "Cannot move telescope in local mode.",
+                error_code=ErrorCode.CANNOT_MOVE_LOCAL_MODE,
+            )
+
         park_coros = [
-            self.gort.telescopes[tel].goto_named_position("park", force=force)
+            self.gort.telescopes[tel].goto_named_position("park", force=True)
             for itel, tel in enumerate(telescopes)
             if not is_parked[itel]
         ]
