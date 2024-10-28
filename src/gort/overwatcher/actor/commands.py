@@ -50,9 +50,10 @@ async def enable(command: OverwatcherCommand):
     """Enables the overwatcher."""
 
     overwatcher = command.actor.overwatcher
-    overwatcher.state.enabled = True
 
-    await overwatcher.notify("Overwatcher has been enabled.")
+    if not overwatcher.state.enabled:
+        overwatcher.state.enabled = True
+        await overwatcher.notify("Overwatcher has been enabled.")
 
     return command.finish()
 
@@ -70,8 +71,9 @@ async def disable(command: OverwatcherCommand, now: bool = False):
             reason="user disabled observing mode",
         )
 
-    overwatcher.state.enabled = False
-    await overwatcher.notify("Overwatcher has been disabled.")
+    if overwatcher.state.enabled:
+        overwatcher.state.enabled = False
+        await overwatcher.notify("Overwatcher has been disabled.")
 
     return command.finish()
 
