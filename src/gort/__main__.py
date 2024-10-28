@@ -10,24 +10,12 @@
 import asyncio
 import os
 import warnings
-from contextlib import asynccontextmanager
 
 import click
 
 from sdsstools.daemonizer import DaemonGroup, cli_coro
 
-
-@asynccontextmanager
-async def get_gort_client():
-    """Returns a GORT client."""
-
-    from gort import Gort
-
-    gort = await Gort(verbosity="debug").init()
-
-    yield gort
-
-    await gort.stop()
+from gort.tools import get_gort_client
 
 
 @click.group()

@@ -9,6 +9,7 @@ COPY . lvmgort
 
 RUN pip3 install -U pip setuptools wheel
 RUN cd lvmgort && pip3 install .
+RUN cp -r lvmgort/scripts .
 RUN rm -Rf lvmgort
 
 # Checkout lvmcore

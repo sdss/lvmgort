@@ -16,9 +16,12 @@ from typing import TYPE_CHECKING
 from sdsstools.utils import GatheringTaskGroup
 
 from gort.exceptions import GortError
+from gort.overwatcher.notifier import BasicNotifier
+from gort.tools import get_lvmapi_route
 
 
 if TYPE_CHECKING:
+    from gort import Gort
     from gort.overwatcher.overwatcher import Overwatcher
 
 
@@ -221,3 +224,32 @@ class DomeHelper:
 
             self.log.info("Parking telescopes for the night.")
             await self.gort.telescopes.park()
+
+
+async def post_observing(gort: Gort):
+    """Runs the post-observing tasks.
+
+    These include:
+
+    - Closing the dome.
+    - Parking the telescopes.
+    - Turning off all lamps.
+    - Stopping the guiders.
+    - Sending the night log email.
+
+    """
+
+    notifier = BasicNotifier(gort)
+
+    await notifier.notify("Starting post-observing tasks.")
+
+    closed = await gort.enclosure.is_closed()
+    if not closed:
+        await gort.enclosure.close(retry_without_parking=True)
+
+    await gort.telescopes.park()
+    await gort.nps.calib.all_off()
+    await gort.guiders.stop()
+
+    notifier.log.info("Sending night log email.")
+    await get_lvmapi_route("/logs/night-logs/0/email")  # mjd=0 sends current MJD

@@ -90,6 +90,8 @@ __all__ = [
     "check_overwatcher_not_running",
     "kubernetes_restart_deployment",
     "kubernetes_list_deployments",
+    "get_gort_client",
+    "copy_signature",
 ]
 
 AnyPath = str | os.PathLike
@@ -963,3 +965,16 @@ F = TypeVar("F", bound=Callable[..., Any])
 class copy_signature(Generic[F]):
     def __init__(self, target: F) -> None: ...
     def __call__(self, wrapped: Callable[..., Any]) -> F: ...
+
+
+@asynccontextmanager
+async def get_gort_client():
+    """Returns a GORT client."""
+
+    from gort import Gort
+
+    gort = await Gort(verbosity="debug").init()
+
+    yield gort
+
+    await gort.stop()

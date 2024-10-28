@@ -64,6 +64,7 @@ class OverwatcherMainTask(OverwatcherTask):
         self._lock = asyncio.Lock()
 
         self.previous_state = OverwatcherState()
+        self._pending_close_dome: bool = False
 
     async def task(self):
         """Main overwatcher task."""
@@ -152,6 +153,11 @@ class OverwatcherMainTask(OverwatcherTask):
         if not self.overwatcher.state.enabled:
             return
 
+        # Only close the dome if we have changed from night to day. handle_unsafe()
+        # will close it if it's really unsafe.
+        if not self.previous_state.night and not self.overwatcher.state.night:
+            self._pending_close_dome = True
+
         observing = self.overwatcher.observer.is_observing
         cancelling = self.overwatcher.observer.is_cancelling
 
@@ -173,15 +179,13 @@ class OverwatcherMainTask(OverwatcherTask):
             if not immediate:
                 return
 
-        # Only close the dome if we have changed from night to day. handle_unsafe()
-        # will close it if it's really unsafe.
-        if not self.previous_state.night and not self.overwatcher.state.night:
-            return
 
-        closed = await self.overwatcher.dome.is_closing()
-        if not closed:
-            await self.overwatcher.notify("Daytime conditions. Closing the dome.")
-            await self.overwatcher.dome.shutdown(retry=True)
+        if self._pending_close_dome:
+            closed = await self.overwatcher.dome.is_closing()
+            if not closed:
+                await self.overwatcher.notify("Daytime conditions. Closing the dome.")
+                await self.overwatcher.dome.shutdown(retry=True)
+            self._pending_close_dome = False
 
     async def handle_disabled(self):
         """Handles the disabled state."""

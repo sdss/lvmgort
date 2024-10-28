@@ -17,15 +17,14 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 import httpx
 
+from sdsstools import Configuration
 from sdsstools.utils import GatheringTaskGroup
 
+from gort.core import LogNamespace
 from gort.tools import insert_to_database
 
 
 if TYPE_CHECKING:
-    from sdsstools import Configuration
-
-    from gort.core import LogNamespace
     from gort.gort import Gort
 
 
@@ -56,7 +55,7 @@ class NotifierMixIn(OverwatcherProtocol):
         username = "Overwatcher" if as_overwatcher else None
         icon_url = GORT_ICON_URL if as_overwatcher else None
 
-        host, port = self.config["services"]["lvmapi"].values()
+        host, port = self.config["services.lvmapi"].values()
         channel = channel or self.config["overwatcher.slack.notifications_channel"]
 
         try:
@@ -196,3 +195,12 @@ class NotifierMixIn(OverwatcherProtocol):
                     }
                 ],
             )
+
+
+class BasicNotifier(NotifierMixIn):
+    """Basic notifier."""
+
+    def __init__(self, gort: Gort):
+        self.gort = gort
+        self.config = Configuration(gort.config)
+        self.log = LogNamespace(gort.log)
