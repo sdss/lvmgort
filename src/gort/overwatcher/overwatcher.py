@@ -94,6 +94,8 @@ class OverwatcherMainTask(OverwatcherTask):
                         await self.handle_daytime()
                     elif not ow.state.enabled:
                         await self.handle_disabled()
+                    elif ow.observer.is_cancelling and ow.state.enabled:
+                        await self.handle_reenable()
 
             except Exception as err:
                 await ow.notify(
@@ -179,7 +181,6 @@ class OverwatcherMainTask(OverwatcherTask):
             if not immediate:
                 return
 
-
         if self._pending_close_dome:
             closed = await self.overwatcher.dome.is_closing()
             if not closed:
@@ -199,6 +200,17 @@ class OverwatcherMainTask(OverwatcherTask):
                 immediate=False,
                 reason="overwatcher was disabled",
             )
+
+    async def handle_reenable(self):
+        """Re-enables the overwatcher after cancelling."""
+
+        observer = self.overwatcher.observer
+        if not self.overwatcher.state.enabled or not observer.is_cancelling:
+            return
+
+        self.log.info("Undoing the cancellation of the observing loop.")
+        observer._cancelling = False
+        self.overwatcher.gort.observer.cancelling = False
 
 
 class OverwatcherPingTask(OverwatcherTask):

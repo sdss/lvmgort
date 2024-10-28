@@ -159,9 +159,12 @@ class ObserverOverwatcher(OverwatcherModule):
 
         self.cancel()
 
+        if not reason.endswith("."):
+            reason += "."
+
         if immediate:
             await self.overwatcher.notify(
-                f"Stopping observations immediately. Reason: {reason}."
+                f"Stopping observations immediately. Reason: {reason}"
             )
             self.observe_loop = await cancel_task(self.observe_loop)
 

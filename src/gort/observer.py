@@ -433,8 +433,9 @@ class GortObserver:
                     exposures.append(exposure)
 
                 if self.cancelling:
-                    write_log("Reading exposure before cancelling.", "warning")
+                    await self.gort.guiders.stop()
 
+                    write_log("Reading exposure before cancelling.", "warning")
                     if isinstance(exposure, list):
                         await asyncio.gather(*exposure)
                     else:
