@@ -44,10 +44,6 @@ class DomeHelper:
         self.gort = overwatcher.gort
         self.log = overwatcher.log
 
-        # This includes not only if the dome is physically moving but also
-        # if the telescopes are parking in preparation for closing the dome.
-        self._moving: bool = False
-
         self._action_lock = asyncio.Lock()
         self._move_lock = asyncio.Lock()
 
@@ -62,11 +58,11 @@ class DomeHelper:
         elif "MOTOR_CLOSING" in labels:
             return DomeStatus.CLOSING | DomeStatus.MOVING
         elif "OPEN" in labels:
-            if self._moving:
+            if "MOVING" in labels:
                 return DomeStatus.OPENING | DomeStatus.MOVING
             return DomeStatus.OPEN
         elif "CLOSED" in labels:
-            if self._moving:
+            if "MOVING" in labels:
                 return DomeStatus.CLOSING | DomeStatus.MOVING
             return DomeStatus.CLOSED
 
@@ -104,12 +100,6 @@ class DomeHelper:
     ):
         """Moves the dome."""
 
-        if self._moving:
-            self.log.debug("Dome is already moving. Stopping before moving again.")
-            await self.stop()
-
-        self._moving = True
-
         try:
             if open:
                 await self.gort.enclosure.open(park_telescopes=park)
@@ -133,8 +123,6 @@ class DomeHelper:
                 raise
             elif not open and not (status & DomeStatus.CLOSED):
                 raise
-
-        self._moving = False
 
     async def open(self, park: bool = True):
         """Opens the dome."""
@@ -185,10 +173,10 @@ class DomeHelper:
 
         await self.gort.enclosure.stop()
 
+        await asyncio.sleep(1)
         status = await self.status()
-        self._moving = bool(status & DomeStatus.MOVING)
 
-        if self._moving:
+        if status & DomeStatus.MOVING:
             raise GortError("Dome is still moving after a stop command.")
 
     async def startup(self):
