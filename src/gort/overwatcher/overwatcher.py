@@ -181,7 +181,7 @@ class OverwatcherMainTask(OverwatcherTask):
             if not immediate:
                 return
 
-        if self._pending_close_dome:
+        if not observing and self._pending_close_dome:
             closed = await self.overwatcher.dome.is_closing()
             if not closed:
                 await self.overwatcher.notify("Daytime conditions. Closing the dome.")
