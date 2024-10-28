@@ -101,7 +101,16 @@ class DomeHelper:
         """Moves the dome."""
 
         try:
+            await self.stop()
+
+            is_local = await self.gort.enclosure.is_local()
+            if is_local:
+                raise GortError("Cannot move the dome in local mode.")
+
             if open:
+                if not self.overwatcher.state.safe:
+                    raise GortError("Cannot open the dome when conditions are unsafe.")
+
                 await self.gort.enclosure.open(park_telescopes=park)
             else:
                 await self.gort.enclosure.close(

@@ -568,6 +568,14 @@ class CalibrationsOverwatcher(OverwatcherModule):
             needs_dome_change = dome_new != dome_current
 
             if needs_dome_change:
+                if not self.overwatcher.state.safe:
+                    await self._fail_calibration(
+                        calibration,
+                        f"Cannot move dome for {name!r}. Weather is not safe.",
+                        level="error",
+                    )
+                    return
+
                 if not self.overwatcher.state.enabled:
                     await self._fail_calibration(
                         calibration,

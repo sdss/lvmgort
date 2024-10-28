@@ -117,6 +117,7 @@ class OverwatcherMainTask(OverwatcherTask):
         cancelling = self.overwatcher.observer.is_cancelling
 
         # TODO: cancel calibrations if any are running.
+        # TODO: should this only happen if the overwatcher is enabled?
 
         if not closed or observing:
             await self.overwatcher.notify(
