@@ -12,13 +12,13 @@ import asyncio
 
 from typing import TYPE_CHECKING
 
+from gort.enums import Event
 from gort.exceptions import ErrorCode, GortEnclosureError
-from gort.gort import GortDevice, GortDeviceSet
+from gort.gort import Gort, GortClient, GortDevice, GortDeviceSet
 
 
 if TYPE_CHECKING:
     from gort import ActorReply
-    from gort.gort import GortClient
 
 
 __all__ = ["Enclosure", "Lights", "Light"]
@@ -164,7 +164,12 @@ class Enclosure(GortDevice):
             await self._prepare_telescopes()
 
         self.write_to_log("Opening the enclosure ...", level="info")
+
+        if isinstance(self.gort, Gort):
+            await self.gort.notify_event(Event.DOME_OPENING)
+
         await self.actor.commands.dome.commands.open()
+
         self.write_to_log("Enclosure is now open.", level="info")
 
     async def close(
@@ -214,6 +219,9 @@ class Enclosure(GortDevice):
 
         self.write_to_log("Closing the enclosure ...", level="info")
         try:
+            if isinstance(self.gort, Gort):
+                await self.gort.notify_event(Event.DOME_CLOSING)
+
             await self.actor.commands.dome.commands.close(force=force)
         except Exception as err:
             if retry_without_parking is False or park_telescopes is False:

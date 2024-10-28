@@ -106,6 +106,8 @@ class Event(UpperStrEnum):
     OBSERVER_ACQUISITION_START = auto()
     OBSERVER_ACQUISITION_DONE = auto()
     OBSERVER_STANDARD_ACQUISITION_FAILED = auto()
+    DOME_OPENING = auto()
+    DOME_CLOSING = auto()
     UNCATEGORISED = auto()
 
 
