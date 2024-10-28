@@ -100,7 +100,7 @@ class ObserverOverwatcher(OverwatcherModule):
     def cancel(self):
         """Requests the cancellation of the observing loop."""
 
-        if not self.is_observing and not self.is_cancelling:
+        if self.is_observing and not self.is_cancelling:
             self._cancelling = True
             self.gort.observer.cancelling = True
 
