@@ -13,6 +13,8 @@ from time import time
 
 from typing import TYPE_CHECKING
 
+from astropy.time import Time
+
 from gort.exceptions import GortError
 from gort.exposure import Exposure
 from gort.overwatcher import OverwatcherModule
@@ -42,6 +44,7 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
         # the loop.
 
         state = self.overwatcher.state
+        notify = self.overwatcher.notify
 
         while True:
             if state.dry_run:
@@ -54,11 +57,26 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
                 try:
                     await self.module.start_observing()
                 except Exception as err:
-                    await self.overwatcher.notify(
+                    await notify(
                         f"An error occurred while starting the observing loop: {err}",
                         level="error",
                     )
                     await asyncio.sleep(15)
+
+            elif state.safe and not state.night:
+                ephemeris = self.overwatcher.ephemeris.ephemeris
+                dome_open = await self.overwatcher.dome.is_opening()
+
+                if ephemeris and not dome_open:
+                    now = time()
+                    twilight_time = Time(ephemeris.twilight_end, format="jd").unix
+
+                    time_to_twilight = twilight_time - now
+
+                    if time_to_twilight > 0 and time_to_twilight < 300:
+                        await notify("Opening the dome in preparation for observing.")
+                        if not dome_open:
+                            await self.overwatcher.dome.startup()
 
             await asyncio.sleep(1)
 
