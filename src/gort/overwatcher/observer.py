@@ -65,17 +65,17 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
 
             elif state.safe and not state.night:
                 ephemeris = self.overwatcher.ephemeris.ephemeris
-                dome_open = await self.overwatcher.dome.is_opening()
 
-                if ephemeris and not dome_open:
+                if ephemeris:
                     now = time()
                     twilight_time = Time(ephemeris.twilight_end, format="jd").unix
 
                     time_to_twilight = twilight_time - now
 
                     if time_to_twilight > 0 and time_to_twilight < 300:
-                        await notify("Opening the dome in preparation for observing.")
+                        dome_open = await self.overwatcher.dome.is_opening()
                         if not dome_open:
+                            await notify("Opening the dome for observing.")
                             await self.overwatcher.dome.startup()
 
             await asyncio.sleep(1)
