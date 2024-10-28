@@ -53,7 +53,10 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
             elif self.module.is_observing or self.module.is_cancelling:
                 pass
 
-            elif state.safe and state.night and state.enabled:
+            elif not state.enabled:
+                pass
+
+            elif state.safe and state.night:
                 try:
                     await self.module.start_observing()
                 except Exception as err:
