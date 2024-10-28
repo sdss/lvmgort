@@ -160,8 +160,8 @@ class TwilightFlats(BaseRecipe):
     # Positive numbers means "into" the twilight.
     SUNSET_START: ClassVar[float] = -3
 
-    # Start sunrise flats 25 minutes before sunrise
-    SUNRISE_START: ClassVar[float] = 25
+    # Start sunrise flats 15 minutes before sunrise
+    SUNRISE_START: ClassVar[float] = 15
 
     async def recipe(
         self,
