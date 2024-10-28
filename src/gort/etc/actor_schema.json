@@ -37,6 +37,19 @@
           }
         }
       }
+    },
+    "observer_status": {
+      "type": "object",
+      "properties": {
+        "observing": { "type": "boolean" },
+        "cancelling": { "type": "boolean" },
+        "tile_id": { "oneOf": [{ "type": "number" }, { "type": "null" }] },
+        "dither_position": {
+          "oneOf": [{ "type": "number" }, { "type": "null" }]
+        },
+        "stage": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+        "standard_no": { "oneOf": [{ "type": "number" }, { "type": "null" }] }
+      }
     }
   },
   "additionalProperties": false

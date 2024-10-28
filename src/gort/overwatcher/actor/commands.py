@@ -166,3 +166,46 @@ async def reset(
     overwatcher.calibrations.schedule.update_schedule(reset=True)
 
     return command.finish()
+
+
+@overwatcher_cli.group()
+def observer(*_):
+    """Commands the overwatcher observer."""
+
+    pass
+
+
+@observer.command(name="status")
+async def observer_status(command: OverwatcherCommand):
+    """Reports the status of the observer."""
+
+    overwatcher = command.actor.overwatcher
+    overwatcher_observer = overwatcher.observer
+    gort_observer = overwatcher.gort.observer
+
+    tile = gort_observer._tile
+
+    tile_id: int | None = None
+    dither_position: int | None = None
+    stage: str | None = None
+    standard_no: int | None = None
+
+    if overwatcher_observer.is_observing and gort_observer.is_running() and tile:
+        tile_id = tile.tile_id
+        dither_position = overwatcher.gort.observer.dither_position
+
+        if standards := overwatcher.gort.observer.standards:
+            standard_no = standards.current_standard
+
+        stage = gort_observer.get_running_stage()
+
+    return command.finish(
+        observer_status={
+            "observing": overwatcher_observer.is_observing,
+            "cancelling": overwatcher_observer.is_cancelling,
+            "tile_id": tile_id,
+            "dither_position": dither_position,
+            "stage": stage,
+            "standard_no": standard_no,
+        }
+    )
