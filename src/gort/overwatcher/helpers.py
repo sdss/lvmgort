@@ -252,4 +252,6 @@ async def post_observing(gort: Gort):
     await gort.guiders.stop()
 
     notifier.log.info("Sending night log email.")
-    await get_lvmapi_route("/logs/night-logs/0/email")  # mjd=0 sends current MJD
+    result = await get_lvmapi_route("/logs/night-logs/0/email?only_if_not_sent=true")
+    if not result:
+        notifier.log.warning("Night log had already been sent.")
