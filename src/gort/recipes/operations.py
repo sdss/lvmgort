@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import asyncio
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from rich.prompt import Confirm
+
+from sdsstools.utils import GatheringTaskGroup
 
 from .base import BaseRecipe
 
@@ -70,7 +72,6 @@ class StartupRecipe(BaseRecipe):
 
     async def recipe(
         self,
-        calibration_sequence: str | None | Literal[False] = False,
         open_enclosure: bool = True,
         confirm_open: bool = True,
         focus: bool = True,
@@ -81,10 +82,6 @@ class StartupRecipe(BaseRecipe):
         ----------
         gort
             The `.Gort` instance to use.
-        calibration_sequence
-            The name of the calibration sequence to use. If :obj:`None`, uses the
-            default sequence from the configuration. If :obj:`False`, skips the
-            calibration sequence.
         open_enclosure
             Whether to open the enclosure.
         confirm_open
@@ -93,8 +90,6 @@ class StartupRecipe(BaseRecipe):
             Whether to focus after the enclosure has open.
 
         """
-
-        rconfig = self.gort.config["recipes"]["startup"]
 
         self.gort.log.warning("Running the startup sequence.")
 
@@ -115,11 +110,6 @@ class StartupRecipe(BaseRecipe):
 
         self.gort.log.info("Taking AG darks.")
         await self.gort.guiders.take_darks()
-
-        if calibration_sequence is not False:
-            sequence = calibration_sequence or rconfig["calibration_sequence"]
-            self.gort.log.info(f"Running calibration sequence {sequence!r}.")
-            await self.gort.specs.calibrate(sequence)
 
         if open_enclosure:
             if confirm_open:
@@ -146,14 +136,20 @@ class ShutdownRecipe(BaseRecipe):
 
     name = "shutdown"
 
-    async def recipe(self, park_telescopes: bool = True, additional_close: bool = True):
+    async def recipe(
+        self,
+        park_telescopes: bool = True,
+        additional_close: bool = False,
+    ):
         """Shutdown the telescope, closes the dome, etc.
 
         Parameters
         ----------
         park_telescopes
             Park telescopes (and disables axes). Set to :obj:`False` if only
-            closing for a brief period of time.
+            closing for a brief period of time. If the dome fails to close with
+            ``park_telescopes=True``, it will try again without parking the
+            telescopes.
         additional_close
             Issues an additional ``close`` command after the dome is closed.
             This is a temporary solution to make sure the dome is closed
@@ -164,13 +160,15 @@ class ShutdownRecipe(BaseRecipe):
 
         self.gort.log.warning("Running the shutdown sequence.")
 
-        self.gort.log.info("Turning off all lamps.")
-        await self.gort.nps.calib.all_off()
+        async with GatheringTaskGroup() as group:
+            self.gort.log.info("Turning off all lamps.")
+            group.create_task(self.gort.nps.calib.all_off())
 
-        self.gort.log.info("Making sure guiders are idle.")
-        await self.gort.guiders.stop()
+            self.gort.log.info("Making sure guiders are idle.")
+            group.create_task(self.gort.guiders.stop())
 
-        await self.gort.enclosure.close()
+            self.gort.log.info("Closing the dome.")
+            group.create_task(self.gort.enclosure.close())
 
         if park_telescopes:
             self.gort.log.info("Parking telescopes for the night.")

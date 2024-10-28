@@ -1,0 +1,46 @@
+---
+- name: twilight_flats_sunset
+  recipe: twilight_flats
+  min_start_time: -120
+  max_start_time: 300
+  time_mode: secs_after_sunset
+  after: null
+  required: true
+  dome: open
+  close_dome_after: true
+  abort_observing: true
+  priority: 10
+
+- name: quick_cals
+  recipe: quick_cals
+  min_start_time: 1800
+  max_start_time: null
+  time_mode: secs_after_sunset
+  after: null
+  required: true
+  dome: closed
+  abort_observing: true
+  priority: 8
+
+- name: bias_sequence
+  recipe: bias_sequence
+  min_start_time: null
+  max_start_time: null
+  time_mode: null
+  after: quick_cals
+  required: true
+  dome: closed
+  abort_observing: true
+  priority: 5
+
+- name: twilight_flats_sunrise
+  recipe: twilight_flats
+  min_start_time: 900
+  max_start_time: 600
+  time_mode: secs_before_sunrise
+  after: null
+  required: true
+  dome: open
+  close_dome_after: true
+  abort_observing: true
+  priority: 10

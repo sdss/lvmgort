@@ -18,26 +18,38 @@ import pathlib
 import re
 import tempfile
 import warnings
-from contextlib import suppress
-from functools import partial
+from contextlib import asynccontextmanager, contextmanager, suppress
+from functools import partial, wraps
 
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, Sequence
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncGenerator,
+    Callable,
+    Coroutine,
+    Generator,
+    Generic,
+    Sequence,
+    TypeVar,
+)
 
 import httpx
 import numpy
 import peewee
 import polars
+import redis
 from astropy import units as uu
 from astropy.coordinates import angular_separation as astropy_angular_separation
+from redis import asyncio as aioredis
 
+from clu import AMQPClient
 from sdsstools import get_sjd
 
 from gort import config
+from gort.exceptions import ErrorCode, GortError
 
 
 if TYPE_CHECKING:
-    from pyds9 import DS9
-
     from clu import AMQPClient, AMQPReply
 
     from gort.devices.telescope import FibSel
@@ -46,9 +58,6 @@ if TYPE_CHECKING:
 
 __all__ = [
     "get_valid_variable_name",
-    "ds9_agcam_monitor",
-    "parse_agcam_filename",
-    "ds9_display_frames",
     "get_next_tile_id",
     "get_calibrators",
     "get_next_tile_id_sync",
@@ -58,10 +67,14 @@ __all__ = [
     "move_mask_interval",
     "angular_separation",
     "get_db_connection",
+    "redis_client_async",
+    "redis_client_sync",
     "run_in_executor",
     "is_interactive",
     "is_notebook",
     "cancel_task",
+    "get_ephemeris_summary",
+    "get_ephemeris_summary_sync",
     "get_temporary_file_path",
     "insert_to_database",
     "get_md5sum_file",
@@ -69,7 +82,16 @@ __all__ = [
     "get_md5sum",
     "mark_exposure_bad",
     "handle_signals",
+    "get_lvmapi_route",
     "GuiderMonitor",
+    "overwatcher_is_running",
+    "get_by_source_id",
+    "is_actor_running",
+    "check_overwatcher_not_running",
+    "kubernetes_restart_deployment",
+    "kubernetes_list_deployments",
+    "get_gort_client",
+    "copy_signature",
 ]
 
 AnyPath = str | os.PathLike
@@ -91,137 +113,10 @@ def get_valid_variable_name(var_name: str):
     return re.sub(r"\W|^(?=\d)", "_", var_name)
 
 
-async def ds9_agcam_monitor(
-    amqp_client: AMQPClient,
-    cameras: list[str] | None = None,
-    replace_path_prefix: tuple[str, str] | None = None,
-    **kwargs,
-):
-    """Shows guider images in DS9."""
-
-    images_handled = set([])
-
-    # Clear all frames and get an instance of DS9.
-    ds9 = await ds9_display_frames([], clear_frames=True, preserve_frames=False)
-
-    if cameras is None:
-        cameras = CAMERAS.copy()
-
-    agcam_actors = set(
-        [
-            "lvm." + (cam.split(".")[0] if "." in cam else cam) + ".agcam"
-            for cam in cameras
-        ]
-    )
-
-    async def handle_reply(reply: AMQPReply):
-        sender = reply.sender
-        if sender not in agcam_actors:
-            return
-
-        message: dict | None = None
-        if "east" in reply.body:
-            message = reply.body["east"]
-        elif "west" in reply.body:
-            message = reply.body["west"]
-        else:
-            return
-
-        if message is None or message.get("state", None) != "written":
-            return
-
-        filename: str = message["filename"]
-        if filename in images_handled:
-            return
-        images_handled.add(filename)
-
-        if replace_path_prefix is not None:
-            filename = filename.replace(replace_path_prefix[0], replace_path_prefix[1])
-
-        await ds9_display_frames([filename], ds9=ds9, **kwargs)
-
-    amqp_client.add_reply_callback(handle_reply)
-
-    while True:
-        await asyncio.sleep(1)
-
-
-async def ds9_display_frames(
-    files: list[str | pathlib.Path] | dict[str, str | pathlib.Path],
-    ds9: DS9 | None = None,
-    order=CAMERAS,
-    ds9_target: str = "DS9:*",
-    show_all_frames=True,
-    preserve_frames=True,
-    clear_frames=False,
-    adjust_zoom=True,
-    adjust_scale=True,
-    show_tiles=True,
-):
-    """Displays a series of images in DS9."""
-
-    if ds9 is None:
-        try:
-            import pyds9
-        except ImportError:
-            raise ImportError("pyds9 is not installed.")
-
-        ds9 = pyds9.DS9(target=ds9_target)
-
-    if clear_frames:
-        ds9.set("frame delete all")
-
-    files_dict: dict[str, str] = {}
-    if not isinstance(files, dict):
-        for file_ in files:
-            tel_cam = parse_agcam_filename(file_)
-            if tel_cam is None:
-                raise ValueError(f"Cannot parse type of file {file_!s}.")
-            files_dict[".".join(tel_cam)] = str(file_)
-    else:
-        files_dict = {k: str(v) for k, v in files.items()}
-
-    nframe = 1
-    for cam in order:
-        if cam in files_dict:
-            file_ = files_dict[cam]
-            ds9.set(f"frame {nframe}")
-            ds9.set(f"fits {file_}")
-            if adjust_scale:
-                ds9.set("zscale")
-            if adjust_zoom:
-                ds9.set("zoom to fit")
-            nframe += 1
-        else:
-            if show_all_frames:
-                if preserve_frames is False:
-                    ds9.set(f"frame {nframe}")
-                    ds9.set("frame clear")
-                nframe += 1
-
-    if show_tiles:
-        ds9.set("tile")
-
-    return ds9
-
-
-def parse_agcam_filename(file_: str | pathlib.Path):
-    """Returns the type of an ``agcam`` file in the form ``(telescope, camera)``."""
-
-    file_ = pathlib.Path(file_)
-    basename = file_.name
-
-    match = re.match(".+(sci|spec|skyw|skye).+(east|west)", basename)
-    if not match:
-        return None
-
-    return match.groups()
-
-
 def get_next_tile_id_sync() -> dict:
     """Retrieves the next ``tile_id`` from the scheduler API. Synchronous version."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -237,7 +132,7 @@ def get_next_tile_id_sync() -> dict:
 async def get_next_tile_id() -> dict:
     """Retrieves the next ``tile_id`` from the scheduler API."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -257,7 +152,7 @@ def get_calibrators_sync(
 ) -> dict:
     """Get calibrators for a ``tile_id`` or science pointing. Synchronous version."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -281,7 +176,7 @@ async def get_calibrators(
 ):
     """Get calibrators for a ``tile_id`` or science pointing."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -301,7 +196,7 @@ async def get_calibrators(
 async def register_observation(payload: dict):
     """Registers an observation with the scheduler."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -344,7 +239,7 @@ def mark_exposure_bad(tile_id: int, dither_position: int = 0):
 async def set_tile_status(tile_id: int, enabled: bool = True):
     """Enables/disables a tile in the database."""
 
-    sch_config = config["scheduler"]
+    sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
 
@@ -546,10 +441,34 @@ def angular_separation(lon1: float, lat1: float, lon2: float, lat2: float):
 def get_db_connection():
     """Returns a DB connection from the configuration file parameters."""
 
-    conn = peewee.PostgresqlDatabase(**config["database"]["connection"])
+    conn = peewee.PostgresqlDatabase(**config["services"]["database"]["connection"])
     assert conn.connect(), "Database connection failed."
 
     return conn
+
+
+@asynccontextmanager
+async def redis_client_async() -> AsyncGenerator[aioredis.Redis, None]:
+    """Returns a Redis connection from the configuration file parameters."""
+
+    redis_config = config["services"]["redis"]
+    client = aioredis.from_url(redis_config["url"], decode_responses=True)
+
+    yield client
+
+    await client.aclose()
+
+
+@contextmanager
+def redis_client_sync() -> Generator[redis.Redis, None]:
+    """Returns a Redis connection from the configuration file parameters."""
+
+    redis_config = config["services"]["redis"]
+    client = redis.from_url(redis_config["url"], decode_responses=True)
+
+    yield client
+
+    client.close()
 
 
 async def run_in_executor(fn, *args, catch_warnings=False, executor="thread", **kwargs):
@@ -762,21 +681,57 @@ def get_by_source_id(source_id: int) -> dict | None:
     return data[0]
 
 
-async def get_ephemeris_summary(sjd: int | None = None):
+async def get_ephemeris_summary(sjd: int | None = None) -> dict:
     """Returns the ephemeris summary from ``lvmapi``."""
 
-    host = config["lvmapi"]["host"]
-    port = config["lvmapi"]["port"]
-    url = f"http://{host}:{port}/ephemeris/"
+    host = config["services"]["lvmapi"]["host"]
+    port = config["services"]["lvmapi"]["port"]
+    url = f"http://{host}:{port}/ephemeris/summary"
 
     sjd = sjd or get_sjd("LCO")
 
     async with httpx.AsyncClient() as client:
         resp = await client.get(url, params={"sjd": sjd})
         if resp.status_code != 200:
-            raise httpx.RequestError("Failed request to /ephemeris")
+            raise httpx.RequestError("Failed request to /ephemeris/summary")
 
     return resp.json()
+
+
+def get_ephemeris_summary_sync(sjd: int | None = None) -> dict:
+    """Returns the ephemeris summary from ``lvmapi``."""
+
+    host = config["services"]["lvmapi"]["host"]
+    port = config["services"]["lvmapi"]["port"]
+    url = f"http://{host}:{port}/ephemeris/summary"
+
+    sjd = sjd or get_sjd("LCO")
+
+    with httpx.Client() as client:
+        resp = client.get(url, params={"sjd": sjd})
+        if resp.status_code != 200:
+            raise httpx.RequestError("Failed request to /ephemeris/summary")
+
+    return resp.json()
+
+
+async def get_lvmapi_route(route: str, params: dict = {}, **kwargs):
+    """Gets an ``lvmapi`` route."""
+
+    params.update(kwargs)
+
+    host, port = config["services"]["lvmapi"].values()
+
+    async with httpx.AsyncClient(
+        base_url=f"http://{host}:{port}",
+        follow_redirects=True,
+    ) as client:
+        response = await client.get(route, params=params)
+
+        if response.status_code != 200:
+            raise ValueError(f"Route {route} failed with error {response.status_code}.")
+
+    return response.json()
 
 
 class GuiderMonitor:
@@ -950,3 +905,76 @@ class GuiderMonitor:
                     continue
 
         return header
+
+
+async def is_actor_running(actor: str, client: AMQPClient | None = None):
+    """Returns :obj:`True` if the actor is running.
+
+    This assumes that the actor implements a `ping` command.
+
+    """
+
+    if not client:
+        client = await AMQPClient().start()
+
+    # TODO: this can fail if the event loop has closed the client connection.
+    ping = await client.send_command(actor, "ping")
+    if ping.status.did_succeed:
+        return True
+
+    return False
+
+
+async def overwatcher_is_running(client: AMQPClient | None = None):
+    """Returns :obj:`True` if the overwatcher is running."""
+
+    overwatcher_actor_name = config["overwatcher"]["actor"]["name"]
+    return await is_actor_running(overwatcher_actor_name, client=client)
+
+
+def check_overwatcher_not_running(coro):
+    """Decorator that fails a coroutine if the overwatcher is running."""
+
+    @wraps(coro)
+    async def wrapper(*args, **kwargs):
+        if await overwatcher_is_running():
+            raise GortError(
+                f"Overwatcher is running. Cannot execute {coro.__name__}.",
+                ErrorCode.OVERATCHER_RUNNING,
+            )
+        return await coro(*args, **kwargs)
+
+    return wrapper
+
+
+async def kubernetes_list_deployments():
+    """Retrieves the Kubernetes deployments from the API."""
+
+    return await get_lvmapi_route("/kubernetes/deployments/list")
+
+
+async def kubernetes_restart_deployment(name: str):
+    """Restarts a Kubernetes deployment via the API."""
+
+    return await get_lvmapi_route(f"/kubernetes/deployments/{name}/restart")
+
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+class copy_signature(Generic[F]):
+    def __init__(self, target: F) -> None: ...
+    def __call__(self, wrapped: Callable[..., Any]) -> F: ...
+
+
+@asynccontextmanager
+async def get_gort_client():
+    """Returns a GORT client."""
+
+    from gort import Gort
+
+    gort = await Gort(verbosity="debug").init()
+
+    yield gort
+
+    await gort.stop()

@@ -8,7 +8,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING, Any, Type
+
+from gort.enums import Event
+from gort.pubsub import notify_event
 
 
 if TYPE_CHECKING:
@@ -59,4 +62,22 @@ class BaseRecipe(object, metaclass=RegisterRecipe):
         return
 
     async def __call__(self, *args, **kwargs):
-        await self.recipe(*args, **kwargs)
+        """Executes the recipe and sends event notifications."""
+
+        payload: dict[str, Any] = {
+            "recipe_name": self.name,
+            "args": list(args),
+            "kwargs": kwargs,
+        }
+
+        await notify_event(Event.RECIPE_START, payload=payload)
+
+        try:
+            await self.recipe(*args, **kwargs)
+        except Exception as err:
+            error_payload = payload.copy()
+            error_payload["error"] = str(err)
+            await notify_event(Event.RECIPE_FAILED, payload=error_payload)
+            raise
+        else:
+            await notify_event(Event.RECIPE_END, payload=payload)

@@ -15,7 +15,6 @@ import subprocess
 import sys
 import uuid
 from copy import deepcopy
-from functools import partial
 
 from typing import (
     TYPE_CHECKING,
@@ -37,22 +36,25 @@ from typing_extensions import Self
 from clu.client import AMQPClient, AMQPReply
 from sdsstools.logger import SDSSLogger, get_logger
 from sdsstools.time import get_sjd
-from sdsstools.utils import GatheringTaskGroup
 
 from gort import config
 from gort.core import RemoteActor
-from gort.exceptions import ErrorCodes, GortError
-from gort.kubernetes import Kubernetes
+from gort.enums import Event
+from gort.exceptions import ErrorCode, GortError
 from gort.observer import GortObserver
+from gort.pubsub import notify_event
 from gort.recipes import recipes as recipe_to_class
-from gort.tile import Tile
-from gort.tools import get_temporary_file_path, run_in_executor
+from gort.tools import (
+    copy_signature,
+    get_temporary_file_path,
+    kubernetes_list_deployments,
+    kubernetes_restart_deployment,
+    set_tile_status,
+)
 
 
 if TYPE_CHECKING:
     from rich.console import Console
-
-    from gort.exposure import Exposure
 
 
 try:
@@ -153,15 +155,6 @@ class GortClient(AMQPClient):
         self.specs = self.add_device(SpectrographSet, self.config["specs"]["devices"])
         self.enclosure = self.add_device(Enclosure, name="enclosure", actor="lvmecp")
         self.telemetry = self.add_device(TelemSet, self.config["telemetry"]["devices"])
-
-        try:
-            self.kubernetes = Kubernetes(log=self.log)
-        except Exception:
-            self.log.warning(
-                "Gort cannot access the Kubernets cluster. "
-                "The Kubernetes module won't be available."
-            )
-            self.kubernetes = None
 
     def _prepare_logger(
         self,
@@ -494,18 +487,15 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
 
         failed: bool = False
 
-        if self.gort.kubernetes is None:
-            raise GortError("The Kubernetes cluster is not accessible.")
-
         self.write_to_log("Restarting Kubernetes deployments.", "info")
         for deployment in self.__DEPLOYMENTS__:
-            self.gort.kubernetes.restart_deployment(deployment, from_file=True)
+            await kubernetes_restart_deployment(deployment)
 
         self.write_to_log("Waiting 15 seconds for deployments to be ready.", "info")
         await asyncio.sleep(15)
 
         # Check that deployments are running.
-        running_deployments = self.gort.kubernetes.list_deployments()
+        running_deployments = await kubernetes_list_deployments()
         for deployment in self.__DEPLOYMENTS__:
             if deployment not in running_deployments:
                 failed = True
@@ -629,19 +619,38 @@ class Gort(GortClient):
         self,
         *args,
         verbosity: str | None = None,
+        config_file: str | pathlib.Path | None = None,
         **kwargs,
     ):
+        if config_file:
+            config.load(str(config_file))
+
         super().__init__(*args, **kwargs)
+
+        self.observer = GortObserver(self)
 
         if verbosity:
             self.set_verbosity(verbosity)
+
+    async def notify_event(self, event: Event, payload: dict[str, Any] = {}):
+        """Emits an event notification."""
+
+        try:
+            await notify_event(event, payload=payload)
+        except TypeError as err:
+            if "is not JSON serializable" in str(err):
+                self.log.error(
+                    f"Failed to notify event {event.name}: payload is not"
+                    "serialisable. The event will be emitted without payload."
+                )
+                await notify_event(event)
 
     async def emergency_close(self):
         """Parks and closes the telescopes."""
 
         tasks = []
         tasks.append(self.telescopes.park(disable=True))
-        tasks.append(self.enclosure.close(force=True))
+        tasks.append(self.enclosure.close(force=True, retry_without_parking=True))
 
         self.log.warning("Closing and parking telescopes.")
         await asyncio.gather(*tasks)
@@ -666,9 +675,9 @@ class Gort(GortClient):
         n_completed = 0
         while True:
             try:
-                result = await self.observe_tile(
+                result, _ = await self.observe_tile(
                     run_cleanup=False,
-                    cleanup_on_interrrupt=True,
+                    cleanup_on_interrupt=True,
                     adjust_focus=adjust_focus,
                     show_progress=show_progress,
                 )
@@ -679,22 +688,22 @@ class Gort(GortClient):
                 if not disable_tile_on_error:
                     raise
 
-                if ee.error_code == ErrorCodes.ACQUISITION_FAILED:
-                    observer: GortObserver | None = ee.payload.get("observer", None)
-                    if observer is None:
-                        self.log.error('Cannot disable tile: "observer" not found.')
-                        raise
-                    if observer.tile.tile_id is None:
-                        self.log.error('Cannot disable tile without a "tile_id".')
-                        raise
+                if ee.error_code == ErrorCode.ACQUISITION_FAILED:
+                    tile_id: int | None = ee.payload.get("tile_id", None)
+                    if tile_id is None:
+                        self.log.error(
+                            'Cannot disable tile without a "tile_id. '
+                            "Continuing observations without disabling tile."
+                        )
+                        continue
 
-                    await observer.tile.disable()
+                    await set_tile_status(tile_id, enabled=False)
                     self.log.warning(
-                        f"tile_id={observer.tile.tile_id} has been disabled. "
+                        f"tile_id={tile_id} has been disabled. "
                         "Continuing observations."
                     )
 
-                elif ee.error_code == ErrorCodes.SCHEDULER_CANNOT_FIND_TILE:
+                elif ee.error_code == ErrorCode.SCHEDULER_CANNOT_FIND_TILE:
                     if wait_if_no_tiles is False:
                         raise
 
@@ -721,186 +730,9 @@ class Gort(GortClient):
                 self.log.info("Number of tiles reached. Finishing observing loop.")
                 break
 
-    async def observe_tile(
-        self,
-        tile: Tile | int | None = None,
-        ra: float | None = None,
-        dec: float | None = None,
-        pa: float = 0.0,
-        use_scheduler: bool = True,
-        exposure_time: float = 900.0,
-        n_exposures: int = 1,
-        async_readout: bool = True,
-        keep_guiding: bool = False,
-        guide_tolerance: float = 1.0,
-        acquisition_timeout: float = 180.0,
-        show_progress: bool | None = None,
-        run_cleanup: bool = True,
-        adjust_focus: bool = True,
-        cleanup_on_interrrupt: bool = True,
-    ):
-        """Performs all the operations necessary to observe a tile.
-
-        Parameters
-        ----------
-        tile
-            The ``tile_id`` to observe, or a :obj:`.Tile` object. If not
-            provided, observes the next tile suggested by the scheduler
-            (requires ``use_scheduler=True``).
-        ra,dec
-            The RA and Dec where to point the science telescopes. The other
-            telescopes are pointed to calibrators that fit the science pointing.
-            Cannot be used with ``tile``.
-        pa
-            Position angle of the IFU. Defaults to PA=0.
-        use_scheduler
-            Whether to use the scheduler to determine the ``tile_id`` or
-            select calibrators.
-        exposure_time
-            The length of the exposure in seconds.
-        n_exposures
-            Number of exposures to take while guiding.
-        async_readout
-            Whether to wait for the readout to complete or return as soon
-            as the readout begins. If :obj:`False`, the exposure is registered
-            but the observation is not finished. This should be :obj:`True`
-            during normal science operations to allow the following acquisition
-            to occur during readout.
-        keep_guiding
-            If :obj:`True`, keeps the guider running after the last exposure.
-            This should be :obj:`False` during normal science operations.
-        guide_tolerance
-            The guide tolerance in arcsec. A telescope will not be considered
-            to be guiding if its separation to the commanded field is larger
-            than this value.
-        acquisition_timeout
-            The maximum time allowed for acquisition. In case of timeout
-            the acquired fields are evaluated and an exception is
-            raised if the acquisition failed.
-        show_progress
-            Displays a progress bar with the elapsed exposure time.
-        run_cleanup
-            Whether to run the cleanup routine.
-        adjust_focus
-            Adjusts the focuser positions based on temperature drift before
-            starting the observation. This works best if the focus has been
-            initially determined using a focus sweep.
-        cleanup_on_interrrupt
-            If ``True``, registers a signal handler to catch interrupts and
-            run the cleanup routine.
-
-        """
-
-        # Create tile.
-        if isinstance(tile, Tile):
-            pass
-        elif tile is not None or (tile is None and ra is None and dec is None):
-            if use_scheduler:
-                tile = await run_in_executor(Tile.from_scheduler, tile_id=tile)
-            else:
-                raise GortError("Not enough information to create a tile.")
-
-        elif ra is not None and dec is not None:
-            if use_scheduler:
-                tile = await run_in_executor(Tile.from_scheduler, ra=ra, dec=dec, pa=pa)
-            else:
-                tile = await run_in_executor(Tile.from_coordinates, ra, dec, pa=pa)
-
-        else:
-            raise GortError("Not enough information to create a tile.")
-
-        assert isinstance(tile, Tile)
-
-        # Set the initial dither position. This will make
-        # the initial acquisition on that pixel.
-        dither_positions = tile.dither_positions
-        tile.set_dither_position(dither_positions[0])
-
-        if cleanup_on_interrrupt:
-            interrupt_cb = partial(self.run_script_sync, "cleanup")
-        else:
-            interrupt_cb = None
-
-        # Create observer.
-        observer = GortObserver(self, tile, on_interrupt=interrupt_cb)
-
-        # Run the cleanup routine to be extra sure.
-        if run_cleanup:
-            await self.cleanup(turn_lamps_off=False)
-
-        if adjust_focus:
-            await self.guiders.adjust_focus()
-
-        if tile.tile_id is not None:
-            dither_positions_str = ", ".join(map(str, dither_positions))
-            self.log.info(
-                f"Observing tile_id={tile.tile_id} on "
-                f"dither positions #{dither_positions_str}."
-            )
-
-        exposures: list[Exposure] = []
-
-        try:
-            # Slew telescopes and move fibsel mask.
-            await observer.slew()
-
-            # Start guiding.
-            await observer.acquire(
-                guide_tolerance=guide_tolerance,
-                timeout=acquisition_timeout,
-            )
-
-            # Loop over the dither positions. For the first one do nothing
-            # since we have already acquired for that position.
-            for idither, dpos in enumerate(dither_positions):
-                if idither != 0:
-                    self.log.info(f"Acquiring dither position #{dpos}")
-
-                    observer.tile.set_dither_position(dpos)
-
-                    async with GatheringTaskGroup() as group:
-                        group.create_task(observer.set_dither_position(dpos))
-                        group.create_task(observer.standards.reacquire_first())
-
-                    # Need to restart the guider monitor so that the new exposure
-                    # gets the range of guider frames that correspond to this dither.
-                    # GortObserver.expose() doesn't do this because we ask for a single
-                    # exposure.
-                    observer.guider_monitor.reset()
-
-                    # Refocus for the new dither position.
-                    if adjust_focus:
-                        await self.guiders.adjust_focus()
-
-                self.log.info(f"Taking exposure for dither position #{dpos}")
-
-                # Should we keep the guider alive during readout?
-                keep_guiding_exp = keep_guiding or idither != len(dither_positions) - 1
-
-                # Exposing
-                exposure = await observer.expose(
-                    exposure_time=exposure_time,
-                    show_progress=show_progress,
-                    count=n_exposures,
-                    async_readout=async_readout,
-                    keep_guiding=keep_guiding_exp,
-                    dither_position=dpos,
-                )
-
-                if isinstance(exposure, list):
-                    exposures += exposure
-                else:
-                    exposures.append(exposure)
-
-        except KeyboardInterrupt:
-            self.log.warning("Observation interrupted by user.")
-            return False
-
-        finally:
-            # Finish observation.
-            await observer.finish_observation()
-
-        return exposures
+    @copy_signature(GortObserver.observe_tile)
+    async def observe_tile(self, *args, **kargs):
+        return await self.observer.observe_tile(*args, **kargs)
 
     async def run_script(self, script: str):
         """Runs a script."""
@@ -961,3 +793,9 @@ class Gort(GortClient):
             readout=readout,
             turn_lamps_off=turn_lamps_off,
         )
+
+    async def restart_kubernetes_deployments(self, deployment: str):
+        """Restarts a Kubernetes deployment."""
+
+        self.log.warning(f"Restarting deployment {deployment!r}.")
+        await kubernetes_restart_deployment(deployment)

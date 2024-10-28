@@ -23,11 +23,12 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 
 from sdsstools.time import get_sjd
 
-from gort.exceptions import ErrorCodes, GortSpecError
+from gort.exceptions import ErrorCode, GortSpecError
 from gort.tools import (
     cancel_task,
     get_md5sum,
     get_md5sum_from_spectro,
+    insert_to_database,
     is_interactive,
     is_notebook,
     run_in_executor,
@@ -98,6 +99,7 @@ class Exposure(asyncio.Future["Exposure"]):
         object: str | None = "",
         specs: Sequence[str] | None = None,
     ):
+        self.gort = gort
         self.specs = gort.specs
         self.devices = specs
         self.exp_no = exp_no or self.specs.get_expno()
@@ -121,7 +123,7 @@ class Exposure(asyncio.Future["Exposure"]):
         if self.flavour not in ["arc", "object", "flat", "bias", "dark"]:
             raise GortSpecError(
                 "Invalid flavour type.",
-                error_code=ErrorCodes.USAGE_ERROR,
+                error_code=ErrorCode.USAGE_ERROR,
             )
 
         super().__init__()
@@ -182,13 +184,13 @@ class Exposure(asyncio.Future["Exposure"]):
             if "IDLE" not in spec_status["status_names"]:
                 raise GortSpecError(
                     "Some spectrographs are not IDLE.",
-                    error_code=ErrorCodes.SECTROGRAPH_NOT_IDLE,
+                    error_code=ErrorCode.SECTROGRAPH_NOT_IDLE,
                 )
             if "ERROR" in spec_status["status_names"]:
                 raise GortSpecError(
                     "Some spectrographs have ERROR status. "
                     "Solve this manually before exposing.",
-                    error_code=ErrorCodes.SECTROGRAPH_NOT_IDLE,
+                    error_code=ErrorCode.SECTROGRAPH_NOT_IDLE,
                 )
 
         await self.specs.reset()
@@ -212,7 +214,7 @@ class Exposure(asyncio.Future["Exposure"]):
         if exposure_time is None and self.flavour != "bias":
             raise GortSpecError(
                 "Exposure time required for all flavours except bias.",
-                error_code=ErrorCodes.USAGE_ERROR,
+                error_code=ErrorCode.USAGE_ERROR,
             )
 
         warnings.filterwarnings("ignore", message=".*cannot modify a done command.*")
@@ -223,7 +225,7 @@ class Exposure(asyncio.Future["Exposure"]):
 
         self._exposure_time = exposure_time or 0.0
 
-        log_msg = f"Taking spectrograph exposure {self.exp_no} "
+        log_msg = f"Starting integration on spectrograph exposure {self.exp_no} "
         if self.flavour == "bias":
             log_msg += f"({self.flavour})."
         else:
@@ -251,6 +253,7 @@ class Exposure(asyncio.Future["Exposure"]):
 
             # At this point we have integrated and are ready to read.
             self.reading = True
+            log(f"Reading spectrograph exposure {self.exp_no} ...", "info")
             readout_task = asyncio.create_task(
                 self.specs.send_command_all(
                     "read",
@@ -269,7 +272,6 @@ class Exposure(asyncio.Future["Exposure"]):
             if not async_readout:
                 await readout_task
                 await monitor_task
-                log(f"Exposure {self.exp_no} completed.")
             else:
                 self.stop_timer()
 
@@ -283,7 +285,7 @@ class Exposure(asyncio.Future["Exposure"]):
             if raise_on_error:
                 raise GortSpecError(
                     f"Exposure failed with error {err}",
-                    error_code=ErrorCodes.SECTROGRAPH_FAILED_EXPOSING,
+                    error_code=ErrorCode.SECTROGRAPH_FAILED_EXPOSING,
                 )
             else:
                 log.warning(f"Exposure failed with error {err}")
@@ -366,7 +368,7 @@ class Exposure(asyncio.Future["Exposure"]):
             self._progress.console.clear_live()
         self._progress = None
 
-    def verify_files(self):
+    async def verify_files(self):
         """Checks that the files have been written and have the right contents."""
 
         config = self.specs.gort.config["specs"]
@@ -374,16 +376,25 @@ class Exposure(asyncio.Future["Exposure"]):
         HEADERS_CRITICAL = config["verification"]["headers"]["critical"]
         HEADERS_WARNING = config["verification"]["headers"]["warning"]
 
-        files = self.get_files()
+        for retry in range(3):
+            # Very infrequently we have cases in which this check fails even if the
+            # files are there. It may be a delay in the NFS disk or a race condition
+            # somewhere. As a hotfile, we try three times with a delay before giving up.
 
-        n_spec = len(self.devices) if self.devices else len(config["devices"])
-        n_files_expected = n_spec * 3
+            files = self.get_files()
 
-        if (n_files_found := len(files)) < n_files_expected:
-            raise RuntimeError(
-                f"Expected {n_files_expected} files but found {n_files_found}. "
-                "Verification failed."
-            )
+            n_spec = len(self.devices) if self.devices else len(config["devices"])
+            n_files_expected = n_spec * 3
+
+            if (n_files_found := len(files)) < n_files_expected:
+                if retry < 2:
+                    await asyncio.sleep(3)
+                    continue
+
+                self.specs.write_to_log(
+                    f"Expected {n_files_expected} files but found {n_files_found}."
+                    "warning"
+                )
 
         for file in files:
             header = fits.getheader(str(file))
@@ -408,6 +419,8 @@ class Exposure(asyncio.Future["Exposure"]):
             pattern_path = re.sub("([rbz][1-3])", "*", str(files[0]))
             self.specs.write_to_log(f"Files saved to {pattern_path!r}.")
 
+        return files
+
     def get_files(self):
         """Returns the files written by the exposure."""
 
@@ -425,6 +438,8 @@ class Exposure(asyncio.Future["Exposure"]):
     async def _done_monitor(self):
         """Waits until the spectrographs are idle, and marks the Future done."""
 
+        log = self.specs.write_to_log
+
         await self.specs.send_command_all("wait_until_idle", allow_errored=True)
 
         self.reading = False
@@ -434,10 +449,67 @@ class Exposure(asyncio.Future["Exposure"]):
             if "ERROR" in reply["status_names"]:
                 self.error = True
 
-        self.verify_files()
+        log(f"Spectrograph exposure {self.exp_no} has completed.", "info")
+
+        files = await self.verify_files()
+        exposure_table = self.gort.config["services.database.tables.exposures"]
+
+        try:
+            async with asyncio.timeout(10):
+                await self.write_to_db(files, exposure_table)
+        except asyncio.TimeoutError:
+            log(
+                "Timeout writing to database. Data may not have been recorded.",
+                "warning",
+            )
+        except Exception as err:
+            log(
+                f"Error writing to database: {err!r}. Data may not have been recorded.",
+                "warning",
+            )
 
         # Set the Future.
         self.set_result(self)
+
+    @staticmethod
+    async def write_to_db(files: list[pathlib.Path], table_name: str):
+        """Records the exposures in ``gortdb.exposure``."""
+
+        column_data: list[dict[str, Any]] = []
+
+        for file in files:
+            header_ap = dict(await run_in_executor(fits.getheader, str(file)))
+            header_ap.pop("COMMENT", None)
+
+            header = {kk.upper(): vv for kk, vv in header_ap.items() if vv is not None}
+
+            exposure_no = header.get("EXPOSURE", None)
+            image_type = header.get("IMAGETYP", None)
+            exposure_time = header.get("EXPTIME", None)
+            spec = header.get("SPEC", None)
+            ccd = header.get("CCD", None)
+            mjd = header.get("SMJD", None)
+            start_time = header.get("INTSTART", None)
+            tile_id = header.get("TILE_ID", None)
+
+            if start_time is not None:
+                start_time = Time(start_time, format="isot").datetime
+
+            column_data.append(
+                {
+                    "exposure_no": exposure_no,
+                    "image_type": image_type,
+                    "exposure_time": exposure_time,
+                    "spec": spec,
+                    "ccd": ccd,
+                    "mjd": mjd,
+                    "start_time": start_time,
+                    "tile_id": tile_id,
+                    "header": json.dumps(header),
+                }
+            )
+
+        await run_in_executor(insert_to_database, table_name, column_data)
 
     async def _call_hook(self, hook_name: str, *args, as_task: bool = False, **kwargs):
         """Calls the coroutines associated with a hook."""

@@ -16,9 +16,9 @@ from typing import TYPE_CHECKING, ClassVar
 
 import numpy
 
-from gort.exceptions import GortTelescopeError
+from gort.exceptions import ErrorCode, GortTelescopeError
 from gort.gort import GortClient, GortDevice, GortDeviceSet
-from gort.tools import angular_separation
+from gort.tools import angular_separation, kubernetes_restart_deployment
 
 
 if TYPE_CHECKING:
@@ -47,14 +47,14 @@ class MoTanDevice(GortDevice):
     async def is_reachable(self):
         """Is the device reachable?"""
 
-        is_reachable = await self.actor.commands.isReachable()
+        is_reachable = await self.run_command("isReachable")
 
         return bool(is_reachable.get("Reachable"))
 
     async def is_moving(self):
         """Is the device moving."""
 
-        is_moving = await self.actor.commands.isMoving()
+        is_moving = await self.run_command("isMoving")
 
         return bool(is_moving.get("Moving"))
 
@@ -66,6 +66,20 @@ class MoTanDevice(GortDevice):
         else:
             await asyncio.sleep(self.SLEW_DELAY[self.name.split(".")[0]])
 
+    async def run_command(
+        self,
+        command: str,
+        *args,
+        retries: int = 3,
+        delay: float = 1,
+        **kwargs,
+    ) -> ActorReply:
+        """Runs a MoTan command with retries."""
+
+        self.actor.commands[command].set_retries(retries, retry_delay=delay)
+
+        return await self.actor.commands[command](*args, **kwargs)
+
 
 class KMirror(MoTanDevice):
     """A device representing a K-mirror."""
@@ -75,7 +89,7 @@ class KMirror(MoTanDevice):
     async def status(self):
         """Returns the status of the k-mirror."""
 
-        return await self.actor.commands.status()
+        return await self.run_command("status")
 
     async def home(self):
         """Homes the k-mirror."""
@@ -84,10 +98,10 @@ class KMirror(MoTanDevice):
             raise GortTelescopeError("Device is not reachable.")
 
         await self.slew_delay()
-        await self.actor.commands.slewStop(timeout=self.timeouts["slewStop"])
+        await self.run_command("slewStop", timeout=self.timeouts["slewStop"])
 
         self.write_to_log("Homing k-mirror.", level="info")
-        await self.actor.commands.moveToHome(timeout=self.timeouts["moveToHome"])
+        await self.run_command("moveToHome", timeout=self.timeouts["moveToHome"])
         self.write_to_log("k-mirror homing complete.")
 
     async def park(self):
@@ -118,10 +132,11 @@ class KMirror(MoTanDevice):
         self.write_to_log(f"Moving k-mirror to {degs:.3f} degrees.", level="info")
 
         self.write_to_log("Stopping slew.")
-        await self.actor.commands.slewStop(timeout=self.timeouts["slewStop"])
+        await self.run_command("slewStop", timeout=self.timeouts["slewStop"])
 
         self.write_to_log("Moving k-mirror to absolute position.")
-        await self.actor.commands.moveAbsolute(
+        await self.run_command(
+            "moveAbsolute",
             degs,
             "deg",
             timeout=self.timeouts["moveAbsolute"],
@@ -176,7 +191,8 @@ class KMirror(MoTanDevice):
         if abs(stop_degs_before) > 0:
             self.write_to_log(f"Using stop_degs_before={stop_degs_before}.")
 
-        await self.actor.commands.slewStart(
+        await self.run_command(
+            "slewStart",
             ra / 15.0,
             dec,
             seg_time=self.gort.config["telescopes"]["kmirror"]["seg_time"],
@@ -194,9 +210,9 @@ class Focuser(MoTanDevice):
     async def status(self):
         """Returns the status of the focuser."""
 
-        return await self.actor.commands.status()
+        return await self.run_command("status")
 
-    async def home(self, restore_position: bool = True):
+    async def home(self):
         """Homes the focuser.
 
         Parameters
@@ -216,7 +232,7 @@ class Focuser(MoTanDevice):
         await self.slew_delay()
 
         self.write_to_log("Homing focuser.", level="info")
-        await self.actor.commands.moveToHome(timeout=self.timeouts["moveToHome"])
+        await self.run_command("moveToHome", timeout=self.timeouts["moveToHome"])
         self.write_to_log("Focuser homing complete.")
 
         if current_position is not None and not numpy.isnan(current_position):
@@ -232,7 +248,8 @@ class Focuser(MoTanDevice):
         await self.slew_delay()
 
         self.write_to_log(f"Moving focuser to {dts:.3f} DT.", level="info")
-        await self.actor.commands.moveAbsolute(
+        await self.run_command(
+            "moveAbsolute",
             dts,
             "DT",
             timeout=self.timeouts["moveAbsolute"],
@@ -257,7 +274,7 @@ class FibSel(MoTanDevice):
     async def status(self):
         """Returns the status of the fibre selector."""
 
-        return await self.actor.commands.status()
+        return await self.run_command("status")
 
     async def home(self):
         """Homes the fibre selector."""
@@ -268,7 +285,7 @@ class FibSel(MoTanDevice):
         await self.slew_delay()
 
         self.write_to_log("Homing fibsel.", level="info")
-        await self.actor.commands.moveToHome(timeout=self.timeouts["moveToHome"])
+        await self.run_command("moveToHome", timeout=self.timeouts["moveToHome"])
         self.write_to_log("Fibsel homing complete.")
 
         self.__last_homing = time()
@@ -315,7 +332,7 @@ class FibSel(MoTanDevice):
             if position not in mask_positions:
                 raise GortTelescopeError(
                     f"Cannot find position {position!r}.",
-                    error_code=201,
+                    error_code=ErrorCode.FIBSEL_INVALID_POSITION,
                 )
 
             steps = mask_positions[position]
@@ -326,7 +343,8 @@ class FibSel(MoTanDevice):
             self.write_to_log(f"Moving mask to {steps} DT.", level="info")
 
         await self.slew_delay()
-        await self.actor.commands.moveAbsolute(
+        await self.run_command(
+            "moveAbsolute",
             steps,
             timeout=self.timeouts["moveAbsolute"],
         )
@@ -342,7 +360,8 @@ class FibSel(MoTanDevice):
         await self.slew_delay()
         await self._check_home()
 
-        await self.actor.commands.moveRelative(
+        await self.run_command(
+            "moveRelative",
             steps,
             timeout=self.timeouts["moveRelative"],
         )
@@ -476,7 +495,10 @@ class Telescope(GortDevice):
 
         if home_telescope:
             if await self.gort.enclosure.is_local():
-                raise GortTelescopeError("Cannot home in local mode.", error_code=101)
+                raise GortTelescopeError(
+                    "Cannot home in local mode.",
+                    error_code=ErrorCode.CANNOT_MOVE_LOCAL_MODE,
+                )
 
             self.write_to_log("Homing telescope.", level="info")
 
@@ -521,7 +543,10 @@ class Telescope(GortDevice):
         """
 
         if await self.gort.enclosure.is_local():
-            raise GortTelescopeError("Cannot home in local mode.", error_code=101)
+            raise GortTelescopeError(
+                "Cannot home in local mode.",
+                error_code=ErrorCode.CANNOT_MOVE_LOCAL_MODE,
+            )
 
         await self.initialise()
 
@@ -616,7 +641,7 @@ class Telescope(GortDevice):
             self.write_to_log("Checking if enclosure is in local mode.")
             raise GortTelescopeError(
                 "Cannot move telescope in local mode.",
-                error_code=101,
+                error_code=ErrorCode.CANNOT_MOVE_LOCAL_MODE,
             )
 
         kmirror_task: asyncio.Task | None = None
@@ -718,13 +743,13 @@ class Telescope(GortDevice):
                     "Telescope failed to reach desired position. "
                     "The axes have been disabled for safety. "
                     "Try re-homing the telescope.",
-                    error_code=102,
+                    error_code=ErrorCode.FAILED_REACHING_COMMANDED_POSITION,
                 )
 
         if alt is not None and az is not None and altaz_tracking:
             await self.pwi.commands.setTracking(enable=True)
 
-        if kmirror_task is not None and not kmirror_task.done():
+        if kmirror_task is not None:
             await kmirror_task
 
     async def goto_named_position(
@@ -747,16 +772,16 @@ class Telescope(GortDevice):
 
         """
 
-        if (await self.gort.enclosure.is_local()) and not force:
+        if not force and (await self.gort.enclosure.is_local()):
             raise GortTelescopeError(
                 "Cannot move telescope in local mode.",
-                error_code=101,
+                error_code=ErrorCode.CANNOT_MOVE_LOCAL_MODE,
             )
 
         if name not in self.config["named_positions"]:
             raise GortTelescopeError(
                 f"Invalid named position {name!r}.",
-                error_code=103,
+                error_code=ErrorCode.INVALID_TELESCOPE_POSITION,
             )
 
         position_data = self.config["named_positions"][name]
@@ -766,7 +791,10 @@ class Telescope(GortDevice):
         elif "all" in position_data:
             coords = position_data["all"]
         else:
-            raise GortTelescopeError("Cannot find position data.", error_code=103)
+            raise GortTelescopeError(
+                "Cannot find position data.",
+                error_code=ErrorCode.INVALID_TELESCOPE_POSITION,
+            )
 
         if "alt" in coords and "az" in coords:
             coro = self.goto_coordinates(
@@ -784,7 +812,7 @@ class Telescope(GortDevice):
         else:
             raise GortTelescopeError(
                 "No ra/dec or alt/az coordinates found.",
-                error_code=103,
+                error_code=ErrorCode.INVALID_TELESCOPE_POSITION,
             )
 
         await coro
@@ -890,11 +918,8 @@ class TelescopeSet(GortDeviceSet[Telescope]):
 
         """
 
-        if not self.gort.kubernetes:
-            raise GortTelescopeError("Kubernetes cluster cannot be accessed.")
-
         self.write_to_log("Restarting deployment lvmtan and waiting 25 s.", "info")
-        self.gort.kubernetes.restart_deployment("lvmtan")
+        await kubernetes_restart_deployment("lvmtan")
         await asyncio.sleep(25)
 
         await self.home(
@@ -1040,7 +1065,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         if name not in self.gort.config["telescopes"]["named_positions"]:
             raise GortTelescopeError(
                 f"Invalid named position {name!r}.",
-                error_code=103,
+                error_code=ErrorCode.INVALID_TELESCOPE_POSITION,
             )
 
         await self.call_device_method(
@@ -1130,5 +1155,5 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         if is_local and not force:
             raise GortTelescopeError(
                 "Cannot move telescopes in local mode.",
-                error_code=101,
+                error_code=ErrorCode.CANNOT_MOVE_LOCAL_MODE,
             )

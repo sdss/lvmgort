@@ -235,132 +235,6 @@ enclosure:
   bypass_local_mode: false
 
 recipes:
-  startup:
-    calibration_sequence: testcal
-  calibration:
-    position: calibration
-    lamps_nps: calib
-    defaults:
-      warmup: 120
-      fibsel:
-        positions: P1-
-        initial_position: P1-2
-      flavours:
-        ldls: flat
-        quartz: flat
-        argon: arc
-        neon: arc
-        hgne: arc
-        xenon: arc
-    sequences:
-      testcal:
-        lamps:
-          LDLS:
-            warmup: 300
-            exposure_time: [150, 150] # b channel well exposed
-            flavour: flat
-          Quartz:
-            warmup: 120
-            exposure_time: [10, 10] # r and z channels well exposed
-            flavour: flat
-          Argon:
-            warmup: 120
-            exposure_time: [10, 10, 50, 50]
-            flavour: arc
-          Neon:
-            warmup: 120
-            exposure_time: [10, 10, 150, 150]
-            flavour: arc
-          HgNe:
-            exposure_time: [10, 10, 150, 150]
-            flavour: arc
-          Xenon:
-            warmup: 120
-            exposure_time: [150, 150]
-            flavour: arc
-        biases:
-          count: 9
-        # darks:
-        #   count: 3
-        #   exposure_time: 300
-      full:
-        lamps:
-          LDLS:
-            warmup: 300
-            exposure_time: [30, 90, 270]
-            flavour: flat
-          Quartz:
-            warmup: 120
-            exposure_time: [30, 90, 270]
-            flavour: flat
-          Argon:
-            warmup: 120
-            exposure_time: [30, 90, 270]
-            flavour: arc
-          Neon:
-            warmup: 120
-            exposure_time: [30, 90, 270]
-            flavour: arc
-          HgNe:
-            warmup: 120
-            exposure_time: [30, 90, 270]
-            flavour: arc
-          Xenon:
-            warmup: 120
-            exposure_time: [30, 90, 270]
-            flavour: arc
-        biases:
-          count: 5
-        darks:
-          count: 5
-          exposure_time: 900
-      normal:
-        lamps:
-          LDLS:
-            warmup: 300
-            exposure_time: [90]
-            flavour: flat
-          Quartz:
-            warmup: 120
-            exposure_time: [270]
-            flavour: flat
-            fibsel:
-              initial_position: P1-2
-              positions: P1-
-              time_per_position: 20
-          Argon:
-            warmup: 120
-            exposure_time: [30]
-            flavour: arc
-          Neon:
-            warmup: 120
-            exposure_time: [30]
-            flavour: arc
-          HgNe:
-            warmup: 120
-            exposure_time: [30]
-            flavour: arc
-          Xenon:
-            warmup: 120
-            exposure_time: [30]
-            flavour: arc
-        biases:
-          count: 5
-        darks:
-          count: 1
-          exposure_time: 900
-      demo:
-        lamps:
-          Quartz:
-            warmup: 20
-            exposure_time: [20]
-            flavour: flat
-        biases:
-          count: 1
-
-scheduler:
-  host: 10.8.38.26
-  port: 5100
 
 observer:
   guide_tolerance:
@@ -369,33 +243,58 @@ observer:
     skye: 3
     skyw: 3
 
-kubernetes:
-  path:
-    default: /home/sdss5/config/kube
-    notebook: ~/sdss5/config/kube
-
-lvmapi:
-  host: 10.8.38.26
-  port: 8085
-
-websocket:
-  host: 0.0.0.0
-  port: 9000
-
-lvmcore:
-  path: ${LVMCORE_DIR}
-  fibermap: metrology/lvm_fiducial_fibermap.yaml
-
 site:
   lon: -70.70166667
   lat: -29.00333333
   height: 2282.0
 
-database:
-  connection:
-    host: lvm-webapp.lco.cl
-    port: 5432
-    user: sdss
-    database: lvmdb
-  tables:
-    overhead: lvmopsdb.overhead
+services:
+  kubernetes:
+    path:
+      default: /home/sdss5/config/kube
+      notebook: ~/sdss5/config/kube
+
+  lvmcore:
+    path: ${LVMCORE_DIR}
+    fibermap: metrology/lvm_fiducial_fibermap.yaml
+
+  scheduler:
+    host: 10.8.38.26
+    port: 5100
+
+  lvmapi:
+    host: 127.0.0.1
+    port: 8085
+
+  redis:
+    url: redis://localhost:6379/0
+
+  pubsub:
+    connection_string: amqp://guest:guest@localhost:5672
+    exchange_name: gort
+    routing_key: data
+
+  database:
+    connection:
+      host: lvm-webapp.lco.cl
+      port: 5432
+      user: sdss
+      database: lvmdb
+    tables:
+      overheads: gortdb.overhead
+      exposures: gortdb.exposure
+      events: gortdb.event
+      notifications: gortdb.notification
+
+overwatcher:
+  scheduler:
+    open_dome_buffer: 300
+  slack:
+    notifications_channel: lvm-overwatcher
+    alerts_channel: lvm-alerts
+
+  actor:
+    name: lvm.overwatcher
+    host: localhost
+    port: 5672
+    log_dir: /data/logs/lvmgort/overwatcher

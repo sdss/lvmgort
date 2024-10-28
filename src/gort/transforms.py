@@ -35,6 +35,7 @@ __all__ = [
     "Siderostat",
     "HomTrans",
     "Mirror",
+    "wrap_pa_hex",
 ]
 
 
@@ -66,7 +67,8 @@ def read_fibermap(
     global _FIBERMAP_CACHE
 
     if path is None:
-        path = pathlib.Path(config["lvmcore"]["path"]) / config["lvmcore"]["fibermap"]
+        lvmcore_config = config["services"]["lvmcore"]
+        path = pathlib.Path(lvmcore_config["path"]) / lvmcore_config["fibermap"]
     else:
         path = pathlib.Path(path).absolute()
 
@@ -418,6 +420,34 @@ def calculate_field_angle(
     target = astropy.coordinates.SkyCoord(ra=ra, dec=dec, unit="deg", frame="icrs")
 
     return siderostat.field_angle(target, time=obstime)
+
+
+def wrap_pa_hex(pa: float):
+    """Wraps a position angle to the range -30 to 30 degrees.
+
+    Parameters
+    ----------
+    pa
+        The position angle to wrap. Always in degrees in the range 0 to infinity.
+
+    Returns
+    -------
+    pa_wrap
+        The wrapped position angle in the range -30 to 30 degrees.
+
+    """
+
+    # First convert to the range 0 to 360 degrees.
+    pa = pa % 360
+
+    # Then wrap to the range 0 to 60 degrees to account for the IFU hexagonal symmetry.
+    pa = pa % 60
+
+    # Finally, wrap to the range -30 to 30 degrees.
+    if pa > 30:
+        pa -= 60
+
+    return pa
 
 
 class Siderostat:

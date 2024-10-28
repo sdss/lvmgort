@@ -9,262 +9,20 @@
 from __future__ import annotations
 
 import asyncio
-import json
-import pathlib
 import random
-from copy import deepcopy
 
-from typing import Any
+from typing import ClassVar
 
-import jsonschema
 import numpy
 from astropy.time import Time
 
-from gort.exceptions import ErrorCodes, GortSpecError
-from gort.tools import cancel_task, get_ephemeris_summary, move_mask_interval
+from gort.enums import ErrorCode, Event
+from gort.tools import get_ephemeris_summary
 
 from .base import BaseRecipe
 
 
-__all__ = ["CalibrationRecipe", "QuickCals", "BiasSequence", "TwilightFlats"]
-
-
-class CalibrationRecipe(BaseRecipe):
-    """Runs a calibration sequence."""
-
-    name = "calibration"
-
-    async def recipe(
-        self,
-        sequence: str | dict = "normal",
-        slew_telescopes: bool = True,
-        park_after: bool = False,
-        show_progress: bool | None = None,
-    ):
-        """Runs the calibration sequence.
-
-        Parameters
-        ----------
-        sequence
-            The name calibration sequence to execute. It can also be a
-            dictionary with the calibration sequence definition that
-            follows the :ref:`calibration schema <calibration-schema>`.
-        slew_telescopes
-            Whether to move the telescopes to point to the FF screen.
-        park_after
-            Park the telescopes after a successful calibration sequence.
-        show_progress
-            Displays a progress bar with the elapsed exposure time.
-
-        """
-
-        # TODO: add some checks. Confirm HDs are open, enclosure is closed,
-        # specs connected, etc.
-
-        # Calibration sequence configuration. Includes the position where to
-        # point the telescopes, NPS to use, and sequences.
-        cal_config = self.gort.config["recipes"]["calibration"]
-
-        # Task that will move the fibre selector.
-        fibsel_task: asyncio.Task | None = None
-
-        sequence_config: dict[str, Any]
-        if isinstance(sequence, dict):
-            sequence_config = sequence
-
-        else:
-            if sequence not in cal_config["sequences"]:
-                raise GortSpecError(
-                    f"Unknown sequence {sequence!r}.",
-                    error_code=ErrorCodes.INVALID_CALIBRATION_SEQUENCE,
-                )
-            sequence_config = cal_config["sequences"][sequence]
-
-        # Validate sequence.
-        schema_file = pathlib.Path(__file__).parent / "../etc/calibration_schema.json"
-        schema = json.loads(open(schema_file).read())
-        try:
-            jsonschema.validate(sequence_config, schema)
-        except jsonschema.ValidationError:
-            raise GortSpecError(
-                "Calibration sequence does not match schema.",
-                error_code=ErrorCodes.INVALID_CALIBRATION_SEQUENCE,
-            )
-
-        calib_nps = self.gort.nps[cal_config["lamps_nps"]]
-
-        lamps_config = sequence_config.get("lamps", {})
-        has_lamps = len(lamps_config) != 0
-        if not has_lamps:
-            # No point in slewing if we are only taking bias and darks.
-            slew_telescopes = False
-
-        # Turn off all lamps.
-        self.gort.log.info("Checking that all lamps are off.")
-        await calib_nps.all_off()
-
-        self.gort.log.info(f"Running calibration sequence {sequence!r}.")
-
-        try:
-            if "biases" in sequence_config:
-                nbias = sequence_config["biases"].get("count", 1)
-                self.gort.log.info(f"Taking {nbias} biases.")
-                for _ in range(nbias):
-                    await self.gort.specs.expose(flavour="bias", object="bias")
-
-            if "darks" in sequence_config:
-                ndarks = sequence_config["darks"].get("count", 1)
-                exp_times = sequence_config["darks"]["exposure_time"]
-                if isinstance(exp_times, (float, int)):
-                    exp_times = [exp_times]
-
-                self.gort.log.info(f"Taking {ndarks} x {exp_times} darks.")
-
-                total_darks = len(exp_times) * ndarks
-                idark = 1
-                for exp_time in exp_times:
-                    for _ in range(ndarks):
-                        await self.gort.specs.expose(
-                            flavour="dark",
-                            exposure_time=exp_time,
-                            async_readout=(idark == total_darks) and has_lamps,
-                            object="dark",
-                        )
-                        idark += 1
-
-            if slew_telescopes:
-                # Move the telescopes to point to the screen.
-                self.gort.log.info("Pointing telescopes to FF screen.")
-                await self.gort.telescopes.goto_named_position(cal_config["position"])
-
-            for lamp in lamps_config:
-                warmup = lamps_config[lamp].get(
-                    "warmup",
-                    cal_config["defaults"]["warmup"],
-                )
-
-                self.gort.log.info(f"Warming up lamp {lamp} ({warmup} s).")
-                await calib_nps.on(lamp)
-                await asyncio.sleep(warmup)
-
-                exp_times = lamps_config[lamp]["exposure_time"]
-                if isinstance(exp_times, (int, float)):
-                    exp_times = [exp_times]
-
-                n_exp_times = len(exp_times)
-                for ietime, exp_time in enumerate(exp_times):
-                    flavour = lamps_config[lamp].get(
-                        "flavour",
-                        cal_config["defaults"]["flavours"][lamp.lower()],
-                    )
-
-                    # Check if we are spinning the fibre selector and,
-                    # if so, launch the task.
-                    fibsel = lamps_config[lamp].get("fibsel", False)
-                    fibsel_def = cal_config["defaults"]["fibsel"]
-                    if isinstance(fibsel, dict) or fibsel is True:
-                        # If it's True, just use defaults.
-                        if fibsel is True:
-                            fibsel = {}
-
-                        positions = fibsel.get("positions", fibsel_def["positions"])
-                        order_by_steps = True
-
-                        if isinstance(positions, (list, tuple)):
-                            positions = list(positions)
-                            order_by_steps = False
-                            if "initial_position" in fibsel:
-                                initial_position = fibsel["initial_position"]
-                            else:
-                                initial_position = positions[0]
-                        else:
-                            initial_position = fibsel.get(
-                                "initial_position",
-                                fibsel_def["initial_position"],
-                            )
-
-                        time_per_position = fibsel.get("time_per_position", None)
-                        total_time = exp_time if time_per_position is None else None
-
-                        fibsel_device = self.gort.telescopes.spec.fibsel
-                        await fibsel_device.move_to_position(initial_position)
-
-                        # Launch the task.
-                        fibsel_task = asyncio.create_task(
-                            move_mask_interval(
-                                self.gort,
-                                positions,
-                                order_by_steps=order_by_steps,
-                                total_time=total_time,
-                                time_per_position=time_per_position,
-                            )
-                        )
-
-                    self.gort.log.info(f"Exposing lamp for {exp_time} s.")
-                    await self.gort.specs.expose(
-                        flavour=flavour,
-                        exposure_time=exp_time,
-                        show_progress=show_progress,
-                        async_readout=ietime == n_exp_times - 1,
-                        object=lamp,
-                    )
-
-                    await cancel_task(fibsel_task)
-
-                self.gort.log.info(f"Turning off {lamp}.")
-                await calib_nps.off(lamp)
-
-            if park_after:
-                await self.gort.telescopes.park()
-
-            if (
-                self.gort.specs.last_exposure
-                and not self.gort.specs.last_exposure.done()
-            ):
-                self.gort.log.info("Awaiting last exposure readout.")
-                await self.gort.specs.last_exposure
-
-        except Exception:
-            self.gort.log.error(
-                "Errored while executing sequence. "
-                "Turning all the lamps off before raising.",
-            )
-
-            # Stop the mask iteration task.
-            await cancel_task(fibsel_task)
-
-            raise
-
-        finally:
-            # If there are no lamps there is no way we turned them on.
-            if has_lamps:
-                await calib_nps.all_off()
-
-    def get_calibration_sequence(self, sequence: str):
-        """Returns a dictionary with the configuration for a calibration sequence.
-
-        Parameters
-        ----------
-        sequence
-            The name calibration sequence.
-
-        Returns
-        -------
-        sequence_dict
-            The calibration sequence dictionary. This dictionary can be
-            altered and then passed to :obj:`.calibrate` to execute the
-            modified sequence. The returned dictionary if a deep copy of
-            the original sequence; modifying it won't modify the original
-            sequence.
-
-        """
-
-        sequences = self.gort.config["recipes"]["calibration"]["sequences"]
-
-        if sequence not in sequences:
-            raise ValueError(f"Sequence {sequence!r} not found in configuration file.")
-
-        return deepcopy(sequences[sequence])
+__all__ = ["QuickCals", "BiasSequence", "TwilightFlats"]
 
 
 class QuickCals(BaseRecipe):
@@ -282,7 +40,7 @@ class QuickCals(BaseRecipe):
 
         await gort.cleanup()
 
-        gort.log.info("Moving telescopes to point to the calibration screen.")
+        gort.log.info("Pointing telescopes to the calibration screen.")
         await gort.telescopes.goto_named_position("calibration")
 
         ########################
@@ -329,7 +87,7 @@ class QuickCals(BaseRecipe):
         gort.log.info("Waiting 120 seconds for the lamp to warm up.")
         await asyncio.sleep(120)
 
-        exp_quartz = 10
+        exp_quartz = 20
         await gort.specs.expose(
             exp_quartz,
             flavour="flat",
@@ -377,10 +135,11 @@ class BiasSequence(BaseRecipe):
         gort = self.gort
         assert isinstance(gort, Gort)
 
-        gort.log.info("Moving telescopes to point to the selfie position.")
+        gort.log.info("Pointing telescopes to the selfie position.")
         await gort.telescopes.goto_named_position("selfie")
 
         await gort.nps.calib.all_off()
+        await gort.cleanup()
 
         for _ in range(count):
             await gort.specs.expose(flavour="bias")
@@ -391,67 +150,87 @@ class TwilightFlats(BaseRecipe):
 
     name = "twilight_flats"
 
-    async def recipe(self, wait: bool = True, secondary: bool = False):
+    # Tweak factor for the exposure time.
+    FUDGE_FACTOR: ClassVar[int] = 1
+
+    # Exposure time model
+    POPT: ClassVar[numpy.ndarray] = numpy.array([1.09723745, 3.55598039, -1.86597751])
+
+    # Start sunset flats three minute before sunset.
+    # Positive numbers means "into" the twilight.
+    SUNSET_START: ClassVar[float] = -3
+
+    # Start sunrise flats 15 minutes before sunrise
+    SUNRISE_START: ClassVar[float] = 15
+
+    async def recipe(
+        self,
+        wait: bool = True,
+        start_fibre: int | None = None,
+        secondary: bool = False,
+    ):
         """Takes a sequence of twilight flats.
 
         Based on K. Kreckel's code.
 
         """
 
-        # Start sunset flats one minute after sunset.
-        # Positive numbers means "into" the twilight.
-        SUNSET_START = 1
-        # Start sunrise flats 20 minutes before sunrise
-        SUNRISE_START = 20
-
-        # Exposure time model
-        POPT = numpy.array([1.09723745, 3.55598039, -1.86597751])
-        # Tweak factor for the exposure time.
-        FUDGE_FACTOR = 2
-
         from gort import Gort
 
         gort = self.gort
         assert isinstance(gort, Gort)
 
+        await gort.cleanup()
+
         if not (await self.gort.enclosure.is_open()):
             raise RuntimeError("Dome must be open to take twilight flats.")
 
-        has_slewed: bool = False
-
         eph = await get_ephemeris_summary()
+
+        is_sunset: bool = False
+        is_sunrise: bool = False
 
         if abs(eph["time_to_sunset"]) < abs(eph["time_to_sunrise"]):
             is_sunset = True
-            riseset = Time(eph["sunset"], format="jd")
+            riseset = Time(eph["sunset"], format="jd", scale="utc")
             alt = 40.0
             az = 270.0
         else:
-            is_sunset = False
-            riseset = Time(eph["sunrise"], format="jd")
+            is_sunrise = True
+            riseset = Time(eph["sunrise"], format="jd", scale="utc")
             alt = 40.0
             az = 90.0
 
-        n_fibre = random.randint(1, 12)
+        gort.log.info("Moving telescopes to point to the twilight sky.")
+        await gort.telescopes.goto_coordinates_all(
+            alt=alt,
+            az=az,
+            altaz_tracking=False,
+        )
+
+        n_fibre = start_fibre or random.randint(1, 12)
         await self.goto_fibre_position(n_fibre, secondary=secondary)
 
         n_observed = 0
 
         while True:
-            # Calculate the number of minutes into the twilight.
+            # Calculate the number of minutes into the twilight. Positive values
+            # mean minutes into daytime (before sunset or after sunrise).
             now = Time.now()
             time_diff_sun = (now - riseset).sec / 60.0  # Minutes
-            if not is_sunset:
+            if is_sunset:
                 time_diff_sun = -time_diff_sun
 
+            time_diff_sun += self.FUDGE_FACTOR
+
             # Calculate exposure time.
-            aa, bb, cc = POPT
-            exp_time = aa * numpy.exp((time_diff_sun + FUDGE_FACTOR) / bb) + cc
+            aa, bb, cc = self.POPT
+            exp_time = aa * numpy.exp(-time_diff_sun / bb) + cc
 
             if is_sunset:
-                time_to_flat_twilighs = SUNSET_START - time_diff_sun
+                time_to_flat_twilighs = self.SUNSET_START + time_diff_sun
             else:
-                time_to_flat_twilighs = time_diff_sun - SUNRISE_START
+                time_to_flat_twilighs = -(self.SUNRISE_START + time_diff_sun)
 
             if time_to_flat_twilighs > 0:
                 if wait:
@@ -459,19 +238,19 @@ class TwilightFlats(BaseRecipe):
                         "Waiting for twilight. Time to twilight flats: "
                         f"{time_to_flat_twilighs:.1f} minutes."
                     )
-                    await asyncio.sleep(10)
+                    await asyncio.sleep(time_to_flat_twilighs * 60)
                     continue
                 else:
                     raise RuntimeError("Too early to take twilight flats.")
 
-            if exp_time > 300 or exp_time < 1:
-                if not is_sunset and wait:
-                    self.gort.log.info(
-                        f"Exposure time is too long/short ({exp_time:.1f} s). Waiting."
-                    )
-                    await asyncio.sleep(10)
-                    continue
-
+            if exp_time < 400:  # We allow negative times, which will be rounded to 1 s
+                pass
+            elif exp_time > 400 and wait and is_sunrise:
+                self.gort.log.info(f"Exposure time is too long ({exp_time:.1f} s).")
+                self.gort.log.info("Waiting 10 seconds ...")
+                await asyncio.sleep(10)
+                continue
+            else:
                 raise RuntimeError("Too early/late to take twilight flats.")
 
             # Round to the nearest second.
@@ -479,23 +258,28 @@ class TwilightFlats(BaseRecipe):
             if exp_time < 1:
                 exp_time = 1.0
 
-            if not has_slewed:
-                gort.log.info("Moving telescopes to point to the twilight sky.")
-                await gort.telescopes.goto_coordinates_all(
-                    alt=alt,
-                    az=az,
-                    altaz_tracking=False,
-                )
-                has_slewed = True
-                continue  # Force a recalculation of exposure time after slew.
-
             fibre_str = await self.goto_fibre_position(n_fibre, secondary=secondary)
             gort.log.info(f"Taking {fibre_str} exposure with exp_time={exp_time:.2f}.")
-            await gort.specs.expose(
-                exp_time,
-                flavour="flat",
-                header={"CALIBFIB": fibre_str},
-            )
+
+            try:
+                await gort.specs.expose(
+                    exp_time,
+                    flavour="flat",
+                    header={"CALIBFIB": fibre_str},
+                )
+            except Exception as err:
+                gort.log.error(
+                    "Error taking twilight flat exposure. Will ignore since we "
+                    f"are on a schedule here. Error is: {err}"
+                )
+                await gort.notify_event(
+                    Event.ERROR,
+                    payload={
+                        "error": str(err),
+                        "error_code": ErrorCode.CALIBRATION_ERROR.value,
+                        "ignore": True,
+                    },
+                )
 
             n_observed += 1
             if n_observed == 12:

@@ -9,6 +9,13 @@ COPY . lvmgort
 
 RUN pip3 install -U pip setuptools wheel
 RUN cd lvmgort && pip3 install .
+RUN cp -r lvmgort/scripts .
 RUN rm -Rf lvmgort
 
-ENTRYPOINT lvmgort websocket start --debug
+# Checkout lvmcore
+RUN apt-get update && apt-get install -y git
+RUN git clone https://github.com/sdss/lvmcore /opt/lvmcore
+RUN rm -Rf /opt/lvmcore/.git
+ENV LVMCORE_DIR=/opt/lvmcore
+
+ENTRYPOINT lvmgort overwatcher

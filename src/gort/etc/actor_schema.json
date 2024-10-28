@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "observing": { "type": "boolean" },
+        "calibrating": { "type": "boolean" },
+        "night": { "type": "boolean" },
+        "safe": { "type": "boolean" },
+        "allow_dome_calibrations": { "type": "boolean" },
+        "dry_run": { "type": "boolean" }
+      }
+    },
+    "calibrations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "start_time": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+          "max_start_time": {
+            "oneOf": [{ "type": "string" }, { "type": "null" }]
+          },
+          "after": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+          "time_to_cal": {
+            "oneOf": [{ "type": "number" }, { "type": "null" }]
+          },
+          "status": { "type": "string" },
+          "requires_dome": {
+            "oneOf": [{ "type": "string" }, { "type": "null" }]
+          },
+          "close_dome_after": {
+            "oneOf": [{ "type": "boolean" }, { "type": "null" }]
+          }
+        }
+      }
+    },
+    "observer_status": {
+      "type": "object",
+      "properties": {
+        "observing": { "type": "boolean" },
+        "cancelling": { "type": "boolean" },
+        "tile_id": { "oneOf": [{ "type": "number" }, { "type": "null" }] },
+        "dither_position": {
+          "oneOf": [{ "type": "number" }, { "type": "null" }]
+        },
+        "stage": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+        "standard_no": { "oneOf": [{ "type": "number" }, { "type": "null" }] }
+      }
+    }
+  },
+  "additionalProperties": false
+}
