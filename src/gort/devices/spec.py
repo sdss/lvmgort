@@ -285,8 +285,21 @@ class Spectrograph(GortDevice):
 
         await self.actor.commands.reset()
 
+        mech_status = await self.ieb.status()
+
+        # Always try to close the shutter. If this fails, try a full reset in
+        # part to give the shutter another chance but also because it could be
+        # that it failed because the power to the motor controllers is off.
+        if full is False and mech_status[f"{self.name}_shutter"]["open"]:
+            self.write_to_log(f"Closing {self.name} shutter.", "warning")
+            try:
+                await self.ieb.close("shutter")
+            except Exception as ee:
+                self.write_to_log(f"Failed closing the shutter: {ee}", "warning")
+                self.write_to_log("Trying a full reset.", "warning")
+                full = True
+
         if full:
-            mech_status = await self.ieb.status()
             relays = mech_status[f"{self.name}_relays"]
             if not all(relays.values()):
                 self.write_to_log(f"Powering on {self.name} relays.", "warning")
