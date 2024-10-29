@@ -226,7 +226,11 @@ class CleanupRecipe(BaseRecipe):
                         cotasks.append(spec.actor.commands.read())
                         cotasks.append(self._wait_until_spec_is_idle(spec))
 
-            await asyncio.gather(*cotasks)
+            try:
+                await asyncio.gather(*cotasks)
+            except Exception as ee:
+                self.gort.log.error(f"Error during cleanup: {ee}")
+                self.gort.log.warning("Resetting the spectrographs.")
 
         await self.gort.specs.reset(full=True)
 
