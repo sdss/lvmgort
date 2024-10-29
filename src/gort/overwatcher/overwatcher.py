@@ -85,6 +85,9 @@ class OverwatcherMainTask(OverwatcherTask):
                 running_calibration = ow.calibrations.get_running_calibration()
                 ow.state.calibrating = running_calibration is not None
 
+                # TODO: should these handlers be scheduled as tasks? Right now
+                # they can block for a good while until the dome is open/closed.
+
                 if not is_safe:
                     await self.handle_unsafe()
 
@@ -114,11 +117,11 @@ class OverwatcherMainTask(OverwatcherTask):
 
         observing = self.overwatcher.observer.is_observing
         cancelling = self.overwatcher.observer.is_cancelling
+        calibrating = self.overwatcher.state.calibrating
 
-        # TODO: cancel calibrations if any are running.
         # TODO: should this only happen if the overwatcher is enabled?
 
-        if not closed or observing:
+        if not closed or observing or calibrating:
             await self.overwatcher.notify(
                 "Closing the dome due to unsafe conditions.",
                 level="warning",
@@ -139,6 +142,9 @@ class OverwatcherMainTask(OverwatcherTask):
                         "I will close the dome anyway.",
                         level="warning",
                     )
+
+            if calibrating:
+                await self.overwatcher.calibrations.cancel()
 
             if not closed:
                 await self.overwatcher.dome.shutdown(retry=True)

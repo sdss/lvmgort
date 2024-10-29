@@ -23,7 +23,7 @@ from sdsstools import read_yaml_file
 
 from gort.exceptions import OverwatcherError
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
-from gort.tools import redis_client_sync
+from gort.tools import cancel_task, redis_client_sync
 
 
 if TYPE_CHECKING:
@@ -618,8 +618,18 @@ class CalibrationsOverwatcher(OverwatcherModule):
     async def cancel(self):
         """Cancel the running calibration."""
 
-        if self._calibration_task is not None and not self._calibration_task.done():
-            self._calibration_task.cancel()
+        running_calibration = self.get_running_calibration()
+
+        if (
+            self._calibration_task is not None
+            and not self._calibration_task.done()
+            and running_calibration
+        ):
+            await self.overwatcher.notify(
+                f"Cancelling calibration {running_calibration}.",
+                level="warning",
+            )
+            self._calibration_task = await cancel_task(self._calibration_task)
 
     async def _fail_calibration(
         self,
