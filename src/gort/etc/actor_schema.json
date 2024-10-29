@@ -10,7 +10,7 @@
         "calibrating": { "type": "boolean" },
         "night": { "type": "boolean" },
         "safe": { "type": "boolean" },
-        "allow_dome_calibrations": { "type": "boolean" },
+        "allow_calibrations": { "type": "boolean" },
         "dry_run": { "type": "boolean" }
       }
     },

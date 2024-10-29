@@ -37,7 +37,7 @@ class OverwatcherState:
     calibrating: bool = False
     night: bool = False
     safe: bool = False
-    allow_dome_calibrations: bool = True
+    allow_calibrations: bool = True
     dry_run: bool = False
 
 

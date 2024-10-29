@@ -38,7 +38,7 @@ async def status(command: OverwatcherCommand):
                 "calibrating": overwatcher.state.calibrating,
                 "safe": overwatcher.state.safe,
                 "night": overwatcher.state.night,
-                "allow_dome_calibrations": overwatcher.state.allow_dome_calibrations,
+                "allow_calibrations": overwatcher.state.allow_calibrations,
                 "dry_run": overwatcher.state.dry_run,
             }
         }
@@ -86,21 +86,21 @@ def calibrations(*_):
 
 
 @calibrations.command()
-async def enable_dome_calibrations(command: OverwatcherCommand):
+async def enable_calibrations(command: OverwatcherCommand):
     """Allows dome calibrations."""
 
     overwatcher = command.actor.overwatcher
-    overwatcher.state.allow_dome_calibrations = True
+    overwatcher.state.allow_calibrations = True
 
     return command.finish()
 
 
 @calibrations.command()
-async def disable_dome_calibrations(command: OverwatcherCommand):
-    """Disallows dome calibrations."""
+async def disable_calibrations(command: OverwatcherCommand):
+    """Disallows calibrations."""
 
     overwatcher = command.actor.overwatcher
-    overwatcher.state.allow_dome_calibrations = False
+    overwatcher.state.allow_calibrations = False
 
     return command.finish()
 

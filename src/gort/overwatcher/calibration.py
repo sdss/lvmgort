@@ -420,8 +420,9 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
 
         while True:
             next_calibration = await self.module.schedule.get_next()
+            allow_calibrations = self.module.overwatcher.state.allow_calibrations
 
-            if next_calibration is not None:
+            if next_calibration is not None and allow_calibrations:
                 try:
                     self.module._calibration_task = asyncio.create_task(
                         self.module.run_calibration(next_calibration)
@@ -530,10 +531,19 @@ class CalibrationsOverwatcher(OverwatcherModule):
             )
             calibration.record_state(CalibrationState.WAITING)
 
-        if not self.overwatcher.state.allow_dome_calibrations:
+        if not self.overwatcher.state.allow_calibrations:
             await self._fail_calibration(
                 calibration,
-                f"Cannot run {name!r}. Dome calibrations are disabled.",
+                f"Cannot run {name!r}. Calibrations are disabled.",
+                level="error",
+            )
+            return
+
+        if dome and not self.overwatcher.state.enabled:
+            await self._fail_calibration(
+                calibration,
+                f"Calibration {name!r} requires moving the dome "
+                "but overwatcher is disabled.",
                 level="error",
             )
             return
