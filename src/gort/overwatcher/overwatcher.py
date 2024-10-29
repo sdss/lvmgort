@@ -61,8 +61,6 @@ class OverwatcherMainTask(OverwatcherTask):
     def __init__(self, overwatcher: Overwatcher):
         super().__init__(overwatcher)
 
-        self._lock = asyncio.Lock()
-
         self.previous_state = OverwatcherState()
         self._pending_close_dome: bool = False
 
@@ -87,15 +85,16 @@ class OverwatcherMainTask(OverwatcherTask):
                 running_calibration = ow.calibrations.get_running_calibration()
                 ow.state.calibrating = running_calibration is not None
 
-                async with self._lock:
-                    if not is_safe:
-                        await self.handle_unsafe()
-                    elif not is_night:
-                        await self.handle_daytime()
-                    elif not ow.state.enabled:
-                        await self.handle_disabled()
-                    elif ow.observer.is_cancelling and ow.state.enabled:
-                        await self.handle_reenable()
+                if not is_safe:
+                    await self.handle_unsafe()
+
+                if not is_night:
+                    await self.handle_daytime()
+
+                if not ow.state.enabled:
+                    await self.handle_disabled()
+                elif ow.observer.is_cancelling and ow.state.enabled:
+                    await self.handle_reenable()
 
             except Exception as err:
                 await ow.notify(
@@ -156,11 +155,6 @@ class OverwatcherMainTask(OverwatcherTask):
         if not self.overwatcher.state.enabled:
             return
 
-        # Only close the dome if we have changed from night to day. handle_unsafe()
-        # will close it if it's really unsafe.
-        if not self.previous_state.night and not self.overwatcher.state.night:
-            self._pending_close_dome = True
-
         observing = self.overwatcher.observer.is_observing
         cancelling = self.overwatcher.observer.is_cancelling
 
@@ -171,23 +165,27 @@ class OverwatcherMainTask(OverwatcherTask):
 
             if exposure_finishes_at > 0 and (exposure_finishes_at - now) < 300:
                 immediate = False
+                notification_message = "Finishing this exposure and closing the dome."
+
             else:
                 immediate = True
+                notification_message = "Cancelling exposure and closing the dome."
+
+            await self.overwatcher.notify("Twilight reached. " + notification_message)
 
             await self.overwatcher.observer.stop_observing(
                 immediate=immediate,
                 reason="daytime conditions",
             )
+            self._pending_close_dome = True
 
-            if not immediate:
-                return
-
-        if not observing and self._pending_close_dome:
-            closed = await self.overwatcher.dome.is_closing()
-            if not closed:
-                await self.overwatcher.notify("Daytime conditions. Closing the dome.")
-                await self.overwatcher.dome.shutdown(retry=True)
-            self._pending_close_dome = False
+        if not observing and not cancelling and self._pending_close_dome:
+            try:
+                closed = await self.overwatcher.dome.is_closing()
+                if not closed:
+                    await self.overwatcher.dome.shutdown(retry=True)
+            finally:
+                self._pending_close_dome = False
 
     async def handle_disabled(self):
         """Handles the disabled state."""

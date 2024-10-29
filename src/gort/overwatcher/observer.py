@@ -173,7 +173,7 @@ class ObserverOverwatcher(OverwatcherModule):
 
         else:
             await self.overwatcher.notify(
-                f"Stopping observations after this tile: {reason}"
+                f"Stopping observations after this tile. Reason: {reason}"
             )
 
         if block and self.observe_loop and not self.observe_loop.done():
