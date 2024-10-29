@@ -180,7 +180,7 @@ class GortObserver:
 
         self._tile = tile
         self.standards = Standards(self, tile) if tile else None
-        self.dither_position = 0
+        self.dither_position = tile.sci_coords.dither_position if tile else 0
 
         self.guide_task = None
         self.guider_monitor.reset()
