@@ -396,6 +396,7 @@ class GortObserver:
                     )
 
                     self.tile.set_dither_position(dpos)
+                    self.dither_position = dpos
 
                     async with GatheringTaskGroup() as group:
                         group.create_task(self.set_dither_position(dpos))
