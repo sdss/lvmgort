@@ -235,6 +235,7 @@ class Guider(GortDevice):
         exposure_time: float = 5.0,
         pixel: tuple[float, float] | str | None = None,
         monitor: bool = True,
+        output_monitor_data: bool = True,
         **guide_kwargs,
     ):
         """Starts the guide loop.
@@ -255,6 +256,8 @@ class Guider(GortDevice):
         monitor
             Whether to monitor the guide loop and output the average and last
             guide metrics every 30 seconds.
+        output_monitor_data
+            Whether to output the monitor data to the log.
         guide_kwargs
             Other keyword arguments to pass to ``lvmguider guide``. The includes
             the ``pa`` argument that if not provided is assumed to be zero.
@@ -300,7 +303,8 @@ class Guider(GortDevice):
         try:
             if monitor:
                 self.guider_monitor.start_monitoring()
-                monitor_task = asyncio.create_task(self._monitor_task())
+                if output_monitor_data:
+                    monitor_task = asyncio.create_task(self._monitor_task())
 
             await self.actor.commands.guide(
                 reply_callback=partial(self.log_replies, skip_debug=False),
@@ -443,6 +447,7 @@ class Guider(GortDevice):
         dec: float | None = None,
         exposure_time: float = 5.0,
         sleep: float = 60,
+        monitor: bool = True,
     ):
         """Guides at a given position, sleeping between exposures.
 
@@ -464,6 +469,10 @@ class Guider(GortDevice):
             The exposure time of the AG integrations.
         sleep
             The time to sleep between exposures (seconds).
+        monitor
+            Start the guider monitor task. Data collected during the monitoring
+            can be access as a :obj:`polars.DataFrame` from
+            :obj:`Guider.guider_monitor.get_dataframe() <.GuiderMonitor.get_dataframe>`.
 
         """
 
@@ -476,9 +485,8 @@ class Guider(GortDevice):
             ra = tel_status.get("ra_j2000_hours")
             dec = tel_status.get("dec_j2000_degs")
 
-            assert (
-                ra is not None and dec is not None
-            ), "Failed getting telescope RA/Dec."
+            if ra is None or dec is None:
+                raise GortGuiderError("Cannot determine telescope RA/Dec.")
             ra *= 15.0
 
         elif (ra is None and dec is not None) or (ra is not None and dec is None):
@@ -493,6 +501,8 @@ class Guider(GortDevice):
             dec=dec,
             exposure_time=exposure_time,
             sleep=sleep,
+            monitor=monitor,
+            output_monitor_data=False,
         )
 
     async def get_focus_info(self):
