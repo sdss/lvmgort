@@ -31,7 +31,7 @@ class OverwatcherActor(AMQPActor):
         gort_root = pathlib.Path(gort.__file__).parent
         schema = gort_root / "etc" / "actor_schema.json"
 
-        super().__init__(*args, schema=schema, **kwargs)
+        super().__init__(*args, schema=schema, version=gort.__version__, **kwargs)
 
         self.overwatcher = Overwatcher(dry_run=dry_run)
 
