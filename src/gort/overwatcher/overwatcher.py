@@ -149,6 +149,10 @@ class OverwatcherMainTask(OverwatcherTask):
             if not closed:
                 await self.overwatcher.dome.shutdown(retry=True)
 
+                # If we have to close because of unsafe conditions, we don't want
+                # to reopen too soon. We lock the dome for 30 minutes.
+                self.overwatcher.alerts.locked_until = time() + 1800
+
     async def handle_daytime(self):
         """Handles daytime."""
 

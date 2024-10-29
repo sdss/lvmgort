@@ -110,11 +110,18 @@ class AlertsOverwatcher(OverwatcherModule):
         super().__init__(*args, **kwargs)
 
         self.state: AlertsSummary | None = None
+        self.locked_until: float = 0
 
     def is_safe(self):
         """Determines whether it is safe to open."""
         if self.state is None:
             self.log.warning("Alerts data not available. is_safe() returns False.")
+            return False
+
+        # If we have issued a previous unsafe alert, the main task will close the dome
+        # and put a lock for 30 minutes to prevent the dome from opening/closing too
+        # frequently if the weather is unstable.
+        if self.locked_until > 0 and time() < self.locked_until:
             return False
 
         if self.state.rain:
@@ -130,6 +137,7 @@ class AlertsOverwatcher(OverwatcherModule):
             self.log.warning("Wind alert detected.")
             return False
         else:
+            self.locked_until = 0
             return True
 
     @staticmethod
