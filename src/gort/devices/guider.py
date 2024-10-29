@@ -388,7 +388,6 @@ class Guider(GortDevice):
                 return
 
             except Exception as err:
-                raise
                 self.write_to_log(f"Error in guider monitor: {err}", "warning")
 
     async def stop(self) -> None:
