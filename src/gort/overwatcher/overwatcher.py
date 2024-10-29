@@ -213,6 +213,12 @@ class OverwatcherMainTask(OverwatcherTask):
         if not self.overwatcher.state.enabled or not observer.is_cancelling:
             return
 
+        # If we have a pending close dome, do nothing. This happens when the
+        # daytime handler is waiting for the observing loop to finish but usually
+        # the overwatcher is still enabled.
+        if self._pending_close_dome:
+            return
+
         self.log.info("Undoing the cancellation of the observing loop.")
         observer._cancelling = False
         self.overwatcher.gort.observer.cancelling = False
