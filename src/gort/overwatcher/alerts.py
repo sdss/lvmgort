@@ -91,7 +91,10 @@ class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
         data = await self.module.get_alerts_summary()
 
         if data is None:
-            raise ValueError("No alerts data available.")
+            raise ValueError("no alerts data available.")
+
+        if data.rain is None or data.humidity_alert is None or data.wind_alert is None:
+            raise ValueError("incomplete alerts data.")
 
         self.module.state = data
 
