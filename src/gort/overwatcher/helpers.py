@@ -258,13 +258,21 @@ async def post_observing(gort: Gort):
 
     await notifier.notify("Running post-observing tasks.")
 
+    tasks = []
+
     closed = await gort.enclosure.is_closed()
     if not closed:
-        await gort.enclosure.close(retry_without_parking=True)
+        tasks.append(gort.enclosure.close(retry_without_parking=True))
 
-    await gort.telescopes.park()
-    await gort.nps.calib.all_off()
-    await gort.guiders.stop()
+    tasks.append(gort.telescopes.park())
+    tasks.append(gort.nps.calib.all_off())
+    tasks.append(gort.guiders.stop())
+
+    for task in tasks:
+        try:
+            await task
+        except Exception as ee:
+            notifier.log.error(f"Error running post-observing task: {ee}")
 
     notifier.log.info("Sending night log email.")
     result = await get_lvmapi_route("/logs/night-logs/0/email?only_if_not_sent=true")
