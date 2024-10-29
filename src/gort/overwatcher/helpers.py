@@ -13,6 +13,8 @@ import enum
 
 from typing import TYPE_CHECKING
 
+from lvmopstools.retrier import Retrier
+
 from sdsstools.utils import GatheringTaskGroup
 
 from gort.exceptions import GortError
@@ -92,11 +94,32 @@ class DomeHelper:
 
         return False
 
+    @Retrier(max_attempts=2, delay=5)
+    async def _move_with_retries(
+        self,
+        open: bool = False,
+        park: bool = True,
+        retry_without_parking: bool = False,
+    ):
+        """Moves the dome with retries."""
+
+        if open:
+            if not self.overwatcher.state.safe:
+                raise GortError("Cannot open the dome when conditions are unsafe.")
+
+            await self.gort.enclosure.open(park_telescopes=park)
+        else:
+            await self.gort.enclosure.close(
+                park_telescopes=park,
+                retry_without_parking=retry_without_parking,
+                force=True,
+            )
+
     async def _move(
         self,
         open: bool = False,
         park: bool = True,
-        retry: bool = False,
+        retry_without_parking: bool = False,
     ):
         """Moves the dome."""
 
@@ -107,16 +130,11 @@ class DomeHelper:
             if is_local:
                 raise GortError("Cannot move the dome in local mode.")
 
-            if open:
-                if not self.overwatcher.state.safe:
-                    raise GortError("Cannot open the dome when conditions are unsafe.")
-
-                await self.gort.enclosure.open(park_telescopes=park)
-            else:
-                await self.gort.enclosure.close(
-                    park_telescopes=park,
-                    retry_without_parking=retry,
-                )
+            await self._move_with_retries(
+                open=open,
+                park=park,
+                retry_without_parking=retry_without_parking,
+            )
 
         except Exception:
             await asyncio.sleep(3)
@@ -174,7 +192,7 @@ class DomeHelper:
             await self._move(
                 open=False,
                 park=park,
-                retry=retry,
+                retry_without_parking=retry,
             )
 
     async def stop(self):

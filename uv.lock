@@ -148,6 +148,15 @@ wheels = [
 ]
 
 [[package]]
+name = "asyncudp"
+version = "0.11.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/89/0b/b94c42d75e2bd018727e625fa3147447cdfb26603e7b0892a4fdfcd2154d/asyncudp-0.11.0.tar.gz", hash = "sha256:c8ab6459f4dc8ebc42f401d3bd72c2a6c6808d10e42231f39e0c433ac646abf9", size = 3986 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/17/fe/77f4a24264e728fd95542e53f026a91249b51d1611087b8c82d3a033ea97/asyncudp-0.11.0-py3-none-any.whl", hash = "sha256:96d859d86471e3ed30cf9f05cb38e96920156e3a9fe70ee916096ba758ea316e", size = 3538 },
+]
+
+[[package]]
 name = "attrs"
 version = "24.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -702,11 +711,12 @@ wheels = [
 
 [[package]]
 name = "lvmgort"
-version = "1.0.0"
+version = "1.0.1a0"
 source = { editable = "." }
 dependencies = [
     { name = "astropy" },
     { name = "httpx" },
+    { name = "lvmopstools" },
     { name = "peewee" },
     { name = "polars" },
     { name = "psycopg2-binary" },
@@ -741,7 +751,7 @@ test = [
     { name = "pytest-sugar" },
 ]
 
-[package.dependency-groups]
+[package.dev-dependencies]
 dev = [
     { name = "ipdb" },
     { name = "ipython" },
@@ -755,6 +765,7 @@ requires-dist = [
     { name = "doc8", marker = "extra == 'docs'", specifier = ">=0.8.0" },
     { name = "furo", marker = "extra == 'docs'", specifier = ">=2021.9.22" },
     { name = "httpx", specifier = ">=0.27.0" },
+    { name = "lvmopstools", specifier = ">=0.3.9" },
     { name = "myst-parser", marker = "extra == 'docs'", specifier = ">=2.0.0" },
     { name = "nox", marker = "extra == 'docs'", specifier = ">=2021.6.12" },
     { name = "peewee", specifier = ">=3.16.2" },
@@ -780,11 +791,26 @@ requires-dist = [
     { name = "unclick", specifier = ">=0.1.0" },
 ]
 
-[package.metadata.dependency-groups]
+[package.metadata.requires-dev]
 dev = [
     { name = "ipdb", specifier = ">=0.12.3" },
     { name = "ipython", specifier = ">=8.0.0" },
     { name = "ruff", specifier = ">=0.5.0" },
+]
+
+[[package]]
+name = "lvmopstools"
+version = "0.3.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "asyncudp" },
+    { name = "sdss-clu" },
+    { name = "sdss-drift" },
+    { name = "sdsstools" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6b/e6/f3564b7c852c37764ffd2c8be940afd0305517b97e524ede8204827205d0/lvmopstools-0.3.9.tar.gz", hash = "sha256:ca944f9a49417df733f7ee56df32548399894fbb1dcc54b488bb29c0c3e28637", size = 16788 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/03/83/5f6693bbd087dba8f01f548df2a76d221c633d3419b4b8905071701d78fb/lvmopstools-0.3.9-py3-none-any.whl", hash = "sha256:999c7667edd62e802a7a90f09d8e634324ff4b89d3330c3ae52e08499b562e09", size = 22815 },
 ]
 
 [[package]]
@@ -1430,6 +1456,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pymodbus"
+version = "3.7.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0b/bc/f98789706351e778676a3e84ed6203160c4f581092e298eb075bc9e08230/pymodbus-3.7.4.tar.gz", hash = "sha256:573c370aea04523403eea1e159616a583cd7b93cfc5c81b07340d3cccd52c99f", size = 170675 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/0a/b57434ae7ecc83a854f0431a380964a575a6474197211d2bae3fa0529484/pymodbus-3.7.4-py3-none-any.whl", hash = "sha256:dfb45ef9a2c1663875ad32378f780b5824628cd3c0a486851e64b8a3341a3e82", size = 173104 },
+]
+
+[[package]]
 name = "pytest"
 version = "8.3.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1759,6 +1794,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/fc/0d/b01cefb776ac4a1d0150d645639eeccb4ae0694868d2222298e8930f9d9b/sdss_clu-2.2.7.tar.gz", hash = "sha256:cc401f4f0a37c44e7323b16411fa9efa8ab6d7d25fe1497f0531922db78ac68b", size = 126086 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d9/7a/213afb7d97c2b365c20be661582501267538241fb84e20fc11f1ad239d52/sdss_clu-2.2.7-py3-none-any.whl", hash = "sha256:7bf35da21fc009883e7a6cc6bd6f0f708e6924eff4d72a452f0e3c05356bde6c", size = 142410 },
+]
+
+[[package]]
+name = "sdss-drift"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pymodbus" },
+    { name = "sdsstools" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7d/33/b26df92d114798f618576c4c11797d880465e002738d28920313667d3b63/sdss_drift-1.2.0.tar.gz", hash = "sha256:b6b6ae0021512be2ee477066168871e080d7b947c18f9849debc20f16bf921ff", size = 13092 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e8/b6/e1affa5671e199a9b95ad053fc84485f098db6b3a0108bc4aa65a213bbda/sdss_drift-1.2.0-py3-none-any.whl", hash = "sha256:9bc829d4ffc657a99f938a42cf1e67416099eb74cf35f288e54bbc37d0fb6967", size = 13248 },
 ]
 
 [[package]]
