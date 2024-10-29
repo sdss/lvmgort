@@ -232,6 +232,6 @@ class ObserverOverwatcher(OverwatcherModule):
 
                     break
 
-        await self.gort.cleanup()
+        await self.gort.cleanup(readout=False)
 
         await self.overwatcher.notify("The observing loop has ended.")
