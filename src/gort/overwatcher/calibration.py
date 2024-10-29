@@ -628,6 +628,8 @@ class CalibrationsOverwatcher(OverwatcherModule):
     async def cancel(self):
         """Cancel the running calibration."""
 
+        notify = self.overwatcher.notify
+
         running_calibration = self.get_running_calibration()
 
         if (
@@ -635,11 +637,16 @@ class CalibrationsOverwatcher(OverwatcherModule):
             and not self._calibration_task.done()
             and running_calibration
         ):
-            await self.overwatcher.notify(
-                f"Cancelling calibration {running_calibration}.",
-                level="warning",
-            )
+            name = running_calibration.name
+
+            await notify(f"Cancelling calibration {name}.", level="warning")
             self._calibration_task = await cancel_task(self._calibration_task)
+
+            # Ensure we close the dome. This is allowed even
+            # if the overwatcher is disabled.
+            if running_calibration.model.close_dome_after:
+                await notify(f"Closing the dome after calibration {name!r}.")
+                await self.overwatcher.dome.close()
 
     async def _fail_calibration(
         self,
