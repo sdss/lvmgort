@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.0.1 - October 30, 2024
+
+### ✨ Improved
+
+* Overwatcher: cancel the current cancellation if conditions are unsafe.
+* Overwatcher: lock the dome for 30 minutes if it's closed due to unsafe conditions.
+* Always reset the spectrographs before an exposure. Add some checks to ensure the shutters are closed during a cleanup.
+
+### 🏷️ Changed
+
+* Overwatcher: rename allow dome calibrations to allow calibrations, which enabled/disables all calibration (not only in-dome calibrations).
+
+### 🔧 Fixes
+
+* Overwatcher: fixes to daytime logic.
+* Add the current GORT version to the Overwatcher actor.
+* Set the correct dither position in `GortObserver`.
+
+
 ## 1.0.0 - October 28, 2024
 
 ### 🚀 New
