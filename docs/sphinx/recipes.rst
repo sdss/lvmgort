@@ -86,4 +86,4 @@ If you are closing the dome temporarily, you may not want to disable the telesco
 ``calibration``
 ^^^^^^^^^^^^^^^
 
-Runs spectrograph calibration sequences. See :ref:`calibrations`.
+Runs spectrograph calibration sequences.
