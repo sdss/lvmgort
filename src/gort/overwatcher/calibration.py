@@ -28,7 +28,7 @@ from gort.tools import cancel_task, redis_client_sync
 
 if TYPE_CHECKING:
     from gort.overwatcher.ephemeris import EphemerisModel
-    from gort.overwatcher.notifier import NotificationLevel
+    from gort.overwatcher.helpers.notifier import NotificationLevel
     from gort.overwatcher.overwatcher import Overwatcher
 
 

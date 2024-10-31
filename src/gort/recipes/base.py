@@ -15,7 +15,7 @@ from gort.pubsub import notify_event
 
 
 if TYPE_CHECKING:
-    from gort.gort import Gort, GortClient
+    from gort.gort import Gort
 
 
 __all__ = ["recipes", "BaseRecipe"]
@@ -53,7 +53,7 @@ class BaseRecipe(object, metaclass=RegisterRecipe):
 
     name: str | None = None
 
-    def __init__(self, gort: Gort | GortClient):
+    def __init__(self, gort: Gort):
         self.gort = gort
 
     async def recipe(self, *args, **kwargs):

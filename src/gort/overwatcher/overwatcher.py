@@ -24,7 +24,7 @@ from gort.exceptions import GortError
 from gort.gort import Gort
 from gort.overwatcher.core import OverwatcherBaseTask, OverwatcherModule
 from gort.overwatcher.helpers import DomeHelper
-from gort.overwatcher.notifier import NotifierMixIn
+from gort.overwatcher.helpers.notifier import NotifierMixIn
 
 
 @dataclasses.dataclass

@@ -16,8 +16,6 @@ from rich.prompt import Confirm
 
 from sdsstools.utils import GatheringTaskGroup
 
-from gort.gort import Gort
-from gort.overwatcher.notifier import BasicNotifier
 from gort.tools import get_lvmapi_route
 
 from .base import BaseRecipe
@@ -267,7 +265,7 @@ class PreObservingRecipe(BaseRecipe):
     async def recipe(self):
         """Runs the pre-observing sequence."""
 
-        assert isinstance(self.gort, Gort)
+        from gort.overwatcher.helpers.notifier import BasicNotifier
 
         notifier = BasicNotifier(self.gort)
 
@@ -313,7 +311,7 @@ class PostObservingRecipe(BaseRecipe):
     async def recipe(self):
         """Runs the post-observing sequence."""
 
-        assert isinstance(self.gort, Gort)
+        from gort.overwatcher.helpers.notifier import BasicNotifier
 
         notifier = BasicNotifier(self.gort)
 
