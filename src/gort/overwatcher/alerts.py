@@ -80,7 +80,10 @@ class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
                         "Triggering an emergency shutdown.",
                     )
                     asyncio.create_task(
-                        self.overwatcher.shutdown(reason="alerts data unavailable")
+                        self.overwatcher.shutdown(
+                            reason="alerts data unavailable",
+                            park=False,
+                        )
                     )
 
             await asyncio.sleep(15)

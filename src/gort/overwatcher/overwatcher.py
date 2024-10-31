@@ -148,7 +148,7 @@ class OverwatcherMainTask(OverwatcherTask):
                 await self.overwatcher.calibrations.cancel()
 
             if not closed:
-                await self.overwatcher.dome.shutdown(retry=True)
+                await self.overwatcher.dome.shutdown(retry=True, park=True)
 
                 # If we have to close because of unsafe conditions, we don't want
                 # to reopen too soon. We lock the dome for 30 minutes.
@@ -194,7 +194,7 @@ class OverwatcherMainTask(OverwatcherTask):
             try:
                 closed = await self.overwatcher.dome.is_closing()
                 if not closed:
-                    await self.overwatcher.dome.shutdown(retry=True)
+                    await self.overwatcher.dome.shutdown(retry=True, park=True)
             finally:
                 self._pending_close_dome = False
 
@@ -328,7 +328,12 @@ class Overwatcher(NotifierMixIn):
 
         return self
 
-    async def shutdown(self, reason: str = "undefined", retry: bool = True):
+    async def shutdown(
+        self,
+        reason: str = "undefined",
+        retry: bool = True,
+        park: bool = True,
+    ):
         """Shuts down the observatory."""
 
         # Check if the dome is already closed, then do nothing.
@@ -342,7 +347,7 @@ class Overwatcher(NotifierMixIn):
 
         if not self.state.dry_run:
             stop = asyncio.create_task(self.observer.stop_observing(immediate=True))
-            shutdown = asyncio.create_task(self.dome.shutdown(retry=retry))
+            shutdown = asyncio.create_task(self.dome.shutdown(retry=retry, park=park))
         else:
             self.log.warning("Dry run enabled. Not shutting down.")
             return

@@ -281,7 +281,7 @@ class PreObservingRecipe(BaseRecipe):
                 home_telescopes=True,
             )
         )
-        tasks.append(self.gort.telescopes.park(disable=False))
+        tasks.append(self.gort.telescopes.park(disable=False, kmirror=False))
         tasks.append(self.gort.nps.calib.all_off())
         tasks.append(self.gort.guiders.stop())
         tasks.append(self.gort.ags.reconnect())

@@ -89,7 +89,10 @@ class WeatherMonitorTask(OverwatcherModuleTask["WeatherOverwatcher"]):
                         "Triggering an emergency shutdown.",
                     )
                     asyncio.create_task(
-                        self.overwatcher.shutdown(reason="weather data unavailable")
+                        self.overwatcher.shutdown(
+                            reason="weather data unavailable",
+                            park=False,
+                        )
                     )
 
             await asyncio.sleep(60)
@@ -175,7 +178,10 @@ class WeatherOverwatcher(OverwatcherModule):
             return
 
         if not self.is_safe():
-            await self.overwatcher.shutdown(reason="unsafe weather conditions")
+            await self.overwatcher.shutdown(
+                reason="unsafe weather conditions",
+                park=True,
+            )
 
     def is_safe(self):
         """Determines whether it is safe to open."""

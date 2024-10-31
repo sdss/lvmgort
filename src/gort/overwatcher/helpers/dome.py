@@ -217,7 +217,12 @@ class DomeHelper:
             # by the observer module.
             await self.open()
 
-    async def shutdown(self, retry: bool = False, force: bool = False):
+    async def shutdown(
+        self,
+        retry: bool = False,
+        force: bool = False,
+        park: bool = True,
+    ):
         """Runs the shutdown sequence."""
 
         is_closing = await self.is_closing()
@@ -238,4 +243,5 @@ class DomeHelper:
                 group.create_task(self.close(retry=retry))
 
             self.log.info("Parking telescopes for the night.")
-            await self.gort.telescopes.park()
+            if park:
+                await self.gort.telescopes.park()
