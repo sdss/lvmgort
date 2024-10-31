@@ -19,10 +19,15 @@ from gort.tools import get_gort_client
 
 
 @click.group()
-def gort():
+@click.option(
+    "--override-overwatcher",
+    is_flag=True,
+    help="Performs the operation even if the Overwatcher is running.",
+)
+def gort(override_overwatcher: bool = False):
     """GORT CLI."""
 
-    pass
+    os.environ["GORT_OVERRIDE_OVERWATCHER"] = "1" if override_overwatcher else "0"
 
 
 @gort.group(cls=DaemonGroup, prog="gort-overwatcher-actor", workdir=os.getcwd())

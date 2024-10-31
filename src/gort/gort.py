@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import pathlib
 import subprocess
 import sys
@@ -49,6 +50,7 @@ from gort.tools import (
     get_temporary_file_path,
     kubernetes_list_deployments,
     kubernetes_restart_deployment,
+    overwatcher_is_running,
     set_tile_status,
 )
 
@@ -260,6 +262,25 @@ class GortClient(AMQPClient):
         if not self.connected:
             async with self._connect_lock:
                 await self.start()
+
+        override_overwatcher = getattr(self, "_override_overwatcher", None)
+        override_envvar = os.environ.get("GORT_OVERRIDE_OVERWATCHER", "0")
+        if override_overwatcher is None:
+            override_overwatcher = False if override_envvar == "0" else True
+
+        if override_overwatcher is None:
+            pass
+        else:
+            overwatcher_running = await overwatcher_is_running(self)
+            if overwatcher_running:
+                if override_overwatcher:
+                    self.log.warning("Overwatcher is running, be careful!")
+                else:
+                    raise GortError(
+                        "Overwatcher is running. If you really want to use GORT "
+                        "initialise it with Gort(override_overwatcher=True).",
+                        error_code=ErrorCode.OVERATCHER_RUNNING,
+                    )
 
         await asyncio.gather(*[ractor.init() for ractor in self.actors.values()])
 
@@ -610,6 +631,10 @@ class Gort(GortClient):
     ----------
     args, kwargs
         Arguments to pass to :obj:`.GortClient`.
+    allow_overwatcher
+        If the Overwatcher is running an exception will be raised to prevent
+        GORT running commands that may interfere with it. If ``allow_overwatcher=True``
+        the exception will be suppressed.
     verbosity
         The level of logging verbosity.
 
@@ -618,6 +643,7 @@ class Gort(GortClient):
     def __init__(
         self,
         *args,
+        override_overwatcher: bool = False,
         verbosity: str | None = None,
         config_file: str | pathlib.Path | None = None,
         **kwargs,
@@ -626,6 +652,8 @@ class Gort(GortClient):
             config.load(str(config_file))
 
         super().__init__(*args, **kwargs)
+
+        self._override_overwatcher = override_overwatcher
 
         self.observer = GortObserver(self)
 

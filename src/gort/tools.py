@@ -914,11 +914,17 @@ async def is_actor_running(actor: str, client: AMQPClient | None = None):
 
     """
 
+    close_client: bool = False
     if not client:
         client = await AMQPClient().start()
+        close_client = True
 
     # TODO: this can fail if the event loop has closed the client connection.
     ping = await client.send_command(actor, "ping")
+
+    if close_client:
+        await client.stop()
+
     if ping.status.did_succeed:
         return True
 
@@ -930,6 +936,29 @@ async def overwatcher_is_running(client: AMQPClient | None = None):
 
     overwatcher_actor_name = config["overwatcher"]["actor"]["name"]
     return await is_actor_running(overwatcher_actor_name, client=client)
+
+
+async def overwatcher_is_enabled(client: AMQPClient | None = None):
+    """Returns :obj:`True` if the overwatcher is enabled."""
+
+    close_client: bool = False
+    if not client:
+        client = await AMQPClient().start()
+        close_client = True
+
+    if not (await overwatcher_is_running(client)):
+        return False
+
+    overwatcher_actor_name = config["overwatcher"]["actor"]["name"]
+    status = await client.send_command(overwatcher_actor_name, "status")
+
+    if close_client:
+        await client.stop()
+
+    if status.status.did_succeed:
+        return status.replies.get("status")["enabled"]
+
+    raise GortError("Cannot determine if the Overwatcher is running.")
 
 
 def check_overwatcher_not_running(coro):
@@ -968,12 +997,19 @@ class copy_signature(Generic[F]):
 
 
 @asynccontextmanager
-async def get_gort_client():
+async def get_gort_client(override_overwatcher: bool | None = None):
     """Returns a GORT client."""
 
     from gort import Gort
 
-    gort = await Gort(verbosity="debug").init()
+    override_envvar = os.environ.get("GORT_OVERRIDE_OVERWATCHER", "0")
+    if override_overwatcher is None:
+        override_overwatcher = False if override_envvar == "0" else True
+
+    gort = await Gort(
+        override_overwatcher=override_overwatcher,
+        verbosity="debug",
+    ).init()
 
     yield gort
 
