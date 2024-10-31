@@ -3,7 +3,7 @@
 #
 # @Author: José Sánchez-Gallego (gallegoj@uw.edu)
 # @Date: 2024-10-27
-# @Filename: helpers.py
+# @Filename: dome.py
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
 from __future__ import annotations
@@ -18,13 +18,13 @@ from lvmopstools.retrier import Retrier
 from sdsstools.utils import GatheringTaskGroup
 
 from gort.exceptions import GortError
-from gort.overwatcher.notifier import BasicNotifier
-from gort.tools import get_lvmapi_route
 
 
 if TYPE_CHECKING:
-    from gort import Gort
     from gort.overwatcher.overwatcher import Overwatcher
+
+
+__all__ = ["DomeHelper", "DomeStatus"]
 
 
 class DomeStatus(enum.Flag):
@@ -239,42 +239,3 @@ class DomeHelper:
 
             self.log.info("Parking telescopes for the night.")
             await self.gort.telescopes.park()
-
-
-async def post_observing(gort: Gort):
-    """Runs the post-observing tasks.
-
-    These include:
-
-    - Closing the dome.
-    - Parking the telescopes.
-    - Turning off all lamps.
-    - Stopping the guiders.
-    - Sending the night log email.
-
-    """
-
-    notifier = BasicNotifier(gort)
-
-    await notifier.notify("Running post-observing tasks.")
-
-    tasks = []
-
-    closed = await gort.enclosure.is_closed()
-    if not closed:
-        tasks.append(gort.enclosure.close(retry_without_parking=True))
-
-    tasks.append(gort.telescopes.park())
-    tasks.append(gort.nps.calib.all_off())
-    tasks.append(gort.guiders.stop())
-
-    for task in tasks:
-        try:
-            await task
-        except Exception as ee:
-            notifier.log.error(f"Error running post-observing task: {ee}")
-
-    notifier.log.info("Sending night log email.")
-    result = await get_lvmapi_route("/logs/night-logs/0/email?only_if_not_sent=true")
-    if not result:
-        notifier.log.warning("Night log had already been sent.")

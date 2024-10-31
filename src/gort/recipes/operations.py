@@ -16,6 +16,10 @@ from rich.prompt import Confirm
 
 from sdsstools.utils import GatheringTaskGroup
 
+from gort.gort import Gort
+from gort.overwatcher.notifier import BasicNotifier
+from gort.tools import get_lvmapi_route
+
 from .base import BaseRecipe
 
 
@@ -253,3 +257,85 @@ class CleanupRecipe(BaseRecipe):
                 return
 
             await asyncio.sleep(3)
+
+
+class PreObservingRecipe(BaseRecipe):
+    """Prepares the system for observing."""
+
+    name = "pre-observing"
+
+    async def recipe(self):
+        """Runs the pre-observing sequence."""
+
+        assert isinstance(self.gort, Gort)
+
+        notifier = BasicNotifier(self.gort)
+
+        await notifier.notify("Running pre-observing tasks.")
+
+        tasks = []
+
+        tasks.append(
+            self.gort.telescopes.home(
+                home_fibsel=True,
+                home_focusers=True,
+                home_kms=True,
+                home_telescopes=True,
+            )
+        )
+        tasks.append(self.gort.telescopes.park(disable=False))
+        tasks.append(self.gort.nps.calib.all_off())
+        tasks.append(self.gort.guiders.stop())
+        tasks.append(self.gort.ags.reconnect())
+
+        for task in tasks:
+            try:
+                await task
+            except Exception as ee:
+                notifier.log.error(f"Error running pre-observing task: {ee}")
+
+
+class PostObservingRecipe(BaseRecipe):
+    """Runs the post-observing tasks.
+
+    These include:
+
+    - Closing the dome.
+    - Parking the telescopes.
+    - Turning off all lamps.
+    - Stopping the guiders.
+    - Sending the night log email.
+
+    """
+
+    name = "post-observing"
+
+    async def recipe(self):
+        """Runs the post-observing sequence."""
+
+        assert isinstance(self.gort, Gort)
+
+        notifier = BasicNotifier(self.gort)
+
+        await notifier.notify("Running post-observing tasks.")
+
+        tasks = []
+
+        closed = await self.gort.enclosure.is_closed()
+        if not closed:
+            tasks.append(self.gort.enclosure.close(retry_without_parking=True))
+
+        tasks.append(self.gort.telescopes.park())
+        tasks.append(self.gort.nps.calib.all_off())
+        tasks.append(self.gort.guiders.stop())
+
+        for task in tasks:
+            try:
+                await task
+            except Exception as ee:
+                notifier.log.error(f"Error running post-observing task: {ee}")
+
+        notifier.log.info("Sending night log email.")
+        result = await get_lvmapi_route("/logs/night-logs/0/email?only_if_not_sent=1")
+        if not result:
+            notifier.log.warning("Night log had already been sent.")
