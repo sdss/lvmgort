@@ -643,7 +643,7 @@ class Gort(GortClient):
     def __init__(
         self,
         *args,
-        override_overwatcher: bool = False,
+        override_overwatcher: bool | None = None,
         verbosity: str | None = None,
         config_file: str | pathlib.Path | None = None,
         **kwargs,

@@ -16,7 +16,7 @@ from rich.prompt import Confirm
 
 from sdsstools.utils import GatheringTaskGroup
 
-from gort.tools import get_lvmapi_route
+from gort.tools import get_lvmapi_route, overwatcher_is_running
 
 from .base import BaseRecipe
 
@@ -337,3 +337,11 @@ class PostObservingRecipe(BaseRecipe):
         result = await get_lvmapi_route("/logs/night-logs/0/email?only_if_not_sent=1")
         if not result:
             notifier.log.warning("Night log had already been sent.")
+
+        # Disable the overwatcher.
+        if await overwatcher_is_running():
+            cmd = await self.gort.send_command("lvm.overwatcher", "disable")
+            if cmd.status.did_fail:
+                self.gort.log.error("Failed to disable the overwatcher.")
+            else:
+                self.gort.log.info("Overwatcher has been disabled.")
