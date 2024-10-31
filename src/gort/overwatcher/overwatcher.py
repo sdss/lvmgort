@@ -25,6 +25,7 @@ from gort.gort import Gort
 from gort.overwatcher.core import OverwatcherBaseTask, OverwatcherModule
 from gort.overwatcher.helpers import DomeHelper
 from gort.overwatcher.helpers.notifier import NotifierMixIn
+from gort.overwatcher.helpers.tasks import DailyTasks
 
 
 @dataclasses.dataclass
@@ -288,6 +289,9 @@ class Overwatcher(NotifierMixIn):
             OverwatcherMainTask(self),
             OverwatcherPingTask(self),
         ]
+
+        # A series of tasks that must be run once every day.
+        self.daily_tasks = DailyTasks(self)
 
         self.ephemeris = EphemerisOverwatcher(self)
         self.calibrations = CalibrationsOverwatcher(self, calibrations_file)
