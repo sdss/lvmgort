@@ -100,6 +100,9 @@ class OverwatcherMainTask(OverwatcherTask):
                 elif ow.observer.is_cancelling and ow.state.enabled:
                     await self.handle_reenable()
 
+                # Run daily tasks.
+                await ow.daily_tasks.run_all()
+
             except Exception as err:
                 await ow.notify(
                     f"Error in main overwatcher task: {err!r}",
