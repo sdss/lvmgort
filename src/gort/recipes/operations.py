@@ -285,6 +285,7 @@ class PreObservingRecipe(BaseRecipe):
         tasks.append(self.gort.nps.calib.all_off())
         tasks.append(self.gort.guiders.stop())
         tasks.append(self.gort.ags.reconnect())
+        tasks.append(self.gort.specs.expose(flavour="bias"))
 
         for task in tasks:
             try:
