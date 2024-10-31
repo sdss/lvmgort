@@ -147,7 +147,13 @@ class PreObservingTask(DailyTaskBase):
         now = time.time()
         sunset = Time(self.overwatcher.ephemeris.ephemeris.sunset, format="jd").unix
 
-        if sunset - now < 0 or sunset - now > 1800:
+        if (
+            sunset - now < 0
+            or sunset - now > 1800
+            or sunset - now < 600
+            or self.overwatcher.state.calibrating
+            or self.overwatcher.state.observing
+        ):
             return False
 
         try:
