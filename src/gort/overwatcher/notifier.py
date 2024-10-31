@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 NotificationLevel = Literal["debug", "info", "warning", "error", "critical"]
 Channels = Literal["slack", "email"]
 
-GORT_ICON_URL = "https://github.com/sdss/lvmgort/blob/overwatcher/docs/sphinx/_static/gort_logo_slack.png?raw=true"
+GORT_ICON_URL = "https://github.com/sdss/lvmgort/blob/main/docs/sphinx/_static/gort_logo_slack.png?raw=true"
 
 
 class OverwatcherProtocol(Protocol):
