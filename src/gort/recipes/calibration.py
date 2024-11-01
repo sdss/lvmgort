@@ -163,6 +163,12 @@ class TwilightFlats(BaseRecipe):
     # Start sunrise flats 15 minutes before sunrise
     SUNRISE_START: ClassVar[float] = 15
 
+    # Maximum exposure time for normal flats.
+    MAX_EXP_TIME: ClassVar[float] = 300
+
+    # Maximum exposure time for extra flats.
+    MAX_EXP_TIME_EXTRA: ClassVar[float] = 100
+
     async def recipe(
         self,
         wait: bool = True,
@@ -211,7 +217,8 @@ class TwilightFlats(BaseRecipe):
         n_fibre = start_fibre or random.randint(1, 12)
         await self.goto_fibre_position(n_fibre, secondary=secondary)
 
-        n_observed = 0
+        n_observed: int = 0
+        all_done: bool = False
 
         while True:
             # Calculate the number of minutes into the twilight. Positive values
@@ -243,13 +250,23 @@ class TwilightFlats(BaseRecipe):
                 else:
                     raise RuntimeError("Too early to take twilight flats.")
 
-            if exp_time < 400:  # We allow negative times, which will be rounded to 1 s
+            if not all_done and exp_time < self.MAX_EXP_TIME:
+                # We allow negative times, which will be rounded to 1 s
                 pass
-            elif exp_time > 400 and wait and is_sunrise:
+            elif is_sunrise and exp_time > 400 and wait:
                 self.gort.log.info(f"Exposure time is too long ({exp_time:.1f} s).")
                 self.gort.log.info("Waiting 10 seconds ...")
                 await asyncio.sleep(10)
                 continue
+            elif is_sunset and not all_done and exp_time > self.MAX_EXP_TIME:
+                # We have not yet taken all 12 fibres but the
+                # exposure time  is just too long.
+                raise RuntimeError("Exposure time is now too long.")
+            elif is_sunset and all_done and exp_time > self.MAX_EXP_TIME_EXTRA:
+                # We have taken all 12 fibres and some extra ones, but the
+                # exposure time is now too long. Exit.
+                gort.log.debug("Exposure time is too long to take more extra flats.")
+                break
             else:
                 raise RuntimeError("Too early/late to take twilight flats.")
 
@@ -283,7 +300,17 @@ class TwilightFlats(BaseRecipe):
 
             n_observed += 1
             if n_observed == 12:
-                break
+                all_done = True
+
+                if (all_done and is_sunrise) or exp_time >= self.MAX_EXP_TIME_EXTRA:
+                    break
+
+                # During sunset, after taking all 12 fibres we continue taking
+                # flats until the exposure time reaches MAX_EXP_TIME_EXTRA seconds.
+                gort.log.info(
+                    f"All fibres observed. Taking extra flats until the "
+                    f"exposure time reaches {self.MAX_EXP_TIME_EXTRA} seconds."
+                )
 
             n_fibre = n_fibre + 1
             if n_fibre > 12:
