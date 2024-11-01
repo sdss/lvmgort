@@ -154,7 +154,7 @@ class PreObservingTask(DailyTaskBase):
 
         if (
             sunset - now < 0
-            or sunset - now > 27000
+            or sunset - now > 1800
             or sunset - now < 600
             or self.overwatcher.state.calibrating
             or self.overwatcher.state.observing
