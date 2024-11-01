@@ -18,7 +18,7 @@ from lvmopstools.retrier import Retrier
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 
 
-__all__ = ["AlertsOverwatcher"]
+__all__ = ["SafetyOverwatcher"]
 
 
 class SafetyMonitorTask(OverwatcherModuleTask["SafetyOverwatcher"]):

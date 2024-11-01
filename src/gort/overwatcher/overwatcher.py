@@ -273,6 +273,7 @@ class Overwatcher(NotifierMixIn):
             EphemerisOverwatcher,
             EventsOverwatcher,
             ObserverOverwatcher,
+            SafetyOverwatcher,
         )
 
         # Check if the instance already exists, in which case do nothing.
@@ -296,6 +297,7 @@ class Overwatcher(NotifierMixIn):
         # A series of tasks that must be run once every day.
         self.daily_tasks = DailyTasks(self)
 
+        self.safe = SafetyOverwatcher(self)
         self.ephemeris = EphemerisOverwatcher(self)
         self.calibrations = CalibrationsOverwatcher(self, calibrations_file)
         self.observer = ObserverOverwatcher(self)
