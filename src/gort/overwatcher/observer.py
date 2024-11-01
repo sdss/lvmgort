@@ -15,11 +15,12 @@ from typing import TYPE_CHECKING
 
 from astropy.time import Time
 
+from gort.enums import ErrorCode
 from gort.exceptions import GortError
 from gort.exposure import Exposure
 from gort.overwatcher import OverwatcherModule
 from gort.overwatcher.core import OverwatcherModuleTask
-from gort.tools import cancel_task
+from gort.tools import cancel_task, set_tile_status
 
 
 if TYPE_CHECKING:
@@ -186,6 +187,8 @@ class ObserverOverwatcher(OverwatcherModule):
         await self.gort.cleanup(readout=True)
         observer = self.gort.observer
 
+        notify = self.overwatcher.notify
+
         while True:
             # TODO: add some checks here.
 
@@ -194,7 +197,7 @@ class ObserverOverwatcher(OverwatcherModule):
 
             # Focus when the loop starts or every 1 hour.
             if focus_age is None or focus_age > 3600.0:
-                await self.overwatcher.notify("Focusing telescopes.")
+                await notify("Focusing telescopes.")
                 await self.gort.guiders.focus()
 
             exp: Exposure | list[Exposure] | bool = False
@@ -214,7 +217,40 @@ class ObserverOverwatcher(OverwatcherModule):
                 break
 
             except Exception as err:
-                await self.overwatcher.notify(
+                # TODO: this should be moved to the troubleshooting module, but
+                # for now handling it here.
+
+                if isinstance(err, GortError):
+                    # If the acquisition failed, disable the tile and try again.
+                    if err.error_code == ErrorCode.ACQUISITION_FAILED:
+                        tile_id: int | None = err.payload.get("tile_id", None)
+                        if tile_id is None:
+                            await notify(
+                                'Cannot disable tile without a "tile_id. '
+                                "Continuing observations without disabling tile.",
+                                level="error",
+                            )
+                        else:
+                            await set_tile_status(tile_id, enabled=False)
+                            await notify(
+                                f"tile_id={tile_id} has been disabled. "
+                                "Continuing observations.",
+                                level="warning",
+                            )
+
+                    # If the scheduler cannot find a tile, wait a minute and try again.
+                    elif err.error_code == ErrorCode.SCHEDULER_CANNOT_FIND_TILE:
+                        await notify(
+                            "The scheduler was not able to find a valid tile to "
+                            "observe. Waiting 60 seconds before trying again.",
+                            level="warning",
+                        )
+                        await asyncio.sleep(60)
+                        continue
+
+                # No specific troubleshooting available. Report the error,
+                # do a cleanup and try again.
+                await notify(
                     f"An error occurred during the observation: {err} "
                     "Running the cleanup recipe.",
                     level="error",
@@ -234,4 +270,4 @@ class ObserverOverwatcher(OverwatcherModule):
 
         await self.gort.cleanup(readout=False)
 
-        await self.overwatcher.notify("The observing loop has ended.")
+        await notify("The observing loop has ended.")
