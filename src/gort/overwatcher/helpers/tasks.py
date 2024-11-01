@@ -92,6 +92,11 @@ class DailyTaskBase(metaclass=abc.ABCMeta):
     async def run(self):
         """Runs the task."""
 
+        # Check if the MJD has changed. If so, update the status.
+        current_mjd = get_sjd("LCO")
+        if current_mjd != self._status["mjd"]:
+            self.update_status()
+
         if self.done:
             return
 
@@ -149,7 +154,7 @@ class PreObservingTask(DailyTaskBase):
 
         if (
             sunset - now < 0
-            or sunset - now > 1800
+            or sunset - now > 27000
             or sunset - now < 600
             or self.overwatcher.state.calibrating
             or self.overwatcher.state.observing
