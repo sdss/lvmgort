@@ -96,7 +96,6 @@ class SafetyOverwatcher(OverwatcherModule):
     tasks = [SafetyMonitorTask()]
     delay = 10
 
-
     @Retrier(max_attempts=3, delay=5)
     async def close_dome(self):
         """Closes the dome. Bypasses all safety checks."""
