@@ -360,7 +360,7 @@ class Overwatcher(NotifierMixIn):
         except Exception as err:
             await self.notify(
                 f"Error during shutdown: {err!r}",
-                level="error",
+                level="critical",
                 error=err,
             )
 

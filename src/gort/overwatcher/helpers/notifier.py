@@ -91,7 +91,7 @@ class NotifierMixIn(OverwatcherProtocol):
         log: bool = True,
         payload: dict[str, Any] = {},
     ):
-        """Emits a notification.
+        """Emits a notification to Slack or email.
 
         The notification is logged to the GORT/Overwatcher log and to the
         database. Depending on severity and arguments, a notification is then
@@ -105,7 +105,8 @@ class NotifierMixIn(OverwatcherProtocol):
         level
             The level of the message. One of 'debug', 'info', 'warning', 'error',
             or 'critical'. If :obj:`None`, the level is set to ``error`` if
-            ``error`` is provided, and to ``info`` otherwise.
+            ``error`` is provided, and to ``info`` otherwise. Critical errors
+            are sent to the ``lvm-alerts`` Slack channel.
         error
             An error message or exception to include in the notification.
         with_traceback
@@ -149,7 +150,7 @@ class NotifierMixIn(OverwatcherProtocol):
             self.log.logger.log(log_level, self.log._get_message(full_message))
 
         if channels is None:
-            if level in ["error", "critical"]:
+            if level in ["critical"]:
                 channels = ["slack", "email"]
             else:
                 channels = ["slack"]
@@ -161,8 +162,9 @@ class NotifierMixIn(OverwatcherProtocol):
             mentions: list[str] = []
             if slack_channels is None:
                 slack_channels = [slack_config["notifications_channel"]]
-                if level in ["error", "critical"]:
+                if level in ["critical"]:
                     slack_channels.append(slack_config["alerts_channel"])
+                if level in ["error", "critical"]:
                     mentions.append("@channel")
 
             async with GatheringTaskGroup() as group:
