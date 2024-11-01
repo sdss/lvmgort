@@ -93,8 +93,9 @@ class SafetyOverwatcher(OverwatcherModule):
     """Monitors alerts."""
 
     name = "safety"
-
     tasks = [SafetyMonitorTask()]
+    delay = 10
+
 
     @Retrier(max_attempts=3, delay=5)
     async def close_dome(self):
