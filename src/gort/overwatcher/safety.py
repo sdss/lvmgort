@@ -25,7 +25,7 @@ class SafetyMonitorTask(OverwatcherModuleTask["SafetyOverwatcher"]):
     """Monitors the safety status."""
 
     name = "safety_monitor"
-    keep_alive = True
+    keep_alive = False
     restart_on_error = True
 
     INTERVAL: ClassVar[float] = 30
@@ -36,14 +36,34 @@ class SafetyMonitorTask(OverwatcherModuleTask["SafetyOverwatcher"]):
         self.unsafe_since: float | None = None
         self.failed: bool = False
 
+        self.n_get_data_failures: int = 0
+
     async def task(self):
         """Checks safety conditions and closes the dome after a delay."""
 
         while True:
             try:
-                is_safe, _ = self.overwatcher.alerts.is_safe()
-                dome_open = await self.overwatcher.gort.enclosure.is_open()
+                is_safe, dome_open = await self.get_data()
+                self.n_get_data_failures = 0
+            except Exception as err:
+                if self.n_get_data_failures == 0:
+                    self.overwatcher.log.error(
+                        f"Error getting safety data: {err}",
+                        exc_info=err,
+                    )
+                elif self.n_get_data_failures >= 3:
+                    await self.overwatcher.notify(
+                        "The safety monitor task has failed to get safety data "
+                        "three times in a row. The task will stop.",
+                        level="critical",
+                    )
+                    break
 
+                self.n_get_data_failures += 1
+                await asyncio.sleep(self.INTERVAL)
+                continue
+
+            try:
                 if not self.failed and not is_safe and dome_open:
                     # Conditions are unsafe and the dome is open. We give the
                     # main task 5 minutes to close the dome itself. If it fails,
@@ -87,6 +107,15 @@ class SafetyMonitorTask(OverwatcherModuleTask["SafetyOverwatcher"]):
                 self.failed = True
 
             await asyncio.sleep(self.INTERVAL)
+
+    @Retrier(max_attempts=3, delay=5)
+    async def get_data(self):
+        """Returns the safety status and whether the dome is open."""
+
+        is_safe, _ = self.overwatcher.alerts.is_safe()
+        dome_open = await self.overwatcher.gort.enclosure.is_open()
+
+        return is_safe, dome_open
 
 
 class SafetyOverwatcher(OverwatcherModule):
