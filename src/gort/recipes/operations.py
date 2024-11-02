@@ -291,7 +291,10 @@ class PreObservingRecipe(BaseRecipe):
             try:
                 await task
             except Exception as ee:
-                notifier.log.error(f"Error running pre-observing task: {ee}")
+                await notifier.notify(
+                    f"Error running pre-observing task: {ee}",
+                    level="critical",
+                )
 
 
 class PostObservingRecipe(BaseRecipe):
