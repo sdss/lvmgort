@@ -78,14 +78,17 @@ class DailyTaskBase(metaclass=abc.ABCMeta):
 
         # If the MJD has changed, ignore the Redis status.
         if redis_status is not None and redis_status["mjd"] != current_mjd:
-            redis_status = None
+            self._status["done"] = False
 
         # If we are instantiating the class and the Redis value is valid, use it.
         if initial and redis_status is not None:
             self._status = redis_status
+            if redis_status["mjd"] != current_mjd:
+                self._status["done"] = False
 
         # Now ensure the correct MJD and write the status to Redis.
         self._status["mjd"] = current_mjd
+
         with redis_client_sync() as redis:
             redis.json().set(key, "$", dict(self._status))
 
