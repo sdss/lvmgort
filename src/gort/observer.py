@@ -363,13 +363,21 @@ class GortObserver:
 
         is_acquired: bool = False
         is_guiding = self.gort.guiders.sci.status & GuiderStatus.GUIDING
+
+        # We require the tile to be acquired and guiding to skip the slew. The current
+        # tile must match the tile_id of the new tile requested and acquisition must
+        # have been completed.
         if (
             skip_slew_when_acquired
+            and self.tile is not None
+            and tile.tile_id
+            and self.tile.tile_id == tile.tile_id
             and is_guiding
             and self.stages["acquisition"] == ObserverStageStatus.DONE
         ):
             is_acquired = True
 
+        print("tile_id", tile.tile_id, self._tile.tile_id if self._tile else None)
         print("is_acquired", is_acquired)
         print("skip_slew_when_acquired", skip_slew_when_acquired)
         print("is_guiding", is_guiding)

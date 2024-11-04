@@ -205,7 +205,7 @@ class ObserverOverwatcher(OverwatcherModule):
                     f"observing dither positions {tile.dither_positions}."
                 )
 
-                for ipos, dpos in enumerate(tile.dither_positions):
+                for dpos in tile.dither_positions:
                     # Check if we should refocus.
                     focus_info = await self.gort.guiders.sci.get_focus_info()
                     focus_age = focus_info["reference_focus"]["age"]
@@ -219,11 +219,10 @@ class ObserverOverwatcher(OverwatcherModule):
                     # The exposure will complete in 900 seconds + acquisition + readout
                     self.next_exposure_completes = time() + 90 + 900 + 60
 
-                    is_last = ipos == len(tile.dither_positions) - 1
                     result, _ = await observer.observe_tile(
                         tile=tile,
                         dither_position=dpos,
-                        keep_guiding=not is_last,
+                        keep_guiding=True,
                         skip_slew_when_acquired=True,
                         run_cleanup=False,
                         cleanup_on_interrupt=True,
