@@ -175,7 +175,12 @@ class GortObserver:
         interrupt_helper.set_callback(on_interrupt)
         interrupt_helper.observer = self
 
-    def reset(self, tile: Tile | None = None, on_interrupt: Callable | None = None):
+    def reset(
+        self,
+        tile: Tile | None = None,
+        on_interrupt: Callable | None = None,
+        reset_stages: bool = True,
+    ):
         """Resets the observer."""
 
         self._tile = tile
@@ -190,11 +195,12 @@ class GortObserver:
 
         self.cancelling = False
 
-        self.stages: StagesDict = {
-            "slew": ObserverStageStatus.WAITING,
-            "acquisition": ObserverStageStatus.WAITING,
-            "expose": ObserverStageStatus.WAITING,
-        }
+        if reset_stages:
+            self.stages: StagesDict = {
+                "slew": ObserverStageStatus.WAITING,
+                "acquisition": ObserverStageStatus.WAITING,
+                "expose": ObserverStageStatus.WAITING,
+            }
 
         if on_interrupt is not None:
             interrupt_helper.set_callback(on_interrupt)
@@ -349,7 +355,6 @@ class GortObserver:
                 "warning",
             )
             tile.set_dither_position(0)
-        self.dither_position = tile.sci_coords.dither_position
 
         if cleanup_on_interrupt:
             interrupt_cb = partial(self.gort.run_script_sync, "cleanup")
@@ -365,20 +370,28 @@ class GortObserver:
         ):
             is_acquired = True
 
-        # Reset observer and set the tile.
-        if not is_acquired:
-            self.reset(tile, on_interrupt=interrupt_cb)
+        print("is_acquired", is_acquired)
+        print("skip_slew_when_acquired", skip_slew_when_acquired)
+        print("is_guiding", is_guiding)
+        print(
+            "self.stages['acquisition']",
+            self.stages["acquisition"],
+            self.stages["acquisition"] == ObserverStageStatus.DONE,
+        )
 
-            # Run the cleanup routine to be extra sure.
-            if run_cleanup:
-                await self.gort.cleanup(turn_lamps_off=False)
+        # Reset the tile
+        self.reset(tile, on_interrupt=interrupt_cb, reset_stages=not is_acquired)
 
-            # Wrap the PA to the range -30 to 30.
-            pa = tile.sci_coords.pa
-            new_pa = wrap_pa_hex(tile.sci_coords.pa)
-            if new_pa != pa:
-                write_log(f"Wrapping sci PA from {pa:.3f} to {new_pa:.3f}.")
-                tile.sci_coords.pa = new_pa
+        # Run the cleanup routine to be extra sure.
+        if run_cleanup:
+            await self.gort.cleanup(turn_lamps_off=False)
+
+        # Wrap the PA to the range -30 to 30.
+        pa = tile.sci_coords.pa
+        new_pa = wrap_pa_hex(tile.sci_coords.pa)
+        if new_pa != pa:
+            write_log(f"Wrapping sci PA from {pa:.3f} to {new_pa:.3f}.")
+            tile.sci_coords.pa = new_pa
 
         if tile.tile_id is not None:
             write_log(
@@ -396,6 +409,7 @@ class GortObserver:
         )
 
         exposures: list[Exposure] | Exposure = []
+        failed: bool = False
 
         try:
             if not is_acquired:
@@ -445,17 +459,17 @@ class GortObserver:
 
         except GortObserverCancelledError:
             write_log("Observation cancelled.", "warning")
-            return (False, exposures)
+            failed = True
 
         except KeyboardInterrupt:
             write_log("Observation interrupted by user.", "warning")
-            return (False, exposures)
+            failed = True
 
         finally:
             # Finish observation.
-            await self.finish_observation()
+            await self.finish_observation(keep_guiding=keep_guiding and not failed)
 
-        return (True, exposures)
+        return (not failed, exposures)
 
     @handle_signals(interrupt_signals, interrupt_helper.run_callback)
     @register_stage_status
@@ -792,7 +806,7 @@ class GortObserver:
             return exposures
 
     @handle_signals(interrupt_signals, interrupt_helper.run_callback)
-    async def finish_observation(self):
+    async def finish_observation(self, keep_guiding: bool = False):
         """Finishes the observation, stops the guiders, etc."""
 
         self.write_to_log("Finishing observation.", "info")
@@ -802,7 +816,11 @@ class GortObserver:
             if self.standards is not None:
                 await self.standards.cancel()
 
-            if self.guide_task is not None and not self.guide_task.done():
+            if (
+                not keep_guiding
+                and self.guide_task is not None
+                and not self.guide_task.done()
+            ):
                 await self.gort.guiders.stop()
                 await self.guide_task
 

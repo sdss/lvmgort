@@ -235,6 +235,9 @@ class ObserverOverwatcher(OverwatcherModule):
                     if not result and not self.is_cancelling:
                         raise GortError("The observation ended with error state.")
 
+                    if self.is_cancelling:
+                        break
+
             except asyncio.CancelledError:
                 break
 
