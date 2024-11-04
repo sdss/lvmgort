@@ -177,7 +177,12 @@ class ShutdownRecipe(BaseRecipe):
 
             if disable_overwatcher:
                 self.gort.log.info("Disabling the overwatcher.")
-                group.create_task(self.gort.send_command("lvm.overwatcher", "disable"))
+                group.create_task(
+                    self.gort.send_command(
+                        "lvm.overwatcher",
+                        "disable --now",
+                    )
+                )
 
         if park_telescopes:
             self.gort.log.info("Parking telescopes for the night.")
