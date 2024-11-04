@@ -198,7 +198,12 @@ class ObserverOverwatcher(OverwatcherModule):
             try:
                 # We want to avoid re-acquiring the tile between dithers. We call
                 # the scheduler here and control the dither position loop ourselves.
-                tile = await run_in_executor(Tile.from_scheduler)
+                tile: Tile = await run_in_executor(Tile.from_scheduler)
+
+                self.log.info(
+                    f"Received tile {tile.tile_id} from scheduler: "
+                    f"observing dither positions {tile.dither_positions}."
+                )
 
                 for ipos, dpos in enumerate(tile.dither_positions):
                     # Check if we should refocus.
