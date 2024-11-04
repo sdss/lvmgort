@@ -247,10 +247,12 @@ class GortObserver:
         dec: float | None = None,
         pa: float = 0.0,
         use_scheduler: bool = True,
+        dither_position: int | None = None,
         exposure_time: float = 900.0,
         n_exposures: int = 1,
         async_readout: bool = True,
         keep_guiding: bool = False,
+        skip_slew_when_acquired: bool = True,
         guide_tolerance: float = 1.0,
         acquisition_timeout: float = 180.0,
         show_progress: bool | None = None,
@@ -275,6 +277,9 @@ class GortObserver:
         use_scheduler
             Whether to use the scheduler to determine the ``tile_id`` or
             select calibrators.
+        dither_position
+            The dither position to use. If not provided, uses the tile default
+            dither position or zero.
         exposure_time
             The length of the exposure in seconds.
         n_exposures
@@ -288,6 +293,10 @@ class GortObserver:
         keep_guiding
             If :obj:`True`, keeps the guider running after the last exposure.
             This should be :obj:`False` during normal science operations.
+        skip_slew_when_acquired
+            If the tile has been acquired and is guiding, skips the slew,
+            modifies the dither position, waits until the new position has
+            been acquired, and starts exposing.
         guide_tolerance
             The guide tolerance in arcsec. A telescope will not be considered
             to be guiding if its separation to the commanded field is larger
@@ -332,117 +341,107 @@ class GortObserver:
 
         assert isinstance(tile, Tile)
 
-        # Set the initial dither position. This will make
-        # the initial acquisition on that pixel.
-        dither_positions = tile.dither_positions
-        tile.set_dither_position(dither_positions[0])
+        if dither_position is not None:
+            tile.set_dither_position(dither_position)
+        elif tile.sci_coords.dither_position is None:
+            self.write_to_log(
+                "No dither position defined. Using dither_position=0.",
+                "warning",
+            )
+            tile.set_dither_position(0)
+        self.dither_position = tile.sci_coords.dither_position
 
         if cleanup_on_interrupt:
             interrupt_cb = partial(self.gort.run_script_sync, "cleanup")
         else:
             interrupt_cb = None
 
-        # Reset observer and set the tile.
-        self.reset(tile, on_interrupt=interrupt_cb)
+        is_acquired: bool = False
+        is_guiding = self.gort.guiders.sci.status & GuiderStatus.GUIDING
+        if (
+            skip_slew_when_acquired
+            and is_guiding
+            and self.stages["acquisition"] == ObserverStageStatus.DONE
+        ):
+            is_acquired = True
 
-        # Run the cleanup routine to be extra sure.
-        if run_cleanup:
-            await self.gort.cleanup(turn_lamps_off=False)
+        # Reset observer and set the tile.
+        if not is_acquired:
+            self.reset(tile, on_interrupt=interrupt_cb)
+
+            # Run the cleanup routine to be extra sure.
+            if run_cleanup:
+                await self.gort.cleanup(turn_lamps_off=False)
+
+            # Wrap the PA to the range -30 to 30.
+            pa = tile.sci_coords.pa
+            new_pa = wrap_pa_hex(tile.sci_coords.pa)
+            if new_pa != pa:
+                write_log(f"Wrapping sci PA from {pa:.3f} to {new_pa:.3f}.")
+                tile.sci_coords.pa = new_pa
+
+        if tile.tile_id is not None:
+            write_log(
+                f"Observing tile_id={tile.tile_id} on "
+                f"dither position #{self.dither_position}.",
+                "info",
+            )
 
         if adjust_focus:
             await self.gort.guiders.adjust_focus()
 
-        # Wrap the PA to the range -30 to 30.
-        pa = tile.sci_coords.pa
-        new_pa = wrap_pa_hex(tile.sci_coords.pa)
-        if new_pa != pa:
-            write_log(f"Wrapping sci PA from {pa:.3f} to {new_pa:.3f}.")
-            tile.sci_coords.pa = new_pa
-
-        if tile.tile_id is not None:
-            dither_positions_str = ", ".join(map(str, dither_positions))
-            write_log(
-                f"Observing tile_id={tile.tile_id} on "
-                f"dither positions #{dither_positions_str}.",
-                "info",
-            )
-
-        exposures: list[Exposure] = []
-
         await self.gort.notify_event(
             Event.OBSERVER_NEW_TILE,
-            payload={"tile_id": tile.tile_id, "dither_position": dither_positions[0]},
+            payload={"tile_id": tile.tile_id, "dither_position": self.dither_position},
         )
 
+        exposures: list[Exposure] | Exposure = []
+
         try:
-            # Slew telescopes and move fibsel mask.
-            await self.slew()
+            if not is_acquired:
+                # Slew telescopes and move fibsel mask.
+                await self.slew()
 
-            # Start guiding.
-            await self.acquire(
-                guide_tolerance=guide_tolerance,
-                timeout=acquisition_timeout,
-            )
-
-            # Loop over the dither positions. For the first one do nothing
-            # since we have already acquired for that position.
-            for idither, dpos in enumerate(dither_positions):
-                if idither != 0:
-                    write_log(f"Acquiring dither position #{dpos}", "info")
-
-                    await self.gort.notify_event(
-                        Event.OBSERVER_NEW_TILE,
-                        payload={"tile_id": tile.tile_id, "dither_position": dpos},
-                    )
-
-                    self.tile.set_dither_position(dpos)
-                    self.dither_position = dpos
-
-                    async with GatheringTaskGroup() as group:
-                        group.create_task(self.set_dither_position(dpos))
-                        if self.standards:
-                            group.create_task(self.standards.reacquire_first())
-
-                    # Need to restart the guider monitor so that the new exposure
-                    # gets the range of guider frames that correspond to this dither.
-                    # GortObserver.expose() doesn't do this because we ask for a single
-                    # exposure.
-                    self.guider_monitor.reset()
-
-                    # Refocus for the new dither position.
-                    if adjust_focus:
-                        await self.gort.guiders.adjust_focus()
-
-                write_log(f"Taking exposure for dither position #{dpos}", "info")
-
-                # Should we keep the guider alive during readout?
-                keep_guiding_exp = keep_guiding or idither != len(dither_positions) - 1
-
-                # Exposing
-                exposure = await self.expose(
-                    exposure_time=exposure_time,
-                    show_progress=show_progress,
-                    count=n_exposures,
-                    async_readout=async_readout,
-                    keep_guiding=keep_guiding_exp,
-                    dither_position=dpos,
+                # Start guiding.
+                await self.acquire(
+                    guide_tolerance=guide_tolerance,
+                    timeout=acquisition_timeout,
                 )
 
-                if isinstance(exposure, list):
-                    exposures += exposure
-                else:
-                    exposures.append(exposure)
+            else:
+                write_log(f"Acquiring dither position #{self.dither_position}", "info")
 
-                if self.cancelling:
-                    await self.gort.guiders.stop()
+                async with GatheringTaskGroup() as group:
+                    group.create_task(self.set_dither_position(self.dither_position))
+                    if self.standards:
+                        group.create_task(self.standards.reacquire_first())
 
-                    write_log("Reading exposure before cancelling.", "warning")
-                    if isinstance(exposure, list):
-                        await asyncio.gather(*exposure)
-                    else:
-                        await exposure
+                # Need to restart the guider monitor so that the new exposure
+                # gets the range of guider frames that correspond to this dither.
+                # GortObserver.expose() doesn't do this because we ask for a single
+                # exposure.
+                self.guider_monitor.reset()
 
-                    raise GortObserverCancelledError()
+            # Exposing
+            exposures = await self.expose(
+                exposure_time=exposure_time,
+                show_progress=show_progress,
+                count=n_exposures,
+                async_readout=async_readout,
+                keep_guiding=keep_guiding,
+                dither_position=self.dither_position,
+            )
+
+            if not isinstance(exposures, list):
+                exposures = [exposures]
+
+            if self.cancelling:
+                await self.gort.guiders.stop()
+
+                write_log("Reading exposure before cancelling.", "warning")
+                await asyncio.gather(*exposures)
+
+                raise GortObserverCancelledError()
 
         except GortObserverCancelledError:
             write_log("Observation cancelled.", "warning")

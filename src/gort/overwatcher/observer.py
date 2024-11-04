@@ -20,7 +20,8 @@ from gort.exceptions import GortError
 from gort.exposure import Exposure
 from gort.overwatcher import OverwatcherModule
 from gort.overwatcher.core import OverwatcherModuleTask
-from gort.tools import cancel_task, set_tile_status
+from gort.tile import Tile
+from gort.tools import cancel_task, run_in_executor, set_tile_status
 
 
 if TYPE_CHECKING:
@@ -189,29 +190,45 @@ class ObserverOverwatcher(OverwatcherModule):
 
         notify = self.overwatcher.notify
 
+        n_tile_positions = 0
+
         while True:
-            # TODO: add some checks here.
-
-            focus_info = await self.gort.guiders.sci.get_focus_info()
-            focus_age = focus_info["reference_focus"]["age"]
-
-            # Focus when the loop starts or every 1 hour.
-            if focus_age is None or focus_age > 3600.0:
-                await notify("Focusing telescopes.")
-                await self.gort.guiders.focus()
-
             exp: Exposure | list[Exposure] | bool = False
-            try:
-                # The exposure will complete in 900 seconds + acquisition + readout
-                self.next_exposure_completes = time() + 90 + 900 + 60
-                result, exp = await observer.observe_tile(
-                    run_cleanup=False,
-                    cleanup_on_interrupt=False,
-                    show_progress=False,
-                )
 
-                if not result and not self.is_cancelling:
-                    raise GortError("The observation ended with error state.")
+            try:
+                # We want to avoid re-acquiring the tile between dithers. We call
+                # the scheduler here and control the dither position loop ourselves.
+                tile = await run_in_executor(Tile.from_scheduler)
+
+                for ipos, dpos in enumerate(tile.dither_positions):
+                    # Check if we should refocus.
+                    focus_info = await self.gort.guiders.sci.get_focus_info()
+                    focus_age = focus_info["reference_focus"]["age"]
+
+                    # Focus when the loop starts or every 1 hour or at the beginning
+                    # of the loop.
+                    if n_tile_positions == 0 or focus_age is None or focus_age > 3600.0:
+                        await notify("Focusing telescopes.")
+                        await self.gort.guiders.focus()
+
+                    # The exposure will complete in 900 seconds + acquisition + readout
+                    self.next_exposure_completes = time() + 90 + 900 + 60
+
+                    is_last = ipos == len(tile.dither_positions) - 1
+                    result, _ = await observer.observe_tile(
+                        tile=tile,
+                        dither_position=dpos,
+                        keep_guiding=not is_last,
+                        skip_slew_when_acquired=True,
+                        run_cleanup=False,
+                        cleanup_on_interrupt=True,
+                        show_progress=False,
+                    )
+
+                    n_tile_positions += 1
+
+                    if not result and not self.is_cancelling:
+                        raise GortError("The observation ended with error state.")
 
             except asyncio.CancelledError:
                 break
