@@ -83,7 +83,7 @@ class StagesDict(TypedDict):
     """A dictionary of observer stages."""
 
     slew: ObserverStageStatus
-    acquisition: ObserverStageStatus
+    acquire: ObserverStageStatus
     expose: ObserverStageStatus
 
 
@@ -166,7 +166,7 @@ class GortObserver:
 
         self.stages: StagesDict = {
             "slew": ObserverStageStatus.WAITING,
-            "acquisition": ObserverStageStatus.WAITING,
+            "acquire": ObserverStageStatus.WAITING,
             "expose": ObserverStageStatus.WAITING,
         }
 
@@ -198,7 +198,7 @@ class GortObserver:
         if reset_stages:
             self.stages: StagesDict = {
                 "slew": ObserverStageStatus.WAITING,
-                "acquisition": ObserverStageStatus.WAITING,
+                "acquire": ObserverStageStatus.WAITING,
                 "expose": ObserverStageStatus.WAITING,
             }
 
@@ -369,23 +369,13 @@ class GortObserver:
         # have been completed.
         if (
             skip_slew_when_acquired
-            and self.tile is not None
+            and self._tile is not None
             and tile.tile_id
-            and self.tile.tile_id == tile.tile_id
+            and self._tile.tile_id == tile.tile_id
             and is_guiding
-            and self.stages["acquisition"] == ObserverStageStatus.DONE
+            and self.stages["acquire"] == ObserverStageStatus.DONE
         ):
             is_acquired = True
-
-        print("tile_id", tile.tile_id, self._tile.tile_id if self._tile else None)
-        print("is_acquired", is_acquired)
-        print("skip_slew_when_acquired", skip_slew_when_acquired)
-        print("is_guiding", is_guiding)
-        print(
-            "self.stages['acquisition']",
-            self.stages["acquisition"],
-            self.stages["acquisition"] == ObserverStageStatus.DONE,
-        )
 
         # Reset the tile
         self.reset(tile, on_interrupt=interrupt_cb, reset_stages=not is_acquired)
