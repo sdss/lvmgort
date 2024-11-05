@@ -76,6 +76,7 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
 
                     time_to_twilight = twilight_time - now
 
+                    # Open the dome 5 minutes before twilight.
                     if time_to_twilight > 0 and time_to_twilight < 300:
                         dome_open = await self.overwatcher.dome.is_opening()
                         if not dome_open:
