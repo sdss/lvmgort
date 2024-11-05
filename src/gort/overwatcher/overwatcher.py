@@ -127,7 +127,7 @@ class OverwatcherMainTask(OverwatcherTask):
 
         if not closed or observing or calibrating:
             await self.overwatcher.notify(
-                "Closing the dome due to unsafe conditions.",
+                "Unsafe conditions detected.",
                 level="warning",
             )
 
@@ -151,6 +151,7 @@ class OverwatcherMainTask(OverwatcherTask):
                 await self.overwatcher.calibrations.cancel()
 
             if not closed:
+                await self.overwatcher.notify("Closing the dome.")
                 await self.overwatcher.dome.shutdown(retry=True, park=True)
 
                 # If we have to close because of unsafe conditions, we don't want
