@@ -14,6 +14,7 @@ from time import time
 
 from typing import TYPE_CHECKING
 
+from lvmopstools.retrier import Retrier
 from pydantic import BaseModel
 
 from gort.overwatcher.core import OverwatcherModuleTask
@@ -181,8 +182,8 @@ class AlertsOverwatcher(OverwatcherModule):
 
         return is_safe, active_alerts
 
-    @staticmethod
-    async def get_alerts_summary() -> AlertsSummary:
+    @Retrier(max_attempts=3, delay=5)
+    async def get_alerts_summary(self) -> AlertsSummary:
         """Returns the alerts report."""
 
         data = await get_lvmapi_route("/alerts/summary")

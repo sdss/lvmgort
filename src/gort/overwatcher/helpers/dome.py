@@ -49,6 +49,7 @@ class DomeHelper:
         self._action_lock = asyncio.Lock()
         self._move_lock = asyncio.Lock()
 
+    @Retrier(max_attempts=3, delay=1)
     async def status(self):
         """Returns the status of the dome."""
 
@@ -104,9 +105,6 @@ class DomeHelper:
         """Moves the dome with retries."""
 
         if open:
-            if not self.overwatcher.state.safe:
-                raise GortError("Cannot open the dome when conditions are unsafe.")
-
             await self.gort.enclosure.open(park_telescopes=park)
         else:
             await self.gort.enclosure.close(
@@ -117,18 +115,24 @@ class DomeHelper:
 
     async def _move(
         self,
+        status: DomeStatus,
         open: bool = False,
         park: bool = True,
         retry_without_parking: bool = False,
     ):
         """Moves the dome."""
 
-        try:
-            await self.stop()
+        if open and not self.overwatcher.state.safe:
+            raise GortError("Cannot open the dome when conditions are unsafe.")
 
-            is_local = await self.gort.enclosure.is_local()
-            if is_local:
-                raise GortError("Cannot move the dome in local mode.")
+        is_local = await self.gort.enclosure.is_local()
+        if is_local:
+            raise GortError("Cannot move the dome in local mode.")
+
+        try:
+            if status & DomeStatus.MOVING:
+                self.log.warning("Dome is already moving. Stopping.")
+                await self.stop()
 
             await self._move_with_retries(
                 open=open,
@@ -155,41 +159,44 @@ class DomeHelper:
         """Opens the dome."""
 
         async with self._move_lock:
-            current = await self.status()
-            if current == DomeStatus.OPEN:
+            status = await self.status()
+            if status == DomeStatus.OPEN:
                 self.log.debug("Dome is already open.")
                 return
 
-            if current == DomeStatus.OPENING:
+            if status == DomeStatus.OPENING:
                 self.log.debug("Dome is already opening.")
                 return
 
-            if current == DomeStatus.UNKNOWN:
+            if status == DomeStatus.UNKNOWN:
                 self.log.warning("Dome is in an unknown status. Stopping and opening.")
                 await self.stop()
+                status = await self.status()
 
             self.log.info("Opening the dome ...")
-            await self._move(open=True, park=park)
+            await self._move(status, open=True, park=park)
 
     async def close(self, park: bool = True, retry: bool = False):
         """Closes the dome."""
 
         async with self._move_lock:
-            current = await self.status()
-            if current == DomeStatus.CLOSED:
+            status = await self.status()
+            if status == DomeStatus.CLOSED:
                 self.log.debug("Dome is already closed.")
                 return
 
-            if current == DomeStatus.CLOSING:
+            if status == DomeStatus.CLOSING:
                 self.log.debug("Dome is already closing.")
                 return
 
-            if current == DomeStatus.UNKNOWN:
+            if status == DomeStatus.UNKNOWN:
                 self.log.warning("Dome is in an unknown status. Stopping and closing.")
                 await self.stop()
+                status = await self.status()
 
             self.log.info("Closing the dome ...")
             await self._move(
+                status,
                 open=False,
                 park=park,
                 retry_without_parking=retry,
