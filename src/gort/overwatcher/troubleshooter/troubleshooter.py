@@ -12,10 +12,11 @@ from dataclasses import dataclass
 
 from typing import TYPE_CHECKING
 
+from gort.core import LogNamespace
 from gort.enums import ErrorCode
 from gort.exceptions import GortError
 
-from . import recipes
+from .recipes import TroubleshooterRecipe
 
 
 if TYPE_CHECKING:
@@ -26,10 +27,23 @@ if TYPE_CHECKING:
 class TroubleModel:
     """Base model for describing a problem to troubleshoot."""
 
-    error: Exception | None
+    error: GortError
     error_code: ErrorCode
     message: str | None = None
     handled: bool = False
+
+
+class RecipeBook(dict[str, TroubleshooterRecipe]):
+    """A dictionary of recipes."""
+
+    def __init__(self, ts: Troubleshooter):
+        recipes_sorted = sorted(
+            [Recipe(ts) for Recipe in TroubleshooterRecipe.__subclasses__()],
+            key=lambda x: x.priority if x.priority is not None else 1000,
+        )
+
+        for recipe in recipes_sorted:
+            self[recipe.name] = recipe
 
 
 class Troubleshooter:
@@ -37,10 +51,13 @@ class Troubleshooter:
 
     def __init__(self, overwatcher: Overwatcher):
         self.overwatcher = overwatcher
+        self.notify = overwatcher.notify
 
-        self.recipes = sorted(
-            [Recipe(self) for Recipe in recipes.TroubleshooterRecipe.__subclasses__()],
-            key=lambda x: x.priority if x.priority is not None else 1000,
+        self.recipes = RecipeBook(self)
+
+        self.log = LogNamespace(
+            self.overwatcher.gort.log,
+            header=f"({self.__class__.__name__}) ",
         )
 
     async def handle(self, error: Exception | str):
@@ -58,27 +75,45 @@ class Troubleshooter:
             raise RuntimeError("error must be an exception or a string.")
 
         if isinstance(error, str):
-            error_model = TroubleModel(
-                error=None,
-                error_code=ErrorCode.UNCATEGORISED_ERROR,
-                message=error,
-            )
-        elif isinstance(error, GortError):
-            error_model = TroubleModel(
-                error=error,
-                error_code=error.error_code,
-                message=str(error),
-            )
-        else:
-            error_model = TroubleModel(
-                error=error,
-                error_code=ErrorCode.UNCATEGORISED_ERROR,
-                message=str(error),
-            )
+            error = GortError(error, error_code=ErrorCode.UNCATEGORISED_ERROR)
+        elif not isinstance(error, GortError):
+            error = GortError(str(error), error_code=ErrorCode.UNCATEGORISED_ERROR)
 
-        for recipe in self.recipes:
+        error_model = TroubleModel(
+            error=error,
+            error_code=error.error_code,
+            message=str(error),
+        )
+
+        await self.notify(
+            f"Troubleshooting error of type {error.error_code.name}: "
+            f"{error_model.message}",
+            level="warning",
+        )
+
+        for recipe in self.recipes.values():
+            # TODO: for now the first recipe that matches is the only one that runs.
             if recipe.match(error_model):
-                result = await recipe.handle(error_model)
-                if result:
+                await self.notify(f"Running troubleshooting recipe {recipe.name}.")
+                try:
+                    await recipe.handle(error_model)
                     error_model.handled = True
                     break
+                except Exception as err:
+                    await self.notify(
+                        f"Error running recipe {recipe.name}: {err!r}",
+                        level="error",
+                    )
+
+        if error_model.handled:
+            await self.notify("Error has been handled.")
+            return True
+
+        await self.notify(
+            "Error could not be handled. Running clean-up recipe.",
+            level="warning",
+        )
+        cleanup = self.recipes["cleanup"]
+        await cleanup.handle(error_model)
+
+        return True

@@ -26,6 +26,7 @@ from gort.overwatcher.core import OverwatcherBaseTask, OverwatcherModule
 from gort.overwatcher.helpers import DomeHelper
 from gort.overwatcher.helpers.notifier import NotifierMixIn
 from gort.overwatcher.helpers.tasks import DailyTasks
+from gort.overwatcher.troubleshooter.troubleshooter import Troubleshooter
 
 
 @dataclasses.dataclass
@@ -289,7 +290,7 @@ class Overwatcher(NotifierMixIn):
         self.state.dry_run = dry_run
 
         self.dome = DomeHelper(self)
-
+        self.troubleshooter = Troubleshooter(self)
         self.tasks: list[OverwatcherTask] = [
             OverwatcherMainTask(self),
             OverwatcherPingTask(self),
