@@ -175,6 +175,10 @@ class GortObserver:
         interrupt_helper.set_callback(on_interrupt)
         interrupt_helper.observer = self
 
+        # Necessary because this sets the standards
+        # and dither position if the tile is not null.
+        self.reset(tile)
+
     def reset(
         self,
         tile: Tile | None = None,
