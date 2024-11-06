@@ -410,7 +410,7 @@ class GortObserver:
             payload={"tile_id": tile.tile_id, "dither_position": self.dither_position},
         )
 
-        exposures: list[Exposure] | Exposure = []
+        exposures: list[Exposure] = []
         failed: bool = False
 
         try:
@@ -439,7 +439,7 @@ class GortObserver:
                 self.guider_monitor.reset()
 
             # Exposing
-            exposures = await self.expose(
+            _exposure = await self.expose(
                 exposure_time=exposure_time,
                 show_progress=show_progress,
                 count=n_exposures,
@@ -448,8 +448,10 @@ class GortObserver:
                 dither_position=self.dither_position,
             )
 
-            if not isinstance(exposures, list):
-                exposures = [exposures]
+            if not isinstance(_exposure, list):
+                exposures = [_exposure]
+            else:
+                exposures = _exposure
 
             if self.cancelling:
                 await self.gort.guiders.stop()
