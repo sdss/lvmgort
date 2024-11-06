@@ -177,6 +177,13 @@ class Guider(GortDevice):
             await self.actor.commands.adjust_focus(reply_callback=reply_callback)
             return
 
+        if self.status & GuiderStatus.NON_IDLE:
+            self.write_to_log(
+                "Guider is not idle. Stopping it before focusing.",
+                level="warning",
+            )
+            await self.stop()
+
         # Send telescopes to zenith.
         if not inplace:
             self.write_to_log("Moving telescope to zenith.")

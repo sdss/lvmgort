@@ -1,6 +1,6 @@
 # Changelog
 
-## Next version
+## 1.0.2 - November 6, 2024
 
 ### 🚀 New
 
@@ -8,6 +8,8 @@
 
 ### ✨ Improved
 
+* [#35](https://github.com/sdss/lvmgort/pull/35) Refactor dither observing to allow finer control of when to reacquire a tile and when to keep observing and adjust the science telescope dither position.
+* [#36](https://github.com/sdss/lvmgort/pull/36) Modity the evening twilight recipe to continue cycling the standards mask and taking flats until the exposure time reaches 100s.
 * GORT will fail to initialise if the Overwatcher is running. This can be overridden by passing `override_overwatcher=True` to the `Gort` constructor or `--override-overwatcher` in the CLI.
 * Rearranged the Overwatcher helpers and make the pre- and post-observing scripts recipes.
 * Added a framework for run daily tasks and a pre-observing task.

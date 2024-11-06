@@ -363,6 +363,11 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
         dict.__init__(self, {})
 
         self.set_sci_coords(sci_coords)
+        if isinstance(dither_positions, int):
+            self.set_dither_position(dither_positions)
+        else:
+            self.set_dither_position(dither_positions[0])
+
         self.set_sky_coords(sky_coords, allow_replacement=allow_replacement)
         self.set_spec_coords(spec_coords, reject_invisible=allow_replacement)
 
