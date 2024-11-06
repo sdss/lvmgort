@@ -47,7 +47,6 @@ from gort.pubsub import notify_event
 from gort.recipes import recipes as recipe_to_class
 from gort.tile import Tile
 from gort.tools import (
-    copy_signature,
     get_temporary_file_path,
     kubernetes_list_deployments,
     kubernetes_restart_deployment,
@@ -784,7 +783,6 @@ class Gort(GortClient):
             else:
                 n_completed += 1
 
-    @copy_signature(GortObserver.observe_tile)
     async def observe_tile(self, *args, **kargs):
         return await self.observer.observe_tile(*args, **kargs)
 
@@ -853,3 +851,6 @@ class Gort(GortClient):
 
         self.log.warning(f"Restarting deployment {deployment!r}.")
         await kubernetes_restart_deployment(deployment)
+
+
+Gort.observe_tile.__doc__ = GortObserver.observe_tile.__doc__

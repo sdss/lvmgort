@@ -269,7 +269,7 @@ class GortObserver:
         run_cleanup: bool = True,
         adjust_focus: bool = True,
         cleanup_on_interrupt: bool = True,
-    ):
+    ) -> tuple[bool, list[Exposure]]:
         """Performs all the operations necessary to observe a tile.
 
         Parameters

@@ -28,9 +28,7 @@ from typing import (
     Callable,
     Coroutine,
     Generator,
-    Generic,
     Sequence,
-    TypeVar,
 )
 
 import httpx
@@ -91,7 +89,6 @@ __all__ = [
     "kubernetes_restart_deployment",
     "kubernetes_list_deployments",
     "get_gort_client",
-    "copy_signature",
 ]
 
 AnyPath = str | os.PathLike
@@ -986,14 +983,6 @@ async def kubernetes_restart_deployment(name: str):
     """Restarts a Kubernetes deployment via the API."""
 
     return await get_lvmapi_route(f"/kubernetes/deployments/{name}/restart")
-
-
-F = TypeVar("F", bound=Callable[..., Any])
-
-
-class copy_signature(Generic[F]):
-    def __init__(self, target: F) -> None: ...
-    def __call__(self, wrapped: Callable[..., Any]) -> F: ...
 
 
 @asynccontextmanager
