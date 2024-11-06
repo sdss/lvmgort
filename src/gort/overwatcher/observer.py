@@ -205,17 +205,17 @@ class ObserverOverwatcher(OverwatcherModule):
                     f"observing dither positions {tile.dither_positions}."
                 )
 
+                # Check if we should refocus.
+                focus_info = await self.gort.guiders.sci.get_focus_info()
+                focus_age = focus_info["reference_focus"]["age"]
+
+                # Focus when the loop starts or every 1 hour or at the beginning
+                # of the loop.
+                if n_tile_positions == 0 or focus_age is None or focus_age > 3600.0:
+                    await notify("Focusing telescopes.")
+                    await self.gort.guiders.focus()
+
                 for dpos in tile.dither_positions:
-                    # Check if we should refocus.
-                    focus_info = await self.gort.guiders.sci.get_focus_info()
-                    focus_age = focus_info["reference_focus"]["age"]
-
-                    # Focus when the loop starts or every 1 hour or at the beginning
-                    # of the loop.
-                    if n_tile_positions == 0 or focus_age is None or focus_age > 3600.0:
-                        await notify("Focusing telescopes.")
-                        await self.gort.guiders.focus()
-
                     # The exposure will complete in 900 seconds + acquisition + readout
                     self.next_exposure_completes = time() + 90 + 900 + 60
 

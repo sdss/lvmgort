@@ -367,12 +367,6 @@ class GortObserver:
         # We require the tile to be acquired and guiding to skip the slew. The current
         # tile must match the tile_id of the new tile requested and acquisition must
         # have been completed.
-        self.write_to_log(f"skip_slew_when_acquired={skip_slew_when_acquired}")
-        self.write_to_log(f"self._tile={self._tile}")
-        self.write_to_log(f"tile.tile_id={tile.tile_id}")
-        self.write_to_log(f"is_guiding={is_guiding}")
-        self.write_to_log(f"self.stages={self.stages}")
-
         if (
             skip_slew_when_acquired
             and self._tile is not None
@@ -382,8 +376,6 @@ class GortObserver:
             and self.stages["acquire"] == ObserverStageStatus.DONE
         ):
             is_acquired = True
-
-        self.write_to_log(f"is_acquired={is_acquired}")
 
         # Reset the tile
         self.reset(tile, on_interrupt=interrupt_cb, reset_stages=not is_acquired)
@@ -473,7 +465,6 @@ class GortObserver:
 
         finally:
             # Finish observation.
-            self.write_to_log(f"keep_guiding={keep_guiding}, failed={failed}")
             await self.finish_observation(keep_guiding=keep_guiding and not failed)
 
         return (not failed, exposures)
@@ -823,9 +814,6 @@ class GortObserver:
             if self.standards is not None:
                 await self.standards.cancel()
 
-            self.write_to_log(
-                f"keep_guiding={keep_guiding}, self.guide_task={self.guide_task}"
-            )
             if (
                 not keep_guiding
                 and self.guide_task is not None
