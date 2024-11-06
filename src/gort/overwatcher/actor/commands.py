@@ -90,7 +90,10 @@ async def enable_calibrations(command: OverwatcherCommand):
     """Allows dome calibrations."""
 
     overwatcher = command.actor.overwatcher
-    overwatcher.state.allow_calibrations = True
+
+    if not overwatcher.state.allow_calibrations:
+        overwatcher.state.allow_calibrations = True
+        await overwatcher.notify("Calibrations have been enabled.")
 
     return command.finish()
 
@@ -100,7 +103,10 @@ async def disable_calibrations(command: OverwatcherCommand):
     """Disallows calibrations."""
 
     overwatcher = command.actor.overwatcher
-    overwatcher.state.allow_calibrations = False
+
+    if overwatcher.state.allow_calibrations:
+        overwatcher.state.allow_calibrations = False
+        await overwatcher.notify("Calibrations have been disabled.")
 
     return command.finish()
 

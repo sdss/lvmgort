@@ -2,11 +2,17 @@
 
 ## Next version
 
+### 🚀 New
+
+* [#34](https://github.com/sdss/lvmgort/pull/34) Adds a `safety` module to the Overwatcher that will monitor the alerts independently and close the dome at a very low level if the main task fails to do it after 5 minutes.
+
 ### ✨ Improved
 
+* [#35](https://github.com/sdss/lvmgort/pull/35) Refactor dither observing to allow finer control of when to reacquire a tile and when to keep observing and adjust the science telescope dither position.
 * GORT will fail to initialise if the Overwatcher is running. This can be overridden by passing `override_overwatcher=True` to the `Gort` constructor or `--override-overwatcher` in the CLI.
 * Rearranged the Overwatcher helpers and make the pre- and post-observing scripts recipes.
 * Added a framework for run daily tasks and a pre-observing task.
+* Add option to disable the overwatcher to the shutdown recipe.
 
 
 ## 1.0.1 - October 30, 2024

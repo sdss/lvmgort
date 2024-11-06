@@ -142,6 +142,7 @@ class ShutdownRecipe(BaseRecipe):
         self,
         park_telescopes: bool = True,
         additional_close: bool = False,
+        disable_overwatcher: bool = False,
     ):
         """Shutdown the telescope, closes the dome, etc.
 
@@ -157,6 +158,8 @@ class ShutdownRecipe(BaseRecipe):
             This is a temporary solution to make sure the dome is closed
             while we investigate the issue with the dome not fully closing
             sometimes.
+        disable_overwatcher
+            If :obj:`True`, disables the Overwatcher.
 
         """
 
@@ -171,6 +174,15 @@ class ShutdownRecipe(BaseRecipe):
 
             self.gort.log.info("Closing the dome.")
             group.create_task(self.gort.enclosure.close())
+
+            if disable_overwatcher:
+                self.gort.log.info("Disabling the overwatcher.")
+                group.create_task(
+                    self.gort.send_command(
+                        "lvm.overwatcher",
+                        "disable --now",
+                    )
+                )
 
         if park_telescopes:
             self.gort.log.info("Parking telescopes for the night.")
@@ -291,7 +303,10 @@ class PreObservingRecipe(BaseRecipe):
             try:
                 await task
             except Exception as ee:
-                notifier.log.error(f"Error running pre-observing task: {ee}")
+                await notifier.notify(
+                    f"Error running pre-observing task: {ee}",
+                    level="critical",
+                )
 
 
 class PostObservingRecipe(BaseRecipe):

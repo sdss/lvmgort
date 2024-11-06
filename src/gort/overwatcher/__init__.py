@@ -17,4 +17,5 @@ from .events import EventsOverwatcher
 from .helpers import DomeHelper, DomeStatus, NotifierMixIn
 from .observer import ObserverOverwatcher
 from .overwatcher import Overwatcher
+from .safety import SafetyOverwatcher
 from .weather import WeatherOverwatcher

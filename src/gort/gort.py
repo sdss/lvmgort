@@ -45,12 +45,13 @@ from gort.exceptions import ErrorCode, GortError
 from gort.observer import GortObserver
 from gort.pubsub import notify_event
 from gort.recipes import recipes as recipe_to_class
+from gort.tile import Tile
 from gort.tools import (
-    copy_signature,
     get_temporary_file_path,
     kubernetes_list_deployments,
     kubernetes_restart_deployment,
     overwatcher_is_running,
+    run_in_executor,
     set_tile_status,
 )
 
@@ -685,7 +686,7 @@ class Gort(GortClient):
 
     async def observe(
         self,
-        n_tiles: int | None = None,
+        n_tile_positions: int | None = None,
         adjust_focus: bool = True,
         show_progress: bool | None = None,
         disable_tile_on_error: bool = True,
@@ -698,18 +699,41 @@ class Gort(GortClient):
         self.log.info("Running the cleanup recipe.")
         await self.execute_recipe("cleanup")
 
-        self.log.info("Starting observing loop.")
+        self.log.info("Starting the observe loop.")
 
         n_completed = 0
         while True:
             try:
-                result, _ = await self.observe_tile(
-                    run_cleanup=False,
-                    cleanup_on_interrupt=True,
-                    adjust_focus=adjust_focus,
-                    show_progress=show_progress,
-                )
-                if result is False:
+                tile = await run_in_executor(Tile.from_scheduler)
+                break_from_while: bool = False
+
+                for ipos, dpos in enumerate(tile.dither_positions):
+                    is_last = ipos == len(tile.dither_positions) - 1
+                    result, _ = await self.observe_tile(
+                        tile=tile,
+                        dither_position=dpos,
+                        keep_guiding=not is_last,
+                        skip_slew_when_acquired=True,
+                        run_cleanup=False,
+                        cleanup_on_interrupt=True,
+                        adjust_focus=adjust_focus,
+                        show_progress=show_progress,
+                    )
+
+                    if result is False:
+                        break_from_while = True
+                        break
+
+                    n_completed += 1
+                    if n_tile_positions is not None and n_completed >= n_tile_positions:
+                        self.log.info(
+                            "Number of tile positions reached. "
+                            "Finishing the observe loop."
+                        )
+                        break_from_while = True
+                        break
+
+                if break_from_while:
                     break
 
             except GortError as ee:
@@ -749,16 +773,16 @@ class Gort(GortClient):
                     continue
 
                 else:
+                    self.log.info(
+                        "Error found in observe loop. "
+                        "Running cleanup before raising the exception."
+                    )
+                    await self.execute_recipe("cleanup")
                     raise
 
             else:
                 n_completed += 1
 
-            if n_tiles is not None and n_completed >= n_tiles:
-                self.log.info("Number of tiles reached. Finishing observing loop.")
-                break
-
-    @copy_signature(GortObserver.observe_tile)
     async def observe_tile(self, *args, **kargs):
         return await self.observer.observe_tile(*args, **kargs)
 
@@ -827,3 +851,6 @@ class Gort(GortClient):
 
         self.log.warning(f"Restarting deployment {deployment!r}.")
         await kubernetes_restart_deployment(deployment)
+
+
+Gort.observe_tile.__doc__ = GortObserver.observe_tile.__doc__
