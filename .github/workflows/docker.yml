@@ -33,6 +33,9 @@ jobs:
           then
             BRANCH=$(echo ${GITHUB_REF#refs/heads/} | sed -r 's/[\/]/_/g')
             echo TAGS=$USER/$APP:$BRANCH >> $GITHUB_OUTPUT
+          elif [[ $GITHUB_REF == refs/pull/* ]]
+          then
+            echo TAGS=${{ github.ref_name }} >> $GITHUB_OUTPUT
           else
             echo TAGS=$USER/$APP:${GITHUB_REF#refs/tags/} >> $GITHUB_OUTPUT
           fi
