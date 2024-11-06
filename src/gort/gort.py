@@ -657,6 +657,7 @@ class Gort(GortClient):
         self._override_overwatcher = override_overwatcher
 
         self.observer = GortObserver(self)
+        self.observe_tile = self.observer.observe_tile
 
         if verbosity:
             self.set_verbosity(verbosity)
@@ -783,9 +784,6 @@ class Gort(GortClient):
             else:
                 n_completed += 1
 
-    async def observe_tile(self, *args, **kargs):
-        return await self.observer.observe_tile(*args, **kargs)
-
     async def run_script(self, script: str):
         """Runs a script."""
 
@@ -851,6 +849,3 @@ class Gort(GortClient):
 
         self.log.warning(f"Restarting deployment {deployment!r}.")
         await kubernetes_restart_deployment(deployment)
-
-
-Gort.observe_tile.__doc__ = GortObserver.observe_tile.__doc__
