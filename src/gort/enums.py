@@ -49,6 +49,46 @@ class ErrorCode(Enum):
     CALIBRATION_ERROR = 900
     UNKNOWN_ERROR = 9999
 
+    def is_telescope_error(self):
+        """Returns True if the error is related to the telescope."""
+
+        return self.value >= 100 and self.value < 200
+
+    def is_ag_error(self):
+        """Returns True if the error is related to the autoguider."""
+
+        return self.value >= 200 and self.value < 300
+
+    def is_spectrograph_error(self):
+        """Returns True if the error is related to the spectrograph."""
+
+        return self.value >= 300 and self.value < 400
+
+    def is_nps_error(self):
+        """Returns True if the error is related to the NPS."""
+
+        return self.value >= 400 and self.value < 500
+
+    def is_enclosure_error(self):
+        """Returns True if the error is related to the enclosure."""
+
+        return self.value >= 500 and self.value < 600
+
+    def is_guiding_error(self):
+        """Returns True if the error is related to the guider."""
+
+        return self.value >= 600 and self.value < 700
+
+    def is_scheduler_error(self):
+        """Returns True if the error is related to the scheduler."""
+
+        return self.value >= 700 and self.value < 800
+
+    def is_observer_error(self):
+        """Returns True if the error is related to the observer."""
+
+        return self.value >= 800 and self.value < 900
+
 
 class GuiderStatus(Flag):
     """Maskbits with the guider status."""
