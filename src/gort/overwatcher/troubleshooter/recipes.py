@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from gort.overwatcher.troubleshooter.troubleshooter import Troubleshooter
+    from .troubleshooter import TroubleModel, Troubleshooter
 
 
 __all__ = ["TroubleshooterRecipe"]
@@ -29,10 +29,14 @@ class TroubleshooterRecipe(metaclass=abc.ABCMeta):
         self.troubleshooter = troubleshooter
         self.overwatcher = troubleshooter.overwatcher
 
-    def match
     @abc.abstractmethod
-    async def run(self, ):
+    def match(self, error_model: TroubleModel) -> bool:
+        """Returns True if the recipe can handle the error."""
+
         pass
 
-class TestRecipe(TroubleshooterRecipe):
-    pass
+    @abc.abstractmethod
+    async def handle(self, error_model: TroubleModel) -> bool:
+        """Runs the recipe to handle the error."""
+
+        pass
