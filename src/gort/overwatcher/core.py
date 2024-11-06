@@ -33,11 +33,11 @@ class OverwatcherBaseTask:
     keep_alive: ClassVar[bool] = True
     restart_on_error: ClassVar[bool] = True
 
-    def __init__(self):
+    def __init__(self, log: LogNamespace | None = None):
         self._task_runner: asyncio.Task | None = None
         self._heartbeat_task: asyncio.Task | None = None
 
-        self._log: Mock | LogNamespace = Mock()
+        self._log: Mock | LogNamespace = log or Mock()
 
     async def run(self):
         """Runs the task."""

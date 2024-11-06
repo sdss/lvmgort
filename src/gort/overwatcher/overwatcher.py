@@ -50,7 +50,11 @@ class OverwatcherTask(OverwatcherBaseTask):
         super().__init__()
 
         self.overwatcher = overwatcher
-        self.log = self.overwatcher.log
+
+        # A bit configuring but _log is used internally, mainly for
+        # OverwatcherBaseTask.run() and log is for external use.
+        self._log = self.overwatcher.log
+        self.log = self._log
 
 
 class OverwatcherMainTask(OverwatcherTask):
@@ -229,7 +233,7 @@ class OverwatcherMainTask(OverwatcherTask):
         if self._pending_close_dome:
             return
 
-        self.log.info("Undoing the cancellation of the observing loop.")
+        self._log.info("Undoing the cancellation of the observing loop.")
         observer._cancelling = False
         self.overwatcher.gort.observer.cancelling = False
 
