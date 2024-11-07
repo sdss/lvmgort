@@ -173,6 +173,10 @@ class ObserverOverwatcher(OverwatcherModule):
             )
             self.observe_loop = await cancel_task(self.observe_loop)
 
+            # The guiders may have been left running or the spectrograph may still
+            # be exposing. Clean up to avoid issues.
+            await self.gort.cleanup(readout=False)
+
         else:
             await self.overwatcher.notify(
                 f"Stopping observations after this tile. Reason: {reason}"
