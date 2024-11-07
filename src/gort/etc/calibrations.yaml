@@ -14,7 +14,7 @@
 - name: quick_cals
   recipe: quick_cals
   min_start_time: 1800
-  max_start_time: null
+  max_start_time: 3600
   time_mode: secs_after_sunset
   after: null
   required: true
@@ -25,7 +25,7 @@
 - name: bias_sequence
   recipe: bias_sequence
   min_start_time: null
-  max_start_time: null
+  max_start_time: 7200
   time_mode: null
   after: quick_cals
   required: true
