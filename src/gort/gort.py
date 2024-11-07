@@ -710,9 +710,10 @@ class Gort(GortClient):
 
                 for ipos, dpos in enumerate(tile.dither_positions):
                     is_last = ipos == len(tile.dither_positions) - 1
-                    result, _ = await self.observe_tile(
+                    result, _ = await self.observer.observe_tile(
                         tile=tile,
                         dither_position=dpos,
+                        async_readout=True,
                         keep_guiding=not is_last,
                         skip_slew_when_acquired=True,
                         run_cleanup=False,

@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### 🔥 Breaking change
+
+* `GortObserver.observe_tile` now default to `async_readout=False`. This will block until the exposure is done, which is a more natural behaviour for an external user that is not trying to over-optimise things. The code that uses `observe_tile` in GORT (`Gort.observe()` and `ObserverOverwatcher.observe_loop_task()`) have been updated to explicitly use `async_readout=True`.
+
+
 ## 1.0.2 - November 6, 2024
 
 ### 🚀 New
