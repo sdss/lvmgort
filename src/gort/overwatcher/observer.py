@@ -67,7 +67,7 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
                     )
                     await asyncio.sleep(15)
 
-            elif state.safe and not state.night:
+            elif state.safe and not state.night and not state.calibrating:
                 ephemeris = self.overwatcher.ephemeris.ephemeris
 
                 if ephemeris:
@@ -135,6 +135,9 @@ class ObserverOverwatcher(OverwatcherModule):
 
         if self.is_observing or self.is_cancelling:
             return
+
+        if self.overwatcher.state.calibrating:
+            raise GortError("Cannot start observing while calibrating.")
 
         if not self.overwatcher.state.safe:
             raise GortError("Cannot safely open the telescope.")

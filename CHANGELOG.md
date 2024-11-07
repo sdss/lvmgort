@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### 🔧 Fixed
+
+* Prevent the Overwatcher observer from opening the dome while calibrations are ongoing.
+
+
 ## 1.1.0 - November 7, 2024
 
 ### 🔥 Breaking change
