@@ -6,6 +6,10 @@
 
 * `GortObserver.observe_tile` now default to `async_readout=False`. This will block until the exposure is done, which is a more natural behaviour for an external user that is not trying to over-optimise things. The code that uses `observe_tile` in GORT (`Gort.observe()` and `ObserverOverwatcher.observe_loop_task()`) have been updated to explicitly use `async_readout=True`.
 
+### 🚀 New
+
+* * [#37](https://github.com/sdss/lvmgort/pull/37) Basic implementation of the `Troubleshooter` class for the Overwatcher. Currently only very broad troubleshooting checks and recipes are implemented.
+
 ### 🏷️ Changed
 
 * Removed morning twilight flats.
