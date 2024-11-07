@@ -72,6 +72,12 @@ class OverwatcherError(GortError):
     pass
 
 
+class TroubleshooterTimeoutError(GortError):
+    """The troubleshooter timed out while running a recipe."""
+
+    pass
+
+
 class RemoteCommandError(GortError):
     """An error in a remote command to an actor."""
 

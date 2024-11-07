@@ -8,13 +8,14 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 
 from typing import TYPE_CHECKING
 
 from gort.core import LogNamespace
 from gort.enums import ErrorCode
-from gort.exceptions import GortError
+from gort.exceptions import GortError, TroubleshooterTimeoutError
 
 from .recipes import TroubleshooterRecipe
 
@@ -60,6 +61,22 @@ class Troubleshooter:
             header=f"({self.__class__.__name__}) ",
         )
 
+        self._event = asyncio.Event()
+        self._event.set()
+
+    def reset(self):
+        """Resets the troubleshooter to its initial state."""
+
+        self._event.set()
+
+    async def wait_until_ready(self, timeout: float | None = None):
+        """Blocks if the troubleshooter is handling an error until done."""
+
+        try:
+            await asyncio.wait_for(self._event.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            raise TroubleshooterTimeoutError("Troubleshooter timed out.")
+
     async def handle(self, error: Exception | str):
         """Handles an error and tries to troubleshoot it.
 
@@ -91,29 +108,30 @@ class Troubleshooter:
             level="warning",
         )
 
-        for recipe in self.recipes.values():
-            # TODO: for now the first recipe that matches is the only one that runs.
-            if recipe.match(error_model):
-                await self.notify(f"Running troubleshooting recipe {recipe.name}.")
-                try:
-                    await recipe.handle(error_model)
-                    error_model.handled = True
-                    break
-                except Exception as err:
-                    await self.notify(
-                        f"Error running recipe {recipe.name}: {err!r}",
-                        level="error",
-                    )
+        try:
+            self._event.clear()
 
-        if error_model.handled:
-            await self.notify("Error has been handled.")
+            for recipe in self.recipes.values():
+                # TODO: for now the first recipe that matches is the only one that runs.
+                if recipe.match(error_model):
+                    await self.notify(f"Running troubleshooting recipe {recipe.name}.")
+
+                    error_model.handled = await recipe.handle(error_model)
+                    if error_model.handled:
+                        break
+
+            if error_model.handled:
+                await self.notify("Error has been handled.")
+                return True
+
+            await self.notify(
+                "Error could not be handled. Running clean-up recipe.",
+                level="warning",
+            )
+            cleanup = self.recipes["cleanup"]
+            await cleanup.handle(error_model)
+
             return True
 
-        await self.notify(
-            "Error could not be handled. Running clean-up recipe.",
-            level="warning",
-        )
-        cleanup = self.recipes["cleanup"]
-        await cleanup.handle(error_model)
-
-        return True
+        finally:
+            self._event.set()

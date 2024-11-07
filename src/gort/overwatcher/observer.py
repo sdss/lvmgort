@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 from astropy.time import Time
 
-from gort.exceptions import GortError
+from gort.exceptions import GortError, TroubleshooterTimeoutError
 from gort.exposure import Exposure
 from gort.overwatcher import OverwatcherModule
 from gort.overwatcher.core import OverwatcherModuleTask
@@ -196,6 +196,9 @@ class ObserverOverwatcher(OverwatcherModule):
             exp: Exposure | list[Exposure] | bool = False
 
             try:
+                # Wait in case the troubleshooter is doing something.
+                await self.overwatcher.troubleshooter.wait_until_ready(300)
+
                 # We want to avoid re-acquiring the tile between dithers. We call
                 # the scheduler here and control the dither position loop ourselves.
                 tile: Tile = await run_in_executor(Tile.from_scheduler)
@@ -216,6 +219,8 @@ class ObserverOverwatcher(OverwatcherModule):
                     await self.gort.guiders.focus()
 
                 for dpos in tile.dither_positions:
+                    await self.overwatcher.troubleshooter.wait_until_ready(300)
+
                     # The exposure will complete in 900 seconds + acquisition + readout
                     self.next_exposure_completes = time() + 90 + 900 + 60
 
@@ -238,6 +243,14 @@ class ObserverOverwatcher(OverwatcherModule):
                         break
 
             except asyncio.CancelledError:
+                break
+
+            except TroubleshooterTimeoutError:
+                await notify(
+                    "The troubleshooter timed out after 300 seconds. "
+                    "Cancelling observations.",
+                    level="critical",
+                )
                 break
 
             except Exception as err:

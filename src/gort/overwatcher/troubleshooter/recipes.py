@@ -44,9 +44,21 @@ class TroubleshooterRecipe(metaclass=abc.ABCMeta):
 
         raise NotImplementedError
 
-    @abc.abstractmethod
     async def handle(self, error_model: TroubleModel) -> bool:
         """Runs the recipe to handle the error."""
+
+        try:
+            return await self._handle_internal(error_model)
+        except Exception as err:
+            await self.notify(
+                f"Error running recipe {self.name}: {err!r}",
+                level="error",
+            )
+            return False
+
+    @abc.abstractmethod
+    async def _handle_internal(self, error_model: TroubleModel) -> bool:
+        """Internal implementation of the recipe."""
 
         raise NotImplementedError
 
@@ -63,7 +75,7 @@ class CleanupRecipe(TroubleshooterRecipe):
         # Always return False. This is a last resort recipe.
         return False
 
-    async def handle(self, error_model: TroubleModel) -> bool:
+    async def _handle_internal(self, error_model: TroubleModel) -> bool:
         """Run the cleanup recipe."""
 
         await self.overwatcher.gort.cleanup(readout=False)
@@ -85,7 +97,7 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
 
         return False
 
-    async def handle(self, error_model: TroubleModel) -> bool:
+    async def _handle_internal(self, error_model: TroubleModel) -> bool:
         """Handle the error."""
 
         error = error_model.error
@@ -121,7 +133,7 @@ class SchedulerFailedRecipe(TroubleshooterRecipe):
 
         return False
 
-    async def handle(self, error_model: TroubleModel) -> bool:
+    async def _handle_internal(self, error_model: TroubleModel) -> bool:
         """Handle the error."""
 
         await self.notify(
