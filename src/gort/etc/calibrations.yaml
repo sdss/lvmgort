@@ -32,15 +32,15 @@
   dome: closed
   abort_observing: true
   priority: 5
-
-- name: twilight_flats_sunrise
-  recipe: twilight_flats
-  min_start_time: 900
-  max_start_time: 600
-  time_mode: secs_before_sunrise
-  after: null
-  required: true
-  dome: open
-  close_dome_after: true
-  abort_observing: true
-  priority: 10
+#
+# - name: twilight_flats_sunrise
+#   recipe: twilight_flats
+#   min_start_time: 900
+#   max_start_time: 600
+#   time_mode: secs_before_sunrise
+#   after: null
+#   required: true
+#   dome: open
+#   close_dome_after: true
+#   abort_observing: true
+#   priority: 10
