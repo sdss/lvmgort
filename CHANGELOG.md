@@ -6,6 +6,10 @@
 
 * `GortObserver.observe_tile` now default to `async_readout=False`. This will block until the exposure is done, which is a more natural behaviour for an external user that is not trying to over-optimise things. The code that uses `observe_tile` in GORT (`Gort.observe()` and `ObserverOverwatcher.observe_loop_task()`) have been updated to explicitly use `async_readout=True`.
 
+### 🔧 Fixed
+
+* Temporary fix in the cleanup recipe for a bug in `lvmscp` caused by a quick reset after reading out a pending exposure.
+
 
 ## 1.0.2 - November 6, 2024
 
