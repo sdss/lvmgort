@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.11', '3.12']
+        python-version: ['3.11', '3.12', '3.13']
 
     env:
       OBSERVATORY: 'LCO'
@@ -37,15 +37,15 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --no-dev
+          uv sync --no-dev --frozen
 
       - name: Test with pytest
         run: |
           uv pip install pytest pytest-mock pytest-asyncio pytest-cov
           uv run pytest
 
-      # - name: Upload coverage to Codecov
-      #   uses: codecov/codecov-action@v4
-      #   with:
-      #     token: ${{ secrets.CODECOV_TOKEN }}
-      #     file: ./coverage.xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage.xml
