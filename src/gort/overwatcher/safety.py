@@ -81,12 +81,13 @@ class SafetyMonitorTask(OverwatcherModuleTask["SafetyOverwatcher"]):
                         )
                         await self.module.close_dome()
 
-                        # We also disable the Overwatcher to avoid
-                        # the dome being opened again.
-                        self.overwatcher.state.enabled = False
-
-                        # Finally run a cleanup in case something is still running.
-                        await self.overwatcher.gort.cleanup(readout=False)
+                        # Now run a shutdown. This should not try to close the dome
+                        # since that's already done, but it will stop the observe loop,
+                        # clean-up, etc.
+                        await self.overwatcher.shutdown(
+                            reason="safety alerts detected",
+                            disable_overwatcher=True,
+                        )
 
                 elif self.failed:
                     # We have failed closing the dome as a last resort. We have issued

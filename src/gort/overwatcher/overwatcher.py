@@ -344,17 +344,24 @@ class Overwatcher(NotifierMixIn):
         reason: str = "undefined",
         retry: bool = True,
         park: bool = True,
+        disable_overwatcher: bool = False,
     ):
         """Shuts down the observatory."""
 
-        # Check if the dome is already closed, then do nothing.
-        if await self.dome.is_closing():
+        dome_closed = await self.dome.is_closing()
+        enabled = self.state.enabled
+        observing = self.observer.is_observing
+
+        if dome_closed and not enabled and not observing:
             return
 
         if not reason.endswith("."):
             reason += "."
 
         await self.notify(f"Triggering shutdown. Reason: {reason}", level="warning")
+
+        if disable_overwatcher:
+            await self.notify("The Overwatcher will be disabled.", level="warning")
 
         if not self.state.dry_run:
             stop = asyncio.create_task(self.observer.stop_observing(immediate=True))
@@ -371,6 +378,9 @@ class Overwatcher(NotifierMixIn):
                 level="critical",
                 error=err,
             )
+
+        if disable_overwatcher:
+            self.state.enabled = False
 
     async def cancel(self):
         """Cancels the overwatcher tasks."""
