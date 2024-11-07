@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 import httpx
 
-from sdsstools import Configuration
+from sdsstools import Configuration, get_sjd
 from sdsstools.utils import GatheringTaskGroup
 
 from gort.core import LogNamespace
@@ -189,6 +189,7 @@ class NotifierMixIn(OverwatcherProtocol):
                 [
                     {
                         "date": datetime.datetime.now(tz=datetime.UTC),
+                        "mjd": get_sjd("LCO"),
                         "level": level,
                         "message": message,
                         "payload": json.dumps(payload),
