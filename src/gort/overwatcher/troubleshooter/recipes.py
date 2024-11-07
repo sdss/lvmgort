@@ -14,6 +14,7 @@ import asyncio
 from typing import TYPE_CHECKING, ClassVar
 
 from gort.enums import ErrorCode
+from gort.exceptions import TroubleshooterCriticalError
 from gort.tools import set_tile_status
 
 
@@ -49,6 +50,9 @@ class TroubleshooterRecipe(metaclass=abc.ABCMeta):
 
         try:
             return await self._handle_internal(error_model)
+        except TroubleshooterCriticalError:
+            # Propagate this error, which will be handled by the Troubleshooter class.
+            raise
         except Exception as err:
             await self.notify(
                 f"Error running recipe {self.name}: {err!r}",

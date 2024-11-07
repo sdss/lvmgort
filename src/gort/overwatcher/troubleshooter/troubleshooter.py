@@ -15,7 +15,11 @@ from typing import TYPE_CHECKING
 
 from gort.core import LogNamespace
 from gort.enums import ErrorCode
-from gort.exceptions import GortError, TroubleshooterTimeoutError
+from gort.exceptions import (
+    GortError,
+    TroubleshooterCriticalError,
+    TroubleshooterTimeoutError,
+)
 
 from .recipes import TroubleshooterRecipe
 
@@ -132,6 +136,13 @@ class Troubleshooter:
             await cleanup.handle(error_model)
 
             return True
+
+        except TroubleshooterCriticalError as err:
+            await self.notify(
+                f"Shutting down due to critical error while troubleshooting: {err!r}",
+                level="critical",
+            )
+            await self.overwatcher.shutdown(disable_overwatcher=True)
 
         finally:
             self._event.set()

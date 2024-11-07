@@ -72,7 +72,13 @@ class OverwatcherError(GortError):
     pass
 
 
-class TroubleshooterTimeoutError(GortError):
+class TroubleshooterCriticalError(OverwatcherError):
+    """A critical error in the troubleshooter that will shut down the system."""
+
+    pass
+
+
+class TroubleshooterTimeoutError(OverwatcherError):
     """The troubleshooter timed out while running a recipe."""
 
     pass
