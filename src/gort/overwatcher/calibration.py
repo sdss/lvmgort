@@ -539,19 +539,19 @@ class CalibrationsOverwatcher(OverwatcherModule):
             )
             return
 
-        if dome and not self.overwatcher.state.enabled:
-            await self._fail_calibration(
-                calibration,
-                f"Calibration {name!r} requires moving the dome "
-                "but overwatcher is disabled.",
-                level="error",
-            )
-            return
-
         if name not in self._failing_cals:
             await notify(f"Running calibration {name!r}.")
 
         calibration.record_state(CalibrationState.RUNNING)
+
+        now = time.time()
+        if max_start_time is not None and now > max_start_time:
+            await notify(
+                f"Skipping calibration {name!r} as it's too late to start it.",
+                level="warning",
+            )
+            calibration.record_state(CalibrationState.FAILED)
+            return
 
         if self.overwatcher.state.observing:
             immediate = calibration.model.abort_observing
@@ -562,15 +562,6 @@ class CalibrationsOverwatcher(OverwatcherModule):
                 immediate=immediate,
                 block=True,
             )
-
-        now = time.time()
-        if max_start_time is not None and now > max_start_time:
-            await notify(
-                f"Skipping calibration {name!r} as it's too late to start it.",
-                level="warning",
-            )
-            calibration.record_state(CalibrationState.FAILED)
-            return
 
         if dome is not None:
             dome_new = True if dome == "open" else False
