@@ -72,6 +72,18 @@ class OverwatcherError(GortError):
     pass
 
 
+class TroubleshooterCriticalError(OverwatcherError):
+    """A critical error in the troubleshooter that will shut down the system."""
+
+    pass
+
+
+class TroubleshooterTimeoutError(OverwatcherError):
+    """The troubleshooter timed out while running a recipe."""
+
+    pass
+
+
 class RemoteCommandError(GortError):
     """An error in a remote command to an actor."""
 

@@ -15,13 +15,12 @@ from typing import TYPE_CHECKING
 
 from astropy.time import Time
 
-from gort.enums import ErrorCode
-from gort.exceptions import GortError
+from gort.exceptions import GortError, TroubleshooterTimeoutError
 from gort.exposure import Exposure
 from gort.overwatcher import OverwatcherModule
 from gort.overwatcher.core import OverwatcherModuleTask
 from gort.tile import Tile
-from gort.tools import cancel_task, run_in_executor, set_tile_status
+from gort.tools import cancel_task, run_in_executor
 
 
 if TYPE_CHECKING:
@@ -174,6 +173,10 @@ class ObserverOverwatcher(OverwatcherModule):
             )
             self.observe_loop = await cancel_task(self.observe_loop)
 
+            # The guiders may have been left running or the spectrograph may still
+            # be exposing. Clean up to avoid issues.
+            await self.gort.cleanup(readout=False)
+
         else:
             await self.overwatcher.notify(
                 f"Stopping observations after this tile. Reason: {reason}"
@@ -197,6 +200,9 @@ class ObserverOverwatcher(OverwatcherModule):
             exp: Exposure | list[Exposure] | bool = False
 
             try:
+                # Wait in case the troubleshooter is doing something.
+                await self.overwatcher.troubleshooter.wait_until_ready(300)
+
                 # We want to avoid re-acquiring the tile between dithers. We call
                 # the scheduler here and control the dither position loop ourselves.
                 tile: Tile = await run_in_executor(Tile.from_scheduler)
@@ -217,6 +223,8 @@ class ObserverOverwatcher(OverwatcherModule):
                     await self.gort.guiders.focus()
 
                 for dpos in tile.dither_positions:
+                    await self.overwatcher.troubleshooter.wait_until_ready(300)
+
                     # The exposure will complete in 900 seconds + acquisition + readout
                     self.next_exposure_completes = time() + 90 + 900 + 60
 
@@ -242,46 +250,16 @@ class ObserverOverwatcher(OverwatcherModule):
             except asyncio.CancelledError:
                 break
 
-            except Exception as err:
-                # TODO: this should be moved to the troubleshooting module, but
-                # for now handling it here.
-
-                if isinstance(err, GortError):
-                    # If the acquisition failed, disable the tile and try again.
-                    if err.error_code == ErrorCode.ACQUISITION_FAILED:
-                        tile_id: int | None = err.payload.get("tile_id", None)
-                        if tile_id is None:
-                            await notify(
-                                'Cannot disable tile without a "tile_id. '
-                                "Continuing observations without disabling tile.",
-                                level="error",
-                            )
-                        else:
-                            await set_tile_status(tile_id, enabled=False)
-                            await notify(
-                                f"tile_id={tile_id} has been disabled. "
-                                "Continuing observations.",
-                                level="warning",
-                            )
-
-                    # If the scheduler cannot find a tile, wait a minute and try again.
-                    elif err.error_code == ErrorCode.SCHEDULER_CANNOT_FIND_TILE:
-                        await notify(
-                            "The scheduler was not able to find a valid tile to "
-                            "observe. Waiting 60 seconds before trying again.",
-                            level="warning",
-                        )
-                        await asyncio.sleep(60)
-                        continue
-
-                # No specific troubleshooting available. Report the error,
-                # do a cleanup and try again.
+            except TroubleshooterTimeoutError:
                 await notify(
-                    f"An error occurred during the observation: {err} "
-                    "Running the cleanup recipe.",
-                    level="error",
+                    "The troubleshooter timed out after 300 seconds. "
+                    "Cancelling observations.",
+                    level="critical",
                 )
-                await self.gort.cleanup(readout=False)
+                break
+
+            except Exception as err:
+                await self.overwatcher.troubleshooter.handle(err)
 
             finally:
                 if self.is_cancelling:

@@ -26,6 +26,7 @@ from gort.overwatcher.core import OverwatcherBaseTask, OverwatcherModule
 from gort.overwatcher.helpers import DomeHelper
 from gort.overwatcher.helpers.notifier import NotifierMixIn
 from gort.overwatcher.helpers.tasks import DailyTasks
+from gort.overwatcher.troubleshooter.troubleshooter import Troubleshooter
 
 
 @dataclasses.dataclass
@@ -49,7 +50,11 @@ class OverwatcherTask(OverwatcherBaseTask):
         super().__init__()
 
         self.overwatcher = overwatcher
-        self.log = self.overwatcher.log
+
+        # A bit configuring but _log is used internally, mainly for
+        # OverwatcherBaseTask.run() and log is for external use.
+        self._log = self.overwatcher.log
+        self.log = self._log
 
 
 class OverwatcherMainTask(OverwatcherTask):
@@ -228,7 +233,7 @@ class OverwatcherMainTask(OverwatcherTask):
         if self._pending_close_dome:
             return
 
-        self.log.info("Undoing the cancellation of the observing loop.")
+        self._log.info("Undoing the cancellation of the observing loop.")
         observer._cancelling = False
         self.overwatcher.gort.observer.cancelling = False
 
@@ -289,7 +294,7 @@ class Overwatcher(NotifierMixIn):
         self.state.dry_run = dry_run
 
         self.dome = DomeHelper(self)
-
+        self.troubleshooter = Troubleshooter(self)
         self.tasks: list[OverwatcherTask] = [
             OverwatcherMainTask(self),
             OverwatcherPingTask(self),
@@ -339,17 +344,24 @@ class Overwatcher(NotifierMixIn):
         reason: str = "undefined",
         retry: bool = True,
         park: bool = True,
+        disable_overwatcher: bool = False,
     ):
         """Shuts down the observatory."""
 
-        # Check if the dome is already closed, then do nothing.
-        if await self.dome.is_closing():
+        dome_closed = await self.dome.is_closing()
+        enabled = self.state.enabled
+        observing = self.observer.is_observing
+
+        if dome_closed and not enabled and not observing:
             return
 
         if not reason.endswith("."):
             reason += "."
 
         await self.notify(f"Triggering shutdown. Reason: {reason}", level="warning")
+
+        if disable_overwatcher:
+            await self.notify("The Overwatcher will be disabled.", level="warning")
 
         if not self.state.dry_run:
             stop = asyncio.create_task(self.observer.stop_observing(immediate=True))
@@ -366,6 +378,9 @@ class Overwatcher(NotifierMixIn):
                 level="critical",
                 error=err,
             )
+
+        if disable_overwatcher:
+            self.state.enabled = False
 
     async def cancel(self):
         """Cancels the overwatcher tasks."""
