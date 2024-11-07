@@ -218,6 +218,7 @@ class CleanupRecipe(BaseRecipe):
         await self.gort.guiders.stop()
 
         if not (await self.gort.specs.are_idle()):
+            extra_sleep: float = 0
             cotasks = []
 
             for spec in self.gort.specs.values():
@@ -227,6 +228,7 @@ class CleanupRecipe(BaseRecipe):
                 if await spec.is_reading():
                     self.gort.log.warning(f"{spec.name} is reading. Waiting.")
                     cotasks.append(self._wait_until_spec_is_idle(spec))
+                    extra_sleep = 10
                 elif await spec.is_exposing():
                     self.gort.log.warning(f"{spec.name} is exposing. Aborting.")
                     cotasks.append(spec.abort())
@@ -239,9 +241,17 @@ class CleanupRecipe(BaseRecipe):
                         self.gort.log.warning(f"{msg} Reading it.")
                         cotasks.append(spec.actor.commands.read())
                         cotasks.append(self._wait_until_spec_is_idle(spec))
+                        extra_sleep = 10
 
             try:
                 await asyncio.gather(*cotasks)
+
+                # HACK: lvmscp says the controller is idle before it actually
+                # writes the image to disk. If we reset too fast (as we are going
+                # to do just after this) that will crash the exposures.
+                # I'll fix that in lvmscp (promise) but for now we add a sleep here
+                # to allows the images to post-process and write before resetting.
+                await asyncio.sleep(extra_sleep)
             except Exception as ee:
                 self.gort.log.error(f"Error during cleanup: {ee}")
                 self.gort.log.warning("Resetting the spectrographs.")

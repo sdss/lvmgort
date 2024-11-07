@@ -260,7 +260,7 @@ class GortObserver:
         dither_position: int | None = None,
         exposure_time: float = 900.0,
         n_exposures: int = 1,
-        async_readout: bool = True,
+        async_readout: bool = False,
         keep_guiding: bool = False,
         skip_slew_when_acquired: bool = True,
         guide_tolerance: float = 1.0,

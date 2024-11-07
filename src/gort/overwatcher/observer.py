@@ -231,6 +231,7 @@ class ObserverOverwatcher(OverwatcherModule):
                     result, _ = await observer.observe_tile(
                         tile=tile,
                         dither_position=dpos,
+                        async_readout=True,
                         keep_guiding=True,
                         skip_slew_when_acquired=True,
                         run_cleanup=False,
