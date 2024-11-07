@@ -267,6 +267,9 @@ class TwilightFlats(BaseRecipe):
                 # exposure time is now too long. Exit.
                 gort.log.debug("Exposure time is too long to take more extra flats.")
                 break
+            elif is_sunrise and all_done and exp_time <= self.MAX_EXP_TIME_EXTRA:
+                # Continue taking exposures for extra flats.
+                pass
             else:
                 raise RuntimeError("Too early/late to take twilight flats.")
 
