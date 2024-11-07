@@ -103,9 +103,13 @@ class DailyTaskBase(metaclass=abc.ABCMeta):
         if self.done:
             return
 
+        await self.overwatcher.notify(f"Running daily task {self.name}.")
         self.done = await self._run_internal()
+
         if self.done:
-            self.overwatcher.log.debug(f"Task {self.name!r} has been completed.")
+            await self.overwatcher.notify(f"Task {self.name} has been completed.")
+        else:
+            await self.overwatcher.notify(f"Task {self.name} has failed.")
 
     @abc.abstractmethod
     async def _run_internal(self) -> bool:
@@ -165,10 +169,12 @@ class PreObservingTask(DailyTaskBase):
             return False
 
         try:
-            self.overwatcher.log.info(f"Running daily task {self.name!r}.")
             await self.overwatcher.gort.execute_recipe("pre-observing")
         except Exception as err:
-            self.overwatcher.log.error(f"Error running pre-observing tasks: {err}")
+            await self.overwatcher.notify(
+                f"Error running pre-observing task: {err}",
+                level="critical",
+            )
 
         # Always mark the task complete, even if it failed.
         return True

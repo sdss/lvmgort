@@ -287,12 +287,6 @@ class PreObservingRecipe(BaseRecipe):
     async def recipe(self):
         """Runs the pre-observing sequence."""
 
-        from gort.overwatcher.helpers.notifier import BasicNotifier
-
-        notifier = BasicNotifier(self.gort)
-
-        await notifier.notify("Running pre-observing tasks.")
-
         tasks = []
 
         tasks.append(
@@ -310,13 +304,7 @@ class PreObservingRecipe(BaseRecipe):
         tasks.append(self.gort.specs.expose(flavour="bias"))
 
         for task in tasks:
-            try:
-                await task
-            except Exception as ee:
-                await notifier.notify(
-                    f"Error running pre-observing task: {ee}",
-                    level="critical",
-                )
+            await task
 
 
 class PostObservingRecipe(BaseRecipe):
