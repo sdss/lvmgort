@@ -18,6 +18,10 @@
 
 * Temporary fix in the cleanup recipe for a bug in `lvmscp` caused by a quick reset after reading out a pending exposure.
 
+### ⚙️ Engineering
+
+* Added a very basic test to confirm the Overwatcher can be initialised.
+
 
 ## 1.0.2 - November 6, 2024
 
