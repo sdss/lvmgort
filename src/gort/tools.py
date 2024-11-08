@@ -89,6 +89,7 @@ __all__ = [
     "kubernetes_restart_deployment",
     "kubernetes_list_deployments",
     "get_gort_client",
+    "add_night_log_comment",
 ]
 
 AnyPath = str | os.PathLike
@@ -1003,3 +1004,25 @@ async def get_gort_client(override_overwatcher: bool | None = None):
     yield gort
 
     await gort.stop()
+
+
+async def add_night_log_comment(comment: str, category: str = "other"):
+    """Adds a comment to the night log."""
+
+    payload = {
+        "mjd": get_sjd("LCO"),
+        "category": category or "other",
+        "comment": comment,
+    }
+
+    host, port = config["services"]["lvmapi"].values()
+
+    async with httpx.AsyncClient(
+        base_url=f"http://{host}:{port}",
+        follow_redirects=True,
+    ) as client:
+        response = await client.post("/night-logs/comments/add", json=payload)
+
+        code = response.status_code
+        if code != 200:
+            raise ValueError(f"Failed adding night log comment. Code {code}.")

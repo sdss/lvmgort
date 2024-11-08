@@ -96,6 +96,11 @@ class CalibrationModel(BaseModel):
         title="The maximum time in seconds to attempt the calibration if it fails. "
         "If max_start_time is reached during this period, the calibrations fails.",
     )
+    allow_post_observing_recovery: bool = Field(
+        default=True,
+        title="Whether the calibration can be run after observing has finished "
+        "if it initially failed.",
+    )
 
     @model_validator(mode="after")
     def validate_start_time(self) -> Self:
@@ -483,6 +488,9 @@ class CalibrationsOverwatcher(OverwatcherModule):
 
         if cals_file is not None:
             self.cals_file = cals_file
+
+        self._failing_cals = {}
+        self._ignore_cals = set()
 
         try:
             self.schedule.update_schedule(self.cals_file)

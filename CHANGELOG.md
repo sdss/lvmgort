@@ -16,7 +16,7 @@
 
 ### 🚀 New
 
-* * [#37](https://github.com/sdss/lvmgort/pull/37) Basic implementation of the `Troubleshooter` class for the Overwatcher. Currently only very broad troubleshooting checks and recipes are implemented.
+* [#37](https://github.com/sdss/lvmgort/pull/37) Basic implementation of the `Troubleshooter` class for the Overwatcher. Currently only very broad troubleshooting checks and recipes are implemented.
 
 ### 🏷️ Changed
 
