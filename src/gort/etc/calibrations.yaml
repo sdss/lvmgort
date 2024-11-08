@@ -10,6 +10,7 @@
   close_dome_after: true
   abort_observing: true
   priority: 10
+  allow_post_observing_recovery: false
 
 - name: quick_cals
   recipe: quick_cals
@@ -21,6 +22,7 @@
   dome: closed
   abort_observing: true
   priority: 8
+  allow_post_observing_recovery: true
 
 - name: bias_sequence
   recipe: bias_sequence
@@ -32,6 +34,7 @@
   dome: closed
   abort_observing: true
   priority: 5
+  allow_post_observing_recovery: true
 #
 # - name: twilight_flats_sunrise
 #   recipe: twilight_flats

@@ -18,7 +18,8 @@ from astropy.time import Time
 
 from sdsstools import get_sjd
 
-from gort.tools import redis_client_sync
+from gort.overwatcher.calibration import CalibrationState
+from gort.tools import add_night_log_comment, redis_client_sync
 
 
 if TYPE_CHECKING:
@@ -103,13 +104,30 @@ class DailyTaskBase(metaclass=abc.ABCMeta):
         if self.done:
             return
 
+        if not await self._should_run():
+            return
+
         await self.overwatcher.notify(f"Running daily task {self.name}.")
-        self.done = await self._run_internal()
+        try:
+            self.done = await self._run_internal()
+        except Exception as err:
+            await self.overwatcher.notify(
+                f"Error running daily task {self.name}: {err}",
+                level="error",
+            )
+            self.done = True
+            return
 
         if self.done:
             await self.overwatcher.notify(f"Task {self.name} has been completed.")
         else:
             await self.overwatcher.notify(f"Task {self.name} has failed.")
+
+    @abc.abstractmethod
+    async def _should_run(self) -> bool:
+        """Returns True if the task should run."""
+
+        raise NotImplementedError
 
     @abc.abstractmethod
     async def _run_internal(self) -> bool:
@@ -145,12 +163,17 @@ class DailyTaskBase(metaclass=abc.ABCMeta):
 
 
 class PreObservingTask(DailyTaskBase):
-    """Run the pre-observing tasks."""
+    """Run the pre-observing tasks.
+
+    This task is run between 30 and 10 minutes before sunset if no calibration is
+    ongoing and will take a bias and make sure the telescopes are connected and homed.
+
+    """
 
     name = "pre_observing"
 
-    async def _run_internal(self) -> bool:
-        """Runs the pre-observing tasks."""
+    async def _should_run(self) -> bool:
+        """Returns True if the task should run."""
 
         if self.overwatcher.ephemeris.ephemeris is None:
             return False
@@ -168,6 +191,11 @@ class PreObservingTask(DailyTaskBase):
         ):
             return False
 
+        return True
+
+    async def _run_internal(self) -> bool:
+        """Runs the pre-observing tasks."""
+
         try:
             await self.overwatcher.gort.execute_recipe("pre-observing")
         except Exception as err:
@@ -175,6 +203,114 @@ class PreObservingTask(DailyTaskBase):
                 f"Error running pre-observing task: {err}",
                 level="critical",
             )
+
+        # Always mark the task complete, even if it failed.
+        return True
+
+
+class PostObservingTask(DailyTaskBase):
+    """Run the post-observing tasks.
+
+    This task is run 30 minutes after sunrise. It runs the post-observing recipe
+    but does not send the email (that is done at 12UT by a cronjon for redundancy).
+
+    The recipe checks that the dome is closed, the telescope is parked, guiders
+    are off, etc. It also goes over the calibrations and if a calibration is missing
+    and has ``allow_post_observing_recovery=true`` it will try to obtain it.
+
+    """
+
+    name = "post_observing"
+
+    async def _should_run(self) -> bool:
+        """Returns True if the task should run."""
+
+        if self.overwatcher.ephemeris.ephemeris is None:
+            return False
+
+        # Run this task 30 minutes after sunrise.
+        now = time.time()
+        sunrise = Time(self.overwatcher.ephemeris.ephemeris.sunrise, format="jd").unix
+
+        if (
+            now - sunrise < 0
+            or now - sunrise < 1800
+            or now - sunrise > 2000
+            or self.overwatcher.state.calibrating
+            or self.overwatcher.state.observing
+        ):
+            return False
+
+        return True
+
+    async def _run_internal(self) -> bool:
+        """Runs the post-observing tasks."""
+
+        notify = self.overwatcher.notify
+
+        try:
+            await self.overwatcher.gort.execute_recipe(
+                "post-observing",
+                send_emal=False,
+            )
+        except Exception as err:
+            await self.overwatcher.notify(
+                f"Error running post-observing task: {err}",
+                level="critical",
+            )
+            return True
+
+        calibrations_attempted: bool = False
+
+        for calibration in self.overwatcher.calibrations.schedule.calibrations:
+            name = calibration.name
+
+            # Calibration must not be done (any other state is valid)
+            if calibration.state != CalibrationState.DONE:
+                # Calibration must allow recovery.
+                allows_recovery = calibration.model.allow_post_observing_recovery
+
+                # Calibration must not require moving the dome (model.dome = None)
+                # or asks for the dome to be closed and it actually is.
+                required_dome = calibration.model.dome
+                needs_dome: bool = False
+                if required_dome is not None:
+                    current_dome = await self.overwatcher.dome.is_closing()
+                    if required_dome is True or current_dome != required_dome:
+                        needs_dome = True
+
+                # Calibrations must be allowed.
+                allow_calibrations = self.overwatcher.state.allow_calibrations
+
+                if not needs_dome and allows_recovery and allow_calibrations:
+                    await notify(f"Retrying calibration {calibration.name}.")
+
+                    try:
+                        calibrations_attempted = True
+                        await self.overwatcher.calibrations.run_calibration(calibration)
+
+                        if not calibration.state == CalibrationState.DONE:
+                            await notify(f"Failed to recover calibration {name}.")
+                        else:
+                            await notify(f"Calibration {name} recovered.")
+
+                            # Automatically add a comment to the night log.
+                            await add_night_log_comment(
+                                f"Calibration {name} initially failed and was retaken "
+                                "after observations had been completed. Review the "
+                                "data quality since the exposures were taken after "
+                                "sunrise.",
+                                category="other",
+                            )
+
+                    except Exception as err:
+                        await notify(f"Error recovering calibration {name}: {err}")
+
+        # If we have tried a calibration we may have rehomed the telescopes and
+        # left them not parked. Make sure they are really parked.
+        if calibrations_attempted:
+            self.overwatcher.log.info("Parking telescopes after post-observing cals.")
+            await self.overwatcher.gort.telescopes.park()
 
         # Always mark the task complete, even if it failed.
         return True
