@@ -252,7 +252,13 @@ class OverwatcherPingTask(OverwatcherTask):
 
         while True:
             await asyncio.sleep(self.delay)
-            await self.overwatcher.notify("I am alive!", log=False)
+            await self.overwatcher.notify(
+                "I am alive!",
+                log=True,
+                channels=[],
+                level="debug",
+                database=False,
+            )
 
 
 class Overwatcher(NotifierMixIn):
