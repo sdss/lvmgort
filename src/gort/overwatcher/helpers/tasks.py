@@ -260,6 +260,8 @@ class PostObservingTask(DailyTaskBase):
             )
             return True
 
+        calibrations_attempted: bool = False
+
         for calibration in self.overwatcher.calibrations.schedule.calibrations:
             name = calibration.name
 
@@ -284,6 +286,7 @@ class PostObservingTask(DailyTaskBase):
                     await notify(f"Retrying calibration {calibration.name}.")
 
                     try:
+                        calibrations_attempted = True
                         await self.overwatcher.calibrations.run_calibration(calibration)
 
                         if not calibration.state == CalibrationState.DONE:
@@ -302,6 +305,12 @@ class PostObservingTask(DailyTaskBase):
 
                     except Exception as err:
                         await notify(f"Error recovering calibration {name}: {err}")
+
+        # If we have tried a calibration we may have rehomed the telescopes and
+        # left them not parked. Make sure they are really parked.
+        if calibrations_attempted:
+            self.overwatcher.log.info("Parking telescopes after post-observing cals.")
+            await self.overwatcher.gort.telescopes.park()
 
         # Always mark the task complete, even if it failed.
         return True
