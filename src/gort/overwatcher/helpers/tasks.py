@@ -25,7 +25,7 @@ from gort.tools import add_night_log_comment, redis_client_sync
 if TYPE_CHECKING:
     from gort.overwatcher.overwatcher import Overwatcher
 
-VALID_TASKS = Literal["pre_observing"]
+VALID_TASKS = Literal["pre_observing", "post_observing"]
 
 
 class TaskStatus(TypedDict):
