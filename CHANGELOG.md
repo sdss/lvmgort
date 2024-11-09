@@ -11,6 +11,10 @@
 * Prevent the Overwatcher observer from opening the dome while calibrations are ongoing.
 * Fixed a bug in the twilight flats recipe related to the extra exposures.
 
+### ⚙️ Engineering
+
+* Use API to send notifications.
+
 
 ## 1.1.0 - November 7, 2024
 

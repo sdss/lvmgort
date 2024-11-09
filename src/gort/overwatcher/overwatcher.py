@@ -255,7 +255,6 @@ class OverwatcherPingTask(OverwatcherTask):
             await self.overwatcher.notify(
                 "I am alive!",
                 log=True,
-                channels=[],
                 level="debug",
                 database=False,
             )

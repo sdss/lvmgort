@@ -8,8 +8,6 @@
 
 from __future__ import annotations
 
-import datetime
-import json
 import logging
 from traceback import format_exception
 
@@ -17,11 +15,10 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 import httpx
 
-from sdsstools import Configuration, get_sjd
-from sdsstools.utils import GatheringTaskGroup
+from sdsstools import Configuration
 
+from gort import config
 from gort.core import LogNamespace
-from gort.tools import insert_to_database
 
 
 if TYPE_CHECKING:
@@ -29,7 +26,6 @@ if TYPE_CHECKING:
 
 
 NotificationLevel = Literal["debug", "info", "warning", "error", "critical"]
-Channels = Literal["slack", "email"]
 
 GORT_ICON_URL = "https://github.com/sdss/lvmgort/blob/main/docs/sphinx/_static/gort_logo_slack.png?raw=true"
 
@@ -43,53 +39,17 @@ class OverwatcherProtocol(Protocol):
 class NotifierMixIn(OverwatcherProtocol):
     """A mix-in class for :obj:`.Overwatcher `that adds notification capabilities."""
 
-    async def write_to_slack(
-        self,
-        text: str,
-        channel: str | None = None,
-        as_overwatcher: bool = True,
-        mentions: list[str] = [],
-    ):
-        """Writes a message to Slack."""
-
-        username = "Overwatcher" if as_overwatcher else None
-        icon_url = GORT_ICON_URL if as_overwatcher else None
-
-        host, port = self.config["services.lvmapi"].values()
-        channel = channel or self.config["overwatcher.slack.notifications_channel"]
-
-        try:
-            async with httpx.AsyncClient(
-                base_url=f"http://{host}:{port}",
-                follow_redirects=True,
-            ) as client:
-                response = await client.post(
-                    "/slack/message",
-                    json={
-                        "text": text,
-                        "username": username,
-                        "icon_url": icon_url,
-                        "mentions": mentions,
-                        "channel": channel,
-                    },
-                )
-
-                if response.status_code != 200:
-                    raise ValueError(response.text)
-        except Exception as err:
-            self.log.error(f"Failed to send message to Slack: {err}")
-
     async def notify(
         self,
         message: str | None = None,
         level: NotificationLevel | None = None,
         error: str | Exception | None = None,
         with_traceback: bool = True,
-        channels: Channels | list[Channels] | None = None,
-        slack_channels: list[str] | None = None,
+        slack_channel: str | None = None,
         database: bool = True,
         log: bool = True,
         payload: dict[str, Any] = {},
+        as_overwatcher: bool = True,
     ):
         """Emits a notification to Slack or email.
 
@@ -112,13 +72,9 @@ class NotifierMixIn(OverwatcherProtocol):
         with_traceback
             Whether to include the traceback in the notification. Requires
             ``error`` to be an exception object.
-        channels
-            A list of channels to send the notification to. Available channels
-            are 'slack' and 'email'. If not provided, the channels are determined
-            based on the level.
-        slack_channels
-            The Slack channels to which to send the notification. By default
-            ``lvm-alerts`` is notified for ``error`` or ``critical`` messages,
+        slack_channel
+            The Slack channel to which to send the notification. By default
+            ``lvm-alerts`` is notified for ``critical`` messages,
             and ``lvm-overwatcher`` for anything lower.
         database
             Whether to record the notification in the database.
@@ -127,6 +83,8 @@ class NotifierMixIn(OverwatcherProtocol):
         payload
             Additional notification payload as a JSON-like dictionary. Only
             saved to the database notifications table.
+        as_overwatcher
+            Whether to send the message as the Overwatcher bot.
 
         """
 
@@ -149,55 +107,36 @@ class NotifierMixIn(OverwatcherProtocol):
             log_level = logging._nameToLevel[level.upper()]
             self.log.logger.log(log_level, self.log._get_message(full_message))
 
-        if channels is None:
-            if level in ["critical"]:
-                channels = ["slack", "email"]
-            else:
-                channels = ["slack"]
-        elif isinstance(channels, str):
-            channels = [channels]
+        # Now create the notification actual notification by calling the API.
+        # This will load it to the database. We do not emit emails for now.
+        api_host, api_port = config["services"]["lvmapi"].values()
 
-        if "slack" in channels:
-            slack_config = self.config["overwatcher.slack"]
-            mentions: list[str] = []
-            if slack_channels is None:
-                slack_channels = [slack_config["notifications_channel"]]
-                if level in ["critical"]:
-                    slack_channels.append(slack_config["alerts_channel"])
-                if level in ["error", "critical"]:
-                    mentions.append("@channel")
+        slack_config = self.config["overwatcher.slack"]
+        slack_channel = slack_config["notifications_channel"]
 
-            async with GatheringTaskGroup() as group:
-                for slack_channel in slack_channels:
-                    group.create_task(
-                        self.write_to_slack(
-                            full_message,
-                            channel=slack_channel,
-                            as_overwatcher=True,
-                            mentions=mentions,
-                        )
-                    )
-
-        if database:
-            table = self.config["services.database.tables.notifications"]
-
-            if trace:
-                payload["traceback"] = trace
-
-            insert_to_database(
-                table,
-                [
-                    {
-                        "date": datetime.datetime.now(tz=datetime.UTC),
-                        "mjd": get_sjd("LCO"),
-                        "level": level,
-                        "message": message,
-                        "payload": json.dumps(payload),
-                        "slack": "slack" in channels,
-                        "email": "email" in channels,
-                    }
-                ],
+        async with httpx.AsyncClient(
+            base_url=f"http://{api_host}:{api_port}",
+            follow_redirects=True,
+        ) as client:
+            response = await client.post(
+                "/notifications/create",
+                json={
+                    "message": full_message,
+                    "level": level.upper(),
+                    "payload": payload,
+                    "slack_channel": slack_channel,
+                    "email_on_critical": False,
+                    "write_to_database": database,
+                    "slack_extra_params": {
+                        "username": "Overwatcher" if as_overwatcher else None,
+                        "icon_url": GORT_ICON_URL if as_overwatcher else None,
+                    },
+                },
             )
+
+            code = response.status_code
+            if code != 200:
+                self.log.warning(f"Failed adding night log comment. Code {code}.")
 
 
 class BasicNotifier(NotifierMixIn):
