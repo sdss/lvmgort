@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from traceback import format_exception
 
-from typing import TYPE_CHECKING, Any, Literal, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
 
 import httpx
 
@@ -45,7 +45,7 @@ class NotifierMixIn(OverwatcherProtocol):
         level: NotificationLevel | None = None,
         error: str | Exception | None = None,
         with_traceback: bool = True,
-        slack_channel: str | None = None,
+        slack_channel: str | bool | None = None,
         database: bool = True,
         log: bool = True,
         payload: dict[str, Any] = {},
@@ -75,7 +75,8 @@ class NotifierMixIn(OverwatcherProtocol):
         slack_channel
             The Slack channel to which to send the notification. By default
             ``lvm-alerts`` is notified for ``critical`` messages,
-            and ``lvm-overwatcher`` for anything lower.
+            and ``lvm-overwatcher`` for anything lower. If ``False``, no
+            Slack notifications are sent.
         database
             Whether to record the notification in the database.
         log
@@ -112,7 +113,8 @@ class NotifierMixIn(OverwatcherProtocol):
         api_host, api_port = config["services"]["lvmapi"].values()
 
         slack_config = self.config["overwatcher.slack"]
-        slack_channel = slack_config["notifications_channel"]
+        if slack_channel is None or slack_channel is True:
+            slack_channel = cast(str, slack_config["notifications_channel"])
 
         async with httpx.AsyncClient(
             base_url=f"http://{api_host}:{api_port}",
