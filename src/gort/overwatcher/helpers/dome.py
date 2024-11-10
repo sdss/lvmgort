@@ -173,7 +173,7 @@ class DomeHelper:
                 await self.stop()
                 status = await self.status()
 
-            self.log.info("Opening the dome ...")
+            await self.overwatcher.notify("Opening the dome ...")
             await self._move(status, open=True, park=park)
 
     async def close(self, park: bool = True, retry: bool = False):
@@ -194,7 +194,7 @@ class DomeHelper:
                 await self.stop()
                 status = await self.status()
 
-            self.log.info("Closing the dome ...")
+            await self.overwatcher.notify("Closing the dome ...")
             await self._move(
                 status,
                 open=False,

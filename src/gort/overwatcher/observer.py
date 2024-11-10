@@ -146,6 +146,9 @@ class ObserverOverwatcher(OverwatcherModule):
         self._starting_observations = True
 
         if not (await self.overwatcher.dome.is_opening()):
+            await self.overwatcher.notify(
+                "Running the start-up sequence and opening the dome for observing."
+            )
             await self.overwatcher.dome.startup()
 
         self.observe_loop = asyncio.create_task(self.observe_loop_task())
