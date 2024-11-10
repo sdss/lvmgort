@@ -199,6 +199,7 @@ class ObserverOverwatcher(OverwatcherModule):
         observer = self.gort.observer
 
         notify = self.overwatcher.notify
+        ephemeris = self.overwatcher.ephemeris
 
         n_tile_positions = 0
 
@@ -230,6 +231,25 @@ class ObserverOverwatcher(OverwatcherModule):
 
                 for dpos in tile.dither_positions:
                     await self.overwatcher.troubleshooter.wait_until_ready(300)
+
+                    time_to_twilight = ephemeris.time_to_morning_twilight()
+                    if time_to_twilight is not None:
+                        if time_to_twilight < 600:
+                            # If we are within 10 minutes of twilight, we stop
+                            # immediately since we don't have time for another
+                            # exposure.
+                            await notify(
+                                "Daytime has been reached. Ending "
+                                "observations and closing the dome."
+                            )
+                            await self.overwatcher.dome.shutdown(retry=True, park=True)
+                            self.cancel()
+                            break
+                        elif time_to_twilight > 600 and time_to_twilight < 900:
+                            # Take one more exposure and then stop. We don't need
+                            # to do anything here. The main task will cancel the
+                            # loop when daytime is reached.
+                            self.log.info("Taking one last exposure before twilight.")
 
                     # The exposure will complete in 900 seconds + acquisition + readout
                     self.next_exposure_completes = time() + 90 + 900 + 60

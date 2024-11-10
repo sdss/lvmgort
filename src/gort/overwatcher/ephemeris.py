@@ -109,3 +109,15 @@ class EphemerisOverwatcher(OverwatcherModule):
             return False
 
         return float(ephemeris.twilight_end) < now_jd < float(ephemeris.twilight_start)
+
+    def time_to_morning_twilight(self):
+        """Returns the time to morning twilight in seconds."""
+
+        ephemeris = self.ephemeris
+        if not ephemeris:
+            return None
+
+        now = time()
+        twilight_time = Time(ephemeris.twilight_start, format="jd").unix
+
+        return round(twilight_time - now, 2)

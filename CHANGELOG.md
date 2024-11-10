@@ -9,6 +9,7 @@
 ### ✨ Improved
 
 * Add a comment to the night log when a calibration fails.
+* Do not start exposure if we are within 10 minutes of twilight.
 
 ### 🔧 Fixed
 
