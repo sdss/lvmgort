@@ -269,7 +269,7 @@ class PostObservingTask(DailyTaskBase):
         try:
             await self.overwatcher.gort.execute_recipe(
                 "post-observing",
-                send_emal=False,
+                send_email=False,
             )
         except Exception as err:
             await self.overwatcher.notify(
