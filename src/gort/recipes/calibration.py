@@ -38,6 +38,10 @@ class QuickCals(BaseRecipe):
         gort = self.gort
         assert isinstance(gort, Gort)
 
+        specs_idle = await self.gort.specs.are_idle()
+        if not specs_idle:
+            raise RuntimeError("Spectrographs are not idle.")
+
         await gort.cleanup()
 
         gort.log.info("Pointing telescopes to the calibration screen.")
@@ -135,6 +139,10 @@ class BiasSequence(BaseRecipe):
         gort = self.gort
         assert isinstance(gort, Gort)
 
+        specs_idle = await self.gort.specs.are_idle()
+        if not specs_idle:
+            raise RuntimeError("Spectrographs are not idle.")
+
         gort.log.info("Pointing telescopes to the selfie position.")
         await gort.telescopes.goto_named_position("selfie")
 
@@ -190,6 +198,10 @@ class TwilightFlats(BaseRecipe):
 
         if not (await self.gort.enclosure.is_open()):
             raise RuntimeError("Dome must be open to take twilight flats.")
+
+        specs_idle = await self.gort.specs.are_idle()
+        if not specs_idle:
+            raise RuntimeError("Spectrographs are not idle.")
 
         eph = await get_ephemeris_summary()
 
