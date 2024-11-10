@@ -215,8 +215,9 @@ class PreObservingTask(DailyTaskBase):
 class PostObservingTask(DailyTaskBase):
     """Run the post-observing tasks.
 
-    This task is run 30 minutes after sunrise. It runs the post-observing recipe
-    but does not send the email (that is done at 12UT by a cronjon for redundancy).
+    This task is run 15 minutes after morning twilight. It runs the post-observing
+    recipe but does not send the email (that is done at 12UT by a cronjob for
+    redundancy).
 
     The recipe checks that the dome is closed, the telescope is parked, guiders
     are off, etc. It also goes over the calibrations and if a calibration is missing
@@ -236,14 +237,15 @@ class PostObservingTask(DailyTaskBase):
         if not specs_idle:
             return False
 
-        # Run this task 30 minutes after sunrise.
-        now = time.time()
-        sunrise = Time(self.overwatcher.ephemeris.ephemeris.sunrise, format="jd").unix
+        # Time to twilight. This is negative after the twilight has started.
+        time_to_twilight = self.overwatcher.ephemeris.time_to_morning_twilight()
 
+        # Run this task 15 minutes after the morning twilight.
         if (
-            now - sunrise < 0
-            or now - sunrise < 1800
-            or now - sunrise > 2000
+            time_to_twilight is None
+            or time_to_twilight > 0
+            or time_to_twilight > -900
+            or time_to_twilight < -1800
             or self.overwatcher.state.calibrating
             or self.overwatcher.state.observing
         ):
