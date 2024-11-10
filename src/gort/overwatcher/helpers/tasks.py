@@ -178,6 +178,10 @@ class PreObservingTask(DailyTaskBase):
         if self.overwatcher.ephemeris.ephemeris is None:
             return False
 
+        specs_idle = await self.overwatcher.gort.specs.are_idle()
+        if not specs_idle:
+            return False
+
         # Run this task 30 minutes before sunset.
         now = time.time()
         sunset = Time(self.overwatcher.ephemeris.ephemeris.sunset, format="jd").unix
@@ -226,6 +230,10 @@ class PostObservingTask(DailyTaskBase):
         """Returns True if the task should run."""
 
         if self.overwatcher.ephemeris.ephemeris is None:
+            return False
+
+        specs_idle = await self.overwatcher.gort.specs.are_idle()
+        if not specs_idle:
             return False
 
         # Run this task 30 minutes after sunrise.
