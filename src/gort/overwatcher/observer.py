@@ -142,7 +142,7 @@ class ObserverOverwatcher(OverwatcherModule):
         if not self.overwatcher.state.safe:
             raise GortError("Cannot safely open the telescope.")
 
-        await self.overwatcher.write_to_slack("Starting observations.")
+        await self.overwatcher.notify("Starting observations.")
         self._starting_observations = True
 
         if not (await self.overwatcher.dome.is_opening()):
