@@ -23,7 +23,7 @@ from sdsstools import read_yaml_file
 
 from gort.exceptions import OverwatcherError
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
-from gort.tools import cancel_task, redis_client_sync
+from gort.tools import add_night_log_comment, cancel_task, redis_client_sync
 
 
 if TYPE_CHECKING:
@@ -145,6 +145,8 @@ class Calibration:
 
         self.state = CalibrationState.WAITING
 
+        self._task_queue: set[asyncio.Task] = set()
+
     def get_start_time(self) -> tuple[float | None, float | None]:
         """Determines the actual time at which the calibration will start.
 
@@ -226,7 +228,12 @@ class Calibration:
         if self.state in (CalibrationState.DONE, CalibrationState.FAILED):
             return True
 
-    def record_state(self, state: CalibrationState | None = None):
+    def record_state(
+        self,
+        state: CalibrationState | None = None,
+        fail_reason: str = "unespecified reason",
+        add_to_night_log: bool = True,
+    ):
         """Records the state of the calibration in Redis."""
 
         if state is not None:
@@ -235,6 +242,22 @@ class Calibration:
         with redis_client_sync() as redis:
             key = f"overwatcher:calibrations:{self.schedule.sjd}"
             redis.json().set(key, f".{self.name}.state", self.state.name.lower())
+
+        # Add a comment to the night log section for issues indicating the calibration
+        # has failed and the reason for it.
+        if add_to_night_log:
+            if not fail_reason.endswith("."):
+                fail_reason += "."
+
+            task = asyncio.create_task(
+                add_night_log_comment(
+                    f"Calibration {self.name!r} failed. Reason: {fail_reason}"
+                    " See log for more details.",
+                    category="issues",
+                ),
+            )
+            self._task_queue.add(task)
+            task.add_done_callback(self._task_queue.discard)
 
 
 class CalibrationSchedule:
@@ -367,9 +390,12 @@ class CalibrationSchedule:
             if cal.max_start_time is not None and now > cal.max_start_time:
                 await overwatcher.notify(
                     f"Skipping calibration {cal.name!r} as it's too late to start it.",
-                    level="warning",
+                    level="error",
                 )
-                cal.record_state(CalibrationState.FAILED)
+                cal.record_state(
+                    CalibrationState.FAILED,
+                    fail_reason="too late to start the calibration.",
+                )
                 continue
 
             if cal.model.after is not None:
@@ -384,7 +410,7 @@ class CalibrationSchedule:
                     f"Calibration {cal.name!r} has no start time and after is null. "
                     "This should not happen."
                 )
-                cal.record_state(CalibrationState.FAILED)
+                cal.record_state(CalibrationState.FAILED, add_to_night_log=False)
                 continue
 
             # If the calibration start time is too fast in the future even considering
@@ -423,28 +449,40 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
         # then update the schedule.
         await asyncio.sleep(5)
 
+        notify = self.overwatcher.notify
+
         while True:
             next_calibration = await self.module.schedule.get_next()
             allow_calibrations = self.module.overwatcher.state.allow_calibrations
 
             if next_calibration is not None and allow_calibrations:
+                name = next_calibration.name
                 try:
                     self.module._calibration_task = asyncio.create_task(
                         self.module.run_calibration(next_calibration)
                     )
                     await self.module._calibration_task
                 except asyncio.CancelledError:
-                    await self.module.overwatcher.notify(
-                        f"Calibration {next_calibration.name!r} has been cancelled.",
+                    await notify(
+                        f"Calibration {name!r} has been cancelled.",
                         level="warning",
                     )
-                    next_calibration.record_state(CalibrationState.CANCELLED)
+                    next_calibration.record_state(
+                        CalibrationState.CANCELLED,
+                        fail_reason="calibration cancelled by Overwatcher or user.",
+                    )
                 except Exception as ee:
-                    await self.module.overwatcher.notify(
-                        f"Error running calibration {next_calibration.name!r}: {ee}",
+                    await notify(
+                        f"Error running calibration {name!r}: {ee}",
                         level="error",
                     )
-                    next_calibration.record_state(CalibrationState.FAILED)
+                    next_calibration.record_state(
+                        CalibrationState.FAILED, fail_reason=str(ee)
+                    )
+                finally:
+                    if next_calibration.model.close_dome_after:
+                        await notify(f"Closing the dome after calibration {name!r}.")
+                        await self.overwatcher.dome.close()
 
             await asyncio.sleep(10)
 
@@ -512,7 +550,6 @@ class CalibrationsOverwatcher(OverwatcherModule):
         name = calibration.name
         max_start_time = calibration.max_start_time
         dome = calibration.model.dome
-        close_dome_after = calibration.model.close_dome_after
         recipe = calibration.model.recipe
 
         if name in self._ignore_cals:
@@ -558,7 +595,10 @@ class CalibrationsOverwatcher(OverwatcherModule):
                 f"Skipping calibration {name!r} as it's too late to start it.",
                 level="warning",
             )
-            calibration.record_state(CalibrationState.FAILED)
+            calibration.record_state(
+                CalibrationState.FAILED,
+                fail_reason="too late to start the calibration.",
+            )
             return
 
         if self.overwatcher.state.observing:
@@ -578,10 +618,13 @@ class CalibrationsOverwatcher(OverwatcherModule):
 
             if needs_dome_change:
                 if not self.overwatcher.state.safe:
+                    # Fail immediately if the weather is not safe. There is little
+                    # chance that conditions will improve in the next few minutes.
                     await self._fail_calibration(
                         calibration,
                         f"Cannot move dome for {name!r}. Weather is not safe.",
                         level="error",
+                        fail_now=True,
                     )
                     return
 
@@ -609,13 +652,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
                     await self.overwatcher.dome.close()
 
         await notify(f"Running recipe {recipe!r} for calibration {name!r}.")
-
-        try:
-            await self.overwatcher.gort.execute_recipe(recipe)
-        finally:
-            if close_dome_after:
-                await notify(f"Closing the dome after calibration {name!r}.")
-                await self.overwatcher.dome.close()
+        await self.overwatcher.gort.execute_recipe(recipe)
 
         await notify(f"Calibration {name!r} is done.")
 
@@ -653,15 +690,16 @@ class CalibrationsOverwatcher(OverwatcherModule):
         message: str,
         level: NotificationLevel = "error",
         repeat_notifications: bool = False,
+        fail_now: bool = False,
     ):
         """Decides whether to fail a calibration or continue trying."""
 
         name = calibration.name
         max_try_time = calibration.model.max_try_time
 
-        if max_try_time <= 0:
+        if max_try_time <= 0 or fail_now:
             await self.overwatcher.notify(message, level=level)
-            calibration.record_state(CalibrationState.FAILED)
+            calibration.record_state(CalibrationState.FAILED, fail_reason=message)
             return
 
         calibration.record_state(CalibrationState.RETRYING)
@@ -677,7 +715,11 @@ class CalibrationsOverwatcher(OverwatcherModule):
                 "Failing the calibration now.",
                 level=level,
             )
-            calibration.record_state(CalibrationState.FAILED)
+            calibration.record_state(
+                CalibrationState.FAILED,
+                fail_reason="maximum time reached trying to run the calibration. "
+                f"Oringinal error: {message}",
+            )
             self._failing_cals.pop(name)
             return
 

@@ -6,6 +6,10 @@
 
 * [#38](https://github.com/sdss/lvmgort/pull/38) Add a post-observing daily task that runs 30 minutes after sunrise and will do a few check (make sure the dome is closed, park the telescopes, etc.) and retry safe calibrations that failed during the normal sequence.
 
+### ✨ Improved
+
+* Add a comment to the night log when a calibration fails.
+
 ### 🔧 Fixed
 
 * Prevent the Overwatcher observer from opening the dome while calibrations are ongoing.
