@@ -327,12 +327,6 @@ class PostObservingRecipe(BaseRecipe):
     async def recipe(self, send_email: bool = True):
         """Runs the post-observing sequence."""
 
-        from gort.overwatcher.helpers.notifier import BasicNotifier
-
-        notifier = BasicNotifier(self.gort)
-
-        await notifier.notify("Running post-observing tasks.")
-
         tasks = []
 
         closed = await self.gort.enclosure.is_closed()
@@ -347,13 +341,13 @@ class PostObservingRecipe(BaseRecipe):
             try:
                 await task
             except Exception as ee:
-                notifier.log.error(f"Error running post-observing task: {ee}")
+                self.gort.log.error(f"Error running post-observing task: {ee}")
 
         if send_email:
-            notifier.log.info("Sending night log email.")
+            self.gort.log.info("Sending night log email.")
             result = await get_lvmapi_route(self.email_route)
             if not result:
-                notifier.log.warning("Night log had already been sent.")
+                self.gort.log.warning("Night log had already been sent.")
 
         # Disable the overwatcher.
         if await overwatcher_is_running():

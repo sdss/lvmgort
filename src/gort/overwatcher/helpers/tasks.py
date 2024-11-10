@@ -257,6 +257,14 @@ class PostObservingTask(DailyTaskBase):
         notify = self.overwatcher.notify
 
         try:
+            dome_closed = await self.overwatcher.dome.is_closing()
+            if not dome_closed:
+                await notify("Dome was found open. Closing now.")
+                await self.overwatcher.dome.close()
+        except Exception as err:
+            await notify(f"Error closing the dome: {err}", level="critical")
+
+        try:
             await self.overwatcher.gort.execute_recipe(
                 "post-observing",
                 send_emal=False,
