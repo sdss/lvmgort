@@ -216,8 +216,7 @@ class PostObservingTask(DailyTaskBase):
     """Run the post-observing tasks.
 
     This task is run 15 minutes after morning twilight. It runs the post-observing
-    recipe but does not send the email (that is done at 12UT by a cronjob for
-    redundancy).
+    recipe but does not send the email (that is done by a cronjob for redundancy).
 
     The recipe checks that the dome is closed, the telescope is parked, guiders
     are off, etc. It also goes over the calibrations and if a calibration is missing
