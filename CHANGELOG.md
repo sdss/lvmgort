@@ -4,7 +4,7 @@
 
 ### 🚀 New
 
-* [#38](https://github.com/sdss/lvmgort/pull/38) Add a post-observing daily task that runs 30 minutes after sunrise and will do a few check (make sure the dome is closed, park the telescopes, etc.) and retry safe calibrations that failed during the normal sequence.
+* [#38](https://github.com/sdss/lvmgort/pull/38) Add a post-observing daily task that runs 15 minutes after morning twilight and will do a few check (make sure the dome is closed, park the telescopes, etc.) and retry safe calibrations that failed during the normal sequence.
 
 ### ✨ Improved
 
