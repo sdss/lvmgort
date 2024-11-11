@@ -45,7 +45,6 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
         # the loop.
 
         state = self.overwatcher.state
-        notify = self.overwatcher.notify
 
         while True:
             if state.dry_run:
@@ -61,7 +60,7 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
                 try:
                     await self.module.start_observing()
                 except Exception as err:
-                    await notify(
+                    await self.notify(
                         f"An error occurred while starting the observing loop: {err}",
                         level="error",
                     )
@@ -80,7 +79,10 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
                     if time_to_twilight > 0 and time_to_twilight < 300:
                         dome_open = await self.overwatcher.dome.is_opening()
                         if not dome_open:
-                            await notify("Opening the dome for observing.")
+                            await self.notify(
+                                "Running the start-up sequence and "
+                                "opening the dome for observing."
+                            )
                             await self.overwatcher.dome.startup()
 
             await asyncio.sleep(1)
@@ -142,13 +144,11 @@ class ObserverOverwatcher(OverwatcherModule):
         if not self.overwatcher.state.safe:
             raise GortError("Cannot safely open the telescope.")
 
-        await self.overwatcher.notify("Starting observations.")
+        await self.notify("Starting observations.")
         self._starting_observations = True
 
         if not (await self.overwatcher.dome.is_opening()):
-            await self.overwatcher.notify(
-                "Running the start-up sequence and opening the dome for observing."
-            )
+            await self.notify("Running the start-up sequence and opening the dome.")
             await self.overwatcher.dome.startup()
 
         self.observe_loop = asyncio.create_task(self.observe_loop_task())
@@ -162,6 +162,8 @@ class ObserverOverwatcher(OverwatcherModule):
     ):
         """Stops observations."""
 
+        notify = self.overwatcher.notify
+
         if self.overwatcher.state.dry_run:
             return
 
@@ -174,9 +176,7 @@ class ObserverOverwatcher(OverwatcherModule):
             reason += "."
 
         if immediate:
-            await self.overwatcher.notify(
-                f"Stopping observations immediately. Reason: {reason}"
-            )
+            await notify(f"Stopping observations immediately. Reason: {reason}")
             self.observe_loop = await cancel_task(self.observe_loop)
 
             # The guiders may have been left running or the spectrograph may still
@@ -184,9 +184,7 @@ class ObserverOverwatcher(OverwatcherModule):
             await self.gort.cleanup(readout=False)
 
         else:
-            await self.overwatcher.notify(
-                f"Stopping observations after this tile. Reason: {reason}"
-            )
+            await notify(f"Stopping observations after this tile. Reason: {reason}")
 
         if block and self.observe_loop and not self.observe_loop.done():
             await self.observe_loop
@@ -198,7 +196,6 @@ class ObserverOverwatcher(OverwatcherModule):
         await self.gort.cleanup(readout=True)
         observer = self.gort.observer
 
-        notify = self.overwatcher.notify
         ephemeris = self.overwatcher.ephemeris
 
         n_tile_positions = 0
@@ -226,7 +223,7 @@ class ObserverOverwatcher(OverwatcherModule):
                 # Focus when the loop starts or every 1 hour or at the beginning
                 # of the loop.
                 if n_tile_positions == 0 or focus_age is None or focus_age > 3600.0:
-                    await notify("Focusing telescopes.")
+                    await self.notify("Focusing telescopes.")
                     await self.gort.guiders.focus()
 
                 for dpos in tile.dither_positions:
@@ -238,7 +235,7 @@ class ObserverOverwatcher(OverwatcherModule):
                             # If we are within 10 minutes of twilight, we stop
                             # immediately since we don't have time for another
                             # exposure.
-                            await notify(
+                            await self.notify(
                                 "Daytime has been reached. Ending "
                                 "observations and closing the dome."
                             )
@@ -277,7 +274,7 @@ class ObserverOverwatcher(OverwatcherModule):
                 break
 
             except TroubleshooterTimeoutError:
-                await notify(
+                await self.notify(
                     "The troubleshooter timed out after 300 seconds. "
                     "Cancelling observations.",
                     level="critical",
@@ -300,4 +297,4 @@ class ObserverOverwatcher(OverwatcherModule):
 
         await self.gort.cleanup(readout=False)
 
-        await notify("The observing loop has ended.")
+        await self.notify("The observing loop has ended.")

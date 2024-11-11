@@ -175,6 +175,7 @@ class DomeHelper:
 
             await self.overwatcher.notify("Opening the dome ...")
             await self._move(status, open=True, park=park)
+            await self.overwatcher.notify("Done is now open.")
 
     async def close(self, park: bool = True, retry: bool = False):
         """Closes the dome."""
@@ -201,6 +202,7 @@ class DomeHelper:
                 park=park,
                 retry_without_parking=retry,
             )
+            await self.overwatcher.notify("Done is now closed.")
 
     async def stop(self):
         """Stops the dome."""
