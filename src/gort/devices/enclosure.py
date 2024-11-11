@@ -249,7 +249,7 @@ class Enclosure(GortDevice):
             await self.close(park_telescopes=False, force=force)
 
         self.write_to_log("Enclosure is now closed.", level="info")
-        await notify_event(Event.DOME_CLOSING)
+        await notify_event(Event.DOME_CLOSED)
 
     async def is_open(self):
         """Returns :obj:`True` if the enclosure is open."""
