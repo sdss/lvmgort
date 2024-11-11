@@ -133,6 +133,12 @@ class OverwatcherModuleTask(OverwatcherBaseTask, Generic[OverwatcherModule_T]):
 
         return self.module.log
 
+    @property
+    def notify(self):
+        """Returns the Overwatcher notifier."""
+
+        return self.module.overwatcher.notify
+
     async def run(self, module: OverwatcherModule_T):
         """Runs the task."""
 
@@ -164,6 +170,7 @@ class OverwatcherModule:
 
         self.overwatcher = overwatcher
         self.gort = overwatcher.gort
+        self.notify = overwatcher.notify
 
         self.is_running: bool = False
 
