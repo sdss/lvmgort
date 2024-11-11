@@ -178,10 +178,7 @@ class ShutdownRecipe(BaseRecipe):
             if disable_overwatcher:
                 self.gort.log.info("Disabling the overwatcher.")
                 group.create_task(
-                    self.gort.send_command(
-                        "lvm.overwatcher",
-                        "disable --now",
-                    )
+                    self.gort.send_command("lvm.overwatcher", "disable --now")
                 )
 
         if park_telescopes:
@@ -305,6 +302,12 @@ class PreObservingRecipe(BaseRecipe):
 
         for task in tasks:
             await task
+
+        # Take a dark for the AG cameras here. This is not the ideal time to do it
+        # because there's still light, but we want to be sure we have a dark in case
+        # something weird happens and the startup recipe is not run before observing.
+        # The telescopes are at park and guider.take_darks() uses that position.
+        await self.gort.guiders.take_darks()
 
 
 class PostObservingRecipe(BaseRecipe):

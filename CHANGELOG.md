@@ -2,6 +2,10 @@
 
 ## Next version
 
+### ✨ Improved
+
+* Take AG darks during the pre-observing task.
+
 ### 🔧 Fixed
 
 * Prevent the calibrations module from trying to close the dome when a calibration is retrying.
