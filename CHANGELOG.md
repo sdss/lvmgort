@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### 🔧 Fixed
+
+* Prevent the calibrations module from trying to close the dome when a calibration is retrying.
+
+
 ## 1.1.1 - November 10, 2024
 
 ### 🚀 New
