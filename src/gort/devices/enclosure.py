@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from gort.enums import Event
 from gort.exceptions import ErrorCode, GortEnclosureError, GortTelescopeError
 from gort.gort import Gort, GortClient, GortDevice, GortDeviceSet
+from gort.tools import async_noop
 
 
 if TYPE_CHECKING:
@@ -160,6 +161,11 @@ class Enclosure(GortDevice):
 
         """
 
+        if isinstance(self.gort, Gort):
+            notify_event = self.gort.notify_event
+        else:
+            notify_event = async_noop
+
         is_local = await self.is_local()
         if is_local:
             raise GortEnclosureError(
@@ -172,12 +178,12 @@ class Enclosure(GortDevice):
 
         self.write_to_log("Opening the enclosure ...", level="info")
 
-        if isinstance(self.gort, Gort):
-            await self.gort.notify_event(Event.DOME_OPENING)
+        await notify_event(Event.DOME_OPENING)
 
         await self.actor.commands.dome.commands.open()
 
         self.write_to_log("Enclosure is now open.", level="info")
+        await notify_event(Event.DOME_OPEN)
 
     async def close(
         self,
@@ -200,6 +206,11 @@ class Enclosure(GortDevice):
             try again without parking the telescopes.
 
         """
+
+        if isinstance(self.gort, Gort):
+            notify_event = self.gort.notify_event
+        else:
+            notify_event = async_noop
 
         is_local = await self.is_local()
         if is_local:
@@ -226,8 +237,7 @@ class Enclosure(GortDevice):
 
         self.write_to_log("Closing the enclosure ...", level="info")
         try:
-            if isinstance(self.gort, Gort):
-                await self.gort.notify_event(Event.DOME_CLOSING)
+            await notify_event(Event.DOME_CLOSING)
 
             await self.actor.commands.dome.commands.close(force=force)
         except Exception as err:
@@ -239,6 +249,7 @@ class Enclosure(GortDevice):
             await self.close(park_telescopes=False, force=force)
 
         self.write_to_log("Enclosure is now closed.", level="info")
+        await notify_event(Event.DOME_CLOSING)
 
     async def is_open(self):
         """Returns :obj:`True` if the enclosure is open."""

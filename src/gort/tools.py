@@ -90,6 +90,7 @@ __all__ = [
     "kubernetes_list_deployments",
     "get_gort_client",
     "add_night_log_comment",
+    "async_noop",
 ]
 
 AnyPath = str | os.PathLike
@@ -1026,3 +1027,9 @@ async def add_night_log_comment(comment: str, category: str = "other"):
         code = response.status_code
         if code != 200:
             raise ValueError(f"Failed adding night log comment. Code {code}.")
+
+
+async def async_noop(*args, **kwargs):
+    """A no-op coroutine."""
+
+    return None

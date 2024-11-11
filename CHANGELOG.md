@@ -6,6 +6,7 @@
 
 * Take AG darks during the pre-observing task.
 * Add `retry_without_parking` option to the shutdown recipe.
+* Emit events for dome opening and closing and report them as notifications.
 
 ### 🔧 Fixed
 

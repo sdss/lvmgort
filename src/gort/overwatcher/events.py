@@ -69,6 +69,18 @@ class MonitorEvents(OverwatcherModuleTask["EventsOverwatcher"]):
                     f"position #{dither_position}."
                 )
 
+        elif event == Event.DOME_OPENING:
+            await self.overwatcher.notify("The dome is opening ...")
+
+        elif event == Event.DOME_OPEN:
+            await self.overwatcher.notify("The dome is now open.")
+
+        elif event == Event.DOME_CLOSING:
+            await self.overwatcher.notify("The dome is closing ...")
+
+        elif event == Event.DOME_CLOSED:
+            await self.overwatcher.notify("The dome is now closed.")
+
     def write_to_db(self, event: Event, payload: dict):
         """Writes the event to the database."""
 
