@@ -330,7 +330,7 @@ class Overwatcher(NotifierMixIn):
 
         self.state.running = True
         await self.notify(
-            "Overwatcher is starting.",
+            "Overwatcher is now running.",
             payload={"dry-run": self.state.dry_run},
         )
 
