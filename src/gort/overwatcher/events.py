@@ -81,6 +81,9 @@ class MonitorEvents(OverwatcherModuleTask["EventsOverwatcher"]):
         elif event == Event.DOME_CLOSED:
             await self.overwatcher.notify("The dome is now closed.")
 
+        elif event == Event.EMERGENCY_SHUTDOWN:
+            await self.overwatcher.notify("An emergency shutdown was triggered.")
+
     def write_to_db(self, event: Event, payload: dict):
         """Writes the event to the database."""
 
