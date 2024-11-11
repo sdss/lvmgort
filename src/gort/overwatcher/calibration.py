@@ -225,7 +225,11 @@ class Calibration:
     def is_finished(self):
         """Returns ``True`` if the calibration is done or has failed."""
 
-        if self.state in (CalibrationState.DONE, CalibrationState.FAILED):
+        if self.state in (
+            CalibrationState.DONE,
+            CalibrationState.FAILED,
+            CalibrationState.CANCELLED,
+        ):
             return True
 
     def record_state(
@@ -251,7 +255,7 @@ class Calibration:
 
             task = asyncio.create_task(
                 add_night_log_comment(
-                    f"Calibration {self.name!r} failed. Reason: {fail_reason}"
+                    f"Calibration {self.name} failed. Reason: {fail_reason}"
                     " See log for more details.",
                     category="issues",
                 ),
@@ -389,7 +393,7 @@ class CalibrationSchedule:
             # If it's too late to start the calibration, skip it.
             if cal.max_start_time is not None and now > cal.max_start_time:
                 await overwatcher.notify(
-                    f"Skipping calibration {cal.name!r} as it's too late to start it.",
+                    f"Skipping calibration {cal.name} as it's too late to start it.",
                     level="error",
                 )
                 cal.record_state(
@@ -407,7 +411,7 @@ class CalibrationSchedule:
                     return cal
 
                 self.log.warning(
-                    f"Calibration {cal.name!r} has no start time and after is null. "
+                    f"Calibration {cal.name} has no start time and after is null. "
                     "This should not happen."
                 )
                 cal.record_state(CalibrationState.FAILED, add_to_night_log=False)
@@ -464,7 +468,7 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
                     await self.module._calibration_task
                 except asyncio.CancelledError:
                     await notify(
-                        f"Calibration {name!r} has been cancelled.",
+                        f"Calibration {name} has been cancelled.",
                         level="warning",
                     )
                     next_calibration.record_state(
@@ -473,16 +477,19 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
                     )
                 except Exception as ee:
                     await notify(
-                        f"Error running calibration {name!r}: {ee}",
+                        f"Error running calibration {name}: {ee}",
                         level="error",
                     )
                     next_calibration.record_state(
-                        CalibrationState.FAILED, fail_reason=str(ee)
+                        CalibrationState.FAILED,
+                        fail_reason=str(ee),
                     )
                 finally:
-                    if next_calibration.model.close_dome_after:
-                        await notify(f"Closing the dome after calibration {name!r}.")
-                        await self.overwatcher.dome.close()
+                    if next_calibration.is_finished():
+                        dome_closed = await self.module.overwatcher.dome.is_closing()
+                        if next_calibration.model.close_dome_after and not dome_closed:
+                            await notify(f"Closing the dome after calibration {name}.")
+                            await self.overwatcher.dome.close()
 
             await asyncio.sleep(10)
 
@@ -556,7 +563,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
             return
 
         if self.overwatcher.state.dry_run:
-            self.log.warning(f"Dry-run mode. Not running calibration {name!r}.")
+            self.log.warning(f"Dry-run mode. Not running calibration {name}.")
             self._ignore_cals.add(name)
             return
 
@@ -564,14 +571,14 @@ class CalibrationsOverwatcher(OverwatcherModule):
         if running_cal is not None:
             await self._fail_calibration(
                 calibration,
-                f"Cannot run {name!r}. A calibration is already running!",
+                f"Cannot run {name}. A calibration is already running!",
                 level="warning",
             )
             return
 
         if calibration.state == CalibrationState.RUNNING:
             self.log.warning(
-                f"Calibration {name!r} is recorded as running but it is not. "
+                f"Calibration {name} is recorded as running but it is not. "
                 "Setting its status to WAITING."
             )
             calibration.record_state(CalibrationState.WAITING)
@@ -579,20 +586,20 @@ class CalibrationsOverwatcher(OverwatcherModule):
         if not self.overwatcher.state.allow_calibrations:
             await self._fail_calibration(
                 calibration,
-                f"Cannot run {name!r}. Calibrations are disabled.",
+                f"Cannot run {name}. Calibrations are disabled.",
                 level="error",
             )
             return
 
         if name not in self._failing_cals:
-            await notify(f"Running calibration {name!r}.")
+            await notify(f"Running calibration {name}.")
 
         calibration.record_state(CalibrationState.RUNNING)
 
         now = time.time()
         if max_start_time is not None and now > max_start_time:
             await notify(
-                f"Skipping calibration {name!r} as it's too late to start it.",
+                f"Skipping calibration {name} as it's too late to start it.",
                 level="warning",
             )
             calibration.record_state(
@@ -622,7 +629,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
                     # chance that conditions will improve in the next few minutes.
                     await self._fail_calibration(
                         calibration,
-                        f"Cannot move dome for {name!r}. Weather is not safe.",
+                        f"Cannot move dome for {name}. Weather is not safe.",
                         level="error",
                         fail_now=True,
                     )
@@ -631,7 +638,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
                 if not self.overwatcher.state.enabled:
                     await self._fail_calibration(
                         calibration,
-                        f"Cannot move dome for {name!r}. Overwatcher is disabled.",
+                        f"Cannot move dome for {name}. Overwatcher is disabled.",
                         level="error",
                     )
                     return
@@ -639,22 +646,22 @@ class CalibrationsOverwatcher(OverwatcherModule):
                 if dome == "open" and not self.overwatcher.state.safe:
                     await self._fail_calibration(
                         calibration,
-                        f"Cannot move dome for {name!r}. Weather is not safe.",
+                        f"Cannot move dome for {name}. Weather is not safe.",
                         level="warning",
                     )
                     return
 
                 if dome == "open" and not dome_current:
-                    await notify(f"Opening the dome for calibration {name!r}.")
+                    await notify(f"Opening the dome for calibration {name}.")
                     await self.overwatcher.dome.open()
                 elif dome == "closed" and dome_current:
-                    await notify(f"Closing the dome for calibration {name!r}.")
+                    await notify(f"Closing the dome for calibration {name}.")
                     await self.overwatcher.dome.close()
 
-        await notify(f"Running recipe {recipe!r} for calibration {name!r}.")
+        await notify(f"Running recipe {recipe!r} for calibration {name}.")
         await self.overwatcher.gort.execute_recipe(recipe)
 
-        await notify(f"Calibration {name!r} is done.")
+        await notify(f"Calibration {name} is done.")
 
         if name in self._failing_cals:
             self._failing_cals.pop(name)
@@ -681,7 +688,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
             # Ensure we close the dome. This is allowed even
             # if the overwatcher is disabled.
             if running_calibration.model.close_dome_after:
-                await notify(f"Closing the dome after calibration {name!r}.")
+                await notify(f"Closing the dome after calibration {name}.")
                 await self.overwatcher.dome.close()
 
     async def _fail_calibration(
@@ -711,7 +718,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
 
         if time.time() - self._failing_cals[name] > max_try_time:
             await self.overwatcher.notify(
-                f"Maximum try time reached for calibration {name!r}. "
+                f"Maximum try time reached for calibration {name}. "
                 "Failing the calibration now.",
                 level=level,
             )
