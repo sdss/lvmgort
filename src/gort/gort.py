@@ -29,6 +29,7 @@ from typing import (
     TypeVar,
 )
 
+from lvmopstools.retrier import Retrier
 from packaging.version import Version
 from rich import pretty, traceback
 from rich.logging import RichHandler
@@ -675,15 +676,30 @@ class Gort(GortClient):
                 )
                 await notify_event(event)
 
-    async def emergency_close(self):
+    @Retrier(max_attempts=3, delay=3)
+    async def emergency_shutdown(self):
         """Parks and closes the telescopes."""
 
-        tasks = []
-        tasks.append(self.telescopes.park(disable=True))
-        tasks.append(self.enclosure.close(force=True, retry_without_parking=True))
+        self.log.warning("Emergency shutdown initiated.")
+        await self.notify_event(Event.EMERGENCY_SHUTDOWN)
 
-        self.log.warning("Closing and parking telescopes.")
-        await asyncio.gather(*tasks)
+        try:
+            await self.shutdown(
+                park_telescopes=True,
+                disable_overwatcher=True,
+                retry_without_parking=True,
+                show_message=False,
+            )
+
+        except Exception as err:
+            self.log.error(f"Failed to shutdown: {err!r}")
+            self.log.warning("Trying to just close the dome.")
+
+            await self.enclosure.close(
+                park_telescopes=True,
+                force=True,
+                retry_without_parking=True,
+            )
 
     async def observe(
         self,

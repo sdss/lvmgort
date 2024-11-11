@@ -150,6 +150,7 @@ class Event(UpperStrEnum):
     DOME_OPEN = auto()
     DOME_CLOSING = auto()
     DOME_CLOSED = auto()
+    EMERGENCY_SHUTDOWN = auto()
     UNCATEGORISED = auto()
 
 

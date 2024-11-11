@@ -144,6 +144,7 @@ class ShutdownRecipe(BaseRecipe):
         additional_close: bool = False,
         disable_overwatcher: bool = False,
         retry_without_parking: bool = False,
+        show_message: bool = True,
     ):
         """Shutdown the telescope, closes the dome, etc.
 
@@ -164,6 +165,9 @@ class ShutdownRecipe(BaseRecipe):
         retry_without_parking
             If the dome fails to park the telescopes before closing the dome, retries
             without parking the telescopes.
+        show_message
+            If :obj:`True`, shows a message with instructions on how to confirm
+            the dome is closed.
 
         """
 
@@ -196,7 +200,8 @@ class ShutdownRecipe(BaseRecipe):
             await asyncio.sleep(5)
             await self.gort.enclosure.close(force=True)
 
-        self.gort.log.warning(SHUTDOWN_MESSAGE)
+        if show_message:
+            self.gort.log.warning(SHUTDOWN_MESSAGE)
 
 
 class CleanupRecipe(BaseRecipe):
