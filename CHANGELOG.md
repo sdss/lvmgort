@@ -11,6 +11,7 @@
 ### 🔧 Fixed
 
 * Prevent the calibrations module from trying to close the dome when a calibration is retrying.
+* Prevent a case in which failing to park the telescopes could have caused the dome to not be closed even if `retry_without_parking` was set to `True`.
 
 
 ## 1.1.1 - November 10, 2024

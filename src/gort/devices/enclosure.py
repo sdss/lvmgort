@@ -177,7 +177,6 @@ class Enclosure(GortDevice):
             await self._prepare_telescopes()
 
         self.write_to_log("Opening the enclosure ...", level="info")
-
         await notify_event(Event.DOME_OPENING)
 
         await self.actor.commands.dome.commands.open()
@@ -219,27 +218,28 @@ class Enclosure(GortDevice):
                 error_code=ErrorCode.LOCAL_MODE_FAILED,
             )
 
-        if park_telescopes:
-            try:
-                await self._prepare_telescopes(force=force)
-            except Exception as err:
-                self.write_to_log(
-                    f"Failed determining the status of the telescopes: {err}",
-                    "warning",
-                )
-                if force is False:
-                    raise GortEnclosureError(
-                        "Not closing without knowing where the telescopes are. "
-                        "If you really need to close call again with force=True."
-                    )
-                else:
-                    self.write_to_log("Closing anyway because force=True", "warning")
+        self.write_to_log("Closing the dome ...", level="info")
+        await notify_event(Event.DOME_CLOSING)
 
-        self.write_to_log("Closing the enclosure ...", level="info")
         try:
-            await notify_event(Event.DOME_CLOSING)
+            if park_telescopes:
+                try:
+                    await self._prepare_telescopes(force=force)
+                except Exception as err:
+                    self.write_to_log(
+                        f"Failed determining the status of the telescopes: {err}",
+                        "warning",
+                    )
+                    if force is False:
+                        raise GortEnclosureError(
+                            "Not closing without knowing where the telescopes are. "
+                            "If you really need to close call again with force=True."
+                        )
+                    else:
+                        self.write_to_log("Closing because force=True", "warning")
 
             await self.actor.commands.dome.commands.close(force=force)
+
         except Exception as err:
             if retry_without_parking is False or park_telescopes is False:
                 raise
