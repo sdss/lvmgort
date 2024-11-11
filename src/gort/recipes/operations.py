@@ -143,6 +143,7 @@ class ShutdownRecipe(BaseRecipe):
         park_telescopes: bool = True,
         additional_close: bool = False,
         disable_overwatcher: bool = False,
+        retry_without_parking: bool = False,
     ):
         """Shutdown the telescope, closes the dome, etc.
 
@@ -160,6 +161,9 @@ class ShutdownRecipe(BaseRecipe):
             sometimes.
         disable_overwatcher
             If :obj:`True`, disables the Overwatcher.
+        retry_without_parking
+            If the dome fails to park the telescopes before closing the dome, retries
+            without parking the telescopes.
 
         """
 
@@ -173,7 +177,9 @@ class ShutdownRecipe(BaseRecipe):
             group.create_task(self.gort.guiders.stop())
 
             self.gort.log.info("Closing the dome.")
-            group.create_task(self.gort.enclosure.close())
+            group.create_task(
+                self.gort.enclosure.close(retry_without_parking=retry_without_parking)
+            )
 
             if disable_overwatcher:
                 self.gort.log.info("Disabling the overwatcher.")
