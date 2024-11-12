@@ -280,6 +280,7 @@ class Overwatcher(NotifierMixIn):
             EventsOverwatcher,
             ObserverOverwatcher,
             SafetyOverwatcher,
+            TransparencyOverwatcher,
         )
 
         # Check if the instance already exists, in which case do nothing.
@@ -308,6 +309,7 @@ class Overwatcher(NotifierMixIn):
         self.calibrations = CalibrationsOverwatcher(self, calibrations_file)
         self.observer = ObserverOverwatcher(self)
         self.alerts = AlertsOverwatcher(self)
+        self.transparency = TransparencyOverwatcher(self)
         self.events = EventsOverwatcher(self)
 
     async def run(self):
