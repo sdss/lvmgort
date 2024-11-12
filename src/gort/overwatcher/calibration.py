@@ -624,6 +624,23 @@ class CalibrationsOverwatcher(OverwatcherModule):
             needs_dome_change = dome_new != dome_current
 
             if needs_dome_change:
+                if await self.overwatcher.dome.is_moving():
+                    try:
+                        await notify("The dome is moving. Waiting for it to stop.")
+                        await asyncio.wait_for(
+                            self.overwatcher.dome.wait_until_idle(),
+                            timeout=180,
+                        )
+                    except asyncio.TimeoutError:
+                        await self._fail_calibration(
+                            calibration,
+                            f"Cannot move dome for calibration {name}. "
+                            "Dome is still moving after 3 minutes.",
+                            level="error",
+                            fail_now=True,
+                        )
+                        return
+
                 if not self.overwatcher.state.safe:
                     # Fail immediately if the weather is not safe. There is little
                     # chance that conditions will improve in the next few minutes.

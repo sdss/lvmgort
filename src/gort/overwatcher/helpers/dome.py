@@ -95,6 +95,22 @@ class DomeHelper:
 
         return False
 
+    async def is_moving(self):
+        """Returns True if the dome is moving."""
+
+        status = await self.status()
+
+        if status & DomeStatus.MOVING:
+            return True
+
+        return False
+
+    async def wait_until_idle(self):
+        """Waits until the dome is idle."""
+
+        while await self.is_moving():
+            await asyncio.sleep(5)
+
     @Retrier(max_attempts=2, delay=5)
     async def _move_with_retries(
         self,
