@@ -1250,6 +1250,7 @@ class Standards:
             self.observer.write_to_log(
                 f"Standard #{self.current_standard} on "
                 f"{new_mask_position!r} has been acquired."
+                "info",
             )
 
             # Move mask to uncover fibre.
