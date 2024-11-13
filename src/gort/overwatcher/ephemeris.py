@@ -51,17 +51,16 @@ class EphemerisMonitorTask(OverwatcherModuleTask["EphemerisOverwatcher"]):
         """Monitors SJD change and keeps ephemeris updated."""
 
         while True:
-            self.log.debug("Updating LCO ephemeris.")
+            current_sjd = get_sjd("LCO")
 
-            new_sjd = get_sjd("LCO")
-
-            if self.module.ephemeris is None or new_sjd != self.sjd:
-                self.sjd = new_sjd
-
-                new_ephemeris = await self.module.update_ephemeris(new_sjd)
+            if self.module.ephemeris is None or current_sjd != self.module.sjd:
+                new_ephemeris = await self.module.update_ephemeris(current_sjd)
                 if new_ephemeris is None:
                     await asyncio.sleep(60)
                     continue
+
+                self.log.info(f"New SJD: updating ephemeris for {current_sjd}.")
+                self.module.sjd = current_sjd
 
                 await self.overwatcher.calibrations.reset()
 
@@ -91,7 +90,10 @@ class EphemerisOverwatcher(OverwatcherModule):
             ephemeris_response = await get_ephemeris_summary(sjd)
             self.ephemeris = EphemerisModel(**ephemeris_response)
         except Exception as err:
-            self.log.error(f"Failed getting ephemeris data: {err!r}")
+            await self.notify(
+                f"Failed getting ephemeris data for {sjd}: {err!r}",
+                level="error",
+            )
         else:
             self.last_updated = time()
             return self.ephemeris
