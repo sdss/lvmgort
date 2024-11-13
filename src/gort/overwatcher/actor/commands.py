@@ -32,6 +32,7 @@ async def status(command: OverwatcherCommand):
     return command.finish(
         message={
             "status": {
+                "sjd": overwatcher.ephemeris.sjd,
                 "running": True,
                 "enabled": overwatcher.state.enabled,
                 "observing": overwatcher.state.observing,
@@ -146,7 +147,7 @@ async def list(command: OverwatcherCommand):
             }
         )
 
-    return command.finish(calibrations=response)
+    return command.finish(calibrations_sjd=schedule.sjd, calibrations=response)
 
 
 @calibrations.command()

@@ -5,6 +5,7 @@
     "status": {
       "type": "object",
       "properties": {
+        "sjd": { "type": "number" },
         "enabled": { "type": "boolean" },
         "observing": { "type": "boolean" },
         "calibrating": { "type": "boolean" },
@@ -14,6 +15,7 @@
         "dry_run": { "type": "boolean" }
       }
     },
+    "calibrations_sjd": { "type": "number" },
     "calibrations": {
       "type": "array",
       "items": {
