@@ -6,6 +6,7 @@
 
 * Roll over the GORT log when the SJD changes.
 * Improve the logic handling how the Overwatcher observer decides when to open or close the dome near evening or morning twilight.
+* Run a clean-up first in pre-observing in case the spectrographs are not in a good state.
 
 ### 🔧 Fixed
 
