@@ -5,6 +5,7 @@
 ### ✨ Improved
 
 * Roll over the GORT log when the SJD changes.
+* Improve the logic handling how the Overwatcher observer decides when to open or close the dome near evening or morning twilight.
 
 ### 🔧 Fixed
 

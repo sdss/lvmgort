@@ -37,6 +37,8 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
     keep_alive = False
     restart_on_error = True
 
+    interval: float = 1
+
     async def task(self):
         """Handles whether we should start the observing loop."""
 
@@ -46,7 +48,12 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
 
         state = self.overwatcher.state
 
+        OPEN_DOME_SECS_BEFORE_TWILIGHT = self.module.OPEN_DOME_SECS_BEFORE_TWILIGHT
+        STOP_SECS_BEFORE_MORNING = self.module.STOP_SECS_BEFORE_MORNING
+
         while True:
+            ephemeris = self.overwatcher.ephemeris.ephemeris
+
             if state.dry_run:
                 pass
 
@@ -56,7 +63,20 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
             elif not state.enabled:
                 pass
 
+            elif not ephemeris:
+                pass
+
             elif state.safe and state.night:
+                # Not open within STOP_SECS_BEFORE_MORNING minutes of morning twilight.
+
+                now = time()
+                morning_twilight = Time(ephemeris.twilight_start, format="jd").unix
+                time_to_morning_twilight = morning_twilight - now
+
+                if time_to_morning_twilight < STOP_SECS_BEFORE_MORNING:
+                    await asyncio.sleep(self.interval)
+                    continue
+
                 try:
                     await self.module.start_observing()
                 except Exception as err:
@@ -67,25 +87,22 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
                     await asyncio.sleep(15)
 
             elif state.safe and not state.night and not state.calibrating:
-                ephemeris = self.overwatcher.ephemeris.ephemeris
+                # Open the dome OPEN_DOME_SECS_BEFORE_TWILIGHT before evening twilight.
 
-                if ephemeris:
-                    now = time()
-                    twilight_time = Time(ephemeris.twilight_end, format="jd").unix
+                now = time()
+                evening_twilight = Time(ephemeris.twilight_end, format="jd").unix
+                time_to_evening_twilight = evening_twilight - now
 
-                    time_to_twilight = twilight_time - now
+                if time_to_evening_twilight < OPEN_DOME_SECS_BEFORE_TWILIGHT:
+                    dome_open = await self.overwatcher.dome.is_opening()
+                    if not dome_open:
+                        await self.notify(
+                            "Running the start-up sequence and "
+                            "opening the dome for observing."
+                        )
+                        await self.overwatcher.dome.startup()
 
-                    # Open the dome 5 minutes before twilight.
-                    if time_to_twilight > 0 and time_to_twilight < 300:
-                        dome_open = await self.overwatcher.dome.is_opening()
-                        if not dome_open:
-                            await self.notify(
-                                "Running the start-up sequence and "
-                                "opening the dome for observing."
-                            )
-                            await self.overwatcher.dome.startup()
-
-            await asyncio.sleep(1)
+            await asyncio.sleep(self.interval)
 
 
 class ObserverOverwatcher(OverwatcherModule):
@@ -93,6 +110,9 @@ class ObserverOverwatcher(OverwatcherModule):
     delay = 5
 
     tasks = [ObserverMonitorTask()]
+
+    OPEN_DOME_SECS_BEFORE_TWILIGHT: float = 300
+    STOP_SECS_BEFORE_MORNING: float = 600
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -104,7 +124,7 @@ class ObserverOverwatcher(OverwatcherModule):
         self._cancelling: bool = False
 
     @property
-    def is_observing(self):
+    def is_observing(self) -> bool:
         """Returns whether the observer is currently observing."""
 
         if self._starting_observations:
@@ -113,7 +133,7 @@ class ObserverOverwatcher(OverwatcherModule):
         return self.observe_loop is not None and not self.observe_loop.done()
 
     @property
-    def is_cancelling(self):
+    def is_cancelling(self) -> bool:
         """Returns whether the observer is currently cancelling."""
 
         if not self.is_observing:
@@ -152,6 +172,8 @@ class ObserverOverwatcher(OverwatcherModule):
             await self.overwatcher.dome.startup()
 
         self.observe_loop = asyncio.create_task(self.observe_loop_task())
+
+        await asyncio.sleep(1)
         self._starting_observations = False
 
     async def stop_observing(
@@ -196,12 +218,10 @@ class ObserverOverwatcher(OverwatcherModule):
         await self.gort.cleanup(readout=True)
         observer = self.gort.observer
 
-        ephemeris = self.overwatcher.ephemeris
-
         n_tile_positions = 0
 
         while True:
-            exp: Exposure | list[Exposure] | bool = False
+            exp: Exposure | bool = False
 
             try:
                 # Wait in case the troubleshooter is doing something.
@@ -229,29 +249,22 @@ class ObserverOverwatcher(OverwatcherModule):
                 for dpos in tile.dither_positions:
                     await self.overwatcher.troubleshooter.wait_until_ready(300)
 
-                    time_to_twilight = ephemeris.time_to_morning_twilight()
-                    if time_to_twilight is not None:
-                        if time_to_twilight < 600:
-                            # If we are within 10 minutes of twilight, we stop
-                            # immediately since we don't have time for another
-                            # exposure.
-                            await self.notify(
-                                "Daytime has been reached. Ending "
-                                "observations and closing the dome."
-                            )
-                            await self.overwatcher.dome.shutdown(retry=True, park=True)
-                            self.cancel()
-                            break
-                        elif time_to_twilight > 600 and time_to_twilight < 900:
-                            # Take one more exposure and then stop. We don't need
-                            # to do anything here. The main task will cancel the
-                            # loop when daytime is reached.
-                            self.log.info("Taking one last exposure before twilight.")
+                    if not self.check_twilight():
+                        await self.notify(
+                            "Morning twilight will be reached before the next "
+                            "exposure ends. Finishing the observing loop and "
+                            "closing now."
+                        )
+
+                        await self.overwatcher.dome.shutdown(retry=True, park=True)
+
+                        self.cancel()
+                        break
 
                     # The exposure will complete in 900 seconds + acquisition + readout
                     self.next_exposure_completes = time() + 90 + 900 + 60
 
-                    result, _ = await observer.observe_tile(
+                    result, exps = await observer.observe_tile(
                         tile=tile,
                         dither_position=dpos,
                         async_readout=True,
@@ -266,6 +279,9 @@ class ObserverOverwatcher(OverwatcherModule):
 
                     if not result and not self.is_cancelling:
                         raise GortError("The observation ended with error state.")
+
+                    if result and len(exps) > 0:
+                        exp = exps[0]
 
                     if self.is_cancelling:
                         break
@@ -285,16 +301,32 @@ class ObserverOverwatcher(OverwatcherModule):
                 await self.overwatcher.troubleshooter.handle(err)
 
             finally:
+                self.exposure_completes = 0
+
                 if self.is_cancelling:
-                    self.log.warning("Cancelling observations.")
                     try:
-                        if exp and isinstance(exp[0], Exposure):
-                            await asyncio.wait_for(exp[0], timeout=80)
+                        if exp is not False and not exp.done():
+                            self.log.warning("Waiting for exposure to read.")
+                            await asyncio.wait_for(exp, timeout=80)
                     except Exception:
-                        pass
+                        self.log.error("Failed reading last exposure.")
 
                     break
 
         await self.gort.cleanup(readout=False)
-
         await self.notify("The observing loop has ended.")
+
+    def check_twilight(self) -> bool:
+        """Checks if we are close to the morning twilight and cancels observations."""
+
+        ephemeris = self.overwatcher.ephemeris
+        time_to_twilight = ephemeris.time_to_morning_twilight()
+
+        if time_to_twilight is None:
+            self.log.warning("Failed to get time to morning twilight.")
+            return True
+
+        if time_to_twilight > self.STOP_SECS_BEFORE_MORNING:
+            return True
+
+        return False

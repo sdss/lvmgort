@@ -172,6 +172,7 @@ class OverwatcherMainTask(OverwatcherTask):
             return
 
         # Also don't do anything if the overwatcher is not enabled.
+        # TODO: maybe we should close the dome if it's open?
         if not self.overwatcher.state.enabled:
             return
 
