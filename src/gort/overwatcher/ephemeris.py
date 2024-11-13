@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import pathlib
 from time import time
 
 from astropy.time import Time
@@ -50,21 +51,40 @@ class EphemerisMonitorTask(OverwatcherModuleTask["EphemerisOverwatcher"]):
     async def task(self):
         """Monitors SJD change and keeps ephemeris updated."""
 
+        failing: bool = False
+
         while True:
-            current_sjd = get_sjd("LCO")
+            sjd = get_sjd("LCO")
 
-            if self.module.ephemeris is None or current_sjd != self.module.sjd:
-                new_ephemeris = await self.module.update_ephemeris(current_sjd)
-                if new_ephemeris is None:
-                    await asyncio.sleep(60)
-                    continue
+            if self.module.ephemeris is None or failing or sjd != self.module.sjd:
+                try:
+                    # First, roll over the GORT log to the new SJD file.
+                    log = self.gort.log
+                    if log.fh and log.log_filename:
+                        path = pathlib.Path(log.log_filename)
+                        if str(sjd) not in path.name:
+                            log.fh.flush()
+                            log.fh.close()
+                            log.start_file_logger(str(path.parent / f"{sjd}.log"))
 
-                self.log.info(f"New SJD: updating ephemeris for {current_sjd}.")
-                self.module.sjd = current_sjd
+                    await self.module.update_ephemeris(sjd)
 
-                await self.overwatcher.calibrations.reset()
+                except Exception as err:
+                    await self.notify(
+                        f"Failed getting ephemeris data for {sjd}: {err!r}",
+                        level="error",
+                    )
+                    failing = True
 
-            await asyncio.sleep(600)
+                else:
+                    self.log.info(f"New SJD: updating ephemeris for {sjd}.")
+                    self.module.sjd = sjd
+
+                    await self.overwatcher.calibrations.reset()
+
+                    failing = False
+
+            await asyncio.sleep(60)
 
 
 class EphemerisOverwatcher(OverwatcherModule):
@@ -86,19 +106,12 @@ class EphemerisOverwatcher(OverwatcherModule):
 
         sjd = sjd or get_sjd("LCO")
 
-        try:
-            ephemeris_response = await get_ephemeris_summary(sjd)
-            self.ephemeris = EphemerisModel(**ephemeris_response)
-        except Exception as err:
-            await self.notify(
-                f"Failed getting ephemeris data for {sjd}: {err!r}",
-                level="error",
-            )
-        else:
-            self.last_updated = time()
-            return self.ephemeris
+        ephemeris_response = await get_ephemeris_summary(sjd)
+        self.last_updated = time()
 
-        return None
+        self.ephemeris = EphemerisModel(**ephemeris_response)
+
+        return self.ephemeris
 
     def is_night(self):
         """Determines whether it is nightime."""

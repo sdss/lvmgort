@@ -2,9 +2,14 @@
 
 ## Next version
 
+### ✨ Improved
+
+* Roll over the GORT log when the SJD changes.
+
 ### 🔧 Fixed
 
 * Fixed a bug that would prevent a new SJD to trigger an update of the ephemeris and calibrations.
+
 
 ## 1.1.2 - November 11, 2024
 
