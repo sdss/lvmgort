@@ -256,9 +256,9 @@ class ObserverOverwatcher(OverwatcherModule):
                             "closing now."
                         )
 
+                        self.cancel()
                         await self.overwatcher.dome.shutdown(retry=True, park=True)
 
-                        self.cancel()
                         break
 
                     # The exposure will complete in 900 seconds + acquisition + readout
