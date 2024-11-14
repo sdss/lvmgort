@@ -7,6 +7,8 @@
 * Roll over the GORT log when the SJD changes.
 * Improve the logic handling how the Overwatcher observer decides when to open or close the dome near evening or morning twilight.
 * Run a clean-up first in pre-observing in case the spectrographs are not in a good state.
+* Run some pre-observing checks before calling each `GortObserver.observe_tile()` in the `ObserverOverwatcher`. Currently only checks if the spectrographs are idle or resets them.
+* Handle `SPECTROGRAPH_NOT_IDLE` errors in the troubleshooter.
 
 ### 🔧 Fixed
 
