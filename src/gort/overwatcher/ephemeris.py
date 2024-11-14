@@ -65,6 +65,7 @@ class EphemerisMonitorTask(OverwatcherModuleTask["EphemerisOverwatcher"]):
                         if str(sjd) not in path.name:
                             log.fh.flush()
                             log.fh.close()
+                            log.removeHandler(log.fh)
                             log.start_file_logger(str(path.parent / f"{sjd}.log"))
 
                     await self.module.update_ephemeris(sjd)
