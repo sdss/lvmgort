@@ -12,6 +12,8 @@ import asyncio
 
 from typing import TYPE_CHECKING
 
+from lvmopstools import Retrier
+
 from gort.enums import Event
 from gort.exceptions import ErrorCode, GortEnclosureError, GortTelescopeError
 from gort.gort import Gort, GortClient, GortDevice, GortDeviceSet
@@ -32,6 +34,7 @@ class Light:
         self.enclosure = enclosure
         self.name = name
 
+    @Retrier(max_attempts=3, delay=1)
     async def on(self):
         """Turns on the light."""
 
@@ -40,6 +43,7 @@ class Light:
             self.enclosure.write_to_log(f"Turning on light {self.name!r}.", "info")
             await self.enclosure.actor.commands.lights("on", self.name)
 
+    @Retrier(max_attempts=3, delay=1)
     async def off(self):
         """Turns on the light."""
 
@@ -48,12 +52,14 @@ class Light:
             self.enclosure.write_to_log(f"Turning off light {self.name!r}.", "info")
             await self.enclosure.actor.commands.lights("off", self.name)
 
+    @Retrier(max_attempts=3, delay=1)
     async def toggle(self):
         """Turns on the light."""
 
         self.enclosure.write_to_log(f"Toggling {self.name!r}.", "info")
         await self.enclosure.actor.commands.lights("toggle", self.name)
 
+    @Retrier(max_attempts=3, delay=1)
     async def status(self) -> bool:
         """Returns a boolean with the light status."""
 
@@ -84,6 +90,7 @@ class Lights:
     def __repr__(self):
         return f"<Lights ({', '.join(self.LIGHTS)})>"
 
+    @Retrier(max_attempts=3, delay=1)
     async def dome_all_off(self):
         """Turns off all the lights in the dome."""
 
@@ -109,6 +116,7 @@ class Enclosure(GortDevice):
 
         await GortDeviceSet.restart(self)  # type: ignore
 
+    @Retrier(max_attempts=3, delay=1)
     async def status(self, get_registers: bool = False):
         """Retrieves the status of the power outlet."""
 
@@ -267,6 +275,7 @@ class Enclosure(GortDevice):
 
         return "CLOSED" in labels and "MOVING" not in labels
 
+    @Retrier(max_attempts=2, delay=1)
     async def stop(self):
         """Stop the enclosure dome."""
 
