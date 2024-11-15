@@ -9,6 +9,7 @@
 * Run a clean-up first in pre-observing in case the spectrographs are not in a good state.
 * Run some pre-observing checks before calling each `GortObserver.observe_tile()` in the `ObserverOverwatcher`. Currently only checks if the spectrographs have an error state and resets them.
 * Handle `SPECTROGRAPH_NOT_IDLE` errors in the troubleshooter.
+* Disable the Overwatcher and cancel observations if the dome fails to move.
 
 ### 🔧 Fixed
 

@@ -145,6 +145,8 @@ class DomeHelper:
         if is_local:
             raise GortError("Cannot move the dome in local mode.")
 
+        failed: bool = False
+
         try:
             if status & DomeStatus.MOVING:
                 self.log.warning("Dome is already moving. Stopping.")
@@ -167,8 +169,18 @@ class DomeHelper:
 
             # Sometimes the open/close could fail but actually the dome is open/closed.
             if open and not (status & DomeStatus.OPEN):
-                raise
+                failed = True
             elif not open and not (status & DomeStatus.CLOSED):
+                failed = True
+
+            if failed:
+                await self.overwatcher.notify(
+                    "The dome has failed to open/close. Disabling the Overwatcher "
+                    "to prevent further attempts. Please check the dome immediately, "
+                    "it may be partially or fully open.",
+                    level="critical",
+                )
+                await self.overwatcher.disable()
                 raise
 
     async def open(self, park: bool = True):
