@@ -93,7 +93,10 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
                 evening_twilight = Time(ephemeris.twilight_end, format="jd").unix
                 time_to_evening_twilight = evening_twilight - now
 
-                if time_to_evening_twilight < OPEN_DOME_SECS_BEFORE_TWILIGHT:
+                if (
+                    time_to_evening_twilight > 0
+                    and time_to_evening_twilight < OPEN_DOME_SECS_BEFORE_TWILIGHT
+                ):
                     dome_open = await self.overwatcher.dome.is_opening()
                     if not dome_open:
                         await self.notify(
