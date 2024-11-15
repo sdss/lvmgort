@@ -102,8 +102,6 @@ class OverwatcherMainTask(OverwatcherTask):
 
                 if not ow.state.enabled:
                     await self.handle_disabled()
-                elif ow.observer.is_cancelling and ow.state.enabled:
-                    await self.handle_reenable()
 
                 # Run daily tasks.
                 await ow.daily_tasks.run_all()
@@ -220,23 +218,6 @@ class OverwatcherMainTask(OverwatcherTask):
                 immediate=False,
                 reason="overwatcher was disabled",
             )
-
-    async def handle_reenable(self):
-        """Re-enables the overwatcher after cancelling."""
-
-        observer = self.overwatcher.observer
-        if not self.overwatcher.state.enabled or not observer.is_cancelling:
-            return
-
-        # If we have a pending close dome, do nothing. This happens when the
-        # daytime handler is waiting for the observing loop to finish but usually
-        # the overwatcher is still enabled.
-        if self._pending_close_dome:
-            return
-
-        self._log.info("Undoing the cancellation of the observing loop.")
-        observer._cancelling = False
-        self.overwatcher.gort.observer.cancelling = False
 
 
 class OverwatcherPingTask(OverwatcherTask):
