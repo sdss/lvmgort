@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 from astropy.time import Time
 
-from gort.exceptions import GortError, TroubleshooterTimeoutError
+from gort.exceptions import GortError, OverwatcherError, TroubleshooterTimeoutError
 from gort.exposure import Exposure
 from gort.overwatcher import OverwatcherModule
 from gort.overwatcher.core import OverwatcherModuleTask
@@ -264,8 +264,8 @@ class ObserverOverwatcher(OverwatcherModule):
                     # The exposure will complete in 900 seconds + acquisition + readout
                     self.next_exposure_completes = time() + 90 + 900 + 60
 
-                    # if not (await self.pre_observe_checks()):
-                    #     raise OverwatcherError("Pre-observe checks failed.")
+                    if not (await self.pre_observe_checks()):
+                        raise OverwatcherError("Pre-observe checks failed.")
 
                     result, exps = await observer.observe_tile(
                         tile=tile,
@@ -337,8 +337,8 @@ class ObserverOverwatcher(OverwatcherModule):
     async def pre_observe_checks(self):
         """Runs pre-observe checks."""
 
-        if not (await self.gort.specs.are_idle()):
-            self.log.warning("Spectrographs are not idle. Resetting them.")
+        if not (await self.gort.specs.are_errored()):
+            self.log.warning("Spectrographs are errored. Resetting them.")
             await self.gort.specs.reset()
 
         return True
