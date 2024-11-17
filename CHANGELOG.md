@@ -19,6 +19,7 @@
 ### 🔧 Fixed
 
 * Fixed a bug that would prevent a new SJD to trigger an update of the ephemeris and calibrations.
+* Fix a bug that would leave the Overwatcher in cancelling mode if `start_observing` failed.
 
 
 ## 1.1.2 - November 11, 2024
