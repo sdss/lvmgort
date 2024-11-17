@@ -1022,7 +1022,7 @@ async def add_night_log_comment(comment: str, category: str = "other"):
         base_url=f"http://{host}:{port}",
         follow_redirects=True,
     ) as client:
-        response = await client.post("/night-logs/comments/add", json=payload)
+        response = await client.post("/logs/night-logs/comments/add", json=payload)
 
         code = response.status_code
         if code != 200:
