@@ -2,6 +2,10 @@
 
 ## Next version
 
+### 🚀 New
+
+* Overwatcher now reports error events via notifications. If the error happens while a tile is being observed, a comment in the night log is added.
+
 ### ✨ Improved
 
 * Roll over the GORT log when the SJD changes.
