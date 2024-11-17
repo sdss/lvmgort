@@ -364,7 +364,7 @@ class Overwatcher(NotifierMixIn):
         if disable_overwatcher:
             self.state.enabled = False
 
-    async def disable(self):
+    async def force_disable(self):
         """Disables the overwatcher."""
 
         await self.observer.stop_observing(immediate=True)

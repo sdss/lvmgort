@@ -180,7 +180,7 @@ class DomeHelper:
                     "it may be partially or fully open.",
                     level="critical",
                 )
-                await self.overwatcher.disable()
+                await self.overwatcher.force_disable()
                 raise
 
     async def open(self, park: bool = True):
