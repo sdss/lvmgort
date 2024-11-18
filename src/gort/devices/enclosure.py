@@ -177,7 +177,7 @@ class Enclosure(GortDevice):
         is_local = await self.is_local()
         if is_local:
             raise GortEnclosureError(
-                "Cannot close the enclosure while in local mode.",
+                "Cannot open the enclosure while in local mode.",
                 error_code=ErrorCode.LOCAL_MODE_FAILED,
             )
 
