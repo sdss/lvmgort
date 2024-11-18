@@ -5,6 +5,7 @@
 ### ✨ Improved
 
 * Report if the observer is focusing or troubleshooting.
+* Stop MoTAN devices before a new move and improve error reporting.
 
 
 ## 1.2.0 - November 17, 2024

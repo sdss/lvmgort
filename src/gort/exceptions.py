@@ -147,6 +147,8 @@ class GortDeviceError(GortError):
         self,
         message: str | None = None,
         error_code: int | ErrorCode | None = None,
+        payload: dict = {},
+        emit_event: bool | None = None,
     ) -> None:
         from gort.gort import GortDevice
 
@@ -160,7 +162,12 @@ class GortDeviceError(GortError):
                 if issubclass(obj.__class__, GortDevice) and name is not None:
                     message = f"({name}) {message}"
 
-        super().__init__(message, error_code=error_code)
+        super().__init__(
+            message,
+            error_code=error_code,
+            payload=payload,
+            emit_event=emit_event,
+        )
 
 
 class GortEnclosureError(GortDeviceError):

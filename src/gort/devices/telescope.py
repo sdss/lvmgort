@@ -44,12 +44,39 @@ class MoTanDevice(GortDevice):
         self.timeouts: defaultdict[str, float | None]
         self.timeouts = defaultdict(lambda: None, timeouts)
 
+        self.telescope = self.name.split(".")[0]
+
+        self.device: str
+        if "fibsel" in self.name:
+            self.device = "fibsel"
+        elif "foc" in self.name:
+            self.device = "focuser"
+        elif "km" in self.name:
+            self.device = "kmirror"
+        else:
+            raise GortTelescopeError(f"Invalid device type {self.name!r}.")
+
+    async def status(self):
+        """Returns the status of the device."""
+
+        return await self.run_command("status")
+
     async def is_reachable(self):
         """Is the device reachable?"""
 
         is_reachable = await self.run_command("isReachable")
 
         return bool(is_reachable.get("Reachable"))
+
+    async def check_reachable(self):
+        """Checks if the device is reacheable or issues an error."""
+
+        if not (await self.is_reachable()):
+            raise GortTelescopeError(
+                f"MoTAN device {self.name!r} is not reachable.",
+                error_code=ErrorCode.MOTAN_DEVICE_NOT_REACHABLE,
+                payload={"telescope": self.telescope, "device": self.device},
+            )
 
     async def is_moving(self):
         """Is the device moving."""
@@ -64,7 +91,23 @@ class MoTanDevice(GortDevice):
         if isinstance(self.SLEW_DELAY, (float, int)):
             await asyncio.sleep(self.SLEW_DELAY)
         else:
-            await asyncio.sleep(self.SLEW_DELAY[self.name.split(".")[0]])
+            await asyncio.sleep(self.SLEW_DELAY[self.telescope])
+
+    async def stop(self):
+        """Stop the K-mirror movement."""
+
+        if await self.is_moving():
+            self.write_to_log("Stopping slew.")
+
+            await self.run_command("slewStop", timeout=self.timeouts["slewStop"])
+            await self.run_command("stop", timeout=self.timeouts["slewStop"])
+
+            if await self.is_moving():
+                raise GortTelescopeError(
+                    f"Failed to stop the {self.name}.",
+                    error_code=ErrorCode.MOTAN_DEVICE_CANNOT_STOP,
+                    payload={"telescope": self.telescope, "device": self.device},
+                )
 
     async def run_command(
         self,
@@ -86,19 +129,13 @@ class KMirror(MoTanDevice):
 
     SLEW_DELAY = 0
 
-    async def status(self):
-        """Returns the status of the k-mirror."""
-
-        return await self.run_command("status")
-
     async def home(self):
         """Homes the k-mirror."""
 
-        if not (await self.is_reachable()):
-            raise GortTelescopeError("Device is not reachable.")
+        await self.check_reachable()
 
         await self.slew_delay()
-        await self.run_command("slewStop", timeout=self.timeouts["slewStop"])
+        await self.stop()
 
         self.write_to_log("Homing k-mirror.", level="info")
         await self.run_command("moveToHome", timeout=self.timeouts["moveToHome"])
@@ -106,11 +143,6 @@ class KMirror(MoTanDevice):
 
     async def park(self):
         """Park the k-mirror at 90 degrees."""
-
-        if not (await self.is_reachable()):
-            raise GortTelescopeError("Device is not reachable.")
-
-        await self.slew_delay()
 
         await self.move(90)
 
@@ -124,17 +156,12 @@ class KMirror(MoTanDevice):
 
         """
 
-        if not (await self.is_reachable()):
-            raise GortTelescopeError("Device is not reachable.")
+        await self.check_reachable()
 
         await self.slew_delay()
+        await self.stop()
 
         self.write_to_log(f"Moving k-mirror to {degs:.3f} degrees.", level="info")
-
-        self.write_to_log("Stopping slew.")
-        await self.run_command("slewStop", timeout=self.timeouts["slewStop"])
-
-        self.write_to_log("Moving k-mirror to absolute position.")
         await self.run_command(
             "moveAbsolute",
             degs,
@@ -168,8 +195,7 @@ class KMirror(MoTanDevice):
 
         """
 
-        if not (await self.is_reachable()):
-            raise GortTelescopeError("Device is not reachable.")
+        await self.check_reachable()
 
         await self.slew_delay()
 
@@ -191,6 +217,7 @@ class KMirror(MoTanDevice):
         if abs(stop_degs_before) > 0:
             self.write_to_log(f"Using stop_degs_before={stop_degs_before}.")
 
+        await self.stop()
         await self.run_command(
             "slewStart",
             ra / 15.0,
@@ -207,11 +234,6 @@ class Focuser(MoTanDevice):
 
     SLEW_DELAY = 0
 
-    async def status(self):
-        """Returns the status of the focuser."""
-
-        return await self.run_command("status")
-
     async def home(self):
         """Homes the focuser.
 
@@ -222,14 +244,14 @@ class Focuser(MoTanDevice):
 
         """
 
-        if not (await self.is_reachable()):
-            raise GortTelescopeError("Device is not reachable.")
+        await self.check_reachable()
+
+        await self.slew_delay()
+        await self.stop()
 
         # Store current position to restore it later.
         status = await self.status()
         current_position = status.get("Position")
-
-        await self.slew_delay()
 
         self.write_to_log("Homing focuser.", level="info")
         await self.run_command("moveToHome", timeout=self.timeouts["moveToHome"])
@@ -242,10 +264,10 @@ class Focuser(MoTanDevice):
     async def move(self, dts: float):
         """Move the focuser to a position in DT."""
 
-        if not (await self.is_reachable()):
-            raise GortTelescopeError("Device is not reachable.")
+        await self.check_reachable()
 
         await self.slew_delay()
+        await self.stop()
 
         self.write_to_log(f"Moving focuser to {dts:.3f} DT.", level="info")
         await self.run_command(
@@ -271,18 +293,13 @@ class FibSel(MoTanDevice):
 
         self.__last_homing: float = 0
 
-    async def status(self):
-        """Returns the status of the fibre selector."""
-
-        return await self.run_command("status")
-
     async def home(self):
         """Homes the fibre selector."""
 
-        if not (await self.is_reachable()):
-            raise GortTelescopeError("Device is not reachable.")
+        await self.check_reachable()
 
         await self.slew_delay()
+        await self.stop()
 
         self.write_to_log("Homing fibsel.", level="info")
         await self.run_command("moveToHome", timeout=self.timeouts["moveToHome"])
@@ -319,8 +336,7 @@ class FibSel(MoTanDevice):
 
         """
 
-        if not (await self.is_reachable()):
-            raise GortTelescopeError("Device is not reachable.")
+        await self.check_reachable()
 
         if rehome:
             await self.home()
@@ -343,6 +359,8 @@ class FibSel(MoTanDevice):
             self.write_to_log(f"Moving mask to {steps} DT.", level="info")
 
         await self.slew_delay()
+        await self.stop()
+
         await self.run_command(
             "moveAbsolute",
             steps,
@@ -352,14 +370,14 @@ class FibSel(MoTanDevice):
     async def move_relative(self, steps: float):
         """Move the mask a number of motor steps relative to the current position."""
 
-        if not (await self.is_reachable()):
-            raise GortTelescopeError("Device is not reachable.")
+        await self.check_reachable()
 
         self.write_to_log(f"Moving fibre mask {steps} steps.")
 
         await self.slew_delay()
         await self._check_home()
 
+        await self.stop()
         await self.run_command(
             "moveRelative",
             steps,
