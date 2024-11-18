@@ -28,6 +28,7 @@ from typing import (
     Callable,
     Coroutine,
     Generator,
+    Literal,
     Sequence,
 )
 
@@ -1007,7 +1008,10 @@ async def get_gort_client(override_overwatcher: bool | None = None):
     await gort.stop()
 
 
-async def add_night_log_comment(comment: str, category: str = "other"):
+NightLogCategories = Literal["weather", "issues", "other", "observers", "overwatcher"]
+
+
+async def add_night_log_comment(comment: str, category: NightLogCategories = "other"):
     """Adds a comment to the night log."""
 
     payload = {
@@ -1022,7 +1026,7 @@ async def add_night_log_comment(comment: str, category: str = "other"):
         base_url=f"http://{host}:{port}",
         follow_redirects=True,
     ) as client:
-        response = await client.post("/night-logs/comments/add", json=payload)
+        response = await client.post("/logs/night-logs/comments/add", json=payload)
 
         code = response.status_code
         if code != 200:

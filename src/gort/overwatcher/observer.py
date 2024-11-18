@@ -168,16 +168,22 @@ class ObserverOverwatcher(OverwatcherModule):
             raise GortError("Cannot safely open the telescope.")
 
         await self.notify("Starting observations.")
-        self._starting_observations = True
 
         if not (await self.overwatcher.dome.is_opening()):
-            await self.notify("Running the start-up sequence and opening the dome.")
-            await self.overwatcher.dome.startup()
+            try:
+                self._starting_observations = True
+                await self.notify("Running the start-up sequence and opening the dome.")
+                await self.overwatcher.dome.startup()
+            except Exception:
+                # If the dome failed to open that will disable the
+                # Overwatcher and prevent the startup to run again.
+                self.log.error("Startup routine failed.")
+                return
+            finally:
+                self._starting_observations = False
 
         self.observe_loop = asyncio.create_task(self.observe_loop_task())
-
         await asyncio.sleep(1)
-        self._starting_observations = False
 
     async def stop_observing(
         self,

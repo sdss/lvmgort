@@ -14,10 +14,10 @@ from datetime import UTC, datetime
 
 from typing import TYPE_CHECKING
 
-from gort.enums import Event
+from gort.enums import ErrorCode, Event
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 from gort.pubsub import GortMessage, GortSubscriber
-from gort.tools import insert_to_database
+from gort.tools import add_night_log_comment, insert_to_database
 
 
 if TYPE_CHECKING:
@@ -84,6 +84,9 @@ class MonitorEvents(OverwatcherModuleTask["EventsOverwatcher"]):
         elif event == Event.EMERGENCY_SHUTDOWN:
             await self.overwatcher.notify("An emergency shutdown was triggered.")
 
+        elif event == Event.ERROR:
+            await self.handle_error_event(payload)
+
     def write_to_db(self, event: Event, payload: dict):
         """Writes the event to the database."""
 
@@ -93,6 +96,34 @@ class MonitorEvents(OverwatcherModuleTask["EventsOverwatcher"]):
             self.gort.config["services.database.tables.events"],
             [{"date": dt, "event": event.name.upper(), "payload": json.dumps(payload)}],
         )
+
+    async def handle_error_event(self, error_payload: dict):
+        """Handles an error event."""
+
+        error = error_payload.get("error", "unespecified error")
+
+        code = error_payload.get("error_code", ErrorCode.UNCATEGORISED_ERROR)
+        error_code = ErrorCode(code)
+
+        error_message = f"Error {error_code.value} ({error_code.name}): {error}"
+        if not error_message.endswith("."):
+            error_message += "."
+
+        is_observing = self.gort.observer.is_running()
+        tile = self.gort.observer._tile
+        if is_observing and tile and tile.tile_id:
+            await self.notify(
+                f"An error event was reported while observing tile {tile.tile_id}. "
+                f"{error_message}"
+            )
+            await add_night_log_comment(
+                f"Tile {tile.tile_id} - Error reported. {error_message} "
+                "Data quality may have been affected.",
+                category="overwatcher",
+            )
+
+        else:
+            await self.notify(f"An error event was reported. {error_message}")
 
 
 class EventsOverwatcher(OverwatcherModule):

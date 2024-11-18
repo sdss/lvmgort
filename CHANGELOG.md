@@ -2,6 +2,10 @@
 
 ## Next version
 
+### 🚀 New
+
+* Overwatcher now reports error events via notifications. If the error happens while a tile is being observed, a comment in the night log is added.
+
 ### ✨ Improved
 
 * Roll over the GORT log when the SJD changes.
@@ -15,6 +19,7 @@
 ### 🔧 Fixed
 
 * Fixed a bug that would prevent a new SJD to trigger an update of the ephemeris and calibrations.
+* Fix a bug that would leave the Overwatcher in cancelling mode if `start_observing` failed.
 
 
 ## 1.1.2 - November 11, 2024
