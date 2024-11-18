@@ -6,6 +6,7 @@
 
 * Report if the observer is focusing or troubleshooting.
 * Stop MoTAN devices before a new move and improve error reporting.
+* Allow fibre selector to rehome if a move fails.
 
 
 ## 1.2.0 - November 17, 2024

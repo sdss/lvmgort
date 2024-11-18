@@ -153,6 +153,7 @@ class Event(UpperStrEnum):
     DOME_CLOSING = auto()
     DOME_CLOSED = auto()
     EMERGENCY_SHUTDOWN = auto()
+    UNEXPECTED_FIBSEL_REHOME = auto()
     UNCATEGORISED = auto()
 
 

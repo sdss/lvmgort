@@ -16,8 +16,9 @@ from typing import TYPE_CHECKING, ClassVar
 
 import numpy
 
+from gort.enums import Event
 from gort.exceptions import ErrorCode, GortTelescopeError
-from gort.gort import GortClient, GortDevice, GortDeviceSet
+from gort.gort import Gort, GortClient, GortDevice, GortDeviceSet
 from gort.tools import angular_separation, kubernetes_restart_deployment
 
 
@@ -340,8 +341,6 @@ class FibSel(MoTanDevice):
 
         if rehome:
             await self.home()
-        else:
-            await self._check_home()
 
         if isinstance(position, str):
             mask_positions = self.gort.config["telescopes"]["mask_positions"]
@@ -358,14 +357,7 @@ class FibSel(MoTanDevice):
             steps = position
             self.write_to_log(f"Moving mask to {steps} DT.", level="info")
 
-        await self.slew_delay()
-        await self.stop()
-
-        await self.run_command(
-            "moveAbsolute",
-            steps,
-            timeout=self.timeouts["moveAbsolute"],
-        )
+        await self._move("moveAbsolute", steps)
 
     async def move_relative(self, steps: float):
         """Move the mask a number of motor steps relative to the current position."""
@@ -373,16 +365,38 @@ class FibSel(MoTanDevice):
         await self.check_reachable()
 
         self.write_to_log(f"Moving fibre mask {steps} steps.")
+        await self._move("moveRelative", steps)
 
-        await self.slew_delay()
-        await self._check_home()
+    async def _move(self, command: str, steps: float, allow_rehoming: bool = True):
+        """Moves the fibre selector. If the move fails, tries rehoming."""
 
-        await self.stop()
-        await self.run_command(
-            "moveRelative",
-            steps,
-            timeout=self.timeouts["moveRelative"],
-        )
+        try:
+            await self._check_home()
+
+            await self.slew_delay()
+            await self.stop()
+
+            await self.run_command(command, steps, timeout=self.timeouts[command])
+        except Exception as err:
+            if allow_rehoming:
+                self.write_to_log(
+                    f"Failed to move fibsel with error: {err}. Rehoming and retrying.",
+                    "warning",
+                )
+
+                if isinstance(self.gort, Gort):
+                    # Notify this event so that it can be taken into account, for
+                    # example to add a flag if this happens during the standards
+                    # iteration loop.
+                    await self.gort.notify_event(
+                        Event.UNEXPECTED_FIBSEL_REHOME,
+                        payload={"time": time()},
+                    )
+
+                await self.home()
+                await self._move(command, steps, allow_rehoming=False)
+            else:
+                raise
 
 
 class Telescope(GortDevice):
