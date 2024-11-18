@@ -37,8 +37,6 @@ async def status(command: OverwatcherCommand):
                 "enabled": overwatcher.state.enabled,
                 "observing": overwatcher.state.observing,
                 "calibrating": overwatcher.state.calibrating,
-                "focusing": overwatcher.state.focusing,
-                "troubleshooting": overwatcher.state.troubleshooting,
                 "safe": overwatcher.state.safe,
                 "night": overwatcher.state.night,
                 "allow_calibrations": overwatcher.state.allow_calibrations,
@@ -214,6 +212,8 @@ async def observer_status(command: OverwatcherCommand):
         observer_status={
             "observing": overwatcher_observer.is_observing,
             "cancelling": overwatcher_observer.is_cancelling,
+            "focusing": overwatcher.state.focusing,
+            "troubleshooting": overwatcher.state.troubleshooting,
             "tile_id": tile_id,
             "dither_position": dither_position,
             "stage": stage,
