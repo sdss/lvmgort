@@ -9,6 +9,8 @@
         "enabled": { "type": "boolean" },
         "observing": { "type": "boolean" },
         "calibrating": { "type": "boolean" },
+        "focusing": { "type": "boolean" },
+        "troubleshooting": { "type": "boolean" },
         "night": { "type": "boolean" },
         "safe": { "type": "boolean" },
         "allow_calibrations": { "type": "boolean" },

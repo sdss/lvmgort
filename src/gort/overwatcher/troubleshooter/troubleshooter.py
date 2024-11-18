@@ -73,6 +73,11 @@ class Troubleshooter:
 
         self._event.set()
 
+    def is_troubleshooting(self) -> bool:
+        """Returns ``True`` if the troubleshooter is currently handling an error."""
+
+        return not self._event.is_set()
+
     async def wait_until_ready(self, timeout: float | None = None):
         """Blocks if the troubleshooter is handling an error until done."""
 
@@ -146,3 +151,5 @@ class Troubleshooter:
 
         finally:
             self._event.set()
+
+        return False

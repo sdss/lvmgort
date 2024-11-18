@@ -37,6 +37,8 @@ class OverwatcherState:
     enabled: bool = False
     observing: bool = False
     calibrating: bool = False
+    troubleshooting: bool = False
+    focusing: bool = False
     night: bool = False
     safe: bool = False
     allow_calibrations: bool = True
@@ -87,6 +89,8 @@ class OverwatcherMainTask(OverwatcherTask):
                 ow.state.night = is_night
                 ow.state.safe = is_safe
                 ow.state.observing = ow.observer.is_observing
+                ow.state.focusing = ow.observer.focusing
+                ow.state.troubleshooting = ow.troubleshooter.is_troubleshooting()
 
                 running_calibration = ow.calibrations.get_running_calibration()
                 ow.state.calibrating = running_calibration is not None

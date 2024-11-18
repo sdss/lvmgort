@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### ✨ Improved
+
+* Report if the observer is focusing or troubleshooting.
+
+
 ## 1.2.0 - November 17, 2024
 
 ### 🚀 New

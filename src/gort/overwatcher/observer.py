@@ -123,6 +123,7 @@ class ObserverOverwatcher(OverwatcherModule):
         self.observe_loop: asyncio.Task | None = None
         self.next_exposure_completes: float = 0
 
+        self.focusing: bool = False
         self._starting_observations: bool = False
         self._cancelling: bool = False
 
@@ -228,6 +229,7 @@ class ObserverOverwatcher(OverwatcherModule):
         observer = self.gort.observer
 
         n_tile_positions = 0
+        force_focus: bool = False
 
         while True:
             exp: Exposure | bool = False
@@ -245,15 +247,7 @@ class ObserverOverwatcher(OverwatcherModule):
                     f"observing dither positions {tile.dither_positions}."
                 )
 
-                # Check if we should refocus.
-                focus_info = await self.gort.guiders.sci.get_focus_info()
-                focus_age = focus_info["reference_focus"]["age"]
-
-                # Focus when the loop starts or every 1 hour or at the beginning
-                # of the loop.
-                if n_tile_positions == 0 or focus_age is None or focus_age > 3600.0:
-                    await self.notify("Focusing telescopes.")
-                    await self.gort.guiders.focus()
+                await self.check_focus(force=force_focus or n_tile_positions == 0)
 
                 for dpos in tile.dither_positions:
                     await self.overwatcher.troubleshooter.wait_until_ready(300)
@@ -310,7 +304,14 @@ class ObserverOverwatcher(OverwatcherModule):
                 break
 
             except Exception as err:
-                await self.overwatcher.troubleshooter.handle(err)
+                if await self.overwatcher.troubleshooter.handle(err):
+                    if self.is_cancelling:
+                        break
+                    if self.focusing:
+                        # Force a new focus if the error occurred while focusing.
+                        force_focus = True
+
+                    continue
 
             finally:
                 self.exposure_completes = 0
@@ -342,6 +343,38 @@ class ObserverOverwatcher(OverwatcherModule):
             return True
 
         return False
+
+    async def check_focus(self, force: bool = False):
+        """Checks if it's time to focus the telescope."""
+
+        should_focus: bool = False
+
+        if not force:
+            # Check if we should refocus.
+            focus_info = await self.gort.guiders.sci.get_focus_info()
+            focus_age = focus_info["reference_focus"]["age"]
+
+            if focus_age is None or focus_age > 3600:
+                should_focus = True
+
+        else:
+            should_focus = True
+
+        # Focus when the loop starts or every 1 hour or at the beginning
+        # of the loop.
+        if should_focus:
+            try:
+                self.focusing = True
+                await self.notify("Focusing telescopes.")
+                await self.gort.guiders.focus()
+            except Exception as err:
+                await self.notify(
+                    f"Failed while focusing the telescopes: {err}",
+                    level="error",
+                )
+                raise
+            else:
+                self.focusing = False
 
     async def pre_observe_checks(self):
         """Runs pre-observe checks."""
