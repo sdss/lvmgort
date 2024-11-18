@@ -8,6 +8,10 @@
 * Stop MoTAN devices before a new move and improve error reporting.
 * Allow fibre selector to rehome if a move fails.
 
+### 🔧 Fixed
+
+* Fix a bug that would cause the calibration module to always add a night log comment indicating that the calibration had failed.
+
 
 ## 1.2.0 - November 17, 2024
 
