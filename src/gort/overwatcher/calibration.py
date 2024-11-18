@@ -257,7 +257,7 @@ class Calibration:
                 add_night_log_comment(
                     f"Calibration {self.name} failed. Reason: {fail_reason}"
                     " See log for more details.",
-                    category="issues",
+                    category="overwatcher",
                 ),
             )
             self._task_queue.add(task)
