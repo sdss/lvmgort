@@ -4,6 +4,7 @@
 
 ### ✨ Improved
 
+* [#41](https://github.com/sdss/lvmgort/pull/41) Only emit an error event when the exception is actually raised.
 * Report if the observer is focusing or troubleshooting.
 * Stop MoTAN devices before a new move and improve error reporting.
 * Allow fibre selector to rehome if a move fails.

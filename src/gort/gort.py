@@ -16,6 +16,8 @@ import subprocess
 import sys
 import uuid
 from copy import deepcopy
+from functools import partial
+from types import TracebackType
 
 from typing import (
     TYPE_CHECKING,
@@ -203,6 +205,42 @@ class GortClient(AMQPClient):
 
         return log
 
+    async def notify_event(self, event: Event, payload: dict[str, Any] = {}):
+        """Emits an event notification."""
+
+        try:
+            await notify_event(event, payload=payload)
+        except TypeError as err:
+            if "is not JSON serializable" in str(err):
+                self.log.error(
+                    f"Failed to notify event {event.name}: payload is not"
+                    "serialisable. The event will be emitted without payload."
+                )
+                await notify_event(event)
+
+    def exception_handler(
+        self,
+        log: SDSSLogger,
+        exc_type: type[BaseException],
+        exc_value: BaseException,
+        exc_traceback: TracebackType | None,
+    ):
+        """A custom exception handler that logs exceptions to file."""
+
+        log.handle_exceptions(exc_type, exc_value, exc_traceback)
+
+        if isinstance(exc_value, GortError):
+            event_payload = exc_value.payload.copy()
+            event_payload["error"] = exc_value.args[0] or ""
+            event_payload["error_code"] = exc_value.error_code.value
+
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:  # No running event loop, mostly for IPython.
+                log.warning("Cannot emit error event: no running event loop.")
+            else:
+                loop.create_task(self.notify_event(Event.ERROR, payload=event_payload))
+
     def _setup_exception_hooks(self, log: SDSSLogger, use_rich_output: bool = True):
         """Setup various hooks for exception handling."""
 
@@ -211,40 +249,39 @@ class GortClient(AMQPClient):
                 assert IPYTHON
 
                 exc_tuple = IPYTHON._get_exc_info()
-                log.handle_exceptions(*exc_tuple)
-
-                default__showtraceback(*args, **kwargs)
+                self.exception_handler(log, *exc_tuple)
 
             if IPYTHON:
                 IPYTHON._showtraceback = _showtraceback
 
         if use_rich_output:
-            traceback.install(console=self._console)
-            pretty.install(console=self._console)
+            if not IPYTHON:
+                traceback.install(console=self._console)
+                pretty.install(console=self._console)
 
             # traceback.install() overrides the excepthook, which means that
             # tracebacks are not logged to file anymore. Restore that.
-            sys.excepthook = log.handle_exceptions
+            sys.excepthook = partial(self.exception_handler, log)
 
         else:
             # Make sure we are not using rich tracebacks anymore, in
             # case we installed them at some point.
             # See https://github.com/Textualize/rich/pull/2972/files
 
-            sys.excepthook = log.handle_exceptions
+            sys.excepthook = partial(self.exception_handler, log)
 
             if IPYTHON:
                 IPYTHON._showtraceback = IPYTHON_DEFAULT_HOOKS[0]
                 IPYTHON.showtraceback = IPYTHON_DEFAULT_HOOKS[1]
                 IPYTHON.showsyntaxerror = IPYTHON_DEFAULT_HOOKS[2]
 
-        # if IPYTHON:
-        #     # One more override. We want that any exceptions raised in IPython
-        #     # also gets logged to file, but IPython overrides excepthook completely
-        #     # so here we make a custom call to log.handle_exceptions() and then
-        #     # just let it do whatever it was its default (whether that means it
-        #     # was overridden by rich or not).
-        #     custom__showtraceback_closure(IPYTHON._showtraceback)
+        if IPYTHON:
+            # One more override. We want that any exceptions raised in IPython
+            # also gets logged to file, but IPython overrides excepthook completely
+            # so here we make a custom call to log.handle_exceptions() and then
+            # just let it do whatever it was its default (whether that means it
+            # was overridden by rich or not).
+            custom__showtraceback_closure(IPYTHON._showtraceback)
 
     def get_log_path(self):
         """Returns the path of the log file. :obj:`None` if not logging to file."""
@@ -662,19 +699,6 @@ class Gort(GortClient):
 
         if verbosity:
             self.set_verbosity(verbosity)
-
-    async def notify_event(self, event: Event, payload: dict[str, Any] = {}):
-        """Emits an event notification."""
-
-        try:
-            await notify_event(event, payload=payload)
-        except TypeError as err:
-            if "is not JSON serializable" in str(err):
-                self.log.error(
-                    f"Failed to notify event {event.name}: payload is not"
-                    "serialisable. The event will be emitted without payload."
-                )
-                await notify_event(event)
 
     @Retrier(max_attempts=3, delay=3)
     async def emergency_shutdown(self):
