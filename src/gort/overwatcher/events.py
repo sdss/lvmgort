@@ -124,7 +124,10 @@ class MonitorEvents(OverwatcherModuleTask["EventsOverwatcher"]):
             )
 
         else:
-            await self.notify(f"An error event was reported. {error_message}")
+            await self.notify(
+                f"An error event was reported. {error_message}",
+                level="error",
+            )
 
 
 class EventsOverwatcher(OverwatcherModule):
