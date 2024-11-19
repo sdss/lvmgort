@@ -221,15 +221,15 @@ class GortClient(AMQPClient):
     def exception_handler(
         self,
         log: SDSSLogger,
-        exc_type: type[BaseException],
-        exc_value: BaseException,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
         exc_traceback: TracebackType | None,
     ):
         """A custom exception handler that logs exceptions to file."""
 
         log.handle_exceptions(exc_type, exc_value, exc_traceback)
 
-        if isinstance(exc_value, GortError):
+        if exc_value and isinstance(exc_value, GortError):
             event_payload = exc_value.payload.copy()
             event_payload["error"] = exc_value.args[0] or ""
             event_payload["error_code"] = exc_value.error_code.value
@@ -241,8 +241,26 @@ class GortClient(AMQPClient):
             else:
                 loop.create_task(self.notify_event(Event.ERROR, payload=event_payload))
 
-    def _setup_exception_hooks(self, log: SDSSLogger, use_rich_output: bool = True):
+    def asyncio_exception_handler(self, loop, context):
+        """Handle an uncaught asyncio exception and reports it."""
+
+        if exception := context.get("exception", None):
+            try:
+                raise exception
+            except Exception:
+                exc_type, exc_value, exc_tb = sys.exc_info()
+                self.exception_handler(self.log, exc_type, exc_value, exc_tb)
+        else:
+            loop.default_exception_handler(context)
+
+    def _setup_exception_hooks(
+        self,
+        log: SDSSLogger | None = None,
+        use_rich_output: bool = True,
+    ):
         """Setup various hooks for exception handling."""
+
+        log = log or self.log
 
         def custom__showtraceback_closure(default__showtraceback):
             def _showtraceback(*args, **kwargs):
@@ -283,6 +301,16 @@ class GortClient(AMQPClient):
             # was overridden by rich or not).
             custom__showtraceback_closure(IPYTHON._showtraceback)
 
+    def _setup_async_exception_hooks(self):
+        """Sets up a custom async exception handler."""
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:  # No running event loop, mostly for IPython.
+            pass
+        else:
+            loop.set_exception_handler(self.asyncio_exception_handler)
+
     def get_log_path(self):
         """Returns the path of the log file. :obj:`None` if not logging to file."""
 
@@ -301,6 +329,11 @@ class GortClient(AMQPClient):
         if not self.connected:
             async with self._connect_lock:
                 await self.start()
+
+        # Override the asyncio exception handler to catch errors in tasks.
+        # We do this after AMQPClient.start() because it sets its own exception
+        # handler.
+        self._setup_async_exception_hooks()
 
         override_overwatcher = getattr(self, "_override_overwatcher", None)
         override_envvar = os.environ.get("GORT_OVERRIDE_OVERWATCHER", "0")

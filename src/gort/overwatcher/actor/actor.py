@@ -26,6 +26,7 @@ class OverwatcherActor(AMQPActor):
     """An actor that watches over other actors!"""
 
     parser = overwatcher_cli
+    parser_raise_on_error = True
 
     def __init__(self, *args, dry_run: bool = False, **kwargs):
         gort_root = pathlib.Path(gort.__file__).parent
@@ -41,8 +42,12 @@ class OverwatcherActor(AMQPActor):
         """Starts the overwatcher and actor."""
 
         await self.overwatcher.run()
+        await super().start(**kwargs)
 
-        return await super().start(**kwargs)
+        # Recreate the GORT exception hooks. We want exceptions to be logged
+        # to the GORT log and error events to be emitted.
+        self.overwatcher.gort._setup_exception_hooks()
+        self.overwatcher.gort._setup_async_exception_hooks()
 
 
 OverwatcherCommand = Command[OverwatcherActor]

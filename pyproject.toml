@@ -11,7 +11,7 @@ requires-python = ">=3.10,<4"
 
 dependencies = [
     "sdsstools>=1.8.1",
-    "sdss-clu>=2.1.2",
+    "sdss-clu>=2.3.0",
     "httpx>=0.27.0",
     "astropy>=6.0.0",
     "peewee>=3.16.2",
