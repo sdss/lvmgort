@@ -114,7 +114,8 @@ class MonitorEvents(OverwatcherModuleTask["EventsOverwatcher"]):
         if is_observing and tile and tile.tile_id:
             await self.notify(
                 f"An error event was reported while observing tile {tile.tile_id}. "
-                f"{error_message}"
+                f"{error_message}",
+                level="error",
             )
             await add_night_log_comment(
                 f"Tile {tile.tile_id} - Error reported. {error_message} "
