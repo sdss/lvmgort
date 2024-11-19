@@ -11,6 +11,7 @@
 ### 🔧 Fixed
 
 * Fix a bug that would cause the calibration module to always add a night log comment indicating that the calibration had failed.
+* Prevent the K-mirror from being homed and parked at the same time.
 
 
 ## 1.2.0 - November 17, 2024

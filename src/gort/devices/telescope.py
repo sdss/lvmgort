@@ -582,11 +582,6 @@ class Telescope(GortDevice):
 
         await self.initialise()
 
-        kmirror_task: asyncio.Task | None = None
-        if kmirror and self.km:
-            self.write_to_log("Parking k-mirror.", level="info")
-            kmirror_task = asyncio.create_task(self.km.park())
-
         if use_pw_park:
             self.write_to_log("Parking telescope to PW default position.", level="info")
             await self.pwi.commands.park()
@@ -616,8 +611,9 @@ class Telescope(GortDevice):
             self.write_to_log("Disabling telescope.")
             await self.pwi.commands.setEnabled(False)
 
-        if kmirror_task:
-            await kmirror_task
+        if kmirror and self.km:
+            self.write_to_log("Parking k-mirror.", level="info")
+            await self.km.park()
 
         self.is_homed = False
 
