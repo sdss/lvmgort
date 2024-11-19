@@ -82,7 +82,10 @@ class MonitorEvents(OverwatcherModuleTask["EventsOverwatcher"]):
             await self.overwatcher.notify("The dome is now closed.")
 
         elif event == Event.EMERGENCY_SHUTDOWN:
-            await self.overwatcher.notify("An emergency shutdown was triggered.")
+            await self.overwatcher.notify(
+                "An emergency shutdown was triggered.",
+                level="warning",
+            )
 
         elif event == Event.ERROR:
             await self.handle_error_event(payload)
