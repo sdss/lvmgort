@@ -35,6 +35,8 @@ class TroubleshooterRecipe(metaclass=abc.ABCMeta):
         self.troubleshooter = troubleshooter
 
         self.overwatcher = troubleshooter.overwatcher
+        self.gort = troubleshooter.overwatcher.gort
+
         self.notify = troubleshooter.overwatcher.notify
 
         assert hasattr(self, "name"), "Recipe must have a name."
@@ -146,5 +148,28 @@ class SchedulerFailedRecipe(TroubleshooterRecipe):
             level="warning",
         )
         await asyncio.sleep(60)
+
+        return True
+
+
+class SpectrographNotIdleRecipe(TroubleshooterRecipe):
+    """Handle acquisition failures."""
+
+    priority = 1
+    name = "spectrograph_not_idle"
+
+    def match(self, error_model: TroubleModel) -> bool:
+        """Returns True if the recipe can handle the error."""
+
+        if error_model.error_code == ErrorCode.SECTROGRAPH_NOT_IDLE:
+            return True
+
+        return False
+
+    async def _handle_internal(self, error_model: TroubleModel) -> bool:
+        """Handle the error."""
+
+        await self.notify("Resetting spectrographs.", level="warning")
+        await self.gort.specs.reset()
 
         return True

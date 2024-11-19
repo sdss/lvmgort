@@ -10,6 +10,7 @@
   close_dome_after: true
   abort_observing: true
   priority: 10
+  max_try_time: 600 # To account for the fact that it will try to open 5 mins before min_start_time if the dome is closed
   allow_post_observing_recovery: false
 
 - name: quick_cals

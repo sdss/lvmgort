@@ -246,7 +246,18 @@ class Spectrograph(GortDevice):
 
         status = await self.status(simple=True)
         names = status["status_names"]
-        return "IDLE" in names and "READOUT_PENDING" not in names
+
+        for status in ["READOUT_PENDING", "ERROR"]:
+            if status in names:
+                return False
+
+        return "IDLE" in names
+
+    async def is_errored(self):
+        """Returns :obj:`True` if the spectrograph is in error."""
+
+        status = await self.status(simple=True)
+        return "ERROR" in status["status_names"]
 
     async def is_exposing(self):
         """Returns :obj:`True` if the spectrograph is exposing."""
@@ -369,6 +380,11 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
         """Returns :obj:`True` if all the spectrographs are idle and ready to expose."""
 
         return all(await self.call_device_method(Spectrograph.is_idle))
+
+    async def are_errored(self):
+        """Returns :obj:`True` if any of the spectrographs are errored."""
+
+        return any(await self.call_device_method(Spectrograph.is_errored))
 
     async def expose(
         self,

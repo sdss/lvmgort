@@ -317,7 +317,7 @@ class PostObservingTask(DailyTaskBase):
                                 "after observations had been completed. Review the "
                                 "data quality since the exposures were taken after "
                                 "sunrise.",
-                                category="other",
+                                category="overwatcher",
                             )
 
                     except Exception as err:

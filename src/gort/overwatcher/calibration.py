@@ -249,7 +249,7 @@ class Calibration:
 
         # Add a comment to the night log section for issues indicating the calibration
         # has failed and the reason for it.
-        if add_to_night_log:
+        if state == CalibrationState.FAILED and add_to_night_log:
             if not fail_reason.endswith("."):
                 fail_reason += "."
 
@@ -257,7 +257,7 @@ class Calibration:
                 add_night_log_comment(
                     f"Calibration {self.name} failed. Reason: {fail_reason}"
                     " See log for more details.",
-                    category="issues",
+                    category="overwatcher",
                 ),
             )
             self._task_queue.add(task)

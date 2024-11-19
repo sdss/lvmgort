@@ -1,5 +1,42 @@
 # Changelog
 
+## Next version
+
+### ✨ Improved
+
+* [#41](https://github.com/sdss/lvmgort/pull/41) Only emit an error event when the exception is actually raised.
+* Report if the observer is focusing or troubleshooting.
+* Stop MoTAN devices before a new move and improve error reporting.
+* Allow fibre selector to rehome if a move fails.
+
+### 🔧 Fixed
+
+* Fix a bug that would cause the calibration module to always add a night log comment indicating that the calibration had failed.
+* Prevent the K-mirror from being homed and parked at the same time.
+
+
+## 1.2.0 - November 17, 2024
+
+### 🚀 New
+
+* Overwatcher now reports error events via notifications. If the error happens while a tile is being observed, a comment in the night log is added.
+
+### ✨ Improved
+
+* Roll over the GORT log when the SJD changes.
+* Improve the logic handling how the Overwatcher observer decides when to open or close the dome near evening or morning twilight.
+* Run a clean-up first in pre-observing in case the spectrographs are not in a good state.
+* Run some pre-observing checks before calling each `GortObserver.observe_tile()` in the `ObserverOverwatcher`. Currently only checks if the spectrographs have an error state and resets them.
+* Handle `SPECTROGRAPH_NOT_IDLE` errors in the troubleshooter.
+* Disable the Overwatcher and cancel observations if the dome fails to move.
+* Add retries for safe enclosure operations.
+
+### 🔧 Fixed
+
+* Fixed a bug that would prevent a new SJD to trigger an update of the ephemeris and calibrations.
+* Fix a bug that would leave the Overwatcher in cancelling mode if `start_observing` failed.
+
+
 ## 1.1.2 - November 11, 2024
 
 ### ✨ Improved

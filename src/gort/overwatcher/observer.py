@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 from astropy.time import Time
 
-from gort.exceptions import GortError, TroubleshooterTimeoutError
+from gort.exceptions import GortError, OverwatcherError, TroubleshooterTimeoutError
 from gort.exposure import Exposure
 from gort.overwatcher import OverwatcherModule
 from gort.overwatcher.core import OverwatcherModuleTask
@@ -37,6 +37,8 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
     keep_alive = False
     restart_on_error = True
 
+    interval: float = 1
+
     async def task(self):
         """Handles whether we should start the observing loop."""
 
@@ -46,7 +48,12 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
 
         state = self.overwatcher.state
 
+        OPEN_DOME_SECS_BEFORE_TWILIGHT = self.module.OPEN_DOME_SECS_BEFORE_TWILIGHT
+        STOP_SECS_BEFORE_MORNING = self.module.STOP_SECS_BEFORE_MORNING
+
         while True:
+            ephemeris = self.overwatcher.ephemeris.ephemeris
+
             if state.dry_run:
                 pass
 
@@ -56,7 +63,20 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
             elif not state.enabled:
                 pass
 
+            elif not ephemeris:
+                pass
+
             elif state.safe and state.night:
+                # Not open within STOP_SECS_BEFORE_MORNING minutes of morning twilight.
+
+                now = time()
+                morning_twilight = Time(ephemeris.twilight_start, format="jd").unix
+                time_to_morning_twilight = morning_twilight - now
+
+                if time_to_morning_twilight < STOP_SECS_BEFORE_MORNING:
+                    await asyncio.sleep(self.interval)
+                    continue
+
                 try:
                     await self.module.start_observing()
                 except Exception as err:
@@ -67,25 +87,25 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
                     await asyncio.sleep(15)
 
             elif state.safe and not state.night and not state.calibrating:
-                ephemeris = self.overwatcher.ephemeris.ephemeris
+                # Open the dome OPEN_DOME_SECS_BEFORE_TWILIGHT before evening twilight.
 
-                if ephemeris:
-                    now = time()
-                    twilight_time = Time(ephemeris.twilight_end, format="jd").unix
+                now = time()
+                evening_twilight = Time(ephemeris.twilight_end, format="jd").unix
+                time_to_evening_twilight = evening_twilight - now
 
-                    time_to_twilight = twilight_time - now
+                if (
+                    time_to_evening_twilight > 0
+                    and time_to_evening_twilight < OPEN_DOME_SECS_BEFORE_TWILIGHT
+                ):
+                    dome_open = await self.overwatcher.dome.is_opening()
+                    if not dome_open:
+                        await self.notify(
+                            "Running the start-up sequence and "
+                            "opening the dome for observing."
+                        )
+                        await self.overwatcher.dome.startup()
 
-                    # Open the dome 5 minutes before twilight.
-                    if time_to_twilight > 0 and time_to_twilight < 300:
-                        dome_open = await self.overwatcher.dome.is_opening()
-                        if not dome_open:
-                            await self.notify(
-                                "Running the start-up sequence and "
-                                "opening the dome for observing."
-                            )
-                            await self.overwatcher.dome.startup()
-
-            await asyncio.sleep(1)
+            await asyncio.sleep(self.interval)
 
 
 class ObserverOverwatcher(OverwatcherModule):
@@ -94,17 +114,21 @@ class ObserverOverwatcher(OverwatcherModule):
 
     tasks = [ObserverMonitorTask()]
 
+    OPEN_DOME_SECS_BEFORE_TWILIGHT: float = 300
+    STOP_SECS_BEFORE_MORNING: float = 600
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.observe_loop: asyncio.Task | None = None
         self.next_exposure_completes: float = 0
 
+        self.focusing: bool = False
         self._starting_observations: bool = False
         self._cancelling: bool = False
 
     @property
-    def is_observing(self):
+    def is_observing(self) -> bool:
         """Returns whether the observer is currently observing."""
 
         if self._starting_observations:
@@ -113,7 +137,7 @@ class ObserverOverwatcher(OverwatcherModule):
         return self.observe_loop is not None and not self.observe_loop.done()
 
     @property
-    def is_cancelling(self):
+    def is_cancelling(self) -> bool:
         """Returns whether the observer is currently cancelling."""
 
         if not self.is_observing:
@@ -145,14 +169,22 @@ class ObserverOverwatcher(OverwatcherModule):
             raise GortError("Cannot safely open the telescope.")
 
         await self.notify("Starting observations.")
-        self._starting_observations = True
 
         if not (await self.overwatcher.dome.is_opening()):
-            await self.notify("Running the start-up sequence and opening the dome.")
-            await self.overwatcher.dome.startup()
+            try:
+                self._starting_observations = True
+                await self.notify("Running the start-up sequence and opening the dome.")
+                await self.overwatcher.dome.startup()
+            except Exception:
+                # If the dome failed to open that will disable the
+                # Overwatcher and prevent the startup to run again.
+                self.log.error("Startup routine failed.")
+                return
+            finally:
+                self._starting_observations = False
 
         self.observe_loop = asyncio.create_task(self.observe_loop_task())
-        self._starting_observations = False
+        await asyncio.sleep(1)
 
     async def stop_observing(
         self,
@@ -196,12 +228,11 @@ class ObserverOverwatcher(OverwatcherModule):
         await self.gort.cleanup(readout=True)
         observer = self.gort.observer
 
-        ephemeris = self.overwatcher.ephemeris
-
         n_tile_positions = 0
+        force_focus: bool = False
 
         while True:
-            exp: Exposure | list[Exposure] | bool = False
+            exp: Exposure | bool = False
 
             try:
                 # Wait in case the troubleshooter is doing something.
@@ -216,42 +247,30 @@ class ObserverOverwatcher(OverwatcherModule):
                     f"observing dither positions {tile.dither_positions}."
                 )
 
-                # Check if we should refocus.
-                focus_info = await self.gort.guiders.sci.get_focus_info()
-                focus_age = focus_info["reference_focus"]["age"]
-
-                # Focus when the loop starts or every 1 hour or at the beginning
-                # of the loop.
-                if n_tile_positions == 0 or focus_age is None or focus_age > 3600.0:
-                    await self.notify("Focusing telescopes.")
-                    await self.gort.guiders.focus()
+                await self.check_focus(force=force_focus or n_tile_positions == 0)
 
                 for dpos in tile.dither_positions:
                     await self.overwatcher.troubleshooter.wait_until_ready(300)
 
-                    time_to_twilight = ephemeris.time_to_morning_twilight()
-                    if time_to_twilight is not None:
-                        if time_to_twilight < 600:
-                            # If we are within 10 minutes of twilight, we stop
-                            # immediately since we don't have time for another
-                            # exposure.
-                            await self.notify(
-                                "Daytime has been reached. Ending "
-                                "observations and closing the dome."
-                            )
-                            await self.overwatcher.dome.shutdown(retry=True, park=True)
-                            self.cancel()
-                            break
-                        elif time_to_twilight > 600 and time_to_twilight < 900:
-                            # Take one more exposure and then stop. We don't need
-                            # to do anything here. The main task will cancel the
-                            # loop when daytime is reached.
-                            self.log.info("Taking one last exposure before twilight.")
+                    if not self.check_twilight():
+                        await self.notify(
+                            "Morning twilight will be reached before the next "
+                            "exposure ends. Finishing the observing loop and "
+                            "closing now."
+                        )
+
+                        self.cancel()
+                        await self.overwatcher.dome.shutdown(retry=True, park=True)
+
+                        break
 
                     # The exposure will complete in 900 seconds + acquisition + readout
                     self.next_exposure_completes = time() + 90 + 900 + 60
 
-                    result, _ = await observer.observe_tile(
+                    if not (await self.pre_observe_checks()):
+                        raise OverwatcherError("Pre-observe checks failed.")
+
+                    result, exps = await observer.observe_tile(
                         tile=tile,
                         dither_position=dpos,
                         async_readout=True,
@@ -266,6 +285,9 @@ class ObserverOverwatcher(OverwatcherModule):
 
                     if not result and not self.is_cancelling:
                         raise GortError("The observation ended with error state.")
+
+                    if result and len(exps) > 0:
+                        exp = exps[0]
 
                     if self.is_cancelling:
                         break
@@ -282,19 +304,96 @@ class ObserverOverwatcher(OverwatcherModule):
                 break
 
             except Exception as err:
-                await self.overwatcher.troubleshooter.handle(err)
+                if await self.overwatcher.troubleshooter.handle(err):
+                    if self.is_cancelling:
+                        break
+                    if self.focusing:
+                        # Force a new focus if the error occurred while focusing.
+                        force_focus = True
+
+                    continue
 
             finally:
+                self.exposure_completes = 0
+
                 if self.is_cancelling:
-                    self.log.warning("Cancelling observations.")
                     try:
-                        if exp and isinstance(exp[0], Exposure):
-                            await asyncio.wait_for(exp[0], timeout=80)
+                        if exp is not False and not exp.done():
+                            self.log.warning("Waiting for exposure to read.")
+                            await asyncio.wait_for(exp, timeout=80)
                     except Exception:
-                        pass
+                        self.log.error("Failed reading last exposure.")
 
                     break
 
         await self.gort.cleanup(readout=False)
-
         await self.notify("The observing loop has ended.")
+
+    def check_twilight(self) -> bool:
+        """Checks if we are close to the morning twilight and cancels observations."""
+
+        ephemeris = self.overwatcher.ephemeris
+        time_to_twilight = ephemeris.time_to_morning_twilight()
+
+        if time_to_twilight is None:
+            self.log.warning("Failed to get time to morning twilight.")
+            return True
+
+        if time_to_twilight > self.STOP_SECS_BEFORE_MORNING:
+            return True
+
+        return False
+
+    async def check_focus(self, force: bool = False):
+        """Checks if it's time to focus the telescope."""
+
+        should_focus: bool = False
+
+        if not force:
+            # Check if we should refocus.
+            focus_info = await self.gort.guiders.sci.get_focus_info()
+            focus_age = focus_info["reference_focus"]["age"]
+
+            if focus_age is None or focus_age > 3600:
+                should_focus = True
+
+        else:
+            should_focus = True
+
+        # Focus when the loop starts or every 1 hour or at the beginning
+        # of the loop.
+        if should_focus:
+            try:
+                self.focusing = True
+                await self.notify("Focusing telescopes.")
+                await self.gort.guiders.focus()
+            except Exception as err:
+                await self.notify(
+                    f"Failed while focusing the telescopes: {err}",
+                    level="error",
+                )
+                raise
+            else:
+                self.focusing = False
+
+    async def pre_observe_checks(self):
+        """Runs pre-observe checks."""
+
+        if await self.gort.specs.are_errored():
+            exp = self.gort.specs.last_exposure
+            if exp and not exp.done():
+                self.log.warning(
+                    "Spectrographs are idle but an exposure is ongoing. "
+                    "Waiting for it to finish before resetting."
+                )
+                try:
+                    await asyncio.wait_for(exp, timeout=100)
+                except asyncio.TimeoutError:
+                    self.log.error(
+                        "Timed out waiting for exposure to finish. "
+                        "Resetting spectrographs."
+                    )
+
+            await self.gort.specs.reset()
+
+        return True

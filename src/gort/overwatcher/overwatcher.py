@@ -37,6 +37,8 @@ class OverwatcherState:
     enabled: bool = False
     observing: bool = False
     calibrating: bool = False
+    troubleshooting: bool = False
+    focusing: bool = False
     night: bool = False
     safe: bool = False
     allow_calibrations: bool = True
@@ -87,6 +89,8 @@ class OverwatcherMainTask(OverwatcherTask):
                 ow.state.night = is_night
                 ow.state.safe = is_safe
                 ow.state.observing = ow.observer.is_observing
+                ow.state.focusing = ow.observer.focusing
+                ow.state.troubleshooting = ow.troubleshooter.is_troubleshooting()
 
                 running_calibration = ow.calibrations.get_running_calibration()
                 ow.state.calibrating = running_calibration is not None
@@ -102,8 +106,6 @@ class OverwatcherMainTask(OverwatcherTask):
 
                 if not ow.state.enabled:
                     await self.handle_disabled()
-                elif ow.observer.is_cancelling and ow.state.enabled:
-                    await self.handle_reenable()
 
                 # Run daily tasks.
                 await ow.daily_tasks.run_all()
@@ -172,6 +174,7 @@ class OverwatcherMainTask(OverwatcherTask):
             return
 
         # Also don't do anything if the overwatcher is not enabled.
+        # TODO: maybe we should close the dome if it's open?
         if not self.overwatcher.state.enabled:
             return
 
@@ -219,23 +222,6 @@ class OverwatcherMainTask(OverwatcherTask):
                 immediate=False,
                 reason="overwatcher was disabled",
             )
-
-    async def handle_reenable(self):
-        """Re-enables the overwatcher after cancelling."""
-
-        observer = self.overwatcher.observer
-        if not self.overwatcher.state.enabled or not observer.is_cancelling:
-            return
-
-        # If we have a pending close dome, do nothing. This happens when the
-        # daytime handler is waiting for the observing loop to finish but usually
-        # the overwatcher is still enabled.
-        if self._pending_close_dome:
-            return
-
-        self._log.info("Undoing the cancellation of the observing loop.")
-        observer._cancelling = False
-        self.overwatcher.gort.observer.cancelling = False
 
 
 class OverwatcherPingTask(OverwatcherTask):
@@ -383,6 +369,15 @@ class Overwatcher(NotifierMixIn):
 
         if disable_overwatcher:
             self.state.enabled = False
+
+    async def force_disable(self):
+        """Disables the overwatcher."""
+
+        await self.observer.stop_observing(immediate=True)
+        await self.calibrations.cancel()
+
+        self.state.enabled = False
+        await self.notify("Overwatcher is now disabled.", level="warning")
 
     async def cancel(self):
         """Cancels the overwatcher tasks."""

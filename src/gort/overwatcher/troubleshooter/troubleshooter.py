@@ -9,9 +9,11 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from dataclasses import dataclass
+from time import time
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 from gort.core import LogNamespace
 from gort.enums import ErrorCode
@@ -51,6 +53,12 @@ class RecipeBook(dict[str, TroubleshooterRecipe]):
             self[recipe.name] = recipe
 
 
+class ErrorTrackingDict(TypedDict):
+    hash: int
+    count: int
+    last_seen: float
+
+
 class Troubleshooter:
     """Handles troubleshooting for the Overwatcher."""
 
@@ -68,10 +76,17 @@ class Troubleshooter:
         self._event = asyncio.Event()
         self._event.set()
 
+        self.error_tracking: dict[int, ErrorTrackingDict] = {}
+
     def reset(self):
         """Resets the troubleshooter to its initial state."""
 
         self._event.set()
+
+    def is_troubleshooting(self) -> bool:
+        """Returns ``True`` if the troubleshooter is currently handling an error."""
+
+        return not self._event.is_set()
 
     async def wait_until_ready(self, timeout: float | None = None):
         """Blocks if the troubleshooter is handling an error until done."""
@@ -80,6 +95,12 @@ class Troubleshooter:
             await asyncio.wait_for(self._event.wait(), timeout=timeout)
         except asyncio.TimeoutError:
             raise TroubleshooterTimeoutError("Troubleshooter timed out.")
+
+    def create_hash(self, error: GortError) -> int:
+        """Creates a hash for the error to track it."""
+
+        root = f"{error.error_code.name}_{str(error)}"
+        return int(hashlib.sha1(root.encode("utf-8")).hexdigest(), 16) % (10**8)
 
     async def handle(self, error: Exception | str):
         """Handles an error and tries to troubleshoot it.
@@ -99,6 +120,13 @@ class Troubleshooter:
             error = GortError(error, error_code=ErrorCode.UNCATEGORISED_ERROR)
         elif not isinstance(error, GortError):
             error = GortError(str(error), error_code=ErrorCode.UNCATEGORISED_ERROR)
+
+        hash = self.create_hash(error)
+        if hash in self.error_tracking:
+            self.error_tracking[hash]["count"] += 1
+            self.error_tracking[hash]["last_seen"] = time()
+        else:
+            self.error_tracking[hash] = {"hash": hash, "count": 1, "last_seen": time()}
 
         error_model = TroubleModel(
             error=error,
@@ -146,3 +174,5 @@ class Troubleshooter:
 
         finally:
             self._event.set()
+
+        return False
