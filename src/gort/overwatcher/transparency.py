@@ -94,7 +94,7 @@ class TransparencyMonitorTask(OverwatcherModuleTask["TransparencyOverwatcher"]):
                     self.module.reset()
                     self.unavailable = True
 
-            await asyncio.sleep(30)
+            await asyncio.sleep(60)
 
     async def update_data(self):
         """Retrieves and evaluates transparency data."""
