@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import math
 import time
 
 from typing import TYPE_CHECKING, Any
@@ -17,6 +18,7 @@ import click
 from clu.parsers.click import command_parser as overwatcher_cli
 
 from gort.overwatcher.calibration import CalibrationState
+from gort.overwatcher.transparency import TransparencyState
 
 
 if TYPE_CHECKING:
@@ -218,5 +220,53 @@ async def observer_status(command: OverwatcherCommand):
             "dither_position": dither_position,
             "stage": stage,
             "standard_no": standard_no,
+        }
+    )
+
+
+@overwatcher_cli.command()
+async def transparency(command: OverwatcherCommand):
+    """Reports the transparency status of the science telescope."""
+
+    overwatcher = command.actor.overwatcher
+    transparency = overwatcher.transparency
+
+    now = time.time()
+    if transparency.last_updated < now - 120:
+        command.warning("Transparency data is stale.")
+        return command.finish(
+            transparency={
+                "telescope": "sci",
+                "mean_zp": None,
+                "quality": "unknown",
+                "trend": "unknown",
+            }
+        )
+
+    zp = transparency.zero_point["sci"]
+    quality_flag = transparency.quality["sci"]
+
+    quality: str = "unknown"
+    if quality_flag & TransparencyState.BAD:
+        quality = "bad"
+    elif quality_flag & TransparencyState.POOR:
+        quality = "poor"
+    elif quality_flag & TransparencyState.GOOD:
+        quality = "good"
+
+    trend: str = "unknown"
+    if quality_flag & TransparencyState.IMPROVING:
+        trend = "improving"
+    elif quality_flag & TransparencyState.WORSENING:
+        trend = "worsening"
+    elif quality_flag & TransparencyState.FLAT:
+        trend = "flat"
+
+    return command.finish(
+        transparency={
+            "telescope": "sci",
+            "mean_zp": None if math.isnan(zp) else round(zp, 2),
+            "quality": quality,
+            "trend": trend,
         }
     )

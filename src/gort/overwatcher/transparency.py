@@ -26,28 +26,29 @@ if TYPE_CHECKING:
     pass
 
 
-__all__ = ["TransparencyOverwatcher", "TransparencyStatus"]
+__all__ = ["TransparencyOverwatcher", "TransparencyQuality", "TransparencyQuality"]
 
 
-class TransparencyStatus(enum.Flag):
+class TransparencyQuality(enum.Flag):
     """Flags for transparency status."""
 
     GOOD = enum.auto()
     POOR = enum.auto()
     BAD = enum.auto()
+    UNKNOWN = enum.auto()
     IMPROVING = enum.auto()
     WORSENING = enum.auto()
-    UNKNOWN = enum.auto()
+    FLAT = enum.auto()
 
 
-class TransparencyStatusDict(TypedDict):
-    sci: TransparencyStatus
-    skye: TransparencyStatus
-    skyw: TransparencyStatus
-    spec: TransparencyStatus
+class TransparencyQualityDict(TypedDict):
+    sci: TransparencyQuality
+    skye: TransparencyQuality
+    skyw: TransparencyQuality
+    spec: TransparencyQuality
 
 
-class TransparencyValuesDict(TypedDict):
+class TransparencyZPDict(TypedDict):
     sci: float
     skye: float
     skyw: float
@@ -64,7 +65,6 @@ class TransparencyMonitorTask(OverwatcherModuleTask["TransparencyOverwatcher"]):
     def __init__(self):
         super().__init__()
 
-        self.last_updated: float = 0
         self.unavailable: bool = False
 
     async def task(self):
@@ -80,7 +80,7 @@ class TransparencyMonitorTask(OverwatcherModuleTask["TransparencyOverwatcher"]):
                     self.log.error(f"Failed to get transparency data: {err!r}")
                 n_failures += 1
             else:
-                self.last_updated = time()
+                self.module.last_updated = time()
                 self.unavailable = False
                 n_failures = 0
             finally:
@@ -147,30 +147,32 @@ class TransparencyMonitorTask(OverwatcherModuleTask["TransparencyOverwatcher"]):
             data_tel_15 = data_15.filter(polars.col.telescope == tel)
 
             if len(data_tel_5) < 10:
-                self.module.state[tel] = TransparencyStatus.UNKNOWN
-                self.module.values[tel] = numpy.nan
+                self.module.quality[tel] = TransparencyQuality.UNKNOWN
+                self.module.zero_point[tel] = numpy.nan
                 continue
 
             avg_5 = data_tel_5["zero_point_10m"].mean()
             if avg_5 is not None:
                 avg_5 = cast(float, avg_5)
-                self.module.values[tel] = round(float(avg_5), 2)
+                self.module.zero_point[tel] = round(float(avg_5), 2)
 
                 if avg_5 < -22.75:
-                    self.module.state[tel] = TransparencyStatus.GOOD
+                    self.module.quality[tel] = TransparencyQuality.GOOD
                 elif avg_5 > -22.75 and avg_5 < -22.25:
-                    self.module.state[tel] = TransparencyStatus.POOR
+                    self.module.quality[tel] = TransparencyQuality.POOR
                 else:
-                    self.module.state[tel] = TransparencyStatus.BAD
+                    self.module.quality[tel] = TransparencyQuality.BAD
 
             time_15m = data_tel_15["timestamp"].to_numpy() - data_tel_15["timestamp"][0]
             zp_15m = data_tel_15["zero_point_10m"].to_numpy()
             gradient_15m = (zp_15m[-1] - zp_15m[0]) / (time_15m[-1] - time_15m[0])
 
             if gradient_15m > 5e-4:
-                self.module.state[tel] |= TransparencyStatus.WORSENING
+                self.module.quality[tel] |= TransparencyQuality.WORSENING
             elif gradient_15m < -5e-4:
-                self.module.state[tel] |= TransparencyStatus.IMPROVING
+                self.module.quality[tel] |= TransparencyQuality.IMPROVING
+            else:
+                self.module.quality[tel] |= TransparencyQuality.FLAT
 
         return data
 
@@ -185,6 +187,8 @@ class TransparencyOverwatcher(OverwatcherModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.last_updated: float = 0
+
         self.data_start_time: float = 0
         self.data_end_time: float = 0
 
@@ -196,14 +200,14 @@ class TransparencyOverwatcher(OverwatcherModule):
         self.data_start_time: float = 0
         self.data_end_time: float = 0
 
-        self.state = TransparencyStatusDict(
-            sci=TransparencyStatus.UNKNOWN,
-            skye=TransparencyStatus.UNKNOWN,
-            skyw=TransparencyStatus.UNKNOWN,
-            spec=TransparencyStatus.UNKNOWN,
+        self.quality = TransparencyQualityDict(
+            sci=TransparencyQuality.UNKNOWN,
+            skye=TransparencyQuality.UNKNOWN,
+            skyw=TransparencyQuality.UNKNOWN,
+            spec=TransparencyQuality.UNKNOWN,
         )
 
-        self.values = TransparencyValuesDict(
+        self.zero_point = TransparencyZPDict(
             sci=numpy.nan,
             skye=numpy.nan,
             skyw=numpy.nan,
@@ -229,21 +233,21 @@ class TransparencyOverwatcher(OverwatcherModule):
             telescopes = [telescopes]
 
         for tel in telescopes:
-            state = "UNKNOWN"
-            if self.state[tel] & TransparencyStatus.GOOD:
-                state = "GOOD"
-            elif self.state[tel] & TransparencyStatus.POOR:
-                state = "POOR"
-            elif self.state[tel] & TransparencyStatus.BAD:
-                state = "BAD"
+            quality = "UNKNOWN"
+            if self.quality[tel] & TransparencyQuality.GOOD:
+                quality = "GOOD"
+            elif self.quality[tel] & TransparencyQuality.POOR:
+                quality = "POOR"
+            elif self.quality[tel] & TransparencyQuality.BAD:
+                quality = "BAD"
 
             trend = "flat"
-            if self.state[tel] & TransparencyStatus.IMPROVING:
+            if self.quality[tel] & TransparencyQuality.IMPROVING:
                 trend = "improving"
-            elif self.state[tel] & TransparencyStatus.WORSENING:
+            elif self.quality[tel] & TransparencyQuality.WORSENING:
                 trend = "worsening"
 
             self.log.info(
-                f"Transparency for {tel}: state={state}; "
-                f"trend={trend}; zp={self.values[tel]:.2f}"
+                f"Transparency for {tel}: quality={quality}; "
+                f"trend={trend}; zp={self.zero_point[tel]:.2f}"
             )
