@@ -116,28 +116,29 @@ class TransparencyMonitorTask(OverwatcherModuleTask["TransparencyOverwatcher"]):
                 data["data"],
                 orient="row",
                 schema={
-                    "time": polars.String(),
+                    "date": polars.String(),
+                    "timestamp": polars.Float64(),
                     "telescope": polars.String(),
                     "zero_point": polars.Float32(),
                 },
             )
             .with_columns(
-                time=polars.col.time.str.to_datetime(time_zone="UTC", time_unit="ms")
+                date=polars.col.time.str.to_datetime(time_zone="UTC", time_unit="ms")
             )
-            .sort("telescope", "time")
+            .sort("telescope", "date")
         )
 
         # Add a rolling mean.
         data = data.with_columns(
             zero_point_10m=polars.col.zero_point.rolling_mean_by(
-                by="time",
+                by="date",
                 window_size="10m",
             ).over("telescope")
         )
 
         # Get last 5 and 15 minutes of data.
-        data_5 = data.filter(polars.col.time.dt.timestamp("ms") / 1000 > (now - 300))
-        data_15 = data.filter(polars.col.time.dt.timestamp("ms") / 1000 > (now - 900))
+        data_5 = data.filter(polars.col.timestamp > (now - 300))
+        data_15 = data.filter(polars.col.timestamp > (now - 900))
 
         # Use the last 5 minutes of data to determine the transparency status
         # and value the last 15 minutes to estimate the trend.
@@ -162,8 +163,7 @@ class TransparencyMonitorTask(OverwatcherModuleTask["TransparencyOverwatcher"]):
                 else:
                     self.module.state[tel] = TransparencyStatus.BAD
 
-            time_15m = data_tel_15["time"].dt.timestamp("ms").to_numpy() / 1000  # secs
-            time_15m = time_15m - time_15m[0]
+            time_15m = data_tel_15["timestamp"].to_numpy() - data_tel_15["timestamp"][0]
             zp_15m = data_tel_15["zero_point_10m"].to_numpy()
             gradient_15m = (zp_15m[-1] - zp_15m[0]) / (time_15m[-1] - time_15m[0])
 
