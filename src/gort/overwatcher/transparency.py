@@ -12,7 +12,7 @@ import asyncio
 import enum
 from time import time
 
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, TypedDict, cast
 
 import numpy
 import polars
@@ -99,29 +99,80 @@ class TransparencyMonitorTask(OverwatcherModuleTask["TransparencyOverwatcher"]):
     async def update_data(self):
         """Retrieves and evaluates transparency data."""
 
+        now: float = time()
+        lookback: float = 3600
+
         # Get transparency data from the API for the last hour.
-        data = await get_lvmapi_route("/transparency/")
+        data = await get_lvmapi_route(
+            "/transparency/",
+            params={"start_time": now - lookback, "end_time": now},
+        )
 
         self.module.data_start_time = data["start_time"]
         self.module.data_end_time = data["end_time"]
 
-        self.module.data = (
+        data = (
             polars.DataFrame(
                 data["data"],
                 orient="row",
                 schema={
                     "time": polars.String(),
-                    "zero_point": polars.Float32(),
                     "telescope": polars.String(),
+                    "zero_point": polars.Float32(),
                 },
             )
             .with_columns(
                 time=polars.col.time.str.to_datetime(time_zone="UTC", time_unit="ms")
             )
-            .sort("time")
+            .sort("telescope", "time")
         )
 
-        # TODO: actually set the status and values based on some average from the data.
+        # Add a rolling mean.
+        data = data.with_columns(
+            zero_point_10m=polars.col.zero_point.rolling_mean_by(
+                by="time",
+                window_size="10m",
+            ).over("telescope")
+        )
+
+        # Get last 5 and 15 minutes of data.
+        data_5 = data.filter(polars.col.time.dt.timestamp("ms") / 1000 > (now - 300))
+        data_15 = data.filter(polars.col.time.dt.timestamp("ms") / 1000 > (now - 900))
+
+        # Use the last 5 minutes of data to determine the transparency status
+        # and value the last 15 minutes to estimate the trend.
+        for tel in ["sci", "spec", "skye", "skyw"]:
+            data_tel_5 = data_5.filter(polars.col.telescope == tel)
+            data_tel_15 = data_15.filter(polars.col.telescope == tel)
+
+            if len(data_tel_5) < 10:
+                self.module.state[tel] = TransparencyStatus.UNKNOWN
+                self.module.values[tel] = numpy.nan
+                continue
+
+            avg_5 = data_tel_5["zero_point_10m"].mean()
+            if avg_5 is not None:
+                avg_5 = cast(float, avg_5)
+                self.module.values[tel] = round(float(avg_5), 2)
+
+                if avg_5 < -22.75:
+                    self.module.state[tel] = TransparencyStatus.GOOD
+                elif avg_5 > -22.75 and avg_5 < -22.25:
+                    self.module.state[tel] = TransparencyStatus.POOR
+                else:
+                    self.module.state[tel] = TransparencyStatus.BAD
+
+            time_15m = data_tel_15["time"].dt.timestamp("ms").to_numpy() / 1000  # secs
+            time_15m = time_15m - time_15m[0]
+            zp_15m = data_tel_15["zero_point_10m"].to_numpy()
+            gradient_15m = (zp_15m[-1] - zp_15m[0]) / (time_15m[-1] - time_15m[0])
+
+            if gradient_15m > 5e-4:
+                self.module.state[tel] |= TransparencyStatus.WORSENING
+            elif gradient_15m < -5e-4:
+                self.module.state[tel] |= TransparencyStatus.IMPROVING
+
+        return data
 
 
 class TransparencyOverwatcher(OverwatcherModule):
@@ -136,10 +187,6 @@ class TransparencyOverwatcher(OverwatcherModule):
 
         self.data_start_time: float = 0
         self.data_end_time: float = 0
-
-        self.state = TransparencyStatusDict
-        self.values = TransparencyValuesDict
-        self.data: polars.DataFrame
 
         self.reset()
 
@@ -171,3 +218,32 @@ class TransparencyOverwatcher(OverwatcherModule):
                 "telescope": polars.String(),
             },
         )
+
+    def write_to_log(
+        self,
+        telescopes: list[str] | str = ["sci", "spec", "skye", "skyw"],
+    ):
+        """Writes the current state to the log."""
+
+        if isinstance(telescopes, str):
+            telescopes = [telescopes]
+
+        for tel in telescopes:
+            state = "UNKNOWN"
+            if self.state[tel] & TransparencyStatus.GOOD:
+                state = "GOOD"
+            elif self.state[tel] & TransparencyStatus.POOR:
+                state = "POOR"
+            elif self.state[tel] & TransparencyStatus.BAD:
+                state = "BAD"
+
+            trend = "flat"
+            if self.state[tel] & TransparencyStatus.IMPROVING:
+                trend = "improving"
+            elif self.state[tel] & TransparencyStatus.WORSENING:
+                trend = "worsening"
+
+            self.log.info(
+                f"Transparency for {tel}: state={state}; "
+                f"trend={trend}; zp={self.values[tel]:.2f}"
+            )

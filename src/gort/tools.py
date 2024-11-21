@@ -722,8 +722,18 @@ async def get_lvmapi_route(route: str, params: dict = {}, **kwargs):
 
     host, port = config["services"]["lvmapi"].values()
 
+    if "/" in host:
+        host, base_route = host.split("/")
+        if base_route != "":
+            base_route += "/"
+    else:
+        base_route = ""
+
+    if route.startswith("/"):
+        route = route[1:]
+
     async with httpx.AsyncClient(
-        base_url=f"http://{host}:{port}",
+        base_url=f"http://{host}:{port}/{base_route}",
         follow_redirects=True,
     ) as client:
         response = await client.get(route, params=params)

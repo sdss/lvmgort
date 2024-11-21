@@ -289,6 +289,8 @@ class ObserverOverwatcher(OverwatcherModule):
                     if result and len(exps) > 0:
                         exp = exps[0]
 
+                    await self.post_exposure(exp)
+
                     if self.is_cancelling:
                         break
 
@@ -397,3 +399,12 @@ class ObserverOverwatcher(OverwatcherModule):
             await self.gort.specs.reset()
 
         return True
+
+    async def post_exposure(self, exp: Exposure | bool):
+        """Runs post-exposure checks."""
+
+        if exp is False:
+            raise GortError("No exposure was returned.")
+
+        # Output transparency data for the last exposure.
+        self.overwatcher.transparency.write_to_log(["sci"])
