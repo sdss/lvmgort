@@ -289,7 +289,13 @@ class ObserverOverwatcher(OverwatcherModule):
                     if result and len(exps) > 0:
                         exp = exps[0]
 
-                    await self.post_exposure(exp)
+                    try:
+                        await self.post_exposure(exp)
+                    except Exception as err:
+                        await self.notify(
+                            f"Failed to run post-exposure routine: {err}",
+                            level="error",
+                        )
 
                     if self.is_cancelling:
                         break
