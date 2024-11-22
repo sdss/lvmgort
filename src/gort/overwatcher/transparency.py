@@ -126,7 +126,7 @@ class TransparencyMonitorTask(OverwatcherModuleTask["TransparencyOverwatcher"]):
                 },
             )
             .with_columns(
-                date=polars.col.time.str.to_datetime(time_zone="UTC", time_unit="ms")
+                date=polars.col.date.str.to_datetime(time_zone="UTC", time_unit="ms")
             )
             .sort("telescope", "date")
         )
