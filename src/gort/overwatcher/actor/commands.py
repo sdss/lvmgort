@@ -18,7 +18,6 @@ import click
 from clu.parsers.click import command_parser as overwatcher_cli
 
 from gort.overwatcher.calibration import CalibrationState
-from gort.overwatcher.transparency import TransparencyState
 
 
 if TYPE_CHECKING:
@@ -244,29 +243,12 @@ async def transparency(command: OverwatcherCommand):
         )
 
     zp = transparency.zero_point["sci"]
-    quality_flag = transparency.quality["sci"]
-
-    quality: str = "unknown"
-    if quality_flag & TransparencyState.BAD:
-        quality = "bad"
-    elif quality_flag & TransparencyState.POOR:
-        quality = "poor"
-    elif quality_flag & TransparencyState.GOOD:
-        quality = "good"
-
-    trend: str = "unknown"
-    if quality_flag & TransparencyState.IMPROVING:
-        trend = "improving"
-    elif quality_flag & TransparencyState.WORSENING:
-        trend = "worsening"
-    elif quality_flag & TransparencyState.FLAT:
-        trend = "flat"
 
     return command.finish(
         transparency={
             "telescope": "sci",
             "mean_zp": None if math.isnan(zp) else round(zp, 2),
-            "quality": quality,
-            "trend": trend,
+            "quality": transparency.get_quality_string("sci"),
+            "trend": transparency.get_trend_string("sci"),
         }
     )

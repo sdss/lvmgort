@@ -12,7 +12,7 @@ import asyncio
 import enum
 from time import time
 
-from typing import TYPE_CHECKING, TypedDict, cast
+from typing import TYPE_CHECKING, Literal, Sequence, TypedDict, cast, get_args
 
 import numpy
 import polars
@@ -39,6 +39,9 @@ class TransparencyQuality(enum.Flag):
     IMPROVING = enum.auto()
     WORSENING = enum.auto()
     FLAT = enum.auto()
+
+
+Telescopes = Literal["sci", "spec", "skye", "skyw"]
 
 
 class TransparencyQualityDict(TypedDict):
@@ -225,7 +228,7 @@ class TransparencyOverwatcher(OverwatcherModule):
 
     def write_to_log(
         self,
-        telescopes: list[str] | str = ["sci", "spec", "skye", "skyw"],
+        telescopes: Sequence[Telescopes] | Telescopes = get_args(Telescopes),
     ):
         """Writes the current state to the log."""
 
@@ -233,21 +236,37 @@ class TransparencyOverwatcher(OverwatcherModule):
             telescopes = [telescopes]
 
         for tel in telescopes:
-            quality = "UNKNOWN"
-            if self.quality[tel] & TransparencyQuality.GOOD:
-                quality = "GOOD"
-            elif self.quality[tel] & TransparencyQuality.POOR:
-                quality = "POOR"
-            elif self.quality[tel] & TransparencyQuality.BAD:
-                quality = "BAD"
-
-            trend = "flat"
-            if self.quality[tel] & TransparencyQuality.IMPROVING:
-                trend = "improving"
-            elif self.quality[tel] & TransparencyQuality.WORSENING:
-                trend = "worsening"
-
             self.log.info(
-                f"Transparency for {tel}: quality={quality}; "
-                f"trend={trend}; zp={self.zero_point[tel]:.2f}"
+                f"Transparency for {tel}: quality={self.get_quality_string(tel)}; "
+                f"trend={self.get_trend_string(tel)}; zp={self.zero_point[tel]:.2f}"
             )
+
+    def get_quality_string(self, telescope: Telescopes) -> str:
+        """Returns the quality as a string."""
+
+        quality_flag = self.quality[telescope]
+        quality: str = "UNKNOWN"
+
+        if quality_flag & TransparencyQuality.BAD:
+            quality = "BAD"
+        elif quality_flag & TransparencyQuality.POOR:
+            quality = "POOR"
+        elif quality_flag & TransparencyQuality.GOOD:
+            quality = "GOOD"
+
+        return quality
+
+    def get_trend_string(self, telescope: Telescopes) -> str:
+        """Returns the trend as a string."""
+
+        quality_flag = self.quality[telescope]
+        trend: str = "UNKNOWN"
+
+        if quality_flag & TransparencyQuality.IMPROVING:
+            trend = "IMPROVING"
+        elif quality_flag & TransparencyQuality.WORSENING:
+            trend = "WORSENING"
+        elif quality_flag & TransparencyQuality.FLAT:
+            trend = "FLAT"
+
+        return trend

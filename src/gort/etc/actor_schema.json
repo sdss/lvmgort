@@ -62,11 +62,11 @@
         "zero_point": { "oneOf": [{ "type": "number" }, { "type": "null" }] },
         "quality": {
           "type": "string",
-          "enum": ["bad", "poor", "good", "unknown"]
+          "enum": ["BAD", "POOR", "GOOD", "UNKNOWN"]
         },
         "trend": {
           "type": "string",
-          "enum": ["improving", "worsening", "flat", "unknown"]
+          "enum": ["IMPROVING", "WORSENING", "FLAT", "UNKNOWN"]
         }
       }
     }
