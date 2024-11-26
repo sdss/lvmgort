@@ -380,7 +380,7 @@ class FibSel(MoTanDevice):
         except Exception as err:
             if allow_rehoming:
                 self.write_to_log(
-                    f"Failed to move fibsel with error: {err}. Rehoming and retrying.",
+                    f"Failed to move fibsel with error: {err} - Rehoming and retrying.",
                     "warning",
                 )
 
