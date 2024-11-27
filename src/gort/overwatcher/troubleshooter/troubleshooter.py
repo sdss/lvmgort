@@ -15,13 +15,13 @@ from time import time
 
 from typing import TYPE_CHECKING, TypedDict
 
-from gort.core import LogNamespace
 from gort.enums import ErrorCode
 from gort.exceptions import (
     GortError,
     TroubleshooterCriticalError,
     TroubleshooterTimeoutError,
 )
+from gort.tools import LogNamespace
 
 from .recipes import TroubleshooterRecipe
 

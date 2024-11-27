@@ -3,12 +3,11 @@
 #
 # @Author: José Sánchez-Gallego (gallegoj@uw.edu)
 # @Date: 2023-02-07
-# @Filename: core.py
+# @Filename: remote.py
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
 from __future__ import annotations
 
-import logging
 import warnings
 from dataclasses import dataclass, field
 from types import SimpleNamespace
@@ -30,9 +29,8 @@ if TYPE_CHECKING:
     from clu.client import AMQPReply
     from clu.command import Command
 
-    from gort.gort import GortDevice
-
-    from .gort import GortClient
+    from gort.devices.core import GortDevice
+    from gort.gort import Gort
 
 
 __all__ = ["RemoteActor", "RemoteCommand", "ActorReply"]
@@ -50,7 +48,7 @@ class CommandSet(dict[str, "RemoteCommand"]):
 class RemoteActor:
     """A programmatic representation of a remote actor."""
 
-    def __init__(self, client: GortClient, name: str, device: GortDevice | None = None):
+    def __init__(self, client: Gort, name: str, device: GortDevice | None = None):
         self.client = client
 
         self.name = name
@@ -274,32 +272,3 @@ class ActorReply:
                 return reply[key]
 
         return None
-
-
-class LogNamespace:
-    """A namespace for log messages."""
-
-    def __init__(self, logger: logging.Logger, header: str = "") -> None:
-        self.logger = logger
-        self.header = header
-
-    def debug(self, message: str, *args, **kwargs):
-        self.logger.log(logging.DEBUG, self._get_message(message), *args, **kwargs)
-
-    def info(self, message: str, *args, **kwargs):
-        self.logger.log(logging.INFO, self._get_message(message), *args, **kwargs)
-
-    def warning(self, message: str, *args, **kwargs):
-        self.logger.log(logging.WARNING, self._get_message(message), *args, **kwargs)
-
-    def error(self, message: str, *args, **kwargs):
-        self.logger.log(logging.ERROR, self._get_message(message), *args, **kwargs)
-
-    def critical(self, message: str, *args, **kwargs):
-        self.logger.log(logging.CRITICAL, self._get_message(message), *args, **kwargs)
-
-    def exception(self, *args, **kwargs):
-        self.logger.exception(*args, **kwargs)
-
-    def _get_message(self, message: str):
-        return self.header.format(**locals()) + message

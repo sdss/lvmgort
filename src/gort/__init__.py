@@ -23,9 +23,9 @@ conf.iers_degraded_accuracy = "ignore"
 iers_a = iers.IERS_A.open(iers.IERS_A_FILE)
 iers.earth_orientation_table.set(iers_a)
 
-from .core import *
 from .devices import *
 from .exposure import *
 from .gort import *
 from .observer import *
+from .remote import *
 from .tile import *

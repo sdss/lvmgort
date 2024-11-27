@@ -14,9 +14,8 @@ from weakref import WeakSet
 
 from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar
 
-from gort.core import LogNamespace
 from gort.exceptions import GortError
-from gort.tools import cancel_task
+from gort.tools import LogNamespace, cancel_task
 
 
 if TYPE_CHECKING:

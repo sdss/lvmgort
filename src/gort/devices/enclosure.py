@@ -14,10 +14,13 @@ from typing import TYPE_CHECKING
 
 from lvmopstools import Retrier
 
+from gort.devices.core import GortDevice, GortDeviceSet
 from gort.enums import Event
 from gort.exceptions import ErrorCode, GortEnclosureError, GortTelescopeError
-from gort.gort import Gort, GortClient, GortDevice, GortDeviceSet
-from gort.tools import async_noop
+
+
+if TYPE_CHECKING:
+    from gort import Gort
 
 
 if TYPE_CHECKING:
@@ -106,7 +109,7 @@ class Enclosure(GortDevice):
 
     __DEPLOYMENTS__ = ["lvmecp"]
 
-    def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
+    def __init__(self, gort: Gort, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
 
         self.lights = Lights(self)
@@ -169,11 +172,6 @@ class Enclosure(GortDevice):
 
         """
 
-        if isinstance(self.gort, Gort):
-            notify_event = self.gort.notify_event
-        else:
-            notify_event = async_noop
-
         is_local = await self.is_local()
         if is_local:
             raise GortEnclosureError(
@@ -185,12 +183,12 @@ class Enclosure(GortDevice):
             await self._prepare_telescopes()
 
         self.write_to_log("Opening the enclosure ...", level="info")
-        await notify_event(Event.DOME_OPENING)
+        await self.gort.notify_event(Event.DOME_OPENING)
 
         await self.actor.commands.dome.commands.open()
 
         self.write_to_log("Enclosure is now open.", level="info")
-        await notify_event(Event.DOME_OPEN)
+        await self.gort.notify_event(Event.DOME_OPEN)
 
     async def close(
         self,
@@ -214,11 +212,6 @@ class Enclosure(GortDevice):
 
         """
 
-        if isinstance(self.gort, Gort):
-            notify_event = self.gort.notify_event
-        else:
-            notify_event = async_noop
-
         is_local = await self.is_local()
         if is_local:
             raise GortEnclosureError(
@@ -227,7 +220,7 @@ class Enclosure(GortDevice):
             )
 
         self.write_to_log("Closing the dome ...", level="info")
-        await notify_event(Event.DOME_CLOSING)
+        await self.gort.notify_event(Event.DOME_CLOSING)
 
         try:
             if park_telescopes:
@@ -257,7 +250,7 @@ class Enclosure(GortDevice):
             await self.close(park_telescopes=False, force=force)
 
         self.write_to_log("Enclosure is now closed.", level="info")
-        await notify_event(Event.DOME_CLOSED)
+        await self.gort.notify_event(Event.DOME_CLOSED)
 
     async def is_open(self):
         """Returns :obj:`True` if the enclosure is open."""

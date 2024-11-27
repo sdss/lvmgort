@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 
-from gort.gort import GortDevice, GortDeviceSet
+from gort.devices.core import GortDevice, GortDeviceSet
 
 
 __all__ = ["AG", "AGSet"]

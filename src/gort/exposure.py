@@ -36,7 +36,7 @@ from gort.tools import (
 
 
 if TYPE_CHECKING:
-    from gort.gort import Gort, GortClient
+    from gort.gort import Gort
 
 
 __all__ = ["Exposure", "READOUT_TIME"]
@@ -93,7 +93,7 @@ class Exposure(asyncio.Future["Exposure"]):
 
     def __init__(
         self,
-        gort: Gort | GortClient,
+        gort: Gort,
         exp_no: int | None = None,
         flavour: str | None = "object",
         object: str | None = "",
