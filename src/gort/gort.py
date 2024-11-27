@@ -37,17 +37,9 @@ from sdsstools.logger import SDSSLogger, get_logger
 from sdsstools.time import get_sjd
 
 from gort import config
-from gort.devices.ag import AGSet
 from gort.devices.core import GortDevice, GortDeviceSet
-from gort.devices.enclosure import Enclosure
-from gort.devices.guider import GuiderSet
-from gort.devices.nps import NPSSet
-from gort.devices.spec import SpectrographSet
-from gort.devices.telemetry import TelemetrySet
-from gort.devices.telescope import TelescopeSet
 from gort.enums import Event
 from gort.exceptions import ErrorCode, GortError
-from gort.observer import GortObserver
 from gort.pubsub import notify_event
 from gort.recipes import recipes as recipe_to_class
 from gort.remote import RemoteActor
@@ -377,6 +369,16 @@ class Gort(GortClient):
         config_file: str | pathlib.Path | None = None,
         **kwargs,
     ):
+        # Not a circular import issue, but here so that importing Gort is a bit faster.
+        from gort.devices.ag import AGSet
+        from gort.devices.enclosure import Enclosure
+        from gort.devices.guider import GuiderSet
+        from gort.devices.nps import NPSSet
+        from gort.devices.spec import SpectrographSet
+        from gort.devices.telemetry import TelemetrySet
+        from gort.devices.telescope import TelescopeSet
+        from gort.observer import GortObserver
+
         if config_file:
             config.load(str(config_file))
 
