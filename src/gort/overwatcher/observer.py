@@ -232,8 +232,6 @@ class ObserverOverwatcher(OverwatcherModule):
         force_focus: bool = False
 
         while True:
-            exp: Exposure | bool = False
-
             try:
                 # Wait in case the troubleshooter is doing something.
                 await self.overwatcher.troubleshooter.wait_until_ready(300)
@@ -250,6 +248,8 @@ class ObserverOverwatcher(OverwatcherModule):
                 await self.check_focus(force=force_focus or n_tile_positions == 0)
 
                 for dpos in tile.dither_positions:
+                    exp: Exposure | bool = False
+
                     await self.overwatcher.troubleshooter.wait_until_ready(300)
 
                     if not self.check_twilight():
