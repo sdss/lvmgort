@@ -12,14 +12,14 @@ import asyncio
 
 from typing import TYPE_CHECKING, Sequence
 
+from gort.devices.core import GortDevice, GortDeviceSet
 from gort.exceptions import ErrorCode, GortError, GortSpecError
 from gort.exposure import Exposure
-from gort.gort import GortDevice, GortDeviceSet
 
 
 if TYPE_CHECKING:
-    from gort.core import ActorReply
-    from gort.gort import GortClient
+    from gort.gort import Gort
+    from gort.remote import ActorReply
 
 
 __all__ = ["Spectrograph", "SpectrographSet", "IEB"]
@@ -28,7 +28,7 @@ __all__ = ["Spectrograph", "SpectrographSet", "IEB"]
 class IEB(GortDevice):
     """A class representing an Instrument Electronics Box."""
 
-    def __init__(self, gort: GortClient, name: str, actor: str):
+    def __init__(self, gort: Gort, name: str, actor: str):
         super().__init__(gort, name, actor)
 
         self.spec_name = self.name.split(".")[1]
@@ -220,7 +220,7 @@ class IEB(GortDevice):
 class Spectrograph(GortDevice):
     """Class representing an LVM spectrograph functionality."""
 
-    def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
+    def __init__(self, gort: Gort, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
 
         self.nps = self.gort.nps[name]
@@ -346,7 +346,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
     __DEVICE_CLASS__ = Spectrograph
     __DEPLOYMENTS__ = ["lvmscp"]
 
-    def __init__(self, gort: GortClient, data: dict[str, dict], **kwargs):
+    def __init__(self, gort: Gort, data: dict[str, dict], **kwargs):
         super().__init__(gort, data, **kwargs)
 
         self.last_exposure: Exposure | None = None

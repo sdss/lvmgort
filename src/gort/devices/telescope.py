@@ -16,14 +16,15 @@ from typing import TYPE_CHECKING, ClassVar
 
 import numpy
 
+from gort.devices.core import GortDevice, GortDeviceSet
 from gort.enums import Event
 from gort.exceptions import ErrorCode, GortTelescopeError
-from gort.gort import Gort, GortClient, GortDevice, GortDeviceSet
 from gort.tools import angular_separation, kubernetes_restart_deployment
 
 
 if TYPE_CHECKING:
-    from gort.core import ActorReply
+    from gort.gort import Gort
+    from gort.remote import ActorReply
 
 
 __all__ = ["Telescope", "TelescopeSet", "KMirror", "FibSel", "Focuser", "MoTanDevice"]
@@ -35,7 +36,7 @@ class MoTanDevice(GortDevice):
     #: Artificial delay introduced to prevent all motors to slew at the same time.
     SLEW_DELAY: ClassVar[float | dict[str, float]] = 0
 
-    def __init__(self, gort: GortClient, name: str, actor: str):
+    def __init__(self, gort: Gort, name: str, actor: str):
         super().__init__(gort, name, actor)
 
         class_name = self.__class__.__name__
@@ -289,7 +290,7 @@ class FibSel(MoTanDevice):
     # Rehome after this many seconds.
     HOME_AFTER: float | None = None
 
-    def __init__(self, gort: GortClient, name: str, actor: str):
+    def __init__(self, gort: Gort, name: str, actor: str):
         super().__init__(gort, name, actor)
 
         self.__last_homing: float = 0
@@ -384,14 +385,13 @@ class FibSel(MoTanDevice):
                     "warning",
                 )
 
-                if isinstance(self.gort, Gort):
-                    # Notify this event so that it can be taken into account, for
-                    # example to add a flag if this happens during the standards
-                    # iteration loop.
-                    await self.gort.notify_event(
-                        Event.UNEXPECTED_FIBSEL_REHOME,
-                        payload={"time": time()},
-                    )
+                # Notify this event so that it can be taken into account, for
+                # example to add a flag if this happens during the standards
+                # iteration loop.
+                await self.gort.notify_event(
+                    Event.UNEXPECTED_FIBSEL_REHOME,
+                    payload={"time": time()},
+                )
 
                 await self.home()
                 await self._move(command, steps, allow_rehoming=False)
@@ -402,7 +402,7 @@ class FibSel(MoTanDevice):
 class Telescope(GortDevice):
     """Class representing an LVM telescope functionality."""
 
-    def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
+    def __init__(self, gort: Gort, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
 
         self.is_homed: bool = False
@@ -910,7 +910,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
         "lvmtan",
     ]
 
-    def __init__(self, gort: GortClient, data: dict[str, dict]):
+    def __init__(self, gort: Gort, data: dict[str, dict]):
         super().__init__(gort, data)
 
         self.guiders = self.gort.guiders

@@ -19,7 +19,6 @@ from typing import cast
 from sdsstools import Configuration
 from sdsstools.utils import GatheringTaskGroup
 
-from gort.core import LogNamespace
 from gort.exceptions import GortError
 from gort.gort import Gort
 from gort.overwatcher.core import OverwatcherBaseTask, OverwatcherModule
@@ -27,6 +26,7 @@ from gort.overwatcher.helpers import DomeHelper
 from gort.overwatcher.helpers.notifier import NotifierMixIn
 from gort.overwatcher.helpers.tasks import DailyTasks
 from gort.overwatcher.troubleshooter.troubleshooter import Troubleshooter
+from gort.tools import LogNamespace
 
 
 @dataclasses.dataclass

@@ -10,12 +10,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from gort.gort import GortDevice, GortDeviceSet
+from gort.devices.core import GortDevice, GortDeviceSet
 
 
 if TYPE_CHECKING:
     from gort import ActorReply
-    from gort.gort import GortClient
+    from gort.gort import Gort
 
 
 __all__ = ["NPS", "NPSSet"]
@@ -24,7 +24,7 @@ __all__ = ["NPS", "NPSSet"]
 class NPS(GortDevice):
     """Class representing a networked power switch."""
 
-    def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
+    def __init__(self, gort: Gort, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
 
     async def status(self, outlet: int | str | None = None):

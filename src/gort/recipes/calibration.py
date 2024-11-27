@@ -33,90 +33,85 @@ class QuickCals(BaseRecipe):
     async def recipe(self):
         """Runs the calibration sequence."""
 
-        from gort import Gort
-
-        gort = self.gort
-        assert isinstance(gort, Gort)
-
         specs_idle = await self.gort.specs.are_idle()
         if not specs_idle:
             raise RuntimeError("Spectrographs are not idle.")
 
-        await gort.cleanup()
+        await self.gort.cleanup()
 
-        gort.log.info("Pointing telescopes to the calibration screen.")
-        await gort.telescopes.goto_named_position("calibration")
+        self.gort.log.info("Pointing telescopes to the calibration screen.")
+        await self.gort.telescopes.goto_named_position("calibration")
 
         ########################
         # Arcs
         ########################
 
-        gort.log.info("Turning on the HgNe lamp.")
-        await gort.nps.calib.on("HgNe")
+        self.gort.log.info("Turning on the HgNe lamp.")
+        await self.gort.nps.calib.on("HgNe")
 
-        gort.log.info("Turning on the Ne lamp.")
-        await gort.nps.calib.on("Neon")
+        self.gort.log.info("Turning on the Ne lamp.")
+        await self.gort.nps.calib.on("Neon")
 
-        gort.log.info("Turning on the Argon lamp.")
-        await gort.nps.calib.on("Argon")
+        self.gort.log.info("Turning on the Argon lamp.")
+        await self.gort.nps.calib.on("Argon")
 
-        gort.log.info("Turning on the Xenon lamp.")
-        await gort.nps.calib.on("Xenon")
+        self.gort.log.info("Turning on the Xenon lamp.")
+        await self.gort.nps.calib.on("Xenon")
 
-        gort.log.info("Waiting 180 seconds for the lamps to warm up.")
+        self.gort.log.info("Waiting 180 seconds for the lamps to warm up.")
         await asyncio.sleep(180)
 
         fiber = random.randint(1, 12)  # select random fibre on std telescope
         fiber_str = f"P1-{fiber}"
-        gort.log.info(f"Taking {fiber_str} exposure.")
-        await gort.telescopes.spec.fibsel.move_to_position(fiber_str)
+        self.gort.log.info(f"Taking {fiber_str} exposure.")
+        await self.gort.telescopes.spec.fibsel.move_to_position(fiber_str)
 
         for exp_time in [10, 50]:
-            await gort.specs.expose(
+            await self.gort.specs.expose(
                 exp_time,
                 flavour="arc",
                 header={"CALIBFIB": f"P1-{fiber}"},
             )
 
-        gort.log.info("Turning off all lamps.")
-        await gort.nps.calib.all_off()
+        self.gort.log.info("Turning off all lamps.")
+        await self.gort.nps.calib.all_off()
 
         ########################
         # Flats
         ########################
 
-        gort.log.info("Turning on the Quartz lamp.")
-        await gort.nps.calib.on("Quartz")
+        self.gort.log.info("Turning on the Quartz lamp.")
+        await self.gort.nps.calib.on("Quartz")
 
-        gort.log.info("Waiting 120 seconds for the lamp to warm up.")
+        self.gort.log.info("Waiting 120 seconds for the lamp to warm up.")
         await asyncio.sleep(120)
 
         exp_quartz = 20
-        await gort.specs.expose(
+        await self.gort.specs.expose(
             exp_quartz,
             flavour="flat",
             header={"CALIBFIB": f"P1-{fiber}"},
         )
 
-        gort.log.info("Turning off the Quartz lamp.")
-        await gort.nps.calib.all_off()
+        self.gort.log.info("Turning off the Quartz lamp.")
+        await self.gort.nps.calib.all_off()
 
-        gort.log.info("Turning on the LDLS lamp.")
-        await gort.nps.calib.on("LDLS")
+        self.gort.log.info("Turning on the LDLS lamp.")
+        await self.gort.nps.calib.on("LDLS")
 
-        gort.log.info("Waiting 300 seconds for the lamp to warm up.")
+        self.gort.log.info("Waiting 300 seconds for the lamp to warm up.")
         await asyncio.sleep(300)
 
         exp_LDLS = 150
 
-        await gort.specs.expose(
+        await self.gort.specs.expose(
             exp_LDLS,
             flavour="flat",
             header={"CALIBFIB": f"P1-{fiber}"},
         )
 
-        gort.log.info("Turning off the LDLS lamp.")
-        await gort.nps.calib.all_off()
+        self.gort.log.info("Turning off the LDLS lamp.")
+        await self.gort.nps.calib.all_off()
 
 
 class BiasSequence(BaseRecipe):
@@ -134,23 +129,18 @@ class BiasSequence(BaseRecipe):
 
         """
 
-        from gort import Gort
-
-        gort = self.gort
-        assert isinstance(gort, Gort)
-
         specs_idle = await self.gort.specs.are_idle()
         if not specs_idle:
             raise RuntimeError("Spectrographs are not idle.")
 
-        gort.log.info("Pointing telescopes to the selfie position.")
-        await gort.telescopes.goto_named_position("selfie")
+        self.gort.log.info("Pointing telescopes to the selfie position.")
+        await self.gort.telescopes.goto_named_position("selfie")
 
-        await gort.nps.calib.all_off()
-        await gort.cleanup()
+        await self.gort.nps.calib.all_off()
+        await self.gort.cleanup()
 
         for _ in range(count):
-            await gort.specs.expose(flavour="bias")
+            await self.gort.specs.expose(flavour="bias")
 
 
 class TwilightFlats(BaseRecipe):
@@ -189,12 +179,7 @@ class TwilightFlats(BaseRecipe):
 
         """
 
-        from gort import Gort
-
-        gort = self.gort
-        assert isinstance(gort, Gort)
-
-        await gort.cleanup()
+        await self.gort.cleanup()
 
         if not (await self.gort.enclosure.is_open()):
             raise RuntimeError("Dome must be open to take twilight flats.")
@@ -219,8 +204,8 @@ class TwilightFlats(BaseRecipe):
             alt = 40.0
             az = 90.0
 
-        gort.log.info("Moving telescopes to point to the twilight sky.")
-        await gort.telescopes.goto_coordinates_all(
+        self.gort.log.info("Moving telescopes to point to the twilight sky.")
+        await self.gort.telescopes.goto_coordinates_all(
             alt=alt,
             az=az,
             altaz_tracking=False,
@@ -277,7 +262,7 @@ class TwilightFlats(BaseRecipe):
             elif is_sunset and all_done and exp_time > self.MAX_EXP_TIME_EXTRA:
                 # We have taken all 12 fibres and some extra ones, but the
                 # exposure time is now too long. Exit.
-                gort.log.debug("Exposure time is too long to take more extra flats.")
+                self.gort.log.debug("Exposure time is too long to take more flats.")
                 break
             elif is_sunset and all_done and exp_time <= self.MAX_EXP_TIME_EXTRA:
                 # Continue taking exposures for extra flats.
@@ -291,20 +276,20 @@ class TwilightFlats(BaseRecipe):
                 exp_time = 1.0
 
             fibre_str = await self.goto_fibre_position(n_fibre, secondary=secondary)
-            gort.log.info(f"Taking {fibre_str} exposure with exp_time={exp_time:.2f}.")
+            self.gort.log.info(f"Exposing {fibre_str} with exp_time={exp_time:.2f}.")
 
             try:
-                await gort.specs.expose(
+                await self.gort.specs.expose(
                     exp_time,
                     flavour="flat",
                     header={"CALIBFIB": fibre_str},
                 )
             except Exception as err:
-                gort.log.error(
+                self.gort.log.error(
                     "Error taking twilight flat exposure. Will ignore since we "
                     f"are on a schedule here. Error is: {err}"
                 )
-                await gort.notify_event(
+                await self.gort.notify_event(
                     Event.ERROR,
                     payload={
                         "error": str(err),
@@ -322,7 +307,7 @@ class TwilightFlats(BaseRecipe):
 
                 # During sunset, after taking all 12 fibres we continue taking
                 # flats until the exposure time reaches MAX_EXP_TIME_EXTRA seconds.
-                gort.log.info(
+                self.gort.log.info(
                     f"All fibres observed. Taking extra flats until the "
                     f"exposure time reaches {self.MAX_EXP_TIME_EXTRA} seconds."
                 )
