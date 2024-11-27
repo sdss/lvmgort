@@ -10,12 +10,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from gort.gort import GortDevice, GortDeviceSet
+from gort.devices.core import GortDevice, GortDeviceSet
 
 
 if TYPE_CHECKING:
     from gort import ActorReply
-    from gort.gort import GortClient
+    from gort.gort import Gort
 
 
 __all__ = ["Telemetry", "TelemetrySet"]
@@ -24,7 +24,7 @@ __all__ = ["Telemetry", "TelemetrySet"]
 class Telemetry(GortDevice):
     """Telemetry sensors."""
 
-    def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
+    def __init__(self, gort: Gort, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
 
     async def status(self):

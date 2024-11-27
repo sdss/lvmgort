@@ -18,17 +18,17 @@ import polars
 from packaging.version import Version
 
 from gort import config
+from gort.devices.core import GortDevice, GortDeviceSet
 from gort.enums import GuiderStatus
 from gort.exceptions import ErrorCode, GortError, GortGuiderError
-from gort.gort import GortDevice, GortDeviceSet
 from gort.tools import GuiderMonitor, cancel_task
 
 
 if TYPE_CHECKING:
     from clu import AMQPReply
 
-    from gort.core import ActorReply
-    from gort.gort import GortClient
+    from gort.gort import Gort
+    from gort.remote import ActorReply
 
 
 __all__ = ["Guider", "GuiderSet"]
@@ -37,7 +37,7 @@ __all__ = ["Guider", "GuiderSet"]
 class Guider(GortDevice):
     """Class representing a guider."""
 
-    def __init__(self, gort: GortClient, name: str, actor: str, **kwargs):
+    def __init__(self, gort: Gort, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
 
         self.separation: float | None = None

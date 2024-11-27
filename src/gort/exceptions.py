@@ -18,7 +18,7 @@ from gort.enums import ErrorCode
 if TYPE_CHECKING:
     from clu import Command
 
-    from gort.core import RemoteCommand
+    from gort.remote import RemoteCommand
 
 
 def decapitalize_first_letter(s, upper_rest=False):

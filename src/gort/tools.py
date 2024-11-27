@@ -13,6 +13,7 @@ import concurrent.futures
 import datetime
 import functools
 import hashlib
+import logging
 import os
 import pathlib
 import re
@@ -52,7 +53,7 @@ if TYPE_CHECKING:
     from clu import AMQPClient, AMQPReply
 
     from gort.devices.telescope import FibSel
-    from gort.gort import GortClient
+    from gort.gort import Gort
 
 
 __all__ = [
@@ -92,6 +93,7 @@ __all__ = [
     "get_gort_client",
     "add_night_log_comment",
     "async_noop",
+    "LogNamespace",
 ]
 
 AnyPath = str | os.PathLike
@@ -340,7 +342,7 @@ def get_ccd_frame_path(
 
 
 async def move_mask_interval(
-    gort: GortClient,
+    gort: Gort,
     positions: str | list[str] = "P1-*",
     order_by_steps: bool = False,
     total_time: float | None = None,
@@ -747,7 +749,7 @@ async def get_lvmapi_route(route: str, params: dict = {}, **kwargs):
 class GuiderMonitor:
     """A tool to monitor guider outputs and store them in a dataframe."""
 
-    def __init__(self, gort: GortClient, actor: str | None = None):
+    def __init__(self, gort: Gort, actor: str | None = None):
         self.gort = gort
         self.actor = actor
 
@@ -1047,3 +1049,32 @@ async def async_noop(*args, **kwargs):
     """A no-op coroutine."""
 
     return None
+
+
+class LogNamespace:
+    """A namespace for log messages."""
+
+    def __init__(self, logger: logging.Logger, header: str = "") -> None:
+        self.logger = logger
+        self.header = header
+
+    def debug(self, message: str, *args, **kwargs):
+        self.logger.log(logging.DEBUG, self._get_message(message), *args, **kwargs)
+
+    def info(self, message: str, *args, **kwargs):
+        self.logger.log(logging.INFO, self._get_message(message), *args, **kwargs)
+
+    def warning(self, message: str, *args, **kwargs):
+        self.logger.log(logging.WARNING, self._get_message(message), *args, **kwargs)
+
+    def error(self, message: str, *args, **kwargs):
+        self.logger.log(logging.ERROR, self._get_message(message), *args, **kwargs)
+
+    def critical(self, message: str, *args, **kwargs):
+        self.logger.log(logging.CRITICAL, self._get_message(message), *args, **kwargs)
+
+    def exception(self, *args, **kwargs):
+        self.logger.exception(*args, **kwargs)
+
+    def _get_message(self, message: str):
+        return self.header.format(**locals()) + message

@@ -18,7 +18,7 @@ import httpx
 from sdsstools import Configuration
 
 from gort import config
-from gort.core import LogNamespace
+from gort.tools import LogNamespace
 
 
 if TYPE_CHECKING:
