@@ -131,6 +131,8 @@ class ObserverOverwatcher(OverwatcherModule):
         self._starting_observations: bool = False
         self._cancelling: bool = False
 
+        self.force_focus: bool = False  # Force focus before the next tile
+
     @property
     def is_observing(self) -> bool:
         """Returns whether the observer is currently observing."""
@@ -233,7 +235,6 @@ class ObserverOverwatcher(OverwatcherModule):
         observer = self.gort.observer
 
         n_tile_positions = 0
-        force_focus: bool = False
 
         while True:
             try:
@@ -249,7 +250,7 @@ class ObserverOverwatcher(OverwatcherModule):
                     f"observing dither positions {tile.dither_positions}."
                 )
 
-                await self.check_focus(force=force_focus or n_tile_positions == 0)
+                await self.check_focus(force=n_tile_positions == 0 or self.force_focus)
 
                 for dpos in tile.dither_positions:
                     exp: Exposure | bool = False
@@ -321,7 +322,7 @@ class ObserverOverwatcher(OverwatcherModule):
                         break
                     if self.focusing:
                         # Force a new focus if the error occurred while focusing.
-                        force_focus = True
+                        self.force_focus = True
 
                     continue
 
@@ -387,6 +388,7 @@ class ObserverOverwatcher(OverwatcherModule):
                 raise
             else:
                 self.focusing = False
+                self.force_focus = False
 
     async def pre_observe_checks(self):
         """Runs pre-observe checks."""

@@ -223,6 +223,15 @@ async def observer_status(command: OverwatcherCommand):
     )
 
 
+@observer.command()
+async def schedule_focus_sweep(command: OverwatcherCommand):
+    """Schedules a focus sweep before the next tile."""
+
+    command.actor.overwatcher.observer.force_focus = True
+
+    return command.finish()
+
+
 @overwatcher_cli.command()
 async def transparency(command: OverwatcherCommand):
     """Reports the transparency status of the science telescope."""
