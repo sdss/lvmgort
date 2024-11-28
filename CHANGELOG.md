@@ -6,6 +6,7 @@
 
 * [#40](https://github.com/sdss/lvmgort/pull/40) Slight internal restructuring of the core classes `Gort`, `GortClient`, device and remote actor classes. The main goal was to avoid any other part of the library knowing about `GortClient`, which does not include anything not related to its AMQP client function any more.
 * Use `Retrier` from `lvmopstools` to handle remote command retries.
+* Prevent repeat notifications with the same message.
 
 ## 1.2.1 - November 20, 2024
 
