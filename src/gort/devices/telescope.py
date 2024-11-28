@@ -115,15 +115,18 @@ class MoTanDevice(GortDevice):
         self,
         command: str,
         *args,
-        retries: int = 3,
+        n_retries: int = 3,
         delay: float = 1,
         **kwargs,
     ) -> ActorReply:
         """Runs a MoTan command with retries."""
 
-        self.actor.commands[command].set_retries(retries, retry_delay=delay)
-
-        return await self.actor.commands[command](*args, **kwargs)
+        return await self.actor.commands[command](
+            *args,
+            n_retries=n_retries,
+            delay=delay,
+            **kwargs,
+        )
 
 
 class KMirror(MoTanDevice):

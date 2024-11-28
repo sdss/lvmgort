@@ -804,14 +804,14 @@ requires-dist = [
     { name = "astropy", marker = "python_full_version < '3.11'", specifier = ">=6.0.0" },
     { name = "astropy", marker = "python_full_version >= '3.11'", specifier = ">=7.0.0" },
     { name = "httpx", specifier = ">=0.27.0" },
-    { name = "lvmopstools", specifier = ">=0.4.1" },
+    { name = "lvmopstools", specifier = ">=0.4.2" },
     { name = "peewee", specifier = ">=3.16.2" },
     { name = "polars", specifier = ">=1.0.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.6" },
     { name = "pydantic", specifier = ">=2.9.2" },
     { name = "redis", extras = ["hiredis"], specifier = ">=5.0.3" },
     { name = "rich", specifier = ">=13.4.2" },
-    { name = "sdss-clu", specifier = ">=2.3.0" },
+    { name = "sdss-clu", specifier = ">=2.3.1" },
     { name = "sdsstools", specifier = ">=1.8.1" },
     { name = "unclick", specifier = ">=0.1.0" },
 ]
@@ -846,7 +846,7 @@ test = [
 
 [[package]]
 name = "lvmopstools"
-version = "0.4.1"
+version = "0.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asyncudp" },
@@ -857,9 +857,9 @@ dependencies = [
     { name = "sdsstools" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2b/43/c651e01ae6ec70b9fe07a2541b0c46f7c8fbbc73c533c999f78cdc2ec7cb/lvmopstools-0.4.1.tar.gz", hash = "sha256:c0db7d685be239fa326c2e2c9d00ad1f5d3b271e8e372edd18e97da8af4d6212", size = 123140 }
+sdist = { url = "https://files.pythonhosted.org/packages/b0/27/95bbc95eb59bd4575db5cf20a3124b569e5811ae21c0ce73da7a4a95982f/lvmopstools-0.4.2.tar.gz", hash = "sha256:2b901e69f61fb36c20877e9db4799d6cde34e21070b272c466ce639840525965", size = 123229 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b2/db/04e924ff3ad0f60a260a5ea064ea6792994a192b8d3965ae28d422489fa5/lvmopstools-0.4.1-py3-none-any.whl", hash = "sha256:c19ff93debb83f87acb5a38f5d3e95291bdfa0ae5a74d9caaa340089c28093a8", size = 128752 },
+    { url = "https://files.pythonhosted.org/packages/e1/06/85de47e7a159cdedc03143e843d1ad4ee6a247a5c93f8628560a77667cd1/lvmopstools-0.4.2-py3-none-any.whl", hash = "sha256:d439a7c1320dd02b47c9698b38237f54eae3d6e58e722af34b275b4911e4d57a", size = 128869 },
 ]
 
 [[package]]
@@ -1837,7 +1837,7 @@ wheels = [
 
 [[package]]
 name = "sdss-clu"
-version = "2.3.0"
+version = "2.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aio-pika" },
@@ -1850,9 +1850,9 @@ dependencies = [
     { name = "sdsstools" },
     { name = "unclick" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a4/cb/21da9fee791f599f94da7815f17dc1e259e4117464b12e4ad06e2706a75c/sdss_clu-2.3.0.tar.gz", hash = "sha256:162d9dc48a26713ff8e3251b2adad57327b5300bd9539c59f8d34254f46195c6", size = 122763 }
+sdist = { url = "https://files.pythonhosted.org/packages/00/ed/69a64f393e8a123946aaa03c80deb69f3640a727a0beccee6bf2fde320e3/sdss_clu-2.3.1.tar.gz", hash = "sha256:157b5e0ec6a0d456603d59b0c718008e46bb109b455593725a7da7888f8bc984", size = 122771 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ee/74/4953daabae81d39361d8dd2fd398024d8a4ab01b4263ba3e7b11d0e57a70/sdss_clu-2.3.0-py3-none-any.whl", hash = "sha256:d71cddd5cb2ee0a7667f10659b839e02eae5196144debda820f25b87d262325a", size = 142239 },
+    { url = "https://files.pythonhosted.org/packages/a4/8a/f65351c9f037e3f7441bd8e8dd7169bb2ebe5b3dbd7c3279d32b9bc62686/sdss_clu-2.3.1-py3-none-any.whl", hash = "sha256:c5125fcce0a09b97e661e68a836a61056908834eeb0beb2b919ae0745848f555", size = 142249 },
 ]
 
 [[package]]

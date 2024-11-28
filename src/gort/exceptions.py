@@ -18,7 +18,7 @@ from gort.enums import ErrorCode
 if TYPE_CHECKING:
     from clu import Command
 
-    from gort.remote import RemoteCommand
+    from gort.remote import ActorReply, RemoteCommand
 
 
 def decapitalize_first_letter(s, upper_rest=False):
@@ -73,6 +73,24 @@ class TroubleshooterTimeoutError(OverwatcherError):
 
 class RemoteCommandError(GortError):
     """An error in a remote command to an actor."""
+
+    def __init__(
+        self,
+        message: str | None,
+        command: Command,
+        remote_command: RemoteCommand,
+        reply: ActorReply | None = None,
+    ):
+        self.command = command
+        self.remote_command = remote_command
+        self.actor = remote_command._remote_actor.name
+        self.reply = reply
+
+        super().__init__(message, error_code=ErrorCode.COMMAND_FAILED)
+
+
+class InvalidRemoteCommand(GortError):
+    """A command that does not exist or cannot be parsed."""
 
     def __init__(
         self,
