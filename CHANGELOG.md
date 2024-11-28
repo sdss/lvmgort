@@ -11,6 +11,7 @@
 ### 🔧 Fixed
 
 * Prevent trying to observe while a calibration is ongoing even if it's night.
+* Add `max_start_time` to `bias_sequence` to prevent if from running after twilight.
 
 
 ## 1.2.1 - November 20, 2024

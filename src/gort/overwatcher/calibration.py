@@ -297,6 +297,15 @@ class CalibrationSchedule:
         if update:
             self.update_schedule(cals_data=cals_data)
 
+    def get_calibration(self, name: str):
+        """Returns a calibration by name."""
+
+        for cal in self.calibrations:
+            if cal.name == name:
+                return cal
+
+        return None
+
     def update_schedule(
         self,
         cals_data: CalsDataType | None = None,
