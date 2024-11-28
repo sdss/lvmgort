@@ -8,6 +8,11 @@
 * Use `Retrier` from `lvmopstools` to handle remote command retries.
 * Prevent repeat notifications with the same message.
 
+### 🔧 Fixed
+
+* Prevent trying to observe while a calibration is ongoing even if it's night.
+
+
 ## 1.2.1 - November 20, 2024
 
 ### ✨ Improved
