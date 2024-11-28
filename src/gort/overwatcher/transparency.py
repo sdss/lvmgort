@@ -140,28 +140,28 @@ class TransparencyMonitorTask(OverwatcherModuleTask["TransparencyOverwatcher"]):
         )
 
         # Get last 5 and 15 minutes of data.
-        data_5 = data.filter(polars.col.timestamp > (now - 300))
+        data_10 = data.filter(polars.col.timestamp > (now - 300))
         data_15 = data.filter(polars.col.timestamp > (now - 900))
 
         # Use the last 5 minutes of data to determine the transparency status
         # and value the last 15 minutes to estimate the trend.
         for tel in ["sci", "spec", "skye", "skyw"]:
-            data_tel_5 = data_5.filter(polars.col.telescope == tel)
+            data_tel_10 = data_10.filter(polars.col.telescope == tel)
             data_tel_15 = data_15.filter(polars.col.telescope == tel)
 
-            if len(data_tel_5) < 10:
+            if len(data_tel_10) < 10:
                 self.module.quality[tel] = TransparencyQuality.UNKNOWN
                 self.module.zero_point[tel] = numpy.nan
                 continue
 
-            avg_5 = data_tel_5["zero_point_10m"].mean()
-            if avg_5 is not None:
-                avg_5 = cast(float, avg_5)
-                self.module.zero_point[tel] = round(float(avg_5), 2)
+            avg_10 = data_tel_10["zero_point_10m"].median()
+            if avg_10 is not None:
+                avg_10 = cast(float, avg_10)
+                self.module.zero_point[tel] = round(float(avg_10), 2)
 
-                if avg_5 < -22.75:
+                if avg_10 < -22.75:
                     self.module.quality[tel] = TransparencyQuality.GOOD
-                elif avg_5 > -22.75 and avg_5 < -22.25:
+                elif avg_10 > -22.75 and avg_10 < -22.25:
                     self.module.quality[tel] = TransparencyQuality.POOR
                 else:
                     self.module.quality[tel] = TransparencyQuality.BAD
