@@ -66,6 +66,9 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
             elif not ephemeris:
                 pass
 
+            elif state.calibrating:
+                pass
+
             elif state.safe and state.night:
                 # Not open within STOP_SECS_BEFORE_MORNING minutes of morning twilight.
 

@@ -8,7 +8,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
+from time import time
 from traceback import format_exception
 
 from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
@@ -39,6 +41,10 @@ class OverwatcherProtocol(Protocol):
 class NotifierMixIn(OverwatcherProtocol):
     """A mix-in class for :obj:`.Overwatcher `that adds notification capabilities."""
 
+    # A dictionary of notification hash and the timestamp
+    # when the notification can be sent again.
+    notification_history: dict[str, float] = {}
+
     async def notify(
         self,
         message: str | None = None,
@@ -50,6 +56,8 @@ class NotifierMixIn(OverwatcherProtocol):
         log: bool = True,
         payload: dict[str, Any] = {},
         as_overwatcher: bool = True,
+        allow_repeat_notifications: bool = False,
+        min_time_between_repeat_notifications: int = 60,
     ):
         """Emits a notification to Slack or email.
 
@@ -86,6 +94,13 @@ class NotifierMixIn(OverwatcherProtocol):
             saved to the database notifications table.
         as_overwatcher
             Whether to send the message as the Overwatcher bot.
+        allow_repeat_notifications
+            Whether to allow the same notification to be sent multiple times.
+        min_time_between_repeat_notifications
+            The minimum time in seconds between repeated notifications. Ignored
+            if ``allow_repeat_notifications`` is ``False``. This only affects Slack
+            and email notifications. The notification is always recorded to the
+            database and log if those options are passed.
 
         """
 
@@ -116,6 +131,24 @@ class NotifierMixIn(OverwatcherProtocol):
         if slack_channel is None or slack_channel is True:
             slack_channel = cast(str, slack_config["notifications_channel"])
 
+        # Create a notification hash to uniquely identify the notification.
+        notification_hash = self.create_notification_hash(
+            message=message,
+            level=level,
+            error=error,
+            slack_channel=slack_channel,
+            payload=payload,
+        )
+
+        # Do not emit Slack notification if this is a repeated notification
+        next_notification_time = self.notification_history.get(notification_hash)
+        if (
+            not allow_repeat_notifications
+            and next_notification_time
+            and next_notification_time > time()
+        ):
+            slack_channel = False
+
         async with httpx.AsyncClient(
             base_url=f"http://{api_host}:{api_port}",
             follow_redirects=True,
@@ -139,6 +172,32 @@ class NotifierMixIn(OverwatcherProtocol):
             code = response.status_code
             if code != 200:
                 self.log.warning(f"Failed adding night log comment. Code {code}.")
+
+        next_notification_time = time() + min_time_between_repeat_notifications
+        self.notification_history[notification_hash] = next_notification_time
+
+    def create_notification_hash(
+        self,
+        message: str | None = None,
+        level: NotificationLevel | None = None,
+        error: str | Exception | None = None,
+        slack_channel: str | bool | None = None,
+        payload: dict[str, Any] = {},
+    ):
+        """Creates a hash for a notification."""
+
+        hash_elements = [
+            str(message) if message else "",
+            level or "",
+            str(error) if error else "",
+            str(slack_channel) if isinstance(slack_channel, str) else "",
+            str(payload) if payload else "",
+        ]
+
+        hasher = hashlib.new("md5")
+        hasher.update("".join(hash_elements).encode())
+
+        return hasher.hexdigest()
 
 
 class BasicNotifier(NotifierMixIn):
