@@ -2,6 +2,10 @@
 
 ## Next version
 
+### 🚀 New
+
+* Add `observer schedule-focus-sweep` command to Overwatcher actor to schedule a focus sweep before the next tile.
+
 ### ✨ Improved
 
 * [#40](https://github.com/sdss/lvmgort/pull/40) Slight internal restructuring of the core classes `Gort`, `GortClient`, device and remote actor classes. The main goal was to avoid any other part of the library knowing about `GortClient`, which does not include anything not related to its AMQP client function any more.

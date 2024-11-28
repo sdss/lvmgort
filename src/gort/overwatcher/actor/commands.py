@@ -220,3 +220,12 @@ async def observer_status(command: OverwatcherCommand):
             "standard_no": standard_no,
         }
     )
+
+
+@observer.command()
+async def schedule_focus_sweep(command: OverwatcherCommand):
+    """Schedules a focus sweep before the next tile."""
+
+    command.actor.overwatcher.observer.force_focus = True
+
+    return command.finish()
