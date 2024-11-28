@@ -31,27 +31,27 @@ class NPS(GortDevice):
         """Retrieves the status of the power outlet."""
 
         if outlet is None:
-            reply: ActorReply = await self.actor.commands.status()
+            reply: ActorReply = await self.actor.commands.status(n_retries=3)
             return reply.flatten()["outlets"]
         else:
-            reply: ActorReply = await self.actor.commands.status(outlet)
+            reply: ActorReply = await self.actor.commands.status(outlet, n_retries=3)
             return reply.flatten()["outlet_info"]
 
     async def on(self, outlet: str):
         """Turns an outlet on."""
 
-        await self.actor.commands.on(outlet)
+        await self.actor.commands.on(outlet, n_retries=3)
 
     async def off(self, outlet: str):
         """Turns an outlet on."""
 
-        await self.actor.commands.off(outlet)
+        await self.actor.commands.off(outlet, n_retries=3)
 
     async def all_off(self):
         """Turns off all the outlets."""
 
         self.write_to_log("Turning off all outlets.")
-        await self.actor.commands.all_off()
+        await self.actor.commands.all_off(n_retries=3)
 
 
 class NPSSet(GortDeviceSet[NPS]):
