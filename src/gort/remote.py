@@ -16,13 +16,18 @@ from typing import TYPE_CHECKING, Callable, Literal
 
 import unclick
 from aiormq import AMQPConnectionError, ChannelInvalidStateError
+from lvmopstools.retrier import Retrier
 from typing_extensions import Self
 
 from clu.tools import CommandStatus
 
-from gort.exceptions import GortTimeoutError, GortWarning, RemoteCommandError
-
-from .tools import get_valid_variable_name
+from gort.exceptions import (
+    GortTimeoutError,
+    GortWarning,
+    InvalidRemoteCommand,
+    RemoteCommandError,
+)
+from gort.tools import get_valid_variable_name
 
 
 if TYPE_CHECKING:
@@ -143,21 +148,12 @@ class RemoteCommand:
         self._name = model["name"]
         self.commands = SimpleNamespace()
 
-        self._n_retries: int = 1
-        self._retry_delay: float = 1
-
         self.is_group = "commands" in model and len(model["commands"]) > 0
         if self.is_group:
             for command_info in model["commands"].values():
                 command_name = get_valid_variable_name(command_info["name"])
                 child_command = RemoteCommand(remote_actor, command_info, parent=self)
                 setattr(self.commands, command_name, child_command)
-
-    def set_retries(self, n_retries: int, retry_delay: float | None = None):
-        """Sets the number of retries and the delay between retries."""
-
-        self._n_retries = n_retries
-        self._retry_delay = retry_delay or self._retry_delay
 
     def get_command_string(self, *args, **kwargs):
         """Gets the command string for a set of arguments."""
@@ -169,10 +165,53 @@ class RemoteCommand:
         *args,
         reply_callback: Callable[[AMQPReply], None] | None | Literal[False] = None,
         timeout: float | None = None,
-        _current_retry: int = 1,
+        n_retries: int = 0,
+        delay: float = 1,
         **kwargs,
     ):
-        """Executes the remote command with some given arguments."""
+        """Executes the remote command with some given arguments, allowing retries.
+
+        If a command fails with a timeout or the command cannot be parsed or does
+        not exist, and error is raised immediately without retries.
+
+        Parameters
+        ----------
+        args,kwargs
+            Arguments to pass to :obj:`.get_command_string`.
+        reply_callback
+            Function to call with each reply received from the command.
+        timeout
+            Maximum time allowed for the command to complete.
+        n_retries
+            The maximum number of attempts before giving up.
+        delay
+            The delay between attempts, in seconds. This delay is increased for the
+            second and successive retries using an exponential backoff.
+
+        """
+
+        retrier = Retrier(
+            max_attempts=n_retries,
+            delay=delay,
+            on_retry=self._log_command_retry,
+            raise_on_exception_class=[GortTimeoutError, InvalidRemoteCommand],
+        )
+
+        return await retrier(self._run_command)(
+            *args,
+            reply_callback=reply_callback,
+            timeout=timeout,
+            **kwargs,
+        )
+
+    async def _run_command(
+        self,
+        *args,
+        reply_callback: Callable[[AMQPReply], None] | None | Literal[False] = None,
+        timeout: float | None = None,
+        **kwargs,
+    ):
+        """Actually build the remote command and run it."""
 
         parent_string = ""
         if self._parent is not None:
@@ -183,8 +222,9 @@ class RemoteCommand:
         if reply_callback is None and self._remote_actor.device is not None:
             reply_callback = self._remote_actor.device.log_replies
 
+        cmd_string = parent_string + self.get_command_string(*args, **kwargs)
         cmd = await self._remote_actor.send_raw_command(
-            parent_string + self.get_command_string(*args, **kwargs),
+            cmd_string,
             callback=reply_callback,
             time_limit=timeout,
         )
@@ -205,29 +245,47 @@ class RemoteCommand:
             )
 
         if not cmd.status.did_succeed:
-            if _current_retry == self._n_retries:
-                raise RemoteCommandError(
-                    f"Actor {actor!r} failed executing command {command_name!r}.",
+            error = actor_reply.get("error")
+            if error and "does not exist or cannot be parsed" in error:
+                raise InvalidRemoteCommand(
+                    f"Command '{actor} {cmd_string}' does not "
+                    "exist or cannot be parsed.",
                     command=cmd,
                     remote_command=self,
                 )
 
-            error = actor_reply.get("error")
-            error = f" {error!s}" if error is not None else ""
-            self._remote_actor.client.log.warning(
-                f"Actor {actor!r} failed executing command "
-                f"{command_name!r}.{error} Retrying.",
-            )
-
-            return await self(
-                *args,
-                reply_callback=reply_callback,
-                timeout=timeout,
-                _current_retry=_current_retry + 1,
-                **kwargs,
+            raise RemoteCommandError(
+                f"Actor {actor!r} failed executing command {command_name!r}.",
+                command=cmd,
+                remote_command=self,
+                reply=actor_reply,
             )
 
         return actor_reply
+
+    def _log_command_retry(self, error: BaseException):
+        """Logs a command retry."""
+
+        actor = self._remote_actor.name
+        command_name = self._name
+
+        if not isinstance(error, RemoteCommandError) or error.reply is None:
+            # This should not happen, but just in case.
+            self._remote_actor.client.log.warning(
+                f"Actor {actor!r} failed executing command "
+                f"{command_name!r}. Retrying.",
+            )
+            return
+
+        reply_error = error.reply.get("error")
+        error_message = f" {reply_error!s}" if reply_error is not None else ""
+        if not error_message.endswith("."):
+            error_message += "."
+
+        self._remote_actor.client.log.warning(
+            f"Actor {actor!r} failed executing command "
+            f"{command_name!r}.{error_message}. Retrying.",
+        )
 
 
 @dataclass
