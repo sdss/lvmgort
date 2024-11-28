@@ -152,7 +152,7 @@ class TransparencyMonitorTask(OverwatcherModuleTask["TransparencyOverwatcher"]):
             data_tel_10 = data_10.filter(polars.col.telescope == tel)
             data_tel_15 = data_15.filter(polars.col.telescope == tel)
 
-            if len(data_tel_10) < 10:
+            if len(data_tel_10) < 5:
                 self.module.quality[tel] = TransparencyQuality.UNKNOWN
                 self.module.zero_point[tel] = numpy.nan
                 continue
@@ -323,8 +323,16 @@ class TransparencyOverwatcher(OverwatcherModule):
                 await self.stop_monitoring()
                 raise GortError("sci guider has stopped monitoring transparency.")
 
-            if self.quality["sci"] & TransparencyQuality.GOOD:
+            sci_quality = self.quality["sci"]
+            sci_zero_point = self.zero_point["sci"]
+
+            if sci_quality & TransparencyQuality.GOOD:
                 self.gort.log.info("sci guider has detected good transparency.")
                 await cancel_task(sci_task)
                 await self.stop_monitoring()
                 break
+
+            self.log.info(
+                f"sci guider transparency quality: {sci_quality.value} "
+                f"(zero_point={sci_zero_point:.2f})."
+            )
