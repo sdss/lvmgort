@@ -17,9 +17,12 @@ from typing import TYPE_CHECKING, Literal, Sequence, TypedDict, cast, get_args
 import numpy
 import polars
 
+from sdsstools.utils import GatheringTaskGroup
+
+from gort.exceptions import GortError
 from gort.overwatcher.core import OverwatcherModuleTask
 from gort.overwatcher.overwatcher import OverwatcherModule
-from gort.tools import get_lvmapi_route
+from gort.tools import cancel_task, get_lvmapi_route
 
 
 if TYPE_CHECKING:
@@ -195,6 +198,8 @@ class TransparencyOverwatcher(OverwatcherModule):
         self.data_start_time: float = 0
         self.data_end_time: float = 0
 
+        self._monitor_task: asyncio.Task | None = None
+
         self.reset()
 
     def reset(self):
@@ -270,3 +275,56 @@ class TransparencyOverwatcher(OverwatcherModule):
             trend = "FLAT"
 
         return trend
+
+    def is_monitoring(self):
+        """Returns True if the transparency monitor is running."""
+
+        return self._monitor_task is not None and not self._monitor_task.done()
+
+    async def start_monitoring(self):
+        """Starts monitoring transparency."""
+
+        if self.is_monitoring():
+            return
+
+        self.gort.log.info("Starting transparency monitor.")
+        self._monitor_task = asyncio.create_task(self._monitor_transparency())
+
+    async def stop_monitoring(self):
+        """Stops monitoring transparency."""
+
+        if self.is_monitoring():
+            self.gort.log.info("Stopping transparency monitor.")
+            self._monitor_task = await cancel_task(self._monitor_task)
+            await self.gort.guiders.stop()
+
+    async def _monitor_transparency(self):
+        """Monitors transparency."""
+
+        # Stop guiding and fold all telescopes except sci.
+        await self.gort.guiders.stop()
+        async with GatheringTaskGroup() as group:
+            for tel in ["spec", "skye", "skyw"]:
+                group.create_task(
+                    self.gort.telescopes[tel].park(
+                        disable=False,
+                        kmirror=False,
+                    )
+                )
+
+        # Start monitoring with the sci telescope.
+        sci_task = asyncio.create_task(self.gort.guiders["sci"].monitor(sleep=30))
+
+        while True:
+            await asyncio.sleep(30)
+
+            if sci_task.done():
+                self.gort.log.error("sci guider has stopped monitoring transparency.")
+                await self.stop_monitoring()
+                raise GortError("sci guider has stopped monitoring transparency.")
+
+            if self.quality["sci"] & TransparencyQuality.GOOD:
+                self.gort.log.info("sci guider has detected good transparency.")
+                await cancel_task(sci_task)
+                await self.stop_monitoring()
+                break

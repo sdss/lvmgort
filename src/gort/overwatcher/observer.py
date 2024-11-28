@@ -19,6 +19,7 @@ from gort.exceptions import GortError, OverwatcherError, TroubleshooterTimeoutEr
 from gort.exposure import Exposure
 from gort.overwatcher import OverwatcherModule
 from gort.overwatcher.core import OverwatcherModuleTask
+from gort.overwatcher.transparency import TransparencyQuality
 from gort.tile import Tile
 from gort.tools import cancel_task, run_in_executor
 
@@ -416,4 +417,54 @@ class ObserverOverwatcher(OverwatcherModule):
             raise GortError("No exposure was returned.")
 
         # Output transparency data for the last exposure.
-        self.overwatcher.transparency.write_to_log(["sci"])
+        transparency = self.overwatcher.transparency
+        transparency.write_to_log(["sci"])
+
+        if self._cancelling:
+            return
+
+        if transparency.quality["sci"] & TransparencyQuality.BAD:
+            await self.notify(
+                "Transparency is bad. Stopping observations and starting "
+                "the transparency monitor.",
+            )
+
+            # If we reach twilight this will cause the overwatcher
+            # to immediately stop observations.
+            self.exposure_completes = 0
+
+            try:
+                await asyncio.wait_for(
+                    transparency.start_monitoring(),
+                    timeout=3600,
+                )
+
+            except asyncio.TimeoutError:
+                await self.notify("Transparency monitor timed out.", level="warning")
+                await self.overwatcher.shutdown(
+                    reason="Transparency has been bad for over one hour.",
+                    disable_overwatcher=True,
+                )
+
+            else:
+                # The transparency monitor has ended. There are two possible reasons:
+
+                # - Something stopped the observing loop and with it the monitor.
+                #   Do nothing and return. The main task will handle the rest.
+                if self._cancelling:
+                    return
+
+                # - The transparency is good and the monitor has ended.
+                if transparency.quality["sci"] & TransparencyQuality.GOOD:
+                    await self.notify("Transparency is good. Resuming observations.")
+                    return
+
+                else:
+                    await self.notify(
+                        "Transparency is still bad but the monitor stopped. "
+                        "Triggering shutdown.",
+                    )
+                    await self.overwatcher.shutdown(
+                        reason="Transparency monitor failed.",
+                        disable_overwatcher=True,
+                    )
