@@ -333,6 +333,6 @@ class TransparencyOverwatcher(OverwatcherModule):
                 break
 
             self.log.info(
-                f"sci guider transparency quality: {sci_quality.value} "
+                f"sci guider transparency quality: {sci_quality.name} "
                 f"(zero_point={sci_zero_point:.2f})."
             )
