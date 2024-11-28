@@ -74,7 +74,7 @@ class CalibrationModel(BaseModel):
         title="Whether the calibration is required. Currently not used.",
     )
     dome: Literal["open", "closed"] | None = Field(
-        default=False,
+        default=None,
         title="Whether the dome should be open during the calibration. A null value "
         "will keep the dome in the current position.",
     )
