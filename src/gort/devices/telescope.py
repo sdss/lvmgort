@@ -36,6 +36,8 @@ class MoTanDevice(GortDevice):
     #: Artificial delay introduced to prevent all motors to slew at the same time.
     SLEW_DELAY: ClassVar[float | dict[str, float]] = 0
 
+    device_type: ClassVar[str]
+
     def __init__(self, gort: Gort, name: str, actor: str):
         super().__init__(gort, name, actor)
 
@@ -101,7 +103,8 @@ class MoTanDevice(GortDevice):
         if await self.is_moving():
             self.write_to_log("Stopping slew.")
 
-            await self.run_command("slewStop", timeout=self.timeouts["slewStop"])
+            if self.device_type == "kmirror":
+                await self.run_command("slewStop", timeout=self.timeouts["slewStop"])
             await self.run_command("stop", timeout=self.timeouts["slewStop"])
 
             if await self.is_moving():
@@ -133,6 +136,8 @@ class KMirror(MoTanDevice):
     """A device representing a K-mirror."""
 
     SLEW_DELAY = 0
+
+    device_type = "kmirror"
 
     async def home(self):
         """Homes the k-mirror."""
@@ -239,6 +244,8 @@ class Focuser(MoTanDevice):
 
     SLEW_DELAY = 0
 
+    device_type = "focuser"
+
     async def home(self):
         """Homes the focuser.
 
@@ -292,6 +299,8 @@ class FibSel(MoTanDevice):
 
     # Rehome after this many seconds.
     HOME_AFTER: float | None = None
+
+    device_type = "fibsel"
 
     def __init__(self, gort: Gort, name: str, actor: str):
         super().__init__(gort, name, actor)
