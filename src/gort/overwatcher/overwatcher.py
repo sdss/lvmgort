@@ -133,37 +133,52 @@ class OverwatcherMainTask(OverwatcherTask):
         # TODO: should this only happen if the overwatcher is enabled?
 
         if not closed or observing or calibrating:
-            await self.overwatcher.notify(
-                "Unsafe conditions detected.",
-                level="warning",
-            )
-
-            if observing and not cancelling:
-                try:
-                    await self.overwatcher.observer.stop_observing(
-                        immediate=True,
-                        reason="unsafe conditions",
-                    )
-                except Exception as err:
+            try:
+                async with asyncio.timeout(delay=30):
                     await self.overwatcher.notify(
-                        f"Error stopping observing: {err!r}",
-                        level="error",
-                    )
-                    await self.overwatcher.notify(
-                        "I will close the dome anyway.",
+                        "Unsafe conditions detected.",
                         level="warning",
                     )
 
-            if calibrating:
-                await self.overwatcher.calibrations.cancel()
+                    if observing and not cancelling:
+                        try:
+                            await self.overwatcher.observer.stop_observing(
+                                immediate=True,
+                                reason="unsafe conditions",
+                            )
+                        except Exception as err:
+                            await self.overwatcher.notify(
+                                f"Error stopping observing: {err!r}",
+                                level="error",
+                            )
+                            await self.overwatcher.notify(
+                                "I will close the dome anyway.",
+                                level="warning",
+                            )
 
-            if not closed:
-                await self.overwatcher.notify("Closing the dome.")
-                await self.overwatcher.dome.shutdown(retry=True, park=True)
+                    if calibrating:
+                        await self.overwatcher.calibrations.cancel()
 
-                # If we have to close because of unsafe conditions, we don't want
-                # to reopen too soon. We lock the dome for 30 minutes.
-                self.overwatcher.alerts.locked_until = time() + 1800
+            except asyncio.TimeoutError:
+                await self.overwatcher.notify(
+                    "Timed out while handling unsafe conditions.",
+                    level="error",
+                )
+
+            except Exception as err:
+                await self.overwatcher.notify(
+                    f"Error handling unsafe conditions: {err!r}",
+                    level="error",
+                )
+
+            finally:
+                if not closed:
+                    await self.overwatcher.notify("Closing the dome.")
+                    await self.overwatcher.dome.shutdown(retry=True, park=True)
+
+                    # If we have to close because of unsafe conditions, we don't want
+                    # to reopen too soon. We lock the dome for 30 minutes.
+                    self.overwatcher.alerts.locked_until = time() + 1800
 
     async def handle_daytime(self):
         """Handles daytime."""
@@ -266,6 +281,7 @@ class Overwatcher(NotifierMixIn):
             EventsOverwatcher,
             ObserverOverwatcher,
             SafetyOverwatcher,
+            TransparencyOverwatcher,
         )
 
         # Check if the instance already exists, in which case do nothing.
@@ -294,6 +310,7 @@ class Overwatcher(NotifierMixIn):
         self.calibrations = CalibrationsOverwatcher(self, calibrations_file)
         self.observer = ObserverOverwatcher(self)
         self.alerts = AlertsOverwatcher(self)
+        self.transparency = TransparencyOverwatcher(self)
         self.events = EventsOverwatcher(self)
 
     async def run(self):

@@ -180,6 +180,11 @@ class DomeHelper:
                     "it may be partially or fully open.",
                     level="critical",
                 )
+
+                # Release the lock here. force_disable() may require closing the dome.
+                if self._move_lock.locked():
+                    self._move_lock.release()
+
                 await self.overwatcher.force_disable()
                 raise
 

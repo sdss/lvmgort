@@ -5,6 +5,7 @@
 ### 🚀 New
 
 * Add `observer schedule-focus-sweep` command to Overwatcher actor to schedule a focus sweep before the next tile.
+* [#39](https://github.com/sdss/lvmgort/pull/39) Implement transparency monitoring.
 
 ### ✨ Improved
 

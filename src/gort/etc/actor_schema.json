@@ -54,6 +54,21 @@
         "stage": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
         "standard_no": { "oneOf": [{ "type": "number" }, { "type": "null" }] }
       }
+    },
+    "transparency": {
+      "type": "object",
+      "properties": {
+        "telescope": { "type": "string" },
+        "zero_point": { "oneOf": [{ "type": "number" }, { "type": "null" }] },
+        "quality": {
+          "type": "string",
+          "enum": ["BAD", "POOR", "GOOD", "UNKNOWN"]
+        },
+        "trend": {
+          "type": "string",
+          "enum": ["IMPROVING", "WORSENING", "FLAT", "UNKNOWN"]
+        }
+      }
     }
   },
   "additionalProperties": false

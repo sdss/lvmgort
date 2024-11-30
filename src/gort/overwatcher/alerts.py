@@ -55,6 +55,7 @@ class ActiveAlert(enum.Flag):
     DOOR = enum.auto()
     CAMERA_TEMPERATURE = enum.auto()
     O2 = enum.auto()
+    LOCKED = enum.auto()
     UNKNOWN = enum.auto()
 
 
@@ -139,12 +140,6 @@ class AlertsOverwatcher(OverwatcherModule):
             self.log.warning("Alerts data not available. is_safe() returns False.")
             return False, ActiveAlert.UNKNOWN
 
-        # If we have issued a previous unsafe alert, the main task will close the dome
-        # and put a lock for 30 minutes to prevent the dome from opening/closing too
-        # frequently if the weather is unstable.
-        if self.locked_until > 0 and time() < self.locked_until:
-            return False, ActiveAlert(0)
-
         is_safe: bool = True
         active_alerts = ActiveAlert(0)
 
@@ -168,7 +163,6 @@ class AlertsOverwatcher(OverwatcherModule):
         # These alerts are not critical but we log them.
         # TODO: maybe we do want to do something about these alerts.
         if self.state.door_alert:
-            self.log.warning("Door alert detected.")
             active_alerts |= ActiveAlert.DOOR
         if self.state.camera_temperature_alert:
             self.log.warning("Camera temperature alert detected.")
@@ -176,6 +170,12 @@ class AlertsOverwatcher(OverwatcherModule):
         if self.state.o2_alert:
             self.log.warning("O2 alert detected.")
             active_alerts |= ActiveAlert.O2
+
+        # If we have issued a previous unsafe alert, the main task will close the dome
+        # and put a lock for 30 minutes to prevent the dome from opening/closing too
+        # frequently if the weather is unstable.
+        if self.locked_until > 0 and time() < self.locked_until:
+            return False, active_alerts | ActiveAlert.LOCKED
 
         if is_safe:
             self.locked_until = 0

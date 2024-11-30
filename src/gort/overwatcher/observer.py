@@ -19,6 +19,7 @@ from gort.exceptions import GortError, OverwatcherError, TroubleshooterTimeoutEr
 from gort.exposure import Exposure
 from gort.overwatcher import OverwatcherModule
 from gort.overwatcher.core import OverwatcherModuleTask
+from gort.overwatcher.transparency import TransparencyQuality
 from gort.tile import Tile
 from gort.tools import cancel_task, run_in_executor
 
@@ -236,8 +237,6 @@ class ObserverOverwatcher(OverwatcherModule):
         n_tile_positions = 0
 
         while True:
-            exp: Exposure | bool = False
-
             try:
                 # Wait in case the troubleshooter is doing something.
                 await self.overwatcher.troubleshooter.wait_until_ready(300)
@@ -254,6 +253,8 @@ class ObserverOverwatcher(OverwatcherModule):
                 await self.check_focus(force=n_tile_positions == 0 or self.force_focus)
 
                 for dpos in tile.dither_positions:
+                    exp: Exposure | bool = False
+
                     await self.overwatcher.troubleshooter.wait_until_ready(300)
 
                     if not self.check_twilight():
@@ -292,6 +293,14 @@ class ObserverOverwatcher(OverwatcherModule):
 
                     if result and len(exps) > 0:
                         exp = exps[0]
+
+                    try:
+                        await self.post_exposure(exp)
+                    except Exception as err:
+                        await self.notify(
+                            f"Failed to run post-exposure routine: {err}",
+                            level="error",
+                        )
 
                     if self.is_cancelling:
                         break
@@ -402,3 +411,62 @@ class ObserverOverwatcher(OverwatcherModule):
             await self.gort.specs.reset()
 
         return True
+
+    async def post_exposure(self, exp: Exposure | bool):
+        """Runs post-exposure checks."""
+
+        if exp is False:
+            raise GortError("No exposure was returned.")
+
+        # Output transparency data for the last exposure.
+        transparency = self.overwatcher.transparency
+        transparency.write_to_log(["sci"])
+
+        if self._cancelling:
+            return
+
+        if transparency.quality["sci"] & TransparencyQuality.BAD:
+            await self.notify(
+                "Transparency is bad. Stopping observations and starting "
+                "the transparency monitor.",
+            )
+
+            # If we reach twilight this will cause the overwatcher
+            # to immediately stop observations.
+            self.exposure_completes = 0
+
+            try:
+                await asyncio.wait_for(
+                    transparency.start_monitoring(),
+                    timeout=3600,
+                )
+
+            except asyncio.TimeoutError:
+                await self.notify("Transparency monitor timed out.", level="warning")
+                await self.overwatcher.shutdown(
+                    reason="Transparency has been bad for over one hour.",
+                    disable_overwatcher=True,
+                )
+
+            else:
+                # The transparency monitor has ended. There are two possible reasons:
+
+                # - Something stopped the observing loop and with it the monitor.
+                #   Do nothing and return. The main task will handle the rest.
+                if self._cancelling:
+                    return
+
+                # - The transparency is good and the monitor has ended.
+                if transparency.quality["sci"] & TransparencyQuality.GOOD:
+                    await self.notify("Transparency is good. Resuming observations.")
+                    return
+
+                else:
+                    await self.notify(
+                        "Transparency is still bad but the monitor stopped. "
+                        "Triggering shutdown.",
+                    )
+                    await self.overwatcher.shutdown(
+                        reason="Transparency monitor failed.",
+                        disable_overwatcher=True,
+                    )

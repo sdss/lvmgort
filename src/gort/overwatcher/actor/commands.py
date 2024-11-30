@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import math
 import time
 
 from typing import TYPE_CHECKING, Any
@@ -227,5 +229,78 @@ async def schedule_focus_sweep(command: OverwatcherCommand):
     """Schedules a focus sweep before the next tile."""
 
     command.actor.overwatcher.observer.force_focus = True
+
+    return command.finish()
+
+
+@overwatcher_cli.group()
+def transparency():
+    """Transparency commands."""
+
+    pass
+
+
+@transparency.command(name="status")
+async def transparency_status(command: OverwatcherCommand):
+    """Reports the transparency status of the science telescope."""
+
+    overwatcher = command.actor.overwatcher
+    transparency = overwatcher.transparency
+
+    now = time.time()
+    if transparency.last_updated < now - 120:
+        command.warning("Transparency data is stale.")
+        return command.finish(
+            transparency={
+                "telescope": "sci",
+                "mean_zp": None,
+                "quality": "unknown",
+                "trend": "unknown",
+            }
+        )
+
+    zp = transparency.zero_point["sci"]
+
+    return command.finish(
+        transparency={
+            "telescope": "sci",
+            "mean_zp": None if math.isnan(zp) else round(zp, 2),
+            "quality": transparency.get_quality_string("sci"),
+            "trend": transparency.get_trend_string("sci"),
+        }
+    )
+
+
+@transparency.command()
+async def start_monitoring(command: OverwatcherCommand):
+    """Starts monitoring the transparency."""
+
+    overwatcher = command.actor.overwatcher
+
+    if not overwatcher.transparency.is_monitoring():
+        await overwatcher.transparency.start_monitoring()
+        command.info("Starting transparency monitoring.")
+
+    elapsed: float = 0
+    while True:
+        if not overwatcher.transparency.is_monitoring():
+            return command.finish("Transparency monitoring has been stopped.")
+
+        await asyncio.sleep(1)
+        elapsed += 1
+
+        if elapsed >= 30:
+            await command.child_command("transparency status")
+            elapsed = 0
+
+
+@transparency.command()
+async def stop_monitoring(command: OverwatcherCommand):
+    """Stops monitoring the transparency."""
+
+    overwatcher = command.actor.overwatcher
+
+    if overwatcher.transparency.is_monitoring():
+        await overwatcher.transparency.stop_monitoring()
 
     return command.finish()

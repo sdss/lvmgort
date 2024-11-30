@@ -463,7 +463,7 @@ class GortObserver:
 
         except GortObserverCancelledError:
             write_log("Observation cancelled.", "warning")
-            failed = True
+            failed = len(exposures) == 0
 
         except KeyboardInterrupt:
             write_log("Observation interrupted by user.", "warning")

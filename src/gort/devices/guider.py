@@ -58,6 +58,13 @@ class Guider(GortDevice):
 
         return self.gort.telescopes[self.name]
 
+    async def update_status(self):
+        """Returns the guider status."""
+
+        status_reply = await self.actor.commands.status()
+
+        return status_reply.flatten()
+
     async def _status_cb(self, reply: AMQPReply):
         """Listens to guider keywords and updates the internal state."""
 
@@ -177,6 +184,8 @@ class Guider(GortDevice):
             await self.actor.commands.adjust_focus(reply_callback=reply_callback)
             return
 
+        await self.update_status()
+
         if self.status & GuiderStatus.NON_IDLE:
             self.write_to_log(
                 "Guider is not idle. Stopping it before focusing.",
@@ -278,6 +287,8 @@ class Guider(GortDevice):
             guide_kwargs.pop("pa")
 
         self.separation = None
+
+        await self.update_status()
 
         if self.status & GuiderStatus.NON_IDLE:
             raise GortGuiderError(

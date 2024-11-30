@@ -475,24 +475,26 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
                         self.module.run_calibration(next_calibration)
                     )
                     await self.module._calibration_task
+
                 except asyncio.CancelledError:
-                    await notify(
-                        f"Calibration {name} has been cancelled.",
-                        level="warning",
-                    )
-                    next_calibration.record_state(
-                        CalibrationState.CANCELLED,
-                        fail_reason="calibration cancelled by Overwatcher or user.",
-                    )
+                    if not next_calibration.is_finished():
+                        await notify(
+                            f"Calibration {name} has been cancelled.",
+                            level="warning",
+                        )
+                        next_calibration.record_state(CalibrationState.CANCELLED)
+
                 except Exception as ee:
-                    await notify(
-                        f"Error running calibration {name}: {ee}",
-                        level="error",
-                    )
-                    next_calibration.record_state(
-                        CalibrationState.FAILED,
-                        fail_reason=str(ee),
-                    )
+                    if not next_calibration.is_finished():
+                        await notify(
+                            f"Error running calibration {name}: {ee}",
+                            level="error",
+                        )
+                        next_calibration.record_state(
+                            CalibrationState.FAILED,
+                            fail_reason=str(ee),
+                        )
+
                 finally:
                     if next_calibration.is_finished():
                         dome_closed = await self.module.overwatcher.dome.is_closing()
@@ -710,6 +712,8 @@ class CalibrationsOverwatcher(OverwatcherModule):
 
             await notify(f"Cancelling calibration {name}.", level="warning")
             self._calibration_task = await cancel_task(self._calibration_task)
+
+            running_calibration.record_state(CalibrationState.CANCELLED)
 
             # Ensure we close the dome. This is allowed even
             # if the overwatcher is disabled.
