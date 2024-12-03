@@ -415,15 +415,15 @@ class ObserverOverwatcher(OverwatcherModule):
     async def post_exposure(self, exp: Exposure | bool):
         """Runs post-exposure checks."""
 
+        if self._cancelling:
+            return
+
         if exp is False:
             raise GortError("No exposure was returned.")
 
         # Output transparency data for the last exposure.
         transparency = self.overwatcher.transparency
         transparency.write_to_log(["sci"])
-
-        if self._cancelling:
-            return
 
         if transparency.quality["sci"] & TransparencyQuality.BAD:
             await self.notify(
