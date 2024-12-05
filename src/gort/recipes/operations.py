@@ -337,7 +337,7 @@ class PostObservingRecipe(BaseRecipe):
 
     name = "post-observing"
 
-    email_route: ClassVar[str] = "/logs/night-logs/0/email?only_if_not_sent=1"
+    email_route: ClassVar[str] = "/logs/night-logs/0/email"
 
     async def recipe(self, send_email: bool = True):
         """Runs the post-observing sequence."""
@@ -360,7 +360,10 @@ class PostObservingRecipe(BaseRecipe):
 
         if send_email:
             self.gort.log.info("Sending night log email.")
-            result = await get_lvmapi_route(self.email_route)
+            result = await get_lvmapi_route(
+                self.email_route,
+                params={"only_if_not_sent": True},
+            )
             if not result:
                 self.gort.log.warning("Night log had already been sent.")
 
