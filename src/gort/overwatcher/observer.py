@@ -425,6 +425,9 @@ class ObserverOverwatcher(OverwatcherModule):
         transparency = self.overwatcher.transparency
         transparency.write_to_log(["sci"])
 
+        # TODO: disable actions based on transparency quality for now.
+        return
+
         if transparency.quality["sci"] & TransparencyQuality.BAD:
             await self.notify(
                 "Transparency is bad. Stopping observations and starting "
