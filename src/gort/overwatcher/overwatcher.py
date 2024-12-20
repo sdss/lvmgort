@@ -21,6 +21,7 @@ from sdsstools.utils import GatheringTaskGroup
 
 from gort.exceptions import GortError
 from gort.gort import Gort
+from gort.overwatcher.alerts import ActiveAlert
 from gort.overwatcher.core import OverwatcherBaseTask, OverwatcherModule
 from gort.overwatcher.helpers import DomeHelper
 from gort.overwatcher.helpers.notifier import NotifierMixIn
@@ -130,7 +131,8 @@ class OverwatcherMainTask(OverwatcherTask):
         cancelling = self.overwatcher.observer.is_cancelling
         calibrating = self.overwatcher.state.calibrating
 
-        # TODO: should this only happen if the overwatcher is enabled?
+        _, alerts_status = self.overwatcher.alerts.is_safe()
+        is_raining = bool(alerts_status & ActiveAlert.RAIN)
 
         if not closed or observing or calibrating:
             try:
@@ -179,6 +181,15 @@ class OverwatcherMainTask(OverwatcherTask):
                     # If we have to close because of unsafe conditions, we don't want
                     # to reopen too soon. We lock the dome for 30 minutes.
                     self.overwatcher.alerts.locked_until = time() + 1800
+
+        if self.overwatcher.state.enabled:
+            if is_raining:
+                await self.overwatcher.notify(
+                    "Disabling the Overwatcher due to rain. "
+                    "Manually re-enable it when safe.",
+                    level="warning",
+                )
+                self.overwatcher.state.enabled = False
 
     async def handle_daytime(self):
         """Handles daytime."""
