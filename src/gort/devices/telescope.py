@@ -73,7 +73,7 @@ class MoTanDevice(GortDevice):
         return bool(is_reachable.get("Reachable"))
 
     async def check_reachable(self):
-        """Checks if the device is reacheable or issues an error."""
+        """Checks if the device is reachable or issues an error."""
 
         if not (await self.is_reachable()):
             raise GortTelescopeError(
