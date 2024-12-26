@@ -12,6 +12,8 @@ ENV UV_LINK_MODE=copy
 
 ENV LVMCORE_DIR=/opt/lvmcore
 
+ENV PATH="$PATH:/opt/lvmgort/.venv/bin"
+
 RUN apt-get update && apt-get install -y git
 RUN git clone https://github.com/sdss/lvmcore /opt/lvmcore
 RUN apt-get remove -y git && apt-get autoremove -y
