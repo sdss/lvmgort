@@ -17,8 +17,7 @@ from typing import TYPE_CHECKING
 from lvmopstools.retrier import Retrier
 from pydantic import BaseModel
 
-from gort.overwatcher.core import OverwatcherModuleTask
-from gort.overwatcher.overwatcher import OverwatcherModule
+from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 from gort.tools import get_lvmapi_route
 
 
