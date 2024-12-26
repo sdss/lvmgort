@@ -289,9 +289,10 @@ services:
 overwatcher:
   scheduler:
     open_dome_buffer: 300
+
   slack:
-    notifications_channel: lvm-overwatcher
-    alerts_channel: lvm-alerts
+    notifications_channels:
+      - lvm-overwatcher
 
   actor:
     name: lvm.overwatcher
