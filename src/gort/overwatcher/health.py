@@ -38,7 +38,7 @@ class EmitHeartbeatTask(OverwatcherModuleTask["HealthOverwatcher"]):
         while True:
             try:
                 cmd = await self.gort.send_command("lvmbeat", "set overwatcher")
-                if cmd.status.did_succeed:
+                if cmd.status.did_fail:
                     raise RuntimeError("Failed to set overwatcher heartbeat.")
 
             except Exception as err:
