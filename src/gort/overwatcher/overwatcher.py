@@ -279,6 +279,7 @@ class Overwatcher(NotifierMixIn):
             CalibrationsOverwatcher,
             EphemerisOverwatcher,
             EventsOverwatcher,
+            HealthOverwatcher,
             ObserverOverwatcher,
             SafetyOverwatcher,
             TransparencyOverwatcher,
@@ -312,6 +313,7 @@ class Overwatcher(NotifierMixIn):
         self.alerts = AlertsOverwatcher(self)
         self.transparency = TransparencyOverwatcher(self)
         self.events = EventsOverwatcher(self)
+        self.health = HealthOverwatcher(self)
 
     async def run(self):
         """Starts the overwatcher tasks."""

@@ -14,6 +14,7 @@ from .calibration import CalibrationsOverwatcher
 from .core import OverwatcherModule
 from .ephemeris import EphemerisOverwatcher
 from .events import EventsOverwatcher
+from .health import HealthOverwatcher
 from .helpers import DomeHelper, DomeStatus, NotifierMixIn
 from .observer import ObserverOverwatcher
 from .overwatcher import Overwatcher
