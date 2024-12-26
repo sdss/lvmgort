@@ -13,7 +13,7 @@ import logging
 from time import time
 from traceback import format_exception
 
-from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
+from typing import TYPE_CHECKING, Any, Literal, Protocol, Sequence, cast
 
 import httpx
 
@@ -51,7 +51,8 @@ class NotifierMixIn(OverwatcherProtocol):
         level: NotificationLevel | None = None,
         error: str | Exception | None = None,
         with_traceback: bool = True,
-        slack_channel: str | bool | None = None,
+        slack: bool = True,
+        slack_channels: str | Sequence[str] | None = None,
         database: bool = True,
         log: bool = True,
         payload: dict[str, Any] = {},
@@ -80,11 +81,12 @@ class NotifierMixIn(OverwatcherProtocol):
         with_traceback
             Whether to include the traceback in the notification. Requires
             ``error`` to be an exception object.
-        slack_channel
-            The Slack channel to which to send the notification. By default
+        slack
+            Whether to send the notification to Slack.
+        slack_channels
+            The Slack channels to which to send the notification. By default
             ``lvm-alerts`` is notified for ``critical`` messages,
-            and ``lvm-overwatcher`` for anything lower. If ``False``, no
-            Slack notifications are sent.
+            and ``lvm-overwatcher`` for anything lower.
         database
             Whether to record the notification in the database.
         log
@@ -128,15 +130,20 @@ class NotifierMixIn(OverwatcherProtocol):
         api_host, api_port = config["services"]["lvmapi"].values()
 
         slack_config = self.config["overwatcher.slack"]
-        if slack_channel is None or slack_channel is True:
-            slack_channel = cast(str, slack_config["notifications_channel"])
+        if slack_channels is None:
+            slack_channels = cast(str, slack_config["notifications_channels"])
+        elif isinstance(slack_channels, str):
+            slack_channels = [slack_channels]
+        else:
+            slack_channels = list(slack_channels)
 
         # Create a notification hash to uniquely identify the notification.
         notification_hash = self.create_notification_hash(
             message=message,
             level=level,
             error=error,
-            slack_channel=slack_channel,
+            slack=slack,
+            slack_channels=slack_channels,
             payload=payload,
         )
 
@@ -147,7 +154,7 @@ class NotifierMixIn(OverwatcherProtocol):
             and next_notification_time
             and next_notification_time > time()
         ):
-            slack_channel = False
+            slack = False
 
         async with httpx.AsyncClient(
             base_url=f"http://{api_host}:{api_port}",
@@ -159,7 +166,8 @@ class NotifierMixIn(OverwatcherProtocol):
                     "message": full_message,
                     "level": level.upper(),
                     "payload": payload,
-                    "slack_channel": slack_channel,
+                    "slack": slack,
+                    "slack_channels": slack_channels,
                     "email_on_critical": False,
                     "write_to_database": database,
                     "slack_extra_params": {
@@ -181,7 +189,8 @@ class NotifierMixIn(OverwatcherProtocol):
         message: str | None = None,
         level: NotificationLevel | None = None,
         error: str | Exception | None = None,
-        slack_channel: str | bool | None = None,
+        slack: bool = True,
+        slack_channels: str | Sequence[str] | None = None,
         payload: dict[str, Any] = {},
     ):
         """Creates a hash for a notification."""
@@ -190,7 +199,8 @@ class NotifierMixIn(OverwatcherProtocol):
             str(message) if message else "",
             level or "",
             str(error) if error else "",
-            str(slack_channel) if isinstance(slack_channel, str) else "",
+            str(slack),
+            str(slack_channels) if isinstance(slack_channels, (str, list)) else "",
             str(payload) if payload else "",
         ]
 
