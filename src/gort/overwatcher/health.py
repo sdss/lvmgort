@@ -12,8 +12,6 @@ import asyncio
 
 from typing import ClassVar
 
-from lvmopstools.retrier import Retrier
-
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 
 
@@ -48,15 +46,6 @@ class EmitHeartbeatTask(OverwatcherModuleTask["HealthOverwatcher"]):
                 )
 
             await asyncio.sleep(self.INTERVAL)
-
-    @Retrier(max_attempts=3, delay=5)
-    async def get_data(self):
-        """Returns the health status and whether the dome is open."""
-
-        is_safe, _ = self.overwatcher.alerts.is_safe()
-        dome_open = await self.overwatcher.gort.enclosure.is_open()
-
-        return is_safe, dome_open
 
 
 class HealthOverwatcher(OverwatcherModule):
