@@ -10,8 +10,10 @@ from __future__ import annotations
 
 from enum import Enum, Flag, ReprEnum, auto
 
+from strenum import UppercaseStrEnum
 
-__all__ = ["ErrorCode", "GuiderStatus", "Event", "ObserverStageStatus"]
+
+__all__ = ["ErrorCode", "Event", "ObserverStageStatus"]
 
 
 class ErrorCode(Enum):
@@ -134,7 +136,7 @@ class UpperStrEnum(str, ReprEnum):
         return name.upper()
 
 
-class Event(UpperStrEnum):
+class Event(UppercaseStrEnum):
     """Enumeration with the event types."""
 
     ERROR = auto()

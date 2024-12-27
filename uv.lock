@@ -993,7 +993,7 @@ requires-dist = [
     { name = "astropy", marker = "python_full_version < '3.11'", specifier = ">=6.0.0" },
     { name = "astropy", marker = "python_full_version >= '3.11'", specifier = ">=7.0.0" },
     { name = "httpx", specifier = ">=0.27.0" },
-    { name = "lvmopstools", specifier = ">=0.4.2" },
+    { name = "lvmopstools", specifier = ">=0.5.2" },
     { name = "peewee", specifier = ">=3.16.2" },
     { name = "polars", specifier = ">=1.0.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.6" },

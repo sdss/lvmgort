@@ -27,6 +27,7 @@ from typing import (
     TypeVar,
 )
 
+from lvmopstools.pubsub import send_event
 from lvmopstools.retrier import Retrier
 from rich import pretty, traceback
 from rich.logging import RichHandler
@@ -40,7 +41,6 @@ from gort import config
 from gort.devices.core import GortDevice, GortDeviceSet
 from gort.enums import Event
 from gort.exceptions import ErrorCode, GortError
-from gort.pubsub import notify_event
 from gort.recipes import recipes as recipe_to_class
 from gort.remote import RemoteActor
 from gort.tile import Tile
@@ -181,14 +181,14 @@ class GortClient(AMQPClient):
         """Emits an event notification."""
 
         try:
-            await notify_event(event, payload=payload)
+            await send_event(event, payload=payload)
         except TypeError as err:
             if "is not JSON serializable" in str(err):
                 self.log.error(
                     f"Failed to notify event {event.name}: payload is not"
                     "serialisable. The event will be emitted without payload."
                 )
-                await notify_event(event)
+                await send_event(event)
 
     def exception_handler(
         self,

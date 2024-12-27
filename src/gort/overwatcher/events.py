@@ -14,9 +14,10 @@ from datetime import UTC, datetime
 
 from typing import TYPE_CHECKING
 
+from lvmopstools.pubsub import Message, Subscriber
+
 from gort.enums import ErrorCode, Event
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
-from gort.pubsub import GortMessage, GortSubscriber
 from gort.tools import add_night_log_comment, insert_to_database
 
 
@@ -36,14 +37,14 @@ class MonitorEvents(OverwatcherModuleTask["EventsOverwatcher"]):
     async def task(self):
         """Runs the task."""
 
-        async for message in GortSubscriber().iterator(decode=True):
+        async for message in Subscriber().iterator(decode=True):
             # Clean done tasks.
             self._running_tasks = [t for t in self._running_tasks if not t.done()]
 
             task = asyncio.create_task(self.process(message))
             self._running_tasks.append(task)
 
-    async def process(self, message: GortMessage):
+    async def process(self, message: Message):
         """Processes a notification"""
 
         message_type = message.message_type

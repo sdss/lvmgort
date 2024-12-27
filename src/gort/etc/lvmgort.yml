@@ -269,11 +269,6 @@ services:
   redis:
     url: redis://localhost:6379/0
 
-  pubsub:
-    connection_string: amqp://guest:guest@localhost:5672
-    exchange_name: gort
-    routing_key: data
-
   database:
     connection:
       host: lvm-webapp.lco.cl
