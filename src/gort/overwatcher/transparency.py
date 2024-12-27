@@ -110,7 +110,7 @@ class TransparencyMonitorTask(OverwatcherModuleTask["TransparencyOverwatcher"]):
 
         # Get transparency data from the API for the last hour.
         data = await get_lvmapi_route(
-            "/transparency/",
+            "/transparency",
             params={"start_time": now - lookback, "end_time": now},
         )
 
