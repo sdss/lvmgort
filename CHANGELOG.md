@@ -1,6 +1,11 @@
 # Changelog
 
+## Next version
+
+### ✨ Improved
+
 * [#44](https://vscode.dev/github/sdss/lvmgort/pull/44) RORR RID-019: disables the Overwatcher if rain is detected and requires a human to re-enable it when conditions are safe.
+* Create the night log during the pre-observing task.
 
 
 ## 1.3.0 - November 29, 2024

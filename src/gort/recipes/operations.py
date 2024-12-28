@@ -321,6 +321,9 @@ class PreObservingRecipe(BaseRecipe):
         # The telescopes are at park and guider.take_darks() uses that position.
         await self.gort.guiders.take_darks()
 
+        # Create the night log if it doesn't exist.
+        await get_lvmapi_route("/logs/night-logs/create")
+
 
 class PostObservingRecipe(BaseRecipe):
     """Runs the post-observing tasks.
