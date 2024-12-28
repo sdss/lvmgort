@@ -367,7 +367,7 @@ class ObserverOverwatcher(OverwatcherModule):
             focus_info = await self.gort.guiders.sci.get_focus_info()
             focus_age = focus_info["reference_focus"]["age"]
 
-            if focus_age is None or focus_age > 3600:
+            if focus_age is None or focus_age > 2 * 3600:  # Focus sweeps every 2 hours
                 should_focus = True
 
         else:
