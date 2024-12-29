@@ -357,7 +357,7 @@ class PostObservingRecipe(BaseRecipe):
 
     email_route: ClassVar[str] = "/logs/night-logs/0/email"
 
-    async def recipe(self, send_email: bool = True):
+    async def recipe(self, send_email: bool = True, force_park: bool = False):
         """Runs the post-observing sequence."""
 
         tasks = []
@@ -366,7 +366,10 @@ class PostObservingRecipe(BaseRecipe):
         if not closed:
             tasks.append(self.gort.enclosure.close(retry_without_parking=True))
 
-        tasks.append(self.gort.telescopes.park())
+        parked = [await tel.is_parked() for tel in self.gort.telescopes.values()]
+        if force_park or not all(parked):
+            tasks.append(self.gort.telescopes.park())
+
         tasks.append(self.gort.nps.calib.all_off())
         tasks.append(self.gort.guiders.stop())
 
