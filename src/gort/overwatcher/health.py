@@ -43,7 +43,7 @@ class EmitHeartbeatTask(OverwatcherModuleTask["HealthOverwatcher"]):
                     raise RuntimeError("Failed to set overwatcher heartbeat.")
 
             except Exception as err:
-                self.overwatcher.log.error(
+                self.log.error(
                     f"Failed to set overwatcher heartbeat: {err}",
                     exc_info=err,
                 )
@@ -70,15 +70,13 @@ class ActorHealthMonitorTask(OverwatcherModuleTask["HealthOverwatcher"]):
             try:
                 failed = await get_failed_actors(disacard_disabled=True)
                 if len(failed) > 0:
-                    self.overwatcher.log.warning(
-                        f"Failed to ping actors: {', '.join(failed)}."
-                    )
+                    self.log.warning(f"Failed to ping actors: {failed}.")
 
-                if self.overwatcher.state.enabled:
-                    await self.restart_actors(failed)
+                    if self.overwatcher.state.enabled:
+                        await self.restart_actors(failed)
 
             except Exception as err:
-                self.overwatcher.log.error(
+                self.log.error(
                     f"Failed to check actor health: {err}",
                     exc_info=err,
                 )
