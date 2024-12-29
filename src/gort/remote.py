@@ -127,7 +127,7 @@ class RemoteActor:
         return await cmd
 
     async def refresh(self):
-        """Refresesh the command list."""
+        """Refreshes the command list."""
 
         await self.init()
 
@@ -197,21 +197,26 @@ class RemoteCommand:
             raise_on_exception_class=[GortTimeoutError, InvalidRemoteCommand],
         )
 
-        return await retrier(self._run_command)(
+        return await retrier(self.run)(
             *args,
             reply_callback=reply_callback,
             timeout=timeout,
             **kwargs,
         )
 
-    async def _run_command(
+    async def run(
         self,
         *args,
         reply_callback: Callable[[AMQPReply], None] | None | Literal[False] = None,
         timeout: float | None = None,
         **kwargs,
     ):
-        """Actually build the remote command and run it."""
+        """Build the remote command and run it.
+
+        This method does not allow retries. Use :meth:`.__call__` for that, which
+        should be generally preferred.
+
+        """
 
         parent_string = ""
         if self._parent is not None:

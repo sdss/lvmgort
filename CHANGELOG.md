@@ -10,6 +10,7 @@
 ### 🏷️ Changed
 
 * Removed the `pubsub` module and use `lvmopstools` instead.
+* Rename and expose `RemoteCommand._run_command()` to `RemoteCommand.run()`.
 
 ### 🔧 Fixed
 
