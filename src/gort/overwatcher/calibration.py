@@ -391,6 +391,10 @@ class CalibrationSchedule:
         overwatcher = self.cals_overwatcher.overwatcher
         open_dome_buffer = overwatcher.config["overwatcher.scheduler.open_dome_buffer"]
 
+        # Do not allow calibrations if the Overwatcher is troubleshooting.
+        if overwatcher.state.troubleshooting:
+            return None
+
         now: float = time.time()
         done_cals: set[str] = set()
 

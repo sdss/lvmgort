@@ -61,7 +61,7 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
             elif self.module.is_observing or self.module.is_cancelling:
                 pass
 
-            elif not state.enabled:
+            elif not state.enabled or state.troubleshooting:
                 pass
 
             elif not ephemeris:
