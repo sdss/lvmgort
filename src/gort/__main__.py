@@ -66,8 +66,6 @@ async def overwatcher(config: str | None = None, dry_run: bool = False):
             )
             actor_config = internal_config
 
-    gort_config.load(actor_config, use_base=False)
-
     actor = OverwatcherActor.from_config(actor_config, dry_run=dry_run)
     await actor.start()
 
