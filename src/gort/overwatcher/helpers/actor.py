@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from gort.gort import Gort
 
 
-async def ping_actors():
+async def ping_actors() -> dict[str, bool]:
     """Pings all actors in the system."""
 
     return await get_lvmapi_route("/actors/ping")
@@ -34,11 +34,11 @@ async def ping_actors():
 async def get_failed_actors(disacard_disabled: bool = False):
     """Returns a list of failed actors."""
 
-    disabled_actors = config["overwatcher.disabled_actors"]
+    disabled_actors = config["overwatcher.disabled_actors"] or []
 
     actor_status = await ping_actors()
 
-    failed_actors = set([ac for ac in actor_status.actors if actor_status[ac]])
+    failed_actors = set([ac for ac in actor_status if not actor_status[ac]])
 
     if disacard_disabled:
         for actor in disabled_actors:  # Ignore actors we know are disabled.
