@@ -285,6 +285,8 @@ overwatcher:
   scheduler:
     open_dome_buffer: 300
 
+  disabled_actors: null
+
   slack:
     notifications_channels:
       - lvm-overwatcher
