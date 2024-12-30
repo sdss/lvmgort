@@ -381,6 +381,16 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
 
         return all(await self.call_device_method(Spectrograph.is_idle))
 
+    async def are_reading(self):
+        """Returns :obj:`True` if any of the spectrographs are reading."""
+
+        return any(await self.call_device_method(Spectrograph.is_reading))
+
+    async def are_exposing(self):
+        """Returns :obj:`True` if any of the spectrographs are exposing."""
+
+        return any(await self.call_device_method(Spectrograph.is_exposing))
+
     async def are_errored(self):
         """Returns :obj:`True` if any of the spectrographs are errored."""
 

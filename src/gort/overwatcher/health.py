@@ -98,6 +98,18 @@ class ActorHealthMonitorTask(OverwatcherModuleTask["HealthOverwatcher"]):
         is_calibrating = ow.calibrations.get_running_calibration() is not None
 
         if is_observing:
+            if (
+                self.gort.specs.last_exposure
+                and not self.gort.specs.last_exposure.done()
+                and not await self.gort.specs.are_reading()
+            ):
+                await self.notify("Waiting to read exposures before cancelling.")
+                await with_timeout(
+                    self.gort.specs.last_exposure,  # type: ignore
+                    timeout=60,
+                    raise_on_timeout=False,
+                )
+
             await ow.observer.stop_observing(
                 immediate=True,
                 reason=f"Found unresponsible actors: {actors_join}. "
