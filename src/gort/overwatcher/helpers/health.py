@@ -31,7 +31,10 @@ async def ping_actors() -> dict[str, bool]:
     return await get_lvmapi_route("/actors/ping")
 
 
-async def get_failed_actors(disacard_disabled: bool = False):
+async def get_failed_actors(
+    discard_disabled: bool = False,
+    discard_overwatcher: bool = False,
+) -> list[str]:
     """Returns a list of failed actors."""
 
     disabled_actors = config["overwatcher.disabled_actors"] or []
@@ -40,9 +43,12 @@ async def get_failed_actors(disacard_disabled: bool = False):
 
     failed_actors = set([ac for ac in actor_status if not actor_status[ac]])
 
-    if disacard_disabled:
+    if discard_disabled:
         for actor in disabled_actors:  # Ignore actors we know are disabled.
             failed_actors.discard(actor)
+
+    if discard_overwatcher:
+        failed_actors.discard("lvm.overwatcher")
 
     return list(failed_actors)
 

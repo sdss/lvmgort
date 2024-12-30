@@ -72,12 +72,18 @@ class ActorHealthMonitorTask(OverwatcherModuleTask["HealthOverwatcher"]):
             failed: list[str] = []
 
             try:
-                failed = await get_failed_actors(disacard_disabled=True)
+                failed = await get_failed_actors(
+                    discard_disabled=True,
+                    discard_overwatcher=True,
+                )
                 if len(failed) > 0:
-                    self.log.warning(f"Failed to ping actors: {failed}.")
-
                     if self.overwatcher.state.enabled:
                         await self.restart_actors(failed)
+                    else:
+                        self.log.info(
+                            f"Found unresponsible actors: {', '.join(failed)}. "
+                            "Not restarting because the Overwatcher is disabled."
+                        )
 
             except Exception as err:
                 self.log.error(
@@ -107,6 +113,8 @@ class ActorHealthMonitorTask(OverwatcherModuleTask["HealthOverwatcher"]):
         is_observing = ow.observer.is_observing
         is_calibrating = ow.calibrations.get_running_calibration() is not None
 
+        await self.notify(f"Found unresponsible actors: {', '.join(failed_actors)}.")
+
         if is_observing:
             if (
                 self.gort.specs.last_exposure
@@ -133,7 +141,7 @@ class ActorHealthMonitorTask(OverwatcherModuleTask["HealthOverwatcher"]):
             )
             await ow.calibrations.cancel()
 
-        await self.notify("Restarting actors now.")
+        await self.notify("Restarting actors.")
         await restart_actors(failed_actors, self.gort)
 
         await self.notify("Actor restart complete. Resuming normal operations.")

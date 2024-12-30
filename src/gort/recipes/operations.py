@@ -298,7 +298,7 @@ class PreObservingRecipe(BaseRecipe):
 
         if check_actors:
             self.gort.log.info("Checking actors.")
-            failed_actors = await get_failed_actors(disacard_disabled=True)
+            failed_actors = await get_failed_actors(discard_disabled=True)
 
             if len(failed_actors) > 0:
                 self.gort.log.warning(f"Failed to ping actors: {failed_actors}.")
