@@ -129,71 +129,76 @@ class OverwatcherMainTask(OverwatcherTask):
     async def handle_unsafe(self):
         """Closes the dome if the conditions are unsafe."""
 
-        closed = await self.overwatcher.dome.is_closing()
+        ow = self.overwatcher
 
-        observing = self.overwatcher.observer.is_observing
-        cancelling = self.overwatcher.observer.is_cancelling
-        calibrating = self.overwatcher.state.calibrating
+        closed = await ow.dome.is_closing()
 
-        _, alerts_status = self.overwatcher.alerts.is_safe()
+        observing = ow.observer.is_observing
+        cancelling = ow.observer.is_cancelling
+        calibrating = ow.state.calibrating
+
+        _, alerts_status = ow.alerts.is_safe()
         is_raining = bool(alerts_status & ActiveAlert.RAIN)
 
         if not closed or observing or calibrating:
             try:
                 async with asyncio.timeout(delay=30):
-                    await self.overwatcher.notify(
-                        "Unsafe conditions detected.",
-                        level="warning",
-                    )
+                    await ow.notify("Unsafe conditions detected.", level="warning")
 
                     if observing and not cancelling:
                         try:
-                            await self.overwatcher.observer.stop_observing(
+                            await ow.observer.stop_observing(
                                 immediate=True,
                                 reason="unsafe conditions",
                             )
                         except Exception as err:
-                            await self.overwatcher.notify(
+                            await ow.notify(
                                 f"Error stopping observing: {decap(err)}",
                                 level="error",
                             )
-                            await self.overwatcher.notify(
+                            await ow.notify(
                                 "I will close the dome anyway.",
                                 level="warning",
                             )
 
                     if calibrating:
-                        await self.overwatcher.calibrations.cancel()
+                        await ow.calibrations.cancel()
 
             except asyncio.TimeoutError:
-                await self.overwatcher.notify(
+                await ow.notify(
                     "Timed out while handling unsafe conditions.",
                     level="error",
                 )
 
             except Exception as err:
-                await self.overwatcher.notify(
+                await ow.notify(
                     f"Error handling unsafe conditions: {decap(err)}",
                     level="error",
                 )
 
             finally:
                 if not closed:
-                    await self.overwatcher.notify("Closing the dome.")
-                    await self.overwatcher.dome.shutdown(retry=True, park=True)
+                    await ow.notify("Closing the dome due to unsafe conditions.")
+                    await ow.dome.shutdown(retry=True, park=True)
 
                     # If we have to close because of unsafe conditions, we don't want
-                    # to reopen too soon. We lock the dome for 30 minutes.
-                    self.overwatcher.alerts.locked_until = time() + 1800
+                    # to reopen too soon. We lock the dome for some time.
+                    timeout = ow.config["overwatcher.lock_timeout_on_unsafe"]
+                    ow.alerts.locked_until = time() + timeout
 
-        if self.overwatcher.state.enabled:
+                    await ow.notify(
+                        f"The dome will be locked for {int(timeout)} seconds.",
+                        level="warning",
+                    )
+
+        if ow.state.enabled:
             if is_raining:
-                await self.overwatcher.notify(
+                await ow.notify(
                     "Disabling the Overwatcher due to rain. "
                     "Manually re-enable it when safe.",
                     level="warning",
                 )
-                self.overwatcher.state.enabled = False
+                ow.state.enabled = False
 
     async def handle_daytime(self):
         """Handles daytime."""

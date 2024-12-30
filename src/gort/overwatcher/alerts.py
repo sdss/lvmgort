@@ -42,6 +42,8 @@ class AlertsSummary(BaseModel):
     o2_room_alerts: dict[str, bool] | None = None
     heater_alert: bool | None = None
     heater_camera_alerts: dict[str, bool] | None = None
+    lco_connectivity: bool | None = None
+    internet_connectivity: bool | None = None
 
 
 class ActiveAlert(enum.Flag):
@@ -56,6 +58,7 @@ class ActiveAlert(enum.Flag):
     O2 = enum.auto()
     LOCKED = enum.auto()
     UNAVAILABLE = enum.auto()
+    DISCONNECTED = enum.auto()
     UNKNOWN = enum.auto()
 
 
@@ -166,6 +169,16 @@ class AlertsOverwatcher(OverwatcherModule):
             active_alerts |= ActiveAlert.WIND
             is_safe = False
 
+        if not self.state.internet_connectivity:
+            self.log.warning("Internet connectivity lost.")
+            active_alerts |= ActiveAlert.DISCONNECTED
+            is_safe = False
+
+        if not self.state.lco_connectivity:
+            self.log.warning("Internal LCO connectivity lost.")
+            active_alerts |= ActiveAlert.DISCONNECTED
+            is_safe = False
+
         # These alerts are not critical but we log them.
         # TODO: maybe we do want to do something about these alerts.
         if self.state.door_alert:
@@ -183,7 +196,8 @@ class AlertsOverwatcher(OverwatcherModule):
         # and put a lock for 30 minutes to prevent the dome from opening/closing too
         # frequently if the weather is unstable.
         if self.locked_until > 0 and time() < self.locked_until:
-            return False, active_alerts | ActiveAlert.LOCKED
+            is_safe = False
+            active_alerts |= ActiveAlert.LOCKED
 
         if is_safe:
             self.locked_until = 0
@@ -194,6 +208,11 @@ class AlertsOverwatcher(OverwatcherModule):
     async def get_alerts_summary(self) -> AlertsSummary:
         """Returns the alerts report."""
 
-        data = await get_lvmapi_route("/alerts/summary")
+        alerts_data = await get_lvmapi_route("/alerts/summary")
+        summary = AlertsSummary(**alerts_data)
 
-        return AlertsSummary(**data)
+        connectivity_data = await get_lvmapi_route("/alerts/connectivity")
+        summary.lco_connectivity = connectivity_data["lco_connectivity"]
+        summary.internet_connectivity = connectivity_data["internet"]
+
+        return summary
