@@ -17,6 +17,7 @@ from lvmopstools.utils import with_timeout
 
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 from gort.overwatcher.helpers import get_failed_actors, restart_actors
+from gort.tools import decap
 
 
 __all__ = ["HealthOverwatcher"]
@@ -44,8 +45,8 @@ class EmitHeartbeatTask(OverwatcherModuleTask["HealthOverwatcher"]):
                     raise RuntimeError("Failed to set overwatcher heartbeat.")
 
             except Exception as err:
-                self.log.error(
-                    f"Failed to set overwatcher heartbeat: {err}",
+                self.overwatcher.log.error(
+                    f"Failed to set overwatcher heartbeat: {decap(err)}",
                     exc_info=err,
                 )
 

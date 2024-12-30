@@ -20,7 +20,7 @@ import polars
 
 from gort.overwatcher.core import OverwatcherModuleTask
 from gort.overwatcher.overwatcher import OverwatcherModule
-from gort.tools import get_lvmapi_route
+from gort.tools import decap, get_lvmapi_route
 
 
 if TYPE_CHECKING:
@@ -75,7 +75,7 @@ class WeatherMonitorTask(OverwatcherModuleTask["WeatherOverwatcher"]):
                 await self.module.check_weather()
             except Exception as err:
                 if self.unavailable is False:
-                    self.log.error(f"Failed to get weather data: {err!r}")
+                    self.log.error(f"Failed to get weather data: {decap(err)}")
                 n_failures += 1
             else:
                 self.last_updated = time()

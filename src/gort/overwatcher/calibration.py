@@ -23,7 +23,7 @@ from sdsstools import read_yaml_file
 
 from gort.exceptions import OverwatcherError
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
-from gort.tools import add_night_log_comment, cancel_task, redis_client_sync
+from gort.tools import add_night_log_comment, cancel_task, decap, redis_client_sync
 
 
 if TYPE_CHECKING:
@@ -255,7 +255,7 @@ class Calibration:
 
             task = asyncio.create_task(
                 add_night_log_comment(
-                    f"Calibration {self.name} failed. Reason: {fail_reason}"
+                    f"Calibration {self.name} failed. Reason: {decap(fail_reason)}"
                     " See log for more details.",
                     category="overwatcher",
                 ),
@@ -491,7 +491,7 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
                 except Exception as ee:
                     if not next_calibration.is_finished():
                         await notify(
-                            f"Error running calibration {name}: {ee}",
+                            f"Error running calibration {name}: {decap(ee)}",
                             level="error",
                         )
                         next_calibration.record_state(
@@ -555,7 +555,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
         try:
             self.schedule.update_schedule(self.cals_file)
         except Exception as ee:
-            self.log.error(f"Error updating calibrations schedule: {ee!r}")
+            self.log.error(f"Error updating calibrations schedule: {decap(ee)}")
 
     def get_running_calibration(self):
         """Returns the calibration currently running."""
@@ -759,7 +759,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
             calibration.record_state(
                 CalibrationState.FAILED,
                 fail_reason="maximum time reached trying to run the calibration. "
-                f"Oringinal error: {message}",
+                f"Original error: {decap(message)}",
             )
             self._failing_cals.pop(name)
             return

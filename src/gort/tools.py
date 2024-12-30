@@ -94,6 +94,7 @@ __all__ = [
     "add_night_log_comment",
     "async_noop",
     "LogNamespace",
+    "decap",
 ]
 
 AnyPath = str | os.PathLike
@@ -1078,3 +1079,12 @@ class LogNamespace:
 
     def _get_message(self, message: str):
         return self.header.format(**locals()) + message
+
+
+def decap(string: Any):
+    """Decapitalises the first letter of a string."""
+
+    if not isinstance(string, str):
+        string = str(string)
+
+    return string[0].lower() + string[1:]

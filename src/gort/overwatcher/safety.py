@@ -16,6 +16,7 @@ from typing import ClassVar
 from lvmopstools.retrier import Retrier
 
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
+from gort.tools import decap
 
 
 __all__ = ["SafetyOverwatcher"]
@@ -48,7 +49,7 @@ class SafetyMonitorTask(OverwatcherModuleTask["SafetyOverwatcher"]):
             except Exception as err:
                 if self.n_get_data_failures == 0:
                     self.overwatcher.log.error(
-                        f"Error getting safety data: {err}",
+                        f"Error getting safety data: {decap(err)}",
                         exc_info=err,
                     )
                 elif self.n_get_data_failures >= 3:
@@ -109,7 +110,8 @@ class SafetyMonitorTask(OverwatcherModuleTask["SafetyOverwatcher"]):
 
                 # Record the task error in the log.
                 self.overwatcher.log.critical(
-                    f"Error in safety monitor task: {err}", exc_info=err
+                    f"Error in safety monitor task: {decap(err)}",
+                    exc_info=err,
                 )
 
                 self.failed = True

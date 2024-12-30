@@ -18,7 +18,7 @@ from lvmopstools.retrier import Retrier
 from pydantic import BaseModel
 
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
-from gort.tools import get_lvmapi_route
+from gort.tools import decap, get_lvmapi_route
 
 
 if TYPE_CHECKING:
@@ -55,6 +55,7 @@ class ActiveAlert(enum.Flag):
     CAMERA_TEMPERATURE = enum.auto()
     O2 = enum.auto()
     LOCKED = enum.auto()
+    UNAVAILABLE = enum.auto()
     UNKNOWN = enum.auto()
 
 
@@ -65,12 +66,6 @@ class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
     keep_alive = True
     restart_on_error = True
 
-    def __init__(self):
-        super().__init__()
-
-        self.last_updated: float = 0.0
-        self.unavailable: bool = False
-
     async def task(self):
         """Updates the alerts data."""
 
@@ -80,25 +75,20 @@ class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
             try:
                 await self.update_alerts()
             except Exception as err:
-                if self.unavailable is False:
-                    self.log.error(f"Failed to get alerts data: {err!r}")
+                self.log.error(f"Failed to get alerts data: {decap(err)}")
                 n_failures += 1
             else:
-                self.last_updated = time()
-                self.unavailable = False
+                self.module.last_updated = time()
+                self.module.unavailable = False
                 n_failures = 0
             finally:
-                if self.unavailable is False and n_failures >= 5:
-                    self.unavailable = True
-                    self.log.critical(
-                        "Failed to get alerts data 5 times. "
+                if self.module.unavailable is False and n_failures >= 5:
+                    self.module.unavailable = True
+                    await self.overwatcher.shutdown(
+                        reason="Failed to get alerts data 5 times. "
                         "Triggering an emergency shutdown.",
-                    )
-                    asyncio.create_task(
-                        self.overwatcher.shutdown(
-                            reason="alerts data unavailable",
-                            park=False,
-                        )
+                        park=False,
+                        level="critical",
                     )
 
             await asyncio.sleep(15)
@@ -109,14 +99,12 @@ class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
         data = await self.module.get_alerts_summary()
 
         if data is None:
-            raise ValueError("no alerts data available.")
+            raise ValueError("No alerts data available.")
 
         # For some very critical alerts, we require them to be not null (null here
         # means no data was available or the API failed getting the alert data).
         if data.rain is None or data.humidity_alert is None or data.wind_alert is None:
-            raise ValueError("incomplete alerts data.")
-
-        self.module.state = data
+            raise ValueError("Incomplete alerts data.")
 
 
 class AlertsOverwatcher(OverwatcherModule):
@@ -130,6 +118,9 @@ class AlertsOverwatcher(OverwatcherModule):
         super().__init__(*args, **kwargs)
 
         self.state: AlertsSummary | None = None
+
+        self.last_updated: float = 0.0
+        self.unavailable: bool = False
         self.locked_until: float = 0
 
     def is_safe(self) -> tuple[bool, ActiveAlert]:
@@ -141,6 +132,11 @@ class AlertsOverwatcher(OverwatcherModule):
 
         is_safe: bool = True
         active_alerts = ActiveAlert(0)
+
+        if self.unavailable:
+            self.log.warning("Alerts data is unavailable.")
+            active_alerts |= ActiveAlert.UNAVAILABLE
+            return False, active_alerts
 
         if self.state.rain:
             self.log.warning("Rain alert detected.")

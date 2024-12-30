@@ -35,6 +35,7 @@ from gort.tile import Coordinates, Tile
 from gort.tools import (
     GuiderMonitor,
     cancel_task,
+    decap,
     handle_signals,
     insert_to_database,
     register_observation,
@@ -850,7 +851,10 @@ class GortObserver:
             table_name = self.gort.config["services.database.tables.overheads"]
             insert_to_database(table_name, payload)
         except Exception as err:
-            self.write_to_log(f"Failed saving overheads to database: {err}", "error")
+            self.write_to_log(
+                f"Failed saving overheads to database: {decap(err)}",
+                "error",
+            )
 
     async def register_exposure(
         self,
@@ -895,7 +899,7 @@ class GortObserver:
         try:
             await register_observation(registration_payload)
         except Exception as err:
-            self.write_to_log(f"Failed registering exposure: {err}", "error")
+            self.write_to_log(f"Failed registering exposure: {decap(err)}", "error")
         else:
             self.write_to_log("Registration complete.")
 

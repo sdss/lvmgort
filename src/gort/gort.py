@@ -45,6 +45,7 @@ from gort.recipes import recipes as recipe_to_class
 from gort.remote import RemoteActor
 from gort.tile import Tile
 from gort.tools import (
+    decap,
     get_temporary_file_path,
     kubernetes_restart_deployment,
     overwatcher_is_running,
@@ -479,7 +480,7 @@ class Gort(GortClient):
             )
 
         except Exception as err:
-            self.log.error(f"Failed to shutdown: {err!r}")
+            self.log.error(f"Failed to shutdown: {decap(err)}")
             self.log.warning("Trying to just close the dome.")
 
             await self.enclosure.close(

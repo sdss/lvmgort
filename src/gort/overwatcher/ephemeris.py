@@ -19,7 +19,7 @@ from sdsstools import get_sjd
 
 from gort.overwatcher import OverwatcherModule
 from gort.overwatcher.core import OverwatcherModuleTask
-from gort.tools import get_ephemeris_summary
+from gort.tools import decap, get_ephemeris_summary
 
 
 __all__ = ["EphemerisOverwatcher"]
@@ -72,7 +72,7 @@ class EphemerisMonitorTask(OverwatcherModuleTask["EphemerisOverwatcher"]):
 
                 except Exception as err:
                     await self.notify(
-                        f"Failed getting ephemeris data for {sjd}: {err!r}",
+                        f"Failed getting ephemeris data for {sjd}: {decap(err)}",
                         level="error",
                     )
                     failing = True
