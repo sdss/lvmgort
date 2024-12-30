@@ -14,7 +14,7 @@ import pathlib
 from copy import copy
 from time import time
 
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from sdsstools import Configuration
 from sdsstools.utils import GatheringTaskGroup
@@ -28,6 +28,10 @@ from gort.overwatcher.helpers.notifier import NotifierMixIn
 from gort.overwatcher.helpers.tasks import DailyTasks
 from gort.overwatcher.troubleshooter.troubleshooter import Troubleshooter
 from gort.tools import LogNamespace, decap
+
+
+if TYPE_CHECKING:
+    from gort.overwatcher.helpers.notifier import NotificationLevel
 
 
 @dataclasses.dataclass
@@ -358,6 +362,7 @@ class Overwatcher(NotifierMixIn):
     async def shutdown(
         self,
         reason: str = "undefined",
+        level: NotificationLevel = "warning",
         retry: bool = True,
         park: bool = True,
         disable_overwatcher: bool = False,
@@ -374,10 +379,7 @@ class Overwatcher(NotifierMixIn):
         if not reason.endswith("."):
             reason += "."
 
-        await self.notify(
-            f"Triggering shutdown. Reason: {decap(reason)}",
-            level="warning",
-        )
+        await self.notify(f"Triggering shutdown. Reason: {decap(reason)}", level=level)
 
         if disable_overwatcher:
             await self.notify("The Overwatcher will be disabled.", level="warning")
