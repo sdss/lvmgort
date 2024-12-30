@@ -42,6 +42,8 @@ class DailyTasks(dict[Literal[VALID_TASKS], "DailyTaskBase"]):
             if DailyTaskClass.name in typing.get_args(VALID_TASKS)
         }
         self.tasks = [task.name for task in tasks.values()]
+
+        tasks = cast(dict[Literal[VALID_TASKS], "DailyTaskBase"], tasks)
         super().__init__(tasks)
 
     async def run_all(self):
