@@ -9,6 +9,7 @@
 ### ✨ Improved
 
 * [#44](https://github.com/sdss/lvmgort/pull/44) RORR RID-019: disables the Overwatcher if rain is detected and requires a human to re-enable it when conditions are safe.
+* [#46](https://github.com/sdss/lvmgort/pull/46) RORR RID-017: treat lost connectivity to the internet or LCO as an unsafe condition and close.
 * Create the night log during the pre-observing task.
 
 ### 🏷️ Changed
