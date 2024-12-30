@@ -296,3 +296,4 @@ overwatcher:
     host: localhost
     port: 5672
     log_dir: /data/logs/lvmgort/overwatcher
+    console_verbosity: WARNING

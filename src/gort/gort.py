@@ -93,6 +93,8 @@ class GortClient(AMQPClient):
         The user to connect to the exchange.
     password
         The password to connect to the exchange.
+    verbosity
+        The level of console logging verbosity. One of the standard logging levels.
     use_rich_output
         If :obj:`True`, uses ``rich`` to provide colourised tracebacks and
         prettier outputs.
@@ -110,6 +112,7 @@ class GortClient(AMQPClient):
         port: int = 5672,
         user: str = "guest",
         password: str = "guest",
+        verbosity: str = "INFO",
         use_rich_output: bool = True,
         log_file_path: str | pathlib.Path | Literal[False] | None = None,
     ):
@@ -118,7 +121,8 @@ class GortClient(AMQPClient):
         self._console: Console
 
         log = self._prepare_logger(
-            log_file_path,
+            log_file_path=log_file_path,
+            verbosity=verbosity,
             use_rich_output=use_rich_output,
         )
 
@@ -135,9 +139,14 @@ class GortClient(AMQPClient):
             log=log,
         )
 
+        # We need to set the verbosity again after the super().__init__() call
+        # because it resets the default log level to WARNING.
+        self.set_verbosity(verbosity)
+
     def _prepare_logger(
         self,
         log_file_path: str | pathlib.Path | Literal[False] | None = None,
+        verbosity: str = "INFO",
         use_rich_output: bool = True,
     ):
         """Creates a logger and start file logging."""
@@ -147,6 +156,8 @@ class GortClient(AMQPClient):
             use_rich_handler=True,
             rich_handler_kwargs={"rich_tracebacks": use_rich_output},
         )
+
+        self.set_verbosity(verbosity, log=log)
 
         if log_file_path is None:
             path = config["logging"]["path"]
@@ -316,7 +327,11 @@ class GortClient(AMQPClient):
 
         return self.connection and self.connection.connection is not None
 
-    def set_verbosity(self, verbosity: str | int | None = None):
+    def set_verbosity(
+        self,
+        verbosity: str | int | None = None,
+        log: SDSSLogger | None = None,
+    ):
         """Sets the level of verbosity to ``debug``, ``info``, or ``warning``.
 
         Parameters
@@ -324,8 +339,13 @@ class GortClient(AMQPClient):
         verbosity
             The level of verbosity. Can be a string level name, an integer, or
             :obj:`None`, in which case the default verbosity will be used.
+        log
+            The logger to set the verbosity for. If :obj:`None`, the internal
+            logger will be used.
 
         """
+
+        log = log or self.log
 
         verbosity = verbosity or "warning"
         if isinstance(verbosity, int):
@@ -339,7 +359,7 @@ class GortClient(AMQPClient):
 
         level_mapping = logging.getLevelNamesMapping()
         if verbosity_level := level_mapping.get(verbosity.upper()):
-            self.log.sh.setLevel(verbosity_level)
+            log.sh.setLevel(verbosity_level)
 
 
 class Gort(GortClient):
@@ -357,8 +377,6 @@ class Gort(GortClient):
         If the Overwatcher is running an exception will be raised to prevent
         GORT running commands that may interfere with it. If ``allow_overwatcher=True``
         the exception will be suppressed.
-    verbosity
-        The level of logging verbosity.
 
     """
 
@@ -366,7 +384,6 @@ class Gort(GortClient):
         self,
         *args,
         override_overwatcher: bool | None = None,
-        verbosity: str | None = None,
         config_file: str | pathlib.Path | None = None,
         **kwargs,
     ):
@@ -403,9 +420,6 @@ class Gort(GortClient):
 
         self.observer = GortObserver(self)
         self.observe_tile = self.observer.observe_tile
-
-        if verbosity:
-            self.set_verbosity(verbosity)
 
     async def init(self) -> Self:
         """Initialises the client and all devices."""

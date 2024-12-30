@@ -38,9 +38,22 @@ def gort(override_overwatcher: bool = False):
     help="Path to the configuration file. Must include a "
     "section called 'actor' or 'overwatcher.actor'.",
 )
+@click.option(
+    "--verbosity",
+    "-v",
+    type=click.Choice(
+        ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        case_sensitive=False,
+    ),
+    help="Verbosity level for console output.",
+)
 @click.option("--dry-run", is_flag=True, help="Runs the actor in dry-run mode.")
 @cli_coro()
-async def overwatcher(config: str | None = None, dry_run: bool = False):
+async def overwatcher(
+    config: str | None = None,
+    dry_run: bool = False,
+    verbosity: str | None = None,
+):
     """Starts the overwatcher."""
 
     from sdsstools import read_yaml_file
@@ -65,6 +78,9 @@ async def overwatcher(config: str | None = None, dry_run: bool = False):
                 GortUserWarning,
             )
             actor_config = internal_config
+
+    if verbosity:
+        actor_config["console_verbosity"] = verbosity
 
     actor = OverwatcherActor.from_config(actor_config, dry_run=dry_run)
     await actor.start()
