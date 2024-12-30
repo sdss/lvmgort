@@ -178,12 +178,12 @@ class AlertsOverwatcher(OverwatcherModule):
             active_alerts |= ActiveAlert.WIND
             is_safe = False
 
-        if not self.connectivity.internet.is_set():
+        if self.connectivity.internet.is_set():
             self.log.warning("Internet connectivity lost.")
             active_alerts |= ActiveAlert.DISCONNECTED
             is_safe = False
 
-        if not self.connectivity.lco.is_set():
+        if self.connectivity.lco.is_set():
             self.log.warning("Internal LCO connectivity lost.")
             active_alerts |= ActiveAlert.DISCONNECTED
             is_safe = False
