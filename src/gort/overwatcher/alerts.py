@@ -138,18 +138,29 @@ class AlertsOverwatcher(OverwatcherModule):
             active_alerts |= ActiveAlert.UNAVAILABLE
             return False, active_alerts
 
+        if self.unavailable is False and time() - self.last_updated > 300:
+            # If the data is not unavailable but it has not been updated
+            # in the last 5 minutes, something is wrong. We mark it as unavailable.
+            self.log.warning("Alerts data has not been updated in the last 5 minutes.")
+            self.unavailable = True
+            active_alerts |= ActiveAlert.UNAVAILABLE
+            return False, active_alerts
+
         if self.state.rain:
             self.log.warning("Rain alert detected.")
             active_alerts |= ActiveAlert.RAIN
             is_safe = False
+
         if self.state.humidity_alert:
             self.log.warning("Humidity alert detected.")
             active_alerts |= ActiveAlert.HUMIDITY
             is_safe = False
+
         if self.state.dew_point_alert:
             self.log.warning("Dew point alert detected.")
             active_alerts |= ActiveAlert.DEW_POINT
             is_safe = False
+
         if self.state.wind_alert:
             self.log.warning("Wind alert detected.")
             active_alerts |= ActiveAlert.WIND
@@ -159,9 +170,11 @@ class AlertsOverwatcher(OverwatcherModule):
         # TODO: maybe we do want to do something about these alerts.
         if self.state.door_alert:
             active_alerts |= ActiveAlert.DOOR
+
         if self.state.camera_temperature_alert:
             self.log.warning("Camera temperature alert detected.")
             active_alerts |= ActiveAlert.CAMERA_TEMPERATURE
+
         if self.state.o2_alert:
             self.log.warning("O2 alert detected.")
             active_alerts |= ActiveAlert.O2
