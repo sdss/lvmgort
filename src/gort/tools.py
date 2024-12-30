@@ -741,8 +741,8 @@ async def get_lvmapi_route(route: str, params: dict = {}, **kwargs):
     ) as client:
         response = await client.get(route, params=params)
 
-        if response.status_code != 200:
-            raise ValueError(f"Route {route} failed with error {response.status_code}.")
+        if (code := response.status_code) != 200:
+            raise ValueError(f"Route /{route} failed with error {code}.")
 
     return response.json()
 

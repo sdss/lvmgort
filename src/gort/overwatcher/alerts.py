@@ -14,7 +14,7 @@ from time import time
 
 from typing import TYPE_CHECKING
 
-from lvmopstools.retrier import Retrier
+from lvmopstools.utils import Trigger
 from pydantic import BaseModel
 
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
@@ -44,6 +44,14 @@ class AlertsSummary(BaseModel):
     heater_camera_alerts: dict[str, bool] | None = None
 
 
+class ConnectivityStatus:
+    """Status of the connectivity."""
+
+    def __init__(self):
+        self.lco = Trigger(n=3)
+        self.internet = Trigger(n=3)
+
+
 class ActiveAlert(enum.Flag):
     """Flags for active alerts."""
 
@@ -56,6 +64,7 @@ class ActiveAlert(enum.Flag):
     O2 = enum.auto()
     LOCKED = enum.auto()
     UNAVAILABLE = enum.auto()
+    DISCONNECTED = enum.auto()
     UNKNOWN = enum.auto()
 
 
@@ -65,6 +74,8 @@ class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
     name = "alerts_monitor"
     keep_alive = True
     restart_on_error = True
+
+    INTERVAL: float = 20
 
     async def task(self):
         """Updates the alerts data."""
@@ -91,12 +102,12 @@ class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
                         level="critical",
                     )
 
-            await asyncio.sleep(15)
+            await asyncio.sleep(self.INTERVAL)
 
     async def update_alerts(self):
         """Processes the weather update and determines whether it is safe to observe."""
 
-        data = await self.module.get_alerts_summary()
+        data = await self.module.update_status()
 
         if data is None:
             raise ValueError("No alerts data available.")
@@ -118,6 +129,7 @@ class AlertsOverwatcher(OverwatcherModule):
         super().__init__(*args, **kwargs)
 
         self.state: AlertsSummary | None = None
+        self.connectivity = ConnectivityStatus()
 
         self.last_updated: float = 0.0
         self.unavailable: bool = False
@@ -166,6 +178,16 @@ class AlertsOverwatcher(OverwatcherModule):
             active_alerts |= ActiveAlert.WIND
             is_safe = False
 
+        if not self.connectivity.internet.is_set():
+            self.log.warning("Internet connectivity lost.")
+            active_alerts |= ActiveAlert.DISCONNECTED
+            is_safe = False
+
+        if not self.connectivity.lco.is_set():
+            self.log.warning("Internal LCO connectivity lost.")
+            active_alerts |= ActiveAlert.DISCONNECTED
+            is_safe = False
+
         # These alerts are not critical but we log them.
         # TODO: maybe we do want to do something about these alerts.
         if self.state.door_alert:
@@ -183,17 +205,33 @@ class AlertsOverwatcher(OverwatcherModule):
         # and put a lock for 30 minutes to prevent the dome from opening/closing too
         # frequently if the weather is unstable.
         if self.locked_until > 0 and time() < self.locked_until:
-            return False, active_alerts | ActiveAlert.LOCKED
+            is_safe = False
+            active_alerts |= ActiveAlert.LOCKED
 
         if is_safe:
             self.locked_until = 0
 
         return is_safe, active_alerts
 
-    @Retrier(max_attempts=3, delay=5)
-    async def get_alerts_summary(self) -> AlertsSummary:
+    async def update_status(self) -> AlertsSummary:
         """Returns the alerts report."""
 
-        data = await get_lvmapi_route("/alerts/summary")
+        alerts_data = await get_lvmapi_route("/alerts/summary")
+        summary = AlertsSummary(**alerts_data)
 
-        return AlertsSummary(**data)
+        # For connectivity we want to avoid one single failure to trigger an alert
+        # which closes the dome. The connectivity status is a set of triggers that
+        # need several settings to be activated.
+        connectivity_data = await get_lvmapi_route("/alerts/connectivity")
+
+        if not connectivity_data["lco"]:
+            self.connectivity.lco.set()
+        else:
+            self.connectivity.lco.reset()
+
+        if not connectivity_data["internet"]:
+            self.connectivity.internet.set()
+        else:
+            self.connectivity.internet.reset()
+
+        return summary
