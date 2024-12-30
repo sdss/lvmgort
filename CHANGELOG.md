@@ -2,9 +2,13 @@
 
 ## Next version
 
+### 🚀 New
+
+* [#45](https://github.com/sdss/lvmgort/pull/45) Added a `health` module that emits a heartbeat to `lvmbeat` and monitors actor health by ping, restarting them if found unresponsible. The pre-observing task now also perform that check.
+
 ### ✨ Improved
 
-* [#44](https://vscode.dev/github/sdss/lvmgort/pull/44) RORR RID-019: disables the Overwatcher if rain is detected and requires a human to re-enable it when conditions are safe.
+* [#44](https://github.com/sdss/lvmgort/pull/44) RORR RID-019: disables the Overwatcher if rain is detected and requires a human to re-enable it when conditions are safe.
 * Create the night log during the pre-observing task.
 
 ### 🏷️ Changed
