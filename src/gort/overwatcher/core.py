@@ -15,7 +15,7 @@ from weakref import WeakSet
 from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar
 
 from gort.exceptions import GortError
-from gort.tools import LogNamespace, cancel_task
+from gort.tools import LogNamespace, cancel_task, decap
 
 
 if TYPE_CHECKING:
@@ -79,7 +79,7 @@ class OverwatcherBaseTask:
 
             if self._task_runner.done():
                 if exception := self._task_runner.exception():
-                    self._log.error(f"Task {self.name!r} failed: {exception!r}")
+                    self._log.error(f"Task {self.name!r} failed: {decap(exception)}")
                     if self.restart_on_error or self.keep_alive:
                         self._log.warning(f"Task {self.name!r} failed. Restarting.")
                         self._task_runner = asyncio.create_task(self.task())

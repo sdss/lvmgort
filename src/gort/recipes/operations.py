@@ -16,7 +16,7 @@ from rich.prompt import Confirm
 
 from sdsstools.utils import GatheringTaskGroup
 
-from gort.tools import get_lvmapi_route, overwatcher_is_running
+from gort.tools import decap, get_lvmapi_route, overwatcher_is_running
 
 from .base import BaseRecipe
 
@@ -261,7 +261,7 @@ class CleanupRecipe(BaseRecipe):
                 # to allows the images to post-process and write before resetting.
                 await asyncio.sleep(extra_sleep)
             except Exception as ee:
-                self.gort.log.error(f"Error during cleanup: {ee}")
+                self.gort.log.error(f"Error during cleanup: {decap(ee)}")
                 self.gort.log.warning("Resetting the spectrographs.")
 
         await self.gort.specs.reset(full=True)

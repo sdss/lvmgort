@@ -21,7 +21,7 @@ from gort.exceptions import (
     TroubleshooterCriticalError,
     TroubleshooterTimeoutError,
 )
-from gort.tools import LogNamespace
+from gort.tools import LogNamespace, decap
 
 from .recipes import TroubleshooterRecipe
 
@@ -167,7 +167,8 @@ class Troubleshooter:
 
         except TroubleshooterCriticalError as err:
             await self.notify(
-                f"Shutting down due to critical error while troubleshooting: {err!r}",
+                "Shutting down due to critical error while "
+                f"troubleshooting: {decap(err)}",
                 level="critical",
             )
             await self.overwatcher.shutdown(disable_overwatcher=True)

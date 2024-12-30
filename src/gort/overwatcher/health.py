@@ -13,6 +13,7 @@ import asyncio
 from typing import ClassVar
 
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
+from gort.tools import decap
 
 
 __all__ = ["HealthOverwatcher"]
@@ -41,7 +42,7 @@ class EmitHeartbeatTask(OverwatcherModuleTask["HealthOverwatcher"]):
 
             except Exception as err:
                 self.overwatcher.log.error(
-                    f"Failed to set overwatcher heartbeat: {err}",
+                    f"Failed to set overwatcher heartbeat: {decap(err)}",
                     exc_info=err,
                 )
 

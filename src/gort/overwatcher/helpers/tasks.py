@@ -19,7 +19,7 @@ from astropy.time import Time
 from sdsstools import get_sjd
 
 from gort.overwatcher.calibration import CalibrationState
-from gort.tools import add_night_log_comment, redis_client_sync
+from gort.tools import add_night_log_comment, decap, redis_client_sync
 
 
 if TYPE_CHECKING:
@@ -114,7 +114,7 @@ class DailyTaskBase(metaclass=abc.ABCMeta):
             self.done = await self._run_internal()
         except Exception as err:
             await self.overwatcher.notify(
-                f"Error running daily task {self.name}: {err}",
+                f"Error running daily task {self.name}: {decap(err)}",
                 level="error",
             )
             self.done = True
@@ -206,7 +206,7 @@ class PreObservingTask(DailyTaskBase):
             await self.overwatcher.gort.execute_recipe("pre-observing")
         except Exception as err:
             await self.overwatcher.notify(
-                f"Error running pre-observing task: {err}",
+                f"Error running pre-observing task: {decap(err)}",
                 level="critical",
             )
 
@@ -265,7 +265,7 @@ class PostObservingTask(DailyTaskBase):
                 await notify("Dome was found open. Closing now.")
                 await self.overwatcher.dome.close()
         except Exception as err:
-            await notify(f"Error closing the dome: {err}", level="critical")
+            await notify(f"Error closing the dome: {decap(err)}", level="critical")
 
         try:
             await self.overwatcher.gort.execute_recipe(
@@ -274,7 +274,7 @@ class PostObservingTask(DailyTaskBase):
             )
         except Exception as err:
             await self.overwatcher.notify(
-                f"Error running post-observing task: {err}",
+                f"Error running post-observing task: {decap(err)}",
                 level="critical",
             )
             return True
@@ -323,7 +323,9 @@ class PostObservingTask(DailyTaskBase):
                             )
 
                     except Exception as err:
-                        await notify(f"Error recovering calibration {name}: {err}")
+                        await notify(
+                            f"Error recovering calibration {name}: {decap(err)}"
+                        )
 
         # If we have tried a calibration we may have rehomed the telescopes and
         # left them not parked. Make sure they are really parked.

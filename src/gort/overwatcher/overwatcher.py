@@ -27,7 +27,7 @@ from gort.overwatcher.helpers import DomeHelper
 from gort.overwatcher.helpers.notifier import NotifierMixIn
 from gort.overwatcher.helpers.tasks import DailyTasks
 from gort.overwatcher.troubleshooter.troubleshooter import Troubleshooter
-from gort.tools import LogNamespace
+from gort.tools import LogNamespace, decap
 
 
 @dataclasses.dataclass
@@ -113,7 +113,7 @@ class OverwatcherMainTask(OverwatcherTask):
 
             except Exception as err:
                 await ow.notify(
-                    f"Error in main overwatcher task: {err!r}",
+                    f"Error in main overwatcher task: {decap(err)}",
                     level="error",
                 )
 
@@ -150,7 +150,7 @@ class OverwatcherMainTask(OverwatcherTask):
                             )
                         except Exception as err:
                             await self.overwatcher.notify(
-                                f"Error stopping observing: {err!r}",
+                                f"Error stopping observing: {decap(err)}",
                                 level="error",
                             )
                             await self.overwatcher.notify(
@@ -169,7 +169,7 @@ class OverwatcherMainTask(OverwatcherTask):
 
             except Exception as err:
                 await self.overwatcher.notify(
-                    f"Error handling unsafe conditions: {err!r}",
+                    f"Error handling unsafe conditions: {decap(err)}",
                     level="error",
                 )
 
@@ -374,7 +374,10 @@ class Overwatcher(NotifierMixIn):
         if not reason.endswith("."):
             reason += "."
 
-        await self.notify(f"Triggering shutdown. Reason: {reason}", level="warning")
+        await self.notify(
+            f"Triggering shutdown. Reason: {decap(reason)}",
+            level="warning",
+        )
 
         if disable_overwatcher:
             await self.notify("The Overwatcher will be disabled.", level="warning")
@@ -400,7 +403,7 @@ class Overwatcher(NotifierMixIn):
             await asyncio.gather(stop, shutdown)
         except Exception as err:
             await self.notify(
-                f"Error during shutdown: {err!r}",
+                f"Error during shutdown: {decap(err)}",
                 level="critical",
                 error=err,
             )

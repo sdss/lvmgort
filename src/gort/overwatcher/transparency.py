@@ -22,7 +22,7 @@ from sdsstools.utils import GatheringTaskGroup
 from gort.exceptions import GortError
 from gort.overwatcher.core import OverwatcherModuleTask
 from gort.overwatcher.overwatcher import OverwatcherModule
-from gort.tools import cancel_task, get_lvmapi_route
+from gort.tools import cancel_task, decap, get_lvmapi_route
 
 
 if TYPE_CHECKING:
@@ -83,7 +83,7 @@ class TransparencyMonitorTask(OverwatcherModuleTask["TransparencyOverwatcher"]):
                 await self.update_data()
             except Exception as err:
                 if not self.unavailable:
-                    self.log.error(f"Failed to get transparency data: {err!r}")
+                    self.log.error(f"Failed to get transparency data: {decap(err)}")
                 n_failures += 1
             else:
                 self.module.last_updated = time()

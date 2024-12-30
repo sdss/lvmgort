@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from gort.enums import ErrorCode
 from gort.exceptions import TroubleshooterCriticalError
-from gort.tools import set_tile_status
+from gort.tools import decap, set_tile_status
 
 
 if TYPE_CHECKING:
@@ -57,7 +57,7 @@ class TroubleshooterRecipe(metaclass=abc.ABCMeta):
             raise
         except Exception as err:
             await self.notify(
-                f"Error running recipe {self.name}: {err!r}",
+                f"Error running recipe {self.name}: {decap(err)}",
                 level="error",
             )
             return False

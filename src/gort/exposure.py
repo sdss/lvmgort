@@ -26,6 +26,7 @@ from sdsstools.time import get_sjd
 from gort.exceptions import ErrorCode, GortSpecError
 from gort.tools import (
     cancel_task,
+    decap,
     get_md5sum,
     get_md5sum_from_spectro,
     insert_to_database,
@@ -464,7 +465,8 @@ class Exposure(asyncio.Future["Exposure"]):
             )
         except Exception as err:
             log(
-                f"Error writing to database: {err!r}. Data may not have been recorded.",
+                f"Error writing to database: {decap(err)}. "
+                "Data may not have been recorded.",
                 "warning",
             )
 

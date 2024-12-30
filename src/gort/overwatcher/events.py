@@ -18,7 +18,7 @@ from lvmopstools.pubsub import Message, Subscriber
 
 from gort.enums import ErrorCode, Event
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
-from gort.tools import add_night_log_comment, insert_to_database
+from gort.tools import add_night_log_comment, decap, insert_to_database
 
 
 if TYPE_CHECKING:
@@ -53,13 +53,13 @@ class MonitorEvents(OverwatcherModuleTask["EventsOverwatcher"]):
             return
 
         event = Event(message.event or Event.UNCATEGORISED)
-        event_name = event.name
+        name = event.name
         payload = message.payload
 
         try:
             self.write_to_db(event, payload)
         except Exception as ee:
-            self.log.error(f"Failed to write event {event_name} to the database: {ee}")
+            self.log.error(f"Failed to write event {name} to the database: {decap(ee)}")
 
         if event == Event.OBSERVER_NEW_TILE:
             tile_id = payload.get("tile_id", None)
@@ -109,7 +109,7 @@ class MonitorEvents(OverwatcherModuleTask["EventsOverwatcher"]):
         code = error_payload.get("error_code", ErrorCode.UNCATEGORISED_ERROR)
         error_code = ErrorCode(code)
 
-        error_message = f"Error {error_code.value} ({error_code.name}): {error}"
+        error_message = f"Error {error_code.value} ({error_code.name}): {decap(error)}"
         if not error_message.endswith("."):
             error_message += "."
 

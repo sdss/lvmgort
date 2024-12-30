@@ -21,7 +21,7 @@ from gort.overwatcher import OverwatcherModule
 from gort.overwatcher.core import OverwatcherModuleTask
 from gort.overwatcher.transparency import TransparencyQuality
 from gort.tile import Tile
-from gort.tools import cancel_task, run_in_executor
+from gort.tools import cancel_task, decap, run_in_executor
 
 
 if TYPE_CHECKING:
@@ -85,7 +85,8 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
                     await self.module.start_observing()
                 except Exception as err:
                     await self.notify(
-                        f"An error occurred while starting the observing loop: {err}",
+                        "An error occurred while starting the "
+                        f"observing loop: {decap(err)}",
                         level="error",
                     )
                     await asyncio.sleep(15)
@@ -214,7 +215,7 @@ class ObserverOverwatcher(OverwatcherModule):
             reason += "."
 
         if immediate:
-            await notify(f"Stopping observations immediately. Reason: {reason}")
+            await notify(f"Stopping observations immediately. Reason: {decap(reason)}")
             self.observe_loop = await cancel_task(self.observe_loop)
 
             # The guiders may have been left running or the spectrograph may still
@@ -222,7 +223,10 @@ class ObserverOverwatcher(OverwatcherModule):
             await self.gort.cleanup(readout=False)
 
         else:
-            await notify(f"Stopping observations after this tile. Reason: {reason}")
+            await notify(
+                "Stopping observations after this tile completes. "
+                f"Reason: {decap(reason)}"
+            )
 
         if block and self.observe_loop and not self.observe_loop.done():
             await self.observe_loop
@@ -298,7 +302,7 @@ class ObserverOverwatcher(OverwatcherModule):
                         await self.post_exposure(exp)
                     except Exception as err:
                         await self.notify(
-                            f"Failed to run post-exposure routine: {err}",
+                            f"Failed to run post-exposure routine: {decap(err)}",
                             level="error",
                         )
 
@@ -382,7 +386,7 @@ class ObserverOverwatcher(OverwatcherModule):
                 await self.gort.guiders.focus()
             except Exception as err:
                 await self.notify(
-                    f"Failed while focusing the telescopes: {err}",
+                    f"Failed while focusing the telescopes: {decap(err)}",
                     level="error",
                 )
                 raise
