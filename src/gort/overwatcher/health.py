@@ -13,6 +13,7 @@ import asyncio
 from typing import ClassVar
 
 from lvmopstools.retrier import Retrier
+from lvmopstools.utils import with_timeout
 
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 from gort.overwatcher.helpers import get_failed_actors, restart_actors
@@ -67,6 +68,8 @@ class ActorHealthMonitorTask(OverwatcherModuleTask["HealthOverwatcher"]):
         """Monitors the health of actors."""
 
         while True:
+            failed: list[str] = []
+
             try:
                 failed = await get_failed_actors(disacard_disabled=True)
                 if len(failed) > 0:
@@ -80,6 +83,12 @@ class ActorHealthMonitorTask(OverwatcherModuleTask["HealthOverwatcher"]):
                     f"Failed to check actor health: {err}",
                     exc_info=err,
                 )
+
+                if len(failed) > 0:
+                    await self.overwatcher.shutdown(
+                        "actors found unresponsible and cannot be restarted.",
+                        disable_overwatcher=True,
+                    )
 
             finally:
                 self.overwatcher.state.troubleshooting = False

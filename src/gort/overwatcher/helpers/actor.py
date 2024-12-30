@@ -44,7 +44,7 @@ async def get_failed_actors(disacard_disabled: bool = False):
         for actor in disabled_actors:  # Ignore actors we know are disabled.
             failed_actors.discard(actor)
 
-    return failed_actors
+    return list(failed_actors)
 
 
 async def restart_actors(
