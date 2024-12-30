@@ -292,7 +292,7 @@ class Overwatcher(NotifierMixIn):
     def __init__(
         self,
         gort: Gort | None = None,
-        verbosity: str = "debug",
+        verbosity: str = "warning",
         calibrations_file: str | pathlib.Path | None = None,
         dry_run: bool = False,
         **kwargs,
