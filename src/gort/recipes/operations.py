@@ -16,6 +16,7 @@ from rich.prompt import Confirm
 
 from sdsstools.utils import GatheringTaskGroup
 
+from gort.overwatcher.helpers import get_failed_actors, restart_actors
 from gort.tools import decap, get_lvmapi_route, overwatcher_is_running
 
 from .base import BaseRecipe
@@ -294,8 +295,6 @@ class PreObservingRecipe(BaseRecipe):
 
     async def recipe(self, check_actors: bool = True):
         """Runs the pre-observing sequence."""
-
-        from gort.overwatcher.helpers import get_failed_actors, restart_actors
 
         if check_actors:
             self.gort.log.info("Checking actors.")

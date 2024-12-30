@@ -20,7 +20,6 @@ from sdsstools import Configuration
 from sdsstools.utils import GatheringTaskGroup
 
 from gort.exceptions import GortError
-from gort.gort import Gort
 from gort.overwatcher.alerts import ActiveAlert
 from gort.overwatcher.core import OverwatcherBaseTask, OverwatcherModule
 from gort.overwatcher.helpers import DomeHelper
@@ -31,6 +30,7 @@ from gort.tools import LogNamespace, decap
 
 
 if TYPE_CHECKING:
+    from gort.gort import Gort
     from gort.overwatcher.helpers.notifier import NotificationLevel
 
 
@@ -297,6 +297,7 @@ class Overwatcher(NotifierMixIn):
         dry_run: bool = False,
         **kwargs,
     ):
+        from gort import Gort  # Needs to be imported here to avoid circular imports.
         from gort.overwatcher import (
             AlertsOverwatcher,
             CalibrationsOverwatcher,

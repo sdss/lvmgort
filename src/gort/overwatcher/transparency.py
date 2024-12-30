@@ -20,8 +20,7 @@ import polars
 from sdsstools.utils import GatheringTaskGroup
 
 from gort.exceptions import GortError
-from gort.overwatcher.core import OverwatcherModuleTask
-from gort.overwatcher.overwatcher import OverwatcherModule
+from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 from gort.tools import cancel_task, decap, get_lvmapi_route
 
 

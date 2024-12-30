@@ -3,7 +3,7 @@
 #
 # @Author: José Sánchez-Gallego (gallegoj@uw.edu)
 # @Date: 2024-12-29
-# @Filename: actor.py
+# @Filename: health.py
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
 from __future__ import annotations
