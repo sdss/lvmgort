@@ -234,4 +234,6 @@ class AlertsOverwatcher(OverwatcherModule):
         else:
             self.connectivity.internet.reset()
 
+        self.state = summary
+
         return summary
