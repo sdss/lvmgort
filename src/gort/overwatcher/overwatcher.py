@@ -20,7 +20,6 @@ from sdsstools import Configuration
 from sdsstools.utils import GatheringTaskGroup
 
 from gort.exceptions import GortError
-from gort.gort import Gort
 from gort.overwatcher.alerts import ActiveAlert
 from gort.overwatcher.core import OverwatcherBaseTask, OverwatcherModule
 from gort.overwatcher.helpers import DomeHelper
@@ -31,6 +30,7 @@ from gort.tools import LogNamespace, decap
 
 
 if TYPE_CHECKING:
+    from gort.gort import Gort
     from gort.overwatcher.helpers.notifier import NotificationLevel
 
 
@@ -90,12 +90,15 @@ class OverwatcherMainTask(OverwatcherTask):
             try:
                 is_safe, _ = ow.alerts.is_safe()
                 is_night = ow.ephemeris.is_night()
+                is_troubleshooting = ow.troubleshooter.is_troubleshooting()
 
                 ow.state.night = is_night
                 ow.state.safe = is_safe
                 ow.state.observing = ow.observer.is_observing
                 ow.state.focusing = ow.observer.focusing
-                ow.state.troubleshooting = ow.troubleshooter.is_troubleshooting()
+                ow.state.troubleshooting = (
+                    ow.state.troubleshooting or is_troubleshooting
+                )
 
                 running_calibration = ow.calibrations.get_running_calibration()
                 ow.state.calibrating = running_calibration is not None
@@ -294,6 +297,7 @@ class Overwatcher(NotifierMixIn):
         dry_run: bool = False,
         **kwargs,
     ):
+        from gort import Gort  # Needs to be imported here to avoid circular imports.
         from gort.overwatcher import (
             AlertsOverwatcher,
             CalibrationsOverwatcher,

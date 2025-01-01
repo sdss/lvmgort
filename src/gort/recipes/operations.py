@@ -16,6 +16,7 @@ from rich.prompt import Confirm
 
 from sdsstools.utils import GatheringTaskGroup
 
+from gort.overwatcher.helpers import get_failed_actors, restart_actors
 from gort.tools import decap, get_lvmapi_route, overwatcher_is_running
 
 from .base import BaseRecipe
@@ -292,8 +293,21 @@ class PreObservingRecipe(BaseRecipe):
 
     name = "pre-observing"
 
-    async def recipe(self):
+    async def recipe(self, check_actors: bool = True):
         """Runs the pre-observing sequence."""
+
+        if check_actors:
+            self.gort.log.info("Checking actors.")
+            failed_actors = await get_failed_actors(discard_disabled=True)
+
+            if len(failed_actors) > 0:
+                self.gort.log.warning(f"Failed to ping actors: {failed_actors}.")
+                self.gort.log.info("Restarting actors.")
+                await restart_actors(list(failed_actors), self.gort)
+                await asyncio.sleep(5)
+                self.gort.log.info("Restart complete.")
+            else:
+                self.gort.log.info("All actors are pinging.")
 
         # Run a clean-up first in case there are any issues with the specs.
         await self.gort.cleanup(readout=False)
@@ -342,7 +356,7 @@ class PostObservingRecipe(BaseRecipe):
 
     email_route: ClassVar[str] = "/logs/night-logs/0/email"
 
-    async def recipe(self, send_email: bool = True):
+    async def recipe(self, send_email: bool = True, force_park: bool = False):
         """Runs the post-observing sequence."""
 
         tasks = []
@@ -351,7 +365,10 @@ class PostObservingRecipe(BaseRecipe):
         if not closed:
             tasks.append(self.gort.enclosure.close(retry_without_parking=True))
 
-        tasks.append(self.gort.telescopes.park())
+        parked = [await tel.is_parked() for tel in self.gort.telescopes.values()]
+        if force_park or not all(parked):
+            tasks.append(self.gort.telescopes.park())
+
         tasks.append(self.gort.nps.calib.all_off())
         tasks.append(self.gort.guiders.stop())
 

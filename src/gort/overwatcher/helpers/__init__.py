@@ -9,4 +9,5 @@
 from __future__ import annotations
 
 from .dome import DomeHelper, DomeStatus
+from .health import get_failed_actors, ping_actors, restart_actors
 from .notifier import BasicNotifier, NotifierMixIn, OverwatcherProtocol
