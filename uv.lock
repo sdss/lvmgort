@@ -175,11 +175,11 @@ wheels = [
 
 [[package]]
 name = "argcomplete"
-version = "3.5.2"
+version = "3.5.3"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/7f/03/581b1c29d88fffaa08abbced2e628c34dd92d32f1adaed7e42fc416938b0/argcomplete-3.5.2.tar.gz", hash = "sha256:23146ed7ac4403b70bd6026402468942ceba34a6732255b9edf5b7354f68a6bb", size = 82341 }
+sdist = { url = "https://files.pythonhosted.org/packages/0c/be/6c23d80cb966fb8f83fb1ebfb988351ae6b0554d0c3a613ee4531c026597/argcomplete-3.5.3.tar.gz", hash = "sha256:c12bf50eded8aebb298c7b7da7a5ff3ee24dffd9f5281867dfe1424b58c55392", size = 72999 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a9/37/3fa718aaadd36e073891138dc3ebd919a71bafd4881c97d8a133265af191/argcomplete-3.5.2-py3-none-any.whl", hash = "sha256:036d020d79048a5d525bc63880d7a4b8d1668566b8a76daf1144c0bbe0f63472", size = 43506 },
+    { url = "https://files.pythonhosted.org/packages/c4/08/2a4db06ec3d203124c967fc89295e85a202e5cbbcdc08fd6a64b65217d1e/argcomplete-3.5.3-py3-none-any.whl", hash = "sha256:2ab2c4a215c59fd6caaff41a869480a23e8f6a5f910b266c1808037f4e375b61", size = 43569 },
 ]
 
 [[package]]
@@ -269,11 +269,11 @@ wheels = [
 
 [[package]]
 name = "astropy-iers-data"
-version = "0.2024.12.23.0.33.24"
+version = "0.2024.12.30.0.33.36"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/46/6f/e425652becd72edeb6b4b320f835c3629e6cc8b048d31e9849ca2faac54e/astropy_iers_data-0.2024.12.23.0.33.24.tar.gz", hash = "sha256:f9bb8f676233f5bb564fdffa4b81af28160e3040a796dcaf0a9436f842fee951", size = 1887154 }
+sdist = { url = "https://files.pythonhosted.org/packages/9b/9a/f31af0d80da5a10645ccb67f71b43e0fba30dbcf1d07d3a8015e2413b3c7/astropy_iers_data-0.2024.12.30.0.33.36.tar.gz", hash = "sha256:5cb8dc129c2a39d5a62fa345e166833976050a78d85e99d93ef247e310703f12", size = 1887695 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e8/4d/565740d9ac54640c09d2fdd22ef3583103438fb97305a9cfb66595a4b259/astropy_iers_data-0.2024.12.23.0.33.24-py3-none-any.whl", hash = "sha256:40d3c6b6a5cf4dc6ad91b92b7e0f949e5366234e3c4440302247429fc8294302", size = 1940192 },
+    { url = "https://files.pythonhosted.org/packages/d1/7d/ac618eb2a847e9e40fa5c9386003a01c98bee5ccc13fa7aa38c265266c9f/astropy_iers_data-0.2024.12.30.0.33.36-py3-none-any.whl", hash = "sha256:dbf3e85b65842ce1871dc71f6f255b298805d93362e7c16fe1801f7ca4ae39b3", size = 1940708 },
 ]
 
 [[package]]
@@ -942,7 +942,7 @@ wheels = [
 
 [[package]]
 name = "lvmgort"
-version = "1.3.1a0"
+version = "1.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "astropy", version = "6.1.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -1035,7 +1035,7 @@ test = [
 
 [[package]]
 name = "lvmopstools"
-version = "0.5.2"
+version = "0.5.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aio-pika" },
@@ -1053,9 +1053,9 @@ dependencies = [
     { name = "strenum" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/98/1f/6d45d3e9d794d007ebb47fd0499fe34ed60356fc491ab94df1a3c7fbba7c/lvmopstools-0.5.2.tar.gz", hash = "sha256:f4a332548a15b94d8284b0ae9c480a897d208c67717359760347ed89cb0debfb", size = 130705 }
+sdist = { url = "https://files.pythonhosted.org/packages/cb/f2/3586a60bc52d847715b5bd1edac479e0ab334101c976cec52af3f387528a/lvmopstools-0.5.5.tar.gz", hash = "sha256:35ba56f68e9a2ae03ad372387cf5d6e233da203a779fd216c275ad055fbdc980", size = 130720 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/28/97/c5bba66496547df744ff7093325cfff27f2161e6123b289acc9542690d86/lvmopstools-0.5.2-py3-none-any.whl", hash = "sha256:a16a81da8432ec682b2d62aa2c337e1afe2611519d883ce014dbc1725135069e", size = 138875 },
+    { url = "https://files.pythonhosted.org/packages/e9/b8/c4489945d1dcbe46b4c33c1754139e641da53fd230f86ca38548b0c543eb/lvmopstools-0.5.5-py3-none-any.whl", hash = "sha256:8913772cde5ce744ac03e0bac0aa34455b799734057d712501867fba063a41d1", size = 138911 },
 ]
 
 [[package]]
@@ -2312,14 +2312,14 @@ wheels = [
 
 [[package]]
 name = "starlette"
-version = "0.43.0"
+version = "0.45.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/af/36/3a623a561dc8585a90973c8c0ed87511beebbe658c7e8f883fdab7ba55e1/starlette-0.43.0.tar.gz", hash = "sha256:d4887cfd776f8f925c1b140829da9f4c9b8d0973aa66a7cb2bcc48e9b3a69660", size = 2575219 }
+sdist = { url = "https://files.pythonhosted.org/packages/c1/be/b398217eb35b356d2d9bb84ec67071ea2842e02950fcf38b33df9d5b24ba/starlette-0.45.1.tar.gz", hash = "sha256:a8ae1fa3b1ab7ca83a4abd77871921a13fb5aeaf4874436fb96c29dfcd4ecfa3", size = 2573953 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/96/25/a94c01e7e3a72155bf2e1275f72bf2c1533d1c5adf7fc89d50c3ef16abd4/starlette-0.43.0-py3-none-any.whl", hash = "sha256:0e0a91f33c57b30820cbe0828f993df67f890f1e4ae48ed8080f24793446450c", size = 73291 },
+    { url = "https://files.pythonhosted.org/packages/6b/2c/a50484b035ee0e13ebb7a42391e391befbfc1b6a9ad5503e83badd182ada/starlette-0.45.1-py3-none-any.whl", hash = "sha256:5656c0524f586e9148d9a3c1dd5257fb42a99892fb0dc6877dd76ef4d184aac3", size = 71488 },
 ]
 
 [[package]]

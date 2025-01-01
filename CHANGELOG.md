@@ -1,6 +1,6 @@
 # Changelog
 
-## Next version
+## 1.4.0 - January 1, 2025
 
 ### 🚀 New
 
