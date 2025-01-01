@@ -4,7 +4,7 @@
 
 ### 🚀 New
 
-* [#45](https://github.com/sdss/lvmgort/pull/45) Added a `health` module that emits a heartbeat to `lvmbeat` and monitors actor health by ping, restarting them if found unresponsible. The pre-observing task now also perform that check.
+* [#45](https://github.com/sdss/lvmgort/pull/45) Added a `health` module that emits a heartbeat to `lvmbeat` and monitors actor health by ping, restarting them if found unresponsive. The pre-observing task now also perform that check.
 
 ### ✨ Improved
 
