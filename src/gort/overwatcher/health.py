@@ -119,7 +119,7 @@ class ActorHealthMonitorTask(OverwatcherModuleTask["HealthOverwatcher"]):
             if (
                 self.gort.specs.last_exposure
                 and not self.gort.specs.last_exposure.done()
-                and not await self.gort.specs.are_reading()
+                and await self.gort.specs.are_reading()
             ):
                 await self.notify("Waiting to read exposures before cancelling.")
                 await with_timeout(
