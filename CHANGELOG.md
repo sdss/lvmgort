@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### ✨ Improved
+
+* Require two consecutive ping failures before restarting an actor.
+
+
 ## 1.4.0 - January 1, 2025
 
 ### 🚀 New

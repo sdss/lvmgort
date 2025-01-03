@@ -13,10 +13,10 @@ import asyncio
 from typing import ClassVar
 
 from lvmopstools.retrier import Retrier
-from lvmopstools.utils import with_timeout
+from lvmopstools.utils import Trigger, with_timeout
 
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
-from gort.overwatcher.helpers import get_failed_actors, restart_actors
+from gort.overwatcher.helpers import get_actor_ping, restart_actors
 from gort.tools import decap
 
 
@@ -60,22 +60,42 @@ class ActorHealthMonitorTask(OverwatcherModuleTask["HealthOverwatcher"]):
     keep_alive = True
     restart_on_error = True
 
-    INTERVAL: ClassVar[float] = 60
+    INTERVAL: ClassVar[float] = 30
 
     def __init__(self):
         super().__init__()
+
+        self.ping_triggers: dict[str, Trigger] = {}
 
     async def task(self):
         """Monitors the health of actors."""
 
         while True:
-            failed: list[str] = []
+            actor_status: dict[str, bool] = {}
 
             try:
-                failed = await get_failed_actors(
+                actor_status = await get_actor_ping(
                     discard_disabled=True,
                     discard_overwatcher=True,
                 )
+
+                # Update failed_actors. We want allow a grace window of 1 failed ping.
+                for actor in actor_status:
+                    if actor not in self.ping_triggers:
+                        self.ping_triggers[actor] = Trigger(n=2)
+
+                    if actor_status[actor]:
+                        self.ping_triggers[actor].reset()
+                    else:
+                        self.ping_triggers[actor].set()
+
+                # Now check which actors have failed twice (trigger is set).
+                failed = [
+                    actor
+                    for actor, trigger in self.ping_triggers.items()
+                    if trigger.is_set()
+                ]
+
                 if len(failed) > 0:
                     if self.overwatcher.state.enabled:
                         await self.restart_actors(failed)
@@ -143,6 +163,9 @@ class ActorHealthMonitorTask(OverwatcherModuleTask["HealthOverwatcher"]):
 
         await self.notify("Restarting actors.")
         await restart_actors(failed_actors, self.gort)
+
+        for actor in failed_actors:
+            self.ping_triggers[actor].reset()
 
         await self.notify("Actor restart complete. Resuming normal operations.")
 

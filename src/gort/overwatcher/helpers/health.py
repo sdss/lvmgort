@@ -13,6 +13,8 @@ import time
 
 from typing import TYPE_CHECKING, Sequence
 
+from lvmopstools.retrier import Retrier
+
 from gort import config
 from gort.tools import (
     get_lvmapi_route,
@@ -25,32 +27,31 @@ if TYPE_CHECKING:
     from gort.gort import Gort
 
 
+@Retrier(max_attempts=3, delay=1)
 async def ping_actors() -> dict[str, bool]:
     """Pings all actors in the system."""
 
     return await get_lvmapi_route("/actors/ping")
 
 
-async def get_failed_actors(
+async def get_actor_ping(
     discard_disabled: bool = False,
     discard_overwatcher: bool = False,
-) -> list[str]:
+) -> dict[str, bool]:
     """Returns a list of failed actors."""
 
     disabled_actors = config["overwatcher.disabled_actors"] or []
 
     actor_status = await ping_actors()
 
-    failed_actors = set([ac for ac in actor_status if not actor_status[ac]])
+    for actor in disabled_actors:  # Ignore actors we know are disabled.
+        if discard_disabled and actor in actor_status:
+            actor_status.pop(actor)
 
-    if discard_disabled:
-        for actor in disabled_actors:  # Ignore actors we know are disabled.
-            failed_actors.discard(actor)
+    if discard_overwatcher and "lvm.overwatcher" in actor_status:
+        actor_status.pop("lvm.overwatcher")
 
-    if discard_overwatcher:
-        failed_actors.discard("lvm.overwatcher")
-
-    return list(failed_actors)
+    return actor_status
 
 
 async def restart_actors(

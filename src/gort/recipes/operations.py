@@ -16,7 +16,7 @@ from rich.prompt import Confirm
 
 from sdsstools.utils import GatheringTaskGroup
 
-from gort.overwatcher.helpers import get_failed_actors, restart_actors
+from gort.overwatcher.helpers import get_actor_ping, restart_actors
 from gort.tools import decap, get_lvmapi_route, overwatcher_is_running
 
 from .base import BaseRecipe
@@ -298,7 +298,8 @@ class PreObservingRecipe(BaseRecipe):
 
         if check_actors:
             self.gort.log.info("Checking actors.")
-            failed_actors = await get_failed_actors(discard_disabled=True)
+            actor_ping = await get_actor_ping(discard_disabled=True)
+            failed_actors = [actor for actor, ping in actor_ping.items() if not ping]
 
             if len(failed_actors) > 0:
                 self.gort.log.warning(f"Failed to ping actors: {failed_actors}.")

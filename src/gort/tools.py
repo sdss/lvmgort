@@ -718,7 +718,7 @@ def get_ephemeris_summary_sync(sjd: int | None = None) -> dict:
     return resp.json()
 
 
-async def get_lvmapi_route(route: str, params: dict = {}, **kwargs):
+async def get_lvmapi_route(route: str, params: dict = {}, timeout: float = 5, **kwargs):
     """Gets an ``lvmapi`` route."""
 
     params.update(kwargs)
@@ -738,6 +738,7 @@ async def get_lvmapi_route(route: str, params: dict = {}, **kwargs):
     async with httpx.AsyncClient(
         base_url=f"http://{host}:{port}/{base_route}",
         follow_redirects=True,
+        timeout=timeout,
     ) as client:
         response = await client.get(route, params=params)
 
