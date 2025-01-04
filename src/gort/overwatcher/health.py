@@ -15,6 +15,8 @@ from typing import ClassVar
 from lvmopstools.retrier import Retrier
 from lvmopstools.utils import Trigger, with_timeout
 
+from clu.tools import CommandStatus
+
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 from gort.overwatcher.helpers import get_actor_ping, restart_actors
 from gort.tools import decap
@@ -40,8 +42,15 @@ class EmitHeartbeatTask(OverwatcherModuleTask["HealthOverwatcher"]):
 
         while True:
             try:
-                cmd = await self.gort.send_command("lvmbeat", "set overwatcher")
+                cmd = await self.gort.send_command(
+                    "lvmbeat",
+                    "set overwatcher",
+                    time_limit=5,
+                )
+
                 if cmd.status.did_fail:
+                    if cmd.status & CommandStatus.TIMEDOUT:
+                        raise RuntimeError("Timed out setting overwatcher heartbeat.")
                     raise RuntimeError("Failed to set overwatcher heartbeat.")
 
             except Exception as err:

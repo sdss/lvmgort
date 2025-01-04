@@ -6,6 +6,10 @@
 
 * Require two consecutive ping failures before restarting an actor.
 
+### 🔧 Fixed
+
+* Added a timeout to the `lvmbeat set overwatcher` command to prevent it from hanging indefinitely.
+
 
 ## 1.4.0 - January 1, 2025
 
