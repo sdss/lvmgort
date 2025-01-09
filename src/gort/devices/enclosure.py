@@ -17,6 +17,7 @@ from lvmopstools import Retrier
 from gort.devices.core import GortDevice, GortDeviceSet
 from gort.enums import Event
 from gort.exceptions import ErrorCode, GortEnclosureError, GortTelescopeError
+from gort.gort import Gort
 
 
 if TYPE_CHECKING:
@@ -104,6 +105,45 @@ class Lights:
         def __getattr__(self, light: str) -> Light: ...
 
 
+class E_Stops:
+    """Reports status of the emergency stops buttons and allows to reset the relays."""
+
+    def __init__(self, enclosure: Enclosure):
+        self.enclosure = enclosure
+        self.ecp = enclosure.actor
+        self.gort = enclosure.gort
+
+    @Retrier(max_attempts=3, delay=0.5)
+    async def status(self):
+        """Returns :obj:`True` if the emergency stops are pressed."""
+
+        status = await self.enclosure.status()
+        labels = status.get("safety_status_labels", None)
+
+        if labels is None:
+            raise GortEnclosureError("Cannot determine the status of the e-stops.")
+
+        return "E_STOP" in labels
+
+    @Retrier(max_attempts=3, delay=0.5)
+    async def trigger(self):
+        """Triggers the e-stop relays."""
+
+        try:
+            await self.ecp.commands.emergency_stop()
+        except Exception as err:
+            raise GortEnclosureError(f"Failed to trigger the e-stops: {err}")
+
+    @Retrier(max_attempts=3, delay=0.5)
+    async def reset(self):
+        """Resets the e-stop relays after the e-stops have been released."""
+
+        try:
+            await self.ecp.commands.engineering_mode.commands.reset_e_stops()
+        except Exception as err:
+            raise GortEnclosureError(f"Failed to reset the e-stops: {err}")
+
+
 class Enclosure(GortDevice):
     """Class representing the LVM enclosure."""
 
@@ -113,6 +153,7 @@ class Enclosure(GortDevice):
         super().__init__(gort, name, actor)
 
         self.lights = Lights(self)
+        self.e_stops = E_Stops(self)
 
     async def restart(self):
         """Restarts the ``lvmecp`` deployment."""

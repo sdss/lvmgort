@@ -2,6 +2,10 @@
 
 ## Next version
 
+### 🚀 New
+
+* Monitor and handle e-stops in the Overwatcher.
+
 ### ✨ Improved
 
 * Require two consecutive ping failures before restarting an actor.

@@ -15,6 +15,7 @@ from typing import ClassVar
 
 from lvmopstools.retrier import Retrier
 
+from gort.overwatcher.alerts import ActiveAlert
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 from gort.tools import decap
 
@@ -122,8 +123,12 @@ class SafetyMonitorTask(OverwatcherModuleTask["SafetyOverwatcher"]):
     async def get_data(self):
         """Returns the safety status and whether the dome is open."""
 
-        is_safe, _ = self.overwatcher.alerts.is_safe()
+        is_safe, status = self.overwatcher.alerts.is_safe()
         dome_open = await self.overwatcher.gort.enclosure.is_open()
+
+        # If is_safe=False but the e-stops are in, we do not want to close the dome.
+        if not is_safe and status & ActiveAlert.E_STOPS:
+            is_safe = True
 
         return is_safe, dome_open
 

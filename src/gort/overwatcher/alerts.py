@@ -38,6 +38,7 @@ class AlertsSummary(BaseModel):
     door_alert: bool | None = None
     camera_temperature_alert: bool | None = None
     camera_alerts: dict[str, bool] | None = None
+    e_stops: bool | None = None
     o2_alert: bool | None = None
     o2_room_alerts: dict[str, bool] | None = None
     heater_alert: bool | None = None
@@ -62,6 +63,7 @@ class ActiveAlert(enum.Flag):
     DOOR = enum.auto()
     CAMERA_TEMPERATURE = enum.auto()
     O2 = enum.auto()
+    E_STOPS = enum.auto()
     LOCKED = enum.auto()
     UNAVAILABLE = enum.auto()
     DISCONNECTED = enum.auto()
@@ -178,6 +180,11 @@ class AlertsOverwatcher(OverwatcherModule):
             active_alerts |= ActiveAlert.WIND
             is_safe = False
 
+        if self.state.e_stops:
+            self.log.warning("E-stops triggered.")
+            active_alerts |= ActiveAlert.E_STOPS
+            is_safe = False
+
         if self.connectivity.internet.is_set():
             self.log.warning("Internet connectivity lost.")
             active_alerts |= ActiveAlert.DISCONNECTED
@@ -218,6 +225,12 @@ class AlertsOverwatcher(OverwatcherModule):
 
         alerts_data = await get_lvmapi_route("/alerts/summary")
         summary = AlertsSummary(**alerts_data)
+
+        try:
+            summary.e_stops = await self.gort.enclosure.e_stops.status()
+        except Exception:
+            self.log.warning("Failed to retrieve e-stop status.")
+            pass
 
         # For connectivity we want to avoid one single failure to trigger an alert
         # which closes the dome. The connectivity status is a set of triggers that

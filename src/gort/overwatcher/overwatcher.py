@@ -141,7 +141,9 @@ class OverwatcherMainTask(OverwatcherTask):
         calibrating = ow.state.calibrating
 
         _, alerts_status = ow.alerts.is_safe()
+
         is_raining = bool(alerts_status & ActiveAlert.RAIN)
+        e_stops_in = bool(alerts_status & ActiveAlert.E_STOPS)
 
         if not closed or observing or calibrating:
             try:
@@ -158,10 +160,6 @@ class OverwatcherMainTask(OverwatcherTask):
                             await ow.notify(
                                 f"Error stopping observing: {decap(err)}",
                                 level="error",
-                            )
-                            await ow.notify(
-                                "I will close the dome anyway.",
-                                level="warning",
                             )
 
                     if calibrating:
@@ -180,7 +178,7 @@ class OverwatcherMainTask(OverwatcherTask):
                 )
 
             finally:
-                if not closed:
+                if not closed and not e_stops_in:
                     await ow.notify("Closing the dome due to unsafe conditions.")
                     await ow.dome.shutdown(retry=True, park=True)
 
@@ -194,10 +192,23 @@ class OverwatcherMainTask(OverwatcherTask):
                         level="warning",
                     )
 
+                elif e_stops_in:
+                    await ow.notify(
+                        "E-stops triggered. The dome will not be closed.",
+                        level="warning",
+                    )
+
         if ow.state.enabled:
             if is_raining:
                 await ow.notify(
                     "Disabling the Overwatcher due to rain. "
+                    "Manually re-enable it when safe.",
+                    level="warning",
+                )
+                ow.state.enabled = False
+            elif e_stops_in:
+                await ow.notify(
+                    "Disabling the Overwatcher due to e-stops. "
                     "Manually re-enable it when safe.",
                     level="warning",
                 )
