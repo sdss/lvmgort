@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import enum
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Coroutine
 
 from lvmopstools.retrier import Retrier
 
@@ -141,11 +141,8 @@ class DomeHelper:
         if open and not self.overwatcher.state.safe:
             raise GortError("Cannot open the dome when conditions are unsafe.")
 
-        is_local = await self.gort.enclosure.is_local()
-        if is_local:
-            raise GortError("Cannot move the dome in local mode.")
-
-        failed: bool = False
+        if not await self.gort.enclosure.allowed_to_move():
+            raise GortError("Dome found in invalid or unsafe state.")
 
         try:
             if status & DomeStatus.MOVING:
@@ -169,24 +166,29 @@ class DomeHelper:
 
             # Sometimes the open/close could fail but actually the dome is open/closed.
             if open and not (status & DomeStatus.OPEN):
-                failed = True
+                raise GortError("Dome is not open after a move command.")
             elif not open and not (status & DomeStatus.CLOSED):
-                failed = True
+                raise GortError("Dome is not closed after a move command.")
 
-            if failed:
-                await self.overwatcher.notify(
-                    "The dome has failed to open/close. Disabling the Overwatcher "
-                    "to prevent further attempts. Please check the dome immediately, "
-                    "it may be partially or fully open.",
-                    level="critical",
-                )
+    async def _run_or_disable(self, coro: Coroutine):
+        """Runs a coroutine or disables the overwatcher if it fails."""
 
-                # Release the lock here. force_disable() may require closing the dome.
-                if self._move_lock.locked():
-                    self._move_lock.release()
+        try:
+            await coro
+        except Exception:
+            await self.overwatcher.notify(
+                "The dome has failed to open/close. Disabling the Overwatcher "
+                "to prevent further attempts. Please check the dome immediately, "
+                "it may be partially or fully open.",
+                level="critical",
+            )
 
-                await self.overwatcher.force_disable()
-                raise
+            # Release the lock here.
+            if self._move_lock.locked():
+                self._move_lock.release()
+
+            await self.overwatcher.force_disable()
+            raise
 
     async def open(self, park: bool = True):
         """Opens the dome."""
@@ -206,7 +208,7 @@ class DomeHelper:
                 await self.stop()
                 status = await self.status()
 
-            await self._move(status, open=True, park=park)
+            await self._run_or_disable(self._move(status, open=True, park=park))
 
     async def close(self, park: bool = True, retry: bool = False):
         """Closes the dome."""
@@ -226,11 +228,13 @@ class DomeHelper:
                 await self.stop()
                 status = await self.status()
 
-            await self._move(
-                status,
-                open=False,
-                park=park,
-                retry_without_parking=retry,
+            await self._run_or_disable(
+                self._move(
+                    status,
+                    open=False,
+                    park=park,
+                    retry_without_parking=retry,
+                )
             )
 
     async def stop(self):

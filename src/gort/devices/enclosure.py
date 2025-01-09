@@ -130,6 +130,26 @@ class Enclosure(GortDevice):
 
         return reply.flatten()
 
+    async def allowed_to_move(self):
+        """Checks if the dome is allowed to move."""
+
+        dome: ActorReply = await self.actor.commands.dome.commands.status(timeout=5)
+        labels = dome.get("dome_status_labels", default=[])
+
+        if "DRIVE_ERROR" in labels:
+            return False
+
+        if "UNKNOWN" in labels:
+            return False
+
+        if "DRIVE_AVAILABLE" not in labels:
+            return False
+
+        if await self.is_local():
+            return False
+
+        return True
+
     async def _prepare_telescopes(self, force: bool = False):
         """Moves telescopes to park position before opening/closing the enclosure."""
 
@@ -161,6 +181,23 @@ class Enclosure(GortDevice):
 
         await asyncio.gather(*park_coros)
 
+    async def _check_dome(self):
+        """Checks if we can operate the dome or raises an exception."""
+
+        if await self.allowed_to_move():
+            return
+
+        if await self.is_local():
+            raise GortEnclosureError(
+                "Cannot open the enclosure while in local mode.",
+                error_code=ErrorCode.ENCLOSURE_IN_LOCAL,
+            )
+        else:
+            raise GortEnclosureError(
+                "Dome found in error state. Cannot move the dome.",
+                error_code=ErrorCode.ENCLOSURE_ERROR,
+            )
+
     async def open(self, park_telescopes: bool = True):
         """Open the enclosure dome.
 
@@ -172,12 +209,7 @@ class Enclosure(GortDevice):
 
         """
 
-        is_local = await self.is_local()
-        if is_local:
-            raise GortEnclosureError(
-                "Cannot open the enclosure while in local mode.",
-                error_code=ErrorCode.LOCAL_MODE_FAILED,
-            )
+        await self._check_dome()
 
         if park_telescopes:
             await self._prepare_telescopes()
@@ -212,12 +244,7 @@ class Enclosure(GortDevice):
 
         """
 
-        is_local = await self.is_local()
-        if is_local:
-            raise GortEnclosureError(
-                "Cannot close the enclosure while in local mode.",
-                error_code=ErrorCode.LOCAL_MODE_FAILED,
-            )
+        await self._check_dome()
 
         self.write_to_log("Closing the dome ...", level="info")
         await self.gort.notify_event(Event.DOME_CLOSING)
@@ -288,7 +315,7 @@ class Enclosure(GortDevice):
         if safety_status_labels is None:
             raise GortEnclosureError(
                 "Cannot determine if enclosure is in local mode.",
-                error_code=ErrorCode.LOCAL_MODE_FAILED,
+                error_code=ErrorCode.ENCLOSURE_IN_LOCAL,
             )
 
         return "LOCAL" in safety_status_labels

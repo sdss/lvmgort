@@ -12,7 +12,7 @@ import warnings
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 
-from typing import TYPE_CHECKING, Callable, Literal
+from typing import TYPE_CHECKING, Any, Callable, Literal
 
 import unclick
 from aiormq import AMQPConnectionError, ChannelInvalidStateError
@@ -327,11 +327,14 @@ class ActorReply:
 
         return result
 
-    def get(self, key: str):
+    def get(self, key: str, default: Any = ...):
         """Returns the first occurrence of a keyword in the reply list."""
 
         for reply in self.replies:
             if key in reply:
                 return reply[key]
 
-        return None
+        if default is not ...:
+            return default
+
+        raise KeyError(f"Keyword {key!r} not found in replies.")
