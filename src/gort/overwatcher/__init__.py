@@ -20,4 +20,3 @@ from .observer import ObserverOverwatcher
 from .overwatcher import Overwatcher
 from .safety import SafetyOverwatcher
 from .transparency import TransparencyOverwatcher
-from .weather import WeatherOverwatcher
