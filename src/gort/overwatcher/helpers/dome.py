@@ -105,11 +105,17 @@ class DomeHelper:
 
         return False
 
-    async def wait_until_idle(self):
+    async def wait_until_idle(self, timeout: float | None = None):
         """Waits until the dome is idle."""
 
+        elapsed: float = 0
+
         while await self.is_moving():
-            await asyncio.sleep(5)
+            await asyncio.sleep(2)
+            elapsed += 2
+
+            if timeout and elapsed >= timeout:
+                raise GortError("Timed out waiting for the dome to become idle.")
 
     @Retrier(max_attempts=2, delay=5)
     async def _move_with_retries(
@@ -200,7 +206,8 @@ class DomeHelper:
                 return
 
             if status == DomeStatus.OPENING:
-                self.log.debug("Dome is already opening.")
+                self.log.debug("Dome is already opening. Waiting ...")
+                await self.wait_until_idle(timeout=250)
                 return
 
             if status == DomeStatus.UNKNOWN:
@@ -220,8 +227,8 @@ class DomeHelper:
                 return
 
             if status == DomeStatus.CLOSING:
-                self.log.debug("Dome is already closing.")
-                return
+                self.log.debug("Dome is already closing. Waiting ...")
+                await self.wait_until_idle(timeout=250)
 
             if status == DomeStatus.UNKNOWN:
                 self.log.warning("Dome is in an unknown status. Stopping and closing.")
