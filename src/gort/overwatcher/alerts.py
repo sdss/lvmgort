@@ -224,7 +224,6 @@ class AlertsOverwatcher(OverwatcherModule):
             summary.e_stops = await self.gort.enclosure.e_stops.status()
         except Exception:
             self.log.warning("Failed to retrieve e-stop status.")
-            pass
 
         # For connectivity we want to avoid one single failure to trigger an alert
         # which closes the dome. The connectivity status is a set of triggers that
