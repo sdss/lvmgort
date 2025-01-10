@@ -66,8 +66,7 @@ class MonitorEvents(OverwatcherModuleTask["EventsOverwatcher"]):
             dither_position = payload.get("dither_position", 0)
             if tile_id is not None:
                 await self.overwatcher.notify(
-                    f"Observing tile {tile_id} on dither "
-                    f"position #{dither_position}."
+                    f"Observing tile {tile_id} on dither position #{dither_position}."
                 )
 
         elif event == Event.DOME_OPENING:

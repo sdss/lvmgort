@@ -571,8 +571,7 @@ class Gort(GortClient):
 
                     await set_tile_status(tile_id, enabled=False)
                     self.log.warning(
-                        f"tile_id={tile_id} has been disabled. "
-                        "Continuing observations."
+                        f"tile_id={tile_id} has been disabled. Continuing observations."
                     )
 
                 elif ee.error_code == ErrorCode.SCHEDULER_CANNOT_FIND_TILE:

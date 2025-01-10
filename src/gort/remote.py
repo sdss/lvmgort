@@ -277,8 +277,7 @@ class RemoteCommand:
         if not isinstance(error, RemoteCommandError) or error.reply is None:
             # This should not happen, but just in case.
             self._remote_actor.client.log.warning(
-                f"Actor {actor!r} failed executing command "
-                f"{command_name!r}. Retrying.",
+                f"Actor {actor!r} failed executing command {command_name!r}. Retrying.",
             )
             return
 

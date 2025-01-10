@@ -221,7 +221,7 @@ async def pointing_model(
         ra = icrs.ra.deg
         dec = icrs.dec.deg
 
-        gort.log.info(f"({npoint+1}/{n_points}): Going to {ra:.6f}, {dec:.6f}.")
+        gort.log.info(f"({npoint + 1}/{n_points}): Going to {ra:.6f}, {dec:.6f}.")
 
         if calculate_offset is False:
             tasks = [
