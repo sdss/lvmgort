@@ -675,14 +675,6 @@ class CalibrationsOverwatcher(OverwatcherModule):
                     )
                     return
 
-                if dome == "open" and not self.overwatcher.state.safe:
-                    await self._fail_calibration(
-                        calibration,
-                        f"Cannot move dome for {name}. Weather is not safe.",
-                        level="warning",
-                    )
-                    return
-
                 if dome == "open" and not dome_current:
                     await notify(f"Opening the dome for calibration {name}.")
                     await self.overwatcher.dome.open()
