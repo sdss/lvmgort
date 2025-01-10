@@ -137,7 +137,6 @@ class OverwatcherMainTask(OverwatcherTask):
         closed = await ow.dome.is_closing()
 
         observing = ow.observer.is_observing
-        cancelling = ow.observer.is_cancelling
         calibrating = ow.state.calibrating
 
         _, alerts_status = ow.alerts.is_safe()
@@ -145,74 +144,43 @@ class OverwatcherMainTask(OverwatcherTask):
         is_raining = bool(alerts_status & ActiveAlert.RAIN)
         e_stops_in = bool(alerts_status & ActiveAlert.E_STOPS)
 
+        disable_overwatcher = is_raining or e_stops_in
+
+        if is_raining and not closed and not e_stops_in:
+            # Don't try to do anything fancy here. Just close the dome first.
+            await ow.notify("Rain detected. Closing the dome.", level="critical")
+            await ow.dome.shutdown(retry=True, park=True)
+            await asyncio.sleep(5)
+
         if not closed or observing or calibrating:
-            try:
-                async with asyncio.timeout(delay=30):
-                    await ow.notify("Unsafe conditions detected.", level="warning")
+            alert_names = (
+                alerts_status.name.replace("|", " | ")
+                if alerts_status.name
+                else "UNKNOWN"
+            )
 
-                    if observing and not cancelling:
-                        try:
-                            await ow.observer.stop_observing(
-                                immediate=True,
-                                reason="unsafe conditions",
-                            )
-                        except Exception as err:
-                            await ow.notify(
-                                f"Error stopping observing: {decap(err)}",
-                                level="error",
-                            )
-
-                    if calibrating:
-                        await ow.calibrations.cancel()
-
-            except asyncio.TimeoutError:
+            if e_stops_in:
                 await ow.notify(
-                    "Timed out while handling unsafe conditions.",
-                    level="error",
-                )
-
-            except Exception as err:
-                await ow.notify(
-                    f"Error handling unsafe conditions: {decap(err)}",
-                    level="error",
-                )
-
-            finally:
-                if not closed and not e_stops_in:
-                    await ow.notify("Closing the dome due to unsafe conditions.")
-                    await ow.dome.shutdown(retry=True, park=True)
-
-                    # If we have to close because of unsafe conditions, we don't want
-                    # to reopen too soon. We lock the dome for some time.
-                    timeout = ow.config["overwatcher.lock_timeout_on_unsafe"]
-                    ow.alerts.locked_until = time() + timeout
-
-                    await ow.notify(
-                        f"The dome will be locked for {int(timeout)} seconds.",
-                        level="warning",
-                    )
-
-                elif e_stops_in:
-                    await ow.notify(
-                        "E-stops triggered. The dome will not be closed.",
-                        level="warning",
-                    )
-
-        if ow.state.enabled:
-            if is_raining:
-                await ow.notify(
-                    "Disabling the Overwatcher due to rain. "
-                    "Manually re-enable it when safe.",
+                    "E-stop buttons are pressed. Dome won't be closed.",
                     level="warning",
                 )
-                ow.state.enabled = False
-            elif e_stops_in:
+
+            await ow.shutdown(
+                reason=f"Unsafe conditions detected: {alert_names}",
+                close_dome=not closed and not e_stops_in,
+                disable_overwatcher=disable_overwatcher,
+            )
+
+            if not closed:
+                # If we have to close because of unsafe conditions, we
+                # don't want to reopen too soon. We lock the dome for some time.
+                timeout = ow.config["overwatcher.lock_timeout_on_unsafe"]
+                ow.alerts.locked_until = time() + timeout
+
                 await ow.notify(
-                    "Disabling the Overwatcher due to e-stops. "
-                    "Manually re-enable it when safe.",
+                    f"The dome will be locked for {int(timeout)} seconds.",
                     level="warning",
                 )
-                ow.state.enabled = False
 
     async def handle_daytime(self):
         """Handles daytime."""
@@ -383,6 +351,7 @@ class Overwatcher(NotifierMixIn):
         self,
         reason: str = "undefined",
         level: NotificationLevel = "warning",
+        close_dome: bool = True,
         retry: bool = True,
         park: bool = True,
         disable_overwatcher: bool = False,
@@ -392,8 +361,11 @@ class Overwatcher(NotifierMixIn):
         dome_closed = await self.dome.is_closing()
         enabled = self.state.enabled
         observing = self.observer.is_observing
+        calibrating = self.state.calibrating
 
-        if dome_closed and not enabled and not observing:
+        if dome_closed and not enabled and not observing and not calibrating:
+            if disable_overwatcher:
+                self.state.enabled = False
             return
 
         if not reason.endswith("."):
@@ -401,28 +373,40 @@ class Overwatcher(NotifierMixIn):
 
         await self.notify(f"Triggering shutdown. Reason: {decap(reason)}", level=level)
 
-        if disable_overwatcher:
+        if self.state.enabled and disable_overwatcher:
             await self.notify("The Overwatcher will be disabled.", level="warning")
 
         if not self.state.dry_run:
-            stop = asyncio.create_task(
+            stop_observing = asyncio.create_task(
                 self.observer.stop_observing(
                     immediate=True,
                     reason=reason,
                 )
             )
-            shutdown = asyncio.create_task(
-                self.dome.shutdown(
-                    retry=retry,
-                    park=park,
+            stop_calibrations = asyncio.create_task(self.calibrations.cancel())
+
+            if close_dome:
+                dome_shutdown = asyncio.create_task(
+                    self.dome.shutdown(
+                        retry=retry,
+                        park=park,
+                    )
                 )
-            )
+
         else:
             self.log.warning("Dry run enabled. Not shutting down.")
             return
 
         try:
-            await asyncio.gather(stop, shutdown)
+            results = await asyncio.gather(
+                stop_observing,
+                stop_calibrations,
+                dome_shutdown,
+                return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, Exception):
+                    raise result
         except Exception as err:
             await self.notify(
                 f"Error during shutdown: {decap(err)}",
