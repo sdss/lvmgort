@@ -65,7 +65,7 @@ class ActiveAlert(enum.Flag):
     O2 = enum.auto()
     E_STOPS = enum.auto()
     LOCKED = enum.auto()
-    UNAVAILABLE = enum.auto()
+    ALERTS_UNAVAILABLE = enum.auto()
     DISCONNECTED = enum.auto()
     UNKNOWN = enum.auto()
 
@@ -97,12 +97,6 @@ class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
             finally:
                 if self.module.unavailable is False and n_failures >= 5:
                     self.module.unavailable = True
-                    await self.overwatcher.shutdown(
-                        reason="Failed to get alerts data 5 times. "
-                        "Triggering an emergency shutdown.",
-                        park=False,
-                        level="critical",
-                    )
 
             await asyncio.sleep(self.INTERVAL)
 
@@ -149,7 +143,7 @@ class AlertsOverwatcher(OverwatcherModule):
 
         if self.unavailable:
             self.log.warning("Alerts data is unavailable.")
-            active_alerts |= ActiveAlert.UNAVAILABLE
+            active_alerts |= ActiveAlert.ALERTS_UNAVAILABLE
             return False, active_alerts
 
         if self.unavailable is False and time() - self.last_updated > 300:
@@ -157,7 +151,7 @@ class AlertsOverwatcher(OverwatcherModule):
             # in the last 5 minutes, something is wrong. We mark it as unavailable.
             self.log.warning("Alerts data has not been updated in the last 5 minutes.")
             self.unavailable = True
-            active_alerts |= ActiveAlert.UNAVAILABLE
+            active_alerts |= ActiveAlert.ALERTS_UNAVAILABLE
             return False, active_alerts
 
         if self.state.rain:
