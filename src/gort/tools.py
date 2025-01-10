@@ -1088,4 +1088,7 @@ def decap(string: Any):
     if not isinstance(string, str):
         string = str(string)
 
+    if len(string) == 0:
+        return ""
+
     return string[0].lower() + string[1:]
