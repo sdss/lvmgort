@@ -54,7 +54,7 @@ class DomeHelper:
         """Returns the status of the dome."""
 
         status = await self.gort.enclosure.status()
-        labels = status["dome_status_labels"]
+        labels = status["dome_status_labels"].split(",")
 
         if "MOTOR_OPENING" in labels:
             return DomeStatus.OPENING | DomeStatus.MOVING
@@ -181,12 +181,13 @@ class DomeHelper:
 
         try:
             await coro
-        except Exception:
+        except Exception as err:
             await self.overwatcher.notify(
                 "The dome has failed to open/close. Disabling the Overwatcher "
                 "to prevent further attempts. Please check the dome immediately, "
                 "it may be partially or fully open.",
                 level="critical",
+                error=err,
             )
 
             # Release the lock here.

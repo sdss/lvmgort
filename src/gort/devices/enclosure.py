@@ -118,7 +118,7 @@ class E_Stops:
         """Returns :obj:`True` if the emergency stops are pressed."""
 
         status = await self.enclosure.status()
-        labels = status.get("safety_status_labels", None)
+        labels = status.get("safety_status_labels", "").split(",")
 
         if labels is None:
             raise GortEnclosureError("Cannot determine the status of the e-stops.")
@@ -175,7 +175,7 @@ class Enclosure(GortDevice):
         """Checks if the dome is allowed to move."""
 
         dome: ActorReply = await self.actor.commands.dome.commands.status(timeout=5)
-        labels = dome.get("dome_status_labels", default=[])
+        labels = dome.get("dome_status_labels", default="").split(",")
 
         if "DRIVE_ERROR" in labels:
             return False
@@ -324,7 +324,7 @@ class Enclosure(GortDevice):
         """Returns :obj:`True` if the enclosure is open."""
 
         status = await self.status()
-        labels = status["dome_status_labels"]
+        labels = status["dome_status_labels"].split(",")
 
         return "OPEN" in labels and "MOVING" not in labels
 
@@ -332,7 +332,7 @@ class Enclosure(GortDevice):
         """Returns :obj:`True` if the enclosure is closed."""
 
         status = await self.status()
-        labels = status["dome_status_labels"]
+        labels = status["dome_status_labels"].split(",")
 
         return "CLOSED" in labels and "MOVING" not in labels
 
