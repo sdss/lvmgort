@@ -146,8 +146,19 @@ class OverwatcherMainTask(OverwatcherTask):
 
         disable_overwatcher = is_raining or e_stops_in
 
+        # If we are not observing and the e-stops are in, we don't close the dome.
+        # Just disable the overwatcher if it is on.
+        if not observing and not calibrating and e_stops_in:
+            if ow.state.enabled:
+                await ow.notify(
+                    "E-stop buttons are pressed. Disabling the Overwatcher.",
+                    level="warning",
+                )
+                await ow.force_disable()
+            return
+
+        # Don't try to do anything fancy here. Just close the dome first.
         if is_raining and not closed and not e_stops_in:
-            # Don't try to do anything fancy here. Just close the dome first.
             await ow.notify("Rain detected. Closing the dome.", level="critical")
             await ow.dome.shutdown(retry=True, park=True)
             await asyncio.sleep(5)
