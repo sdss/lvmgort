@@ -387,6 +387,8 @@ class Overwatcher(NotifierMixIn):
         if self.state.enabled and disable_overwatcher:
             await self.notify("The Overwatcher will be disabled.", level="warning")
 
+        tasks: list[asyncio.Task] = []
+
         if not self.state.dry_run:
             stop_observing = asyncio.create_task(
                 self.observer.stop_observing(
@@ -396,6 +398,8 @@ class Overwatcher(NotifierMixIn):
             )
             stop_calibrations = asyncio.create_task(self.calibrations.cancel())
 
+            tasks += [stop_observing, stop_calibrations]
+
             if close_dome:
                 dome_shutdown = asyncio.create_task(
                     self.dome.shutdown(
@@ -403,18 +407,14 @@ class Overwatcher(NotifierMixIn):
                         park=park,
                     )
                 )
+                tasks.append(dome_shutdown)
 
         else:
             self.log.warning("Dry run enabled. Not shutting down.")
             return
 
         try:
-            results = await asyncio.gather(
-                stop_observing,
-                stop_calibrations,
-                dome_shutdown,
-                return_exceptions=True,
-            )
+            results = await asyncio.gather(*tasks, return_exceptions=True)
             for result in results:
                 if isinstance(result, Exception):
                     raise result
