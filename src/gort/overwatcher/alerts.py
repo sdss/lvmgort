@@ -14,6 +14,7 @@ from time import time
 
 from typing import TYPE_CHECKING
 
+from httpx import ReadTimeout
 from lvmopstools.utils import Trigger
 from pydantic import BaseModel
 
@@ -228,7 +229,13 @@ class AlertsOverwatcher(OverwatcherModule):
         # For connectivity we want to avoid one single failure to trigger an alert
         # which closes the dome. The connectivity status is a set of triggers that
         # need several settings to be activated.
-        connectivity_data = await get_lvmapi_route("/alerts/connectivity")
+        try:
+            connectivity_data = await get_lvmapi_route(
+                "/alerts/connectivity",
+                timeout=10,
+            )
+        except ReadTimeout:
+            connectivity_data = {"lco": False, "internet": False}
 
         if not connectivity_data["lco"]:
             self.connectivity.lco.set()

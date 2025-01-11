@@ -13,6 +13,7 @@
 ### 🔧 Fixed
 
 * Added a timeout to the `lvmbeat set overwatcher` command to prevent it from hanging indefinitely.
+* Fixed an issue that would crash the alerts task when checking the internet connection if the request timed out.
 
 
 ## 1.4.0 - January 1, 2025
