@@ -121,6 +121,7 @@ class OverwatcherMainTask(OverwatcherTask):
             except Exception as err:
                 await ow.notify(
                     f"Error in main overwatcher task: {decap(err)}",
+                    error=err,
                     level="error",
                 )
 
