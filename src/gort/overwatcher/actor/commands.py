@@ -114,8 +114,8 @@ async def disable_calibrations(command: OverwatcherCommand):
     return command.finish()
 
 
-@calibrations.command()
-async def list(command: OverwatcherCommand):
+@calibrations.command(name="list")
+async def list_(command: OverwatcherCommand):
     """Lists the calibrations."""
 
     def format_timestamp(timestamp: float | None) -> str | None:
