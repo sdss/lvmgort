@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from lvmopstools import Retrier
 
@@ -267,7 +267,7 @@ class Enclosure(GortDevice):
         self,
         park_telescopes: bool = True,
         force: bool = False,
-        retry_without_parking: bool = False,
+        mode: Literal["normal", "overcurrent"] = "normal",
     ):
         """Close the enclosure dome.
 
@@ -279,9 +279,11 @@ class Enclosure(GortDevice):
         force
             Tries to closes the dome even if the system believes it is
             already closed.
-        retry_without_parking
-            If the dome fails to close with ``park_telescopes=True``, it will
-            try again without parking the telescopes.
+        mode
+            In ``'normal'`` mode the dome will be closed using a combination of
+            rotary encoder and limit switches. With ``'overcurrent'`` the dome
+            is closed until the VFD detects an overcurrent condition.
+            ``'overcurrent'`` should only be used when the normal mode has failed.
 
         """
 
@@ -290,32 +292,26 @@ class Enclosure(GortDevice):
         self.write_to_log("Closing the dome ...", level="info")
         await self.gort.notify_event(Event.DOME_CLOSING)
 
-        try:
-            if park_telescopes:
-                try:
-                    await self._prepare_telescopes(force=force)
-                except Exception as err:
-                    self.write_to_log(
-                        f"Failed determining the status of the telescopes: {err}",
-                        "warning",
+        if park_telescopes:
+            try:
+                await self._prepare_telescopes(force=force)
+            except Exception as err:
+                self.write_to_log(
+                    f"Failed determining the status of the telescopes: {err}",
+                    "warning",
+                )
+                if force is False:
+                    raise GortEnclosureError(
+                        "Not closing without knowing where the telescopes are. "
+                        "If you really need to close call again with force=True."
                     )
-                    if force is False:
-                        raise GortEnclosureError(
-                            "Not closing without knowing where the telescopes are. "
-                            "If you really need to close call again with force=True."
-                        )
-                    else:
-                        self.write_to_log("Closing because force=True", "warning")
+                else:
+                    self.write_to_log("Closing because force=True", "warning")
 
-            await self.actor.commands.dome.commands.close(force=force)
-
-        except Exception as err:
-            if retry_without_parking is False or park_telescopes is False:
-                raise
-
-            self.write_to_log(f"Failed to close the dome: {err}", "warning")
-            self.write_to_log("Retrying without parking the telescopes.", "warning")
-            await self.close(park_telescopes=False, force=force)
+        await self.actor.commands.dome.commands.close(
+            force=force,
+            overcurrent=(mode == "overcurrent"),
+        )
 
         self.write_to_log("Enclosure is now closed.", level="info")
         await self.gort.notify_event(Event.DOME_CLOSED)

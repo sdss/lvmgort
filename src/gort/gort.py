@@ -45,7 +45,6 @@ from gort.recipes import recipes as recipe_to_class
 from gort.remote import RemoteActor
 from gort.tile import Tile
 from gort.tools import (
-    decap,
     get_temporary_file_path,
     kubernetes_restart_deployment,
     overwatcher_is_running,
@@ -489,18 +488,18 @@ class Gort(GortClient):
             await self.shutdown(
                 park_telescopes=True,
                 disable_overwatcher=True,
-                retry_without_parking=True,
                 show_message=False,
             )
 
-        except Exception as err:
-            self.log.error(f"Failed to shutdown: {decap(err)}")
-            self.log.warning("Trying to just close the dome.")
-
+        except Exception:
+            self.log.error(
+                "The normal shutdown failed. Trying to "
+                "close the dome in overcurrent mode."
+            )
             await self.enclosure.close(
-                park_telescopes=True,
+                park_telescopes=False,
                 force=True,
-                retry_without_parking=True,
+                mode="overcurrent",
             )
 
     async def observe(

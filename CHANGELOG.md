@@ -9,6 +9,7 @@
 ### ✨ Improved
 
 * Require two consecutive ping failures before restarting an actor.
+* Use overcurrent mode to close the dome if the normal mode fails.
 
 ### 🔧 Fixed
 

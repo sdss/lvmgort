@@ -61,11 +61,11 @@ class DomeHelper:
         elif "MOTOR_CLOSING" in labels:
             return DomeStatus.CLOSING | DomeStatus.MOVING
         elif "OPEN" in labels:
-            if "MOVING" in labels:
+            if "MOVING" in labels:  # This probably does not happen.
                 return DomeStatus.OPENING | DomeStatus.MOVING
             return DomeStatus.OPEN
         elif "CLOSED" in labels:
-            if "MOVING" in labels:
+            if "MOVING" in labels:  # This probably does not happen.
                 return DomeStatus.CLOSING | DomeStatus.MOVING
             return DomeStatus.CLOSED
 
@@ -117,22 +117,38 @@ class DomeHelper:
             if timeout and elapsed >= timeout:
                 raise GortError("Timed out waiting for the dome to become idle.")
 
-    @Retrier(max_attempts=2, delay=5)
     async def _move_with_retries(
         self,
         open: bool = False,
         park: bool = True,
-        retry_without_parking: bool = False,
+        retry_on_close: bool = True,
     ):
         """Moves the dome with retries."""
 
-        if open:
-            await self.gort.enclosure.open(park_telescopes=park)
-        else:
+        try:
+            if open:
+                await self.gort.enclosure.open(park_telescopes=park)
+            else:
+                await self.gort.enclosure.close(park_telescopes=park, force=True)
+
+        except Exception as err:
+            if open or not retry_on_close:
+                # Do not retry if opening failed.
+                raise
+
+            # If closing, try a second time with the overcurrent mode
+            # and without parking the telescopes.
+            await self.overwatcher.notify(
+                "The dome has failed to close. Retrying in overcurrent mode ",
+                level="error",
+                error=err,
+            )
+
+            await asyncio.sleep(5)  # Wait a bit to give the PLC time to clear.
             await self.gort.enclosure.close(
-                park_telescopes=park,
-                retry_without_parking=retry_without_parking,
+                park_telescopes=False,
                 force=True,
+                mode="overcurrent",
             )
 
     async def _move(
@@ -140,7 +156,7 @@ class DomeHelper:
         status: DomeStatus,
         open: bool = False,
         park: bool = True,
-        retry_without_parking: bool = False,
+        retry_on_close: bool = True,
     ):
         """Moves the dome."""
 
@@ -158,7 +174,7 @@ class DomeHelper:
             await self._move_with_retries(
                 open=open,
                 park=park,
-                retry_without_parking=retry_without_parking,
+                retry_on_close=retry_on_close,
             )
 
         except Exception:
@@ -218,7 +234,7 @@ class DomeHelper:
 
             await self._run_or_disable(self._move(status, open=True, park=park))
 
-    async def close(self, park: bool = True, retry: bool = False):
+    async def close(self, park: bool = True, retry: bool = True):
         """Closes the dome."""
 
         async with self._move_lock:
@@ -241,7 +257,7 @@ class DomeHelper:
                     status,
                     open=False,
                     park=park,
-                    retry_without_parking=retry,
+                    retry_on_close=retry,
                 )
             )
 

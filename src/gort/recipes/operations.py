@@ -10,11 +10,9 @@ from __future__ import annotations
 
 import asyncio
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Coroutine
 
 from rich.prompt import Confirm
-
-from sdsstools.utils import GatheringTaskGroup
 
 from gort.overwatcher.helpers import get_actor_ping, restart_actors
 from gort.tools import decap, get_lvmapi_route, overwatcher_is_running
@@ -144,7 +142,6 @@ class ShutdownRecipe(BaseRecipe):
         park_telescopes: bool = True,
         additional_close: bool = False,
         disable_overwatcher: bool = False,
-        retry_without_parking: bool = False,
         show_message: bool = True,
     ):
         """Shutdown the telescope, closes the dome, etc.
@@ -163,34 +160,35 @@ class ShutdownRecipe(BaseRecipe):
             sometimes.
         disable_overwatcher
             If :obj:`True`, disables the Overwatcher.
-        retry_without_parking
-            If the dome fails to park the telescopes before closing the dome, retries
-            without parking the telescopes.
         show_message
             If :obj:`True`, shows a message with instructions on how to confirm
             the dome is closed.
 
         """
 
+        errored: bool = False
+
         self.gort.log.warning("Running the shutdown sequence.")
 
-        async with GatheringTaskGroup() as group:
-            self.gort.log.info("Turning off all lamps.")
-            group.create_task(self.gort.nps.calib.all_off())
+        tasks: list[asyncio.Task | Coroutine] = []
 
-            self.gort.log.info("Making sure guiders are idle.")
-            group.create_task(self.gort.guiders.stop())
+        self.gort.log.info("Turning off all lamps.")
+        tasks.append(self.gort.nps.calib.all_off())
 
-            self.gort.log.info("Closing the dome.")
-            group.create_task(
-                self.gort.enclosure.close(retry_without_parking=retry_without_parking)
-            )
+        self.gort.log.info("Making sure guiders are idle.")
+        tasks.append(self.gort.guiders.stop())
 
-            if disable_overwatcher:
-                self.gort.log.info("Disabling the overwatcher.")
-                group.create_task(
-                    self.gort.send_command("lvm.overwatcher", "disable --now")
-                )
+        self.gort.log.info("Closing the dome.")
+        tasks.append(self.gort.enclosure.close(mode="normal"))
+
+        if disable_overwatcher:
+            self.gort.log.info("Disabling the overwatcher.")
+            tasks.append(self.gort.send_command("lvm.overwatcher", "disable --now"))
+
+        for result in await asyncio.gather(*tasks, return_exceptions=True):
+            if isinstance(result, Exception):
+                self.gort.log.error(f"Error during shutdown: {decap(result)}")
+                errored = True
 
         if park_telescopes:
             self.gort.log.info("Parking telescopes for the night.")
@@ -203,6 +201,9 @@ class ShutdownRecipe(BaseRecipe):
 
         if show_message:
             self.gort.log.warning(SHUTDOWN_MESSAGE)
+
+        if errored:
+            raise RuntimeError("There were errors during the shutdown recipe.")
 
 
 class CleanupRecipe(BaseRecipe):
