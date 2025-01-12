@@ -147,7 +147,8 @@ class DomeHelper:
             # If closing, try a second time with the overcurrent mode
             # and without parking the telescopes.
             await self.overwatcher.notify(
-                "The dome has failed to close. Retrying in overcurrent mode ",
+                "The dome has failed to close. Retrying in overcurrent mode. "
+                "The original error was:",
                 level="error",
                 error=err,
             )
