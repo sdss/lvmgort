@@ -11,7 +11,6 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import pathlib
-from copy import copy
 from time import time
 
 from typing import TYPE_CHECKING, cast
@@ -74,7 +73,6 @@ class OverwatcherMainTask(OverwatcherTask):
     def __init__(self, overwatcher: Overwatcher):
         super().__init__(overwatcher)
 
-        self.previous_state = OverwatcherState()
         self._pending_close_dome: bool = False
 
     async def task(self):
@@ -85,8 +83,6 @@ class OverwatcherMainTask(OverwatcherTask):
         ow = self.overwatcher
 
         while True:
-            self.previous_state = copy(ow.state)
-
             try:
                 is_safe, _ = ow.alerts.is_safe()
                 is_night = ow.ephemeris.is_night()
