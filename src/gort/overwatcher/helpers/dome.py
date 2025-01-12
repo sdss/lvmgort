@@ -214,7 +214,14 @@ class DomeHelper:
             raise
 
     async def open(self, park: bool = True):
-        """Opens the dome."""
+        """Opens the dome.
+
+        Parameters
+        ----------
+        park
+            Whether to park the telescopes before opening the dome.
+
+        """
 
         async with self._move_lock:
             status = await self.status()
@@ -235,7 +242,17 @@ class DomeHelper:
             await self._run_or_disable(self._move(status, open=True, park=park))
 
     async def close(self, park: bool = True, retry: bool = True):
-        """Closes the dome."""
+        """Closes the dome.
+
+        Parameters
+        ----------
+        park
+            Whether to park the telescopes before closing the dome.
+        retry
+            If :obj:`True`, retries closing the dome in overcurrent mode if the first
+            attempt fails.
+
+        """
 
         async with self._move_lock:
             status = await self.status()
