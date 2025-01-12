@@ -268,6 +268,8 @@ class GortDevice:
         message: str,
         level: str = "debug",
         header: str | None = None,
+        exc_info: logging._ExcInfoType = None,
+        **kwargs,
     ):
         """Writes a message to the log with a custom header.
 
@@ -288,10 +290,9 @@ class GortDevice:
 
         message = f"{header}{message}"
 
-        level = logging.getLevelName(level.upper())
-        assert isinstance(level, int)
+        level_int = logging._nameToLevel.get(level.upper()) or logging.INFO
 
-        self.gort.log.log(level, message)
+        self.gort.log.log(level_int, message, exc_info=exc_info, **kwargs)
 
     def log_replies(self, reply: AMQPReply, skip_debug: bool = True):
         """Outputs command replies."""

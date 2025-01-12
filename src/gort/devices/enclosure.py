@@ -296,7 +296,11 @@ class Enclosure(GortDevice):
             try:
                 await asyncio.wait_for(self._park_telescopes(), timeout=120)
             except Exception as err:
-                self.write_to_log(f"Failed parking the telescopes: {err}", "error")
+                self.write_to_log(
+                    f"Failed parking the telescopes: {err}",
+                    "error",
+                    exc_info=err,
+                )
                 if force is False:
                     raise GortEnclosureError(
                         "Not closing without knowing where the telescopes are. "
