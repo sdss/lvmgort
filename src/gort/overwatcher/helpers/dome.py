@@ -137,7 +137,7 @@ class DomeHelper:
             if open:
                 await self.gort.enclosure.open(park_telescopes=park)
             else:
-                await self.gort.enclosure.close(park_telescopes=park, force=True)
+                await self.gort.enclosure.close(park_telescopes=park)
 
         except Exception as err:
             if open or not retry_on_close:
@@ -155,7 +155,9 @@ class DomeHelper:
 
             await asyncio.sleep(5)  # Wait a bit to give the PLC time to clear.
             await self.gort.enclosure.close(
-                park_telescopes=False,
+                park_telescopes=park,
+                # With force=True will try to park the telescopes
+                # if park=True but will try to close if parking fails.
                 force=True,
                 mode="overcurrent",
             )

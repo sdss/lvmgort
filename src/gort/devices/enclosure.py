@@ -191,7 +191,7 @@ class Enclosure(GortDevice):
 
         return True
 
-    async def _prepare_telescopes(self, force: bool = False):
+    async def _park_telescopes(self):
         """Moves telescopes to park position before opening/closing the enclosure."""
 
         telescopes = list(self.gort.telescopes)
@@ -253,7 +253,7 @@ class Enclosure(GortDevice):
         await self._check_dome()
 
         if park_telescopes:
-            await self._prepare_telescopes()
+            await self._park_telescopes()
 
         self.write_to_log("Opening the enclosure ...", level="info")
         await self.gort.notify_event(Event.DOME_OPENING)
@@ -294,19 +294,17 @@ class Enclosure(GortDevice):
 
         if park_telescopes:
             try:
-                await self._prepare_telescopes(force=force)
+                await asyncio.wait_for(self._park_telescopes(), timeout=120)
             except Exception as err:
-                self.write_to_log(
-                    f"Failed determining the status of the telescopes: {err}",
-                    "warning",
-                )
+                self.write_to_log(f"Failed parking the telescopes: {err}", "error")
                 if force is False:
                     raise GortEnclosureError(
                         "Not closing without knowing where the telescopes are. "
-                        "If you really need to close call again with force=True."
+                        "If you really need to close call again with "
+                        "park_telescopes=False and force=True.",
                     )
                 else:
-                    self.write_to_log("Closing because force=True", "warning")
+                    self.write_to_log("Closing dome because force=True", "warning")
 
         await self.actor.commands.dome.commands.close(
             force=force,
