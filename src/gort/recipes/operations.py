@@ -365,7 +365,9 @@ class PostObservingRecipe(BaseRecipe):
 
         closed = await self.gort.enclosure.is_closed()
         if not closed:
-            tasks.append(self.gort.enclosure.close(retry_without_parking=True))
+            # Close here with overcurrent because at this point the dome should
+            # be close, so this could indicate a problem with the original close.
+            tasks.append(self.gort.enclosure.close(mode="overcurrent"))
 
         parked = [await tel.is_parked() for tel in self.gort.telescopes.values()]
         if force_park or not all(parked):
