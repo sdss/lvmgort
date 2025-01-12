@@ -10,6 +10,7 @@
 
 * Require two consecutive ping failures before restarting an actor.
 * Use overcurrent mode to close the dome if the normal mode fails.
+* Removed the `shutdown()` method in the `DomeHelper` and moved the logic to `Overwatcher.shutdown()`.
 
 ### 🔧 Fixed
 

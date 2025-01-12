@@ -269,7 +269,11 @@ class ObserverOverwatcher(OverwatcherModule):
                         )
 
                         self.cancel()
-                        await self.overwatcher.dome.shutdown(retry=True, park=True)
+                        await self.overwatcher.shutdown(
+                            retry=True,
+                            park=True,
+                            disable_overwatcher=True,
+                        )
 
                         break
 

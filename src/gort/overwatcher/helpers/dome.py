@@ -15,8 +15,6 @@ from typing import TYPE_CHECKING, Coroutine
 
 from lvmopstools.retrier import Retrier
 
-from sdsstools.utils import GatheringTaskGroup
-
 from gort.exceptions import GortError
 
 
@@ -83,8 +81,18 @@ class DomeHelper:
 
         return False
 
+    async def is_closed(self):
+        """Returns True if the dome is closed."""
+
+        status = await self.status()
+
+        if status & DomeStatus.CLOSED:
+            return True
+
+        return False
+
     async def is_closing(self):
-        """Returns True if the dome is closed or closed."""
+        """Returns True if the dome is closed or closing."""
 
         status = await self.status()
 
@@ -210,7 +218,12 @@ class DomeHelper:
             if self._move_lock.locked():
                 self._move_lock.release()
 
-            await self.overwatcher.force_disable()
+            await self.overwatcher.shutdown(
+                "dome failed to open/close",
+                disable_overwatcher=True,
+                close_dome=False,
+            )
+
             raise
 
     async def open(self, park: bool = True):
@@ -299,32 +312,3 @@ class DomeHelper:
             # Now we manually open. We do not focus here since that's handled
             # by the observer module.
             await self.open()
-
-    async def shutdown(
-        self,
-        retry: bool = False,
-        force: bool = False,
-        park: bool = True,
-    ):
-        """Runs the shutdown sequence."""
-
-        is_closing = await self.is_closing()
-        if is_closing and not force:
-            return
-
-        async with self._action_lock:
-            self.log.info("Running the shutdown sequence.")
-
-            async with GatheringTaskGroup() as group:
-                self.log.info("Turning off all lamps.")
-                group.create_task(self.gort.nps.calib.all_off())
-
-                self.log.info("Making sure guiders are idle.")
-                group.create_task(self.gort.guiders.stop())
-
-                self.log.info("Closing the dome.")
-                group.create_task(self.close(retry=retry))
-
-            self.log.info("Parking telescopes for the night.")
-            if park:
-                await self.gort.telescopes.park()

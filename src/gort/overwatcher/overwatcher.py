@@ -13,7 +13,7 @@ import dataclasses
 import pathlib
 from time import time
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Coroutine, cast
 
 from sdsstools import Configuration
 from sdsstools.utils import GatheringTaskGroup
@@ -147,17 +147,14 @@ class OverwatcherMainTask(OverwatcherTask):
         # Just disable the overwatcher if it is on.
         if not observing and not calibrating and e_stops_in:
             if ow.state.enabled:
-                await ow.notify(
-                    "E-stop buttons are pressed. Disabling the Overwatcher.",
-                    level="warning",
-                )
-                await ow.force_disable()
+                await ow.notify("E-stop buttons are pressed.", level="warning")
+                await ow.shutdown(close_dome=False, disable_overwatcher=True)
             return
 
         # Don't try to do anything fancy here. Just close the dome first.
         if is_raining and not closed and not e_stops_in:
             await ow.notify("Rain detected. Closing the dome.", level="critical")
-            await ow.dome.shutdown(retry=True, park=True)
+            await ow.dome.close(retry=True)
             await asyncio.sleep(5)
 
         if not closed or observing or calibrating:
@@ -231,7 +228,7 @@ class OverwatcherMainTask(OverwatcherTask):
             try:
                 closed = await self.overwatcher.dome.is_closing()
                 if not closed:
-                    await self.overwatcher.dome.shutdown(retry=True, park=True)
+                    await self.overwatcher.shutdown()
             finally:
                 self._pending_close_dome = False
 
@@ -357,82 +354,103 @@ class Overwatcher(NotifierMixIn):
 
     async def shutdown(
         self,
-        reason: str = "undefined",
-        level: NotificationLevel = "warning",
+        reason: str | None = None,
+        level: NotificationLevel = "info",
         close_dome: bool = True,
         retry: bool = True,
         park: bool = True,
-        disable_overwatcher: bool = False,
+        disable_overwatcher: bool = True,
+        force: bool = False,
     ):
-        """Shuts down the observatory."""
+        """Shuts down the observatory.
+
+        Parameters
+        ----------
+        reason
+            The reason for the shutdown.
+        level
+            The level of the notification.
+        close_dome
+            Whether to close the dome.
+        retry
+            If :obj:`True`, retries closing the dome in overcurrent mode if the first
+            attempt fails.
+        park
+            Whether to ensure that the telescopes are parked before closing the dome.
+        disable_overwatcher
+            If :obj:`True`, disables the overwatcher after the shutdown.
+        force
+            If :obj:`True`, forces the shutdown even if the dome is already closed.
+            Otherwise only the overwatcher is disabled if necessary but the
+            other tasks are ignored.
+
+        """
 
         dome_closed = await self.dome.is_closing()
-        enabled = self.state.enabled
         observing = self.observer.is_observing
         calibrating = self.state.calibrating
 
-        if dome_closed and not enabled and not observing and not calibrating:
-            if disable_overwatcher:
-                self.state.enabled = False
+        if disable_overwatcher and self.state.enabled:
+            await self.notify("The Overwatcher will be disabled.")
+            self.state.enabled = False
+
+        # Check if we have already safe and shut down, and if so, return.
+        if dome_closed and not force and not observing and not calibrating:
             return
 
-        if not reason.endswith("."):
-            reason += "."
-
-        await self.notify(f"Triggering shutdown. Reason: {decap(reason)}", level=level)
-
-        if self.state.enabled and disable_overwatcher:
-            await self.notify("The Overwatcher will be disabled.", level="warning")
-
-        tasks: list[asyncio.Task] = []
-
-        if not self.state.dry_run:
-            stop_observing = asyncio.create_task(
-                self.observer.stop_observing(
-                    immediate=True,
-                    reason=reason,
-                )
-            )
-            stop_calibrations = asyncio.create_task(self.calibrations.cancel())
-
-            tasks += [stop_observing, stop_calibrations]
-
-            if close_dome:
-                dome_shutdown = asyncio.create_task(
-                    self.dome.shutdown(
-                        retry=retry,
-                        park=park,
-                    )
-                )
-                tasks.append(dome_shutdown)
-
+        # Notify about the shutdown.
+        if not reason:
+            message = "Triggering shutdown."
         else:
+            if not reason.endswith("."):
+                reason += "."
+            message = f"Triggering shutdown. Reason: {decap(reason)}"
+
+        await self.notify(message, level=level)
+
+        if self.state.dry_run:
             self.log.warning("Dry run enabled. Not shutting down.")
             return
+
+        stop_observing = self.observer.stop_observing(
+            immediate=True,
+            reason=reason or "shutdown triggered",
+        )
+        stop_calibrations = self.calibrations.cancel()
+
+        tasks: list[asyncio.Task | Coroutine] = [stop_observing, stop_calibrations]
+
+        if close_dome:
+            dome_closure = self.dome.close(
+                retry=retry,
+                park=park,
+            )
+            tasks.append(dome_closure)
+
+        # Make sure the guiders and cal lamps are off.
+        tasks.append(self.gort.nps.calib.all_off())
+        tasks.append(self.gort.guiders.stop())
 
         try:
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for result in results:
                 if isinstance(result, Exception):
                     raise result
+
         except Exception as err:
+            # Check if the dome is closed to determine the level of the notification.
+            level = "warning" if await self.dome.is_closed() else "critical"
+
             await self.notify(
                 f"Error during shutdown: {decap(err)}",
-                level="critical",
+                level=level,
                 error=err,
             )
 
-        if disable_overwatcher:
-            self.state.enabled = False
-
-    async def force_disable(self):
-        """Disables the overwatcher."""
-
-        await self.observer.stop_observing(immediate=True)
-        await self.calibrations.cancel()
-
-        self.state.enabled = False
-        await self.notify("Overwatcher is now disabled.", level="warning")
+        else:
+            # If everything went well, park and disable the telescopes.
+            if park:
+                await self.gort.telescopes.park(disable=True)
 
     async def cancel(self):
         """Cancels the overwatcher tasks."""

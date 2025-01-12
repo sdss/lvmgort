@@ -233,6 +233,20 @@ async def schedule_focus_sweep(command: OverwatcherCommand):
     return command.finish()
 
 
+@overwatcher_cli.command()
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Forces the overwatcher to run the complete "
+    "shutdown sequence even if the dome is already closed.",
+)
+async def shutdown(command: OverwatcherCommand, force: bool = False):
+    """Disables the overwatcher, stops observing, and closes the dome."""
+
+    await command.actor.overwatcher.shutdown(force=force)
+    return command.finish()
+
+
 @overwatcher_cli.group()
 def transparency():
     """Transparency commands."""
