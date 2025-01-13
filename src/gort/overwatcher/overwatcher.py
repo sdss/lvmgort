@@ -360,6 +360,7 @@ class Overwatcher(NotifierMixIn):
         retry: bool = True,
         park: bool = True,
         disable_overwatcher: bool = True,
+        cancel_safe_calibrations: bool = False,
         force: bool = False,
     ):
         """Shuts down the observatory.
@@ -379,6 +380,9 @@ class Overwatcher(NotifierMixIn):
             Whether to ensure that the telescopes are parked before closing the dome.
         disable_overwatcher
             If :obj:`True`, disables the overwatcher after the shutdown.
+        cancel_safe_calibrations
+            If :obj:`True`, cancels any safe calibrations that are currently running
+            even if the dome is closed.
         force
             If :obj:`True`, forces the shutdown even if the dome is already closed.
             Otherwise only the overwatcher is disabled if necessary but the
@@ -396,6 +400,9 @@ class Overwatcher(NotifierMixIn):
 
         # Check if we have already safe and shut down, and if so, return.
         if dome_closed and not force and not observing and not calibrating:
+            return
+
+        if dome_closed and calibrating and not cancel_safe_calibrations:
             return
 
         # Notify about the shutdown.
