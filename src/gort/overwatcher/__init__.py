@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from .alerts import AlertsOverwatcher
-from .calibration import CalibrationsOverwatcher
+from .calibrations import CalibrationsOverwatcher
 from .core import OverwatcherModule
 from .ephemeris import EphemerisOverwatcher
 from .events import EventsOverwatcher

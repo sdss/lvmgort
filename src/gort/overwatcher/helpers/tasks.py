@@ -18,7 +18,7 @@ from astropy.time import Time
 
 from sdsstools import get_sjd
 
-from gort.overwatcher.calibration import CalibrationState
+from gort.overwatcher.calibrations import CalibrationState
 from gort.tools import add_night_log_comment, decap, redis_client_sync
 
 

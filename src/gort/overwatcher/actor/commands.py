@@ -18,7 +18,7 @@ import click
 
 from clu.parsers.click import command_parser as overwatcher_cli
 
-from gort.overwatcher.calibration import CalibrationState
+from gort.overwatcher.calibrations import CalibrationState
 
 
 if TYPE_CHECKING:

@@ -13,7 +13,7 @@ from clu.testing import setup_test_actor
 
 from gort.gort import Gort
 from gort.overwatcher.actor import OverwatcherActor
-from gort.overwatcher.calibration import CalibrationSchedule
+from gort.overwatcher.calibrations import CalibrationSchedule
 from gort.overwatcher.helpers.tasks import DailyTaskBase
 
 
