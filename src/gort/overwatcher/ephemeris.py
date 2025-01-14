@@ -81,9 +81,11 @@ class EphemerisMonitorTask(OverwatcherModuleTask["EphemerisOverwatcher"]):
                     self.log.info(f"New SJD: updating ephemeris for {sjd}.")
                     self.module.sjd = sjd
 
-                    await self.overwatcher.calibrations.reset()
-
                     failing = False
+
+            # Check the calibrations SJD and reset if necessary.
+            if self.overwatcher.calibrations.schedule.sjd != sjd:
+                await self.overwatcher.calibrations.reset()
 
             await asyncio.sleep(60)
 
