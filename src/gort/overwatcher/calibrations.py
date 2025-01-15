@@ -294,7 +294,7 @@ class CalibrationSchedule:
         self.calibrations: list[Calibration] = []
 
         # These are set by .refresh()
-        self.sjd: int
+        self.sjd: int = 0
         self.ephemeris: EphemerisModel
 
         if update:
