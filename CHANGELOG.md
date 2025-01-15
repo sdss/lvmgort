@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### 🔧 Fixed
+
+* Prevent a failed notification to raise an error by default.
+
+
 ## 1.5.0 - January 14, 2025
 
 ### 🚀 New

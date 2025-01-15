@@ -59,6 +59,7 @@ class NotifierMixIn(OverwatcherProtocol):
         as_overwatcher: bool = True,
         allow_repeat_notifications: bool = False,
         min_time_between_repeat_notifications: int = 60,
+        raise_on_error: bool = False,
     ):
         """Emits a notification to Slack or email.
 
@@ -103,6 +104,9 @@ class NotifierMixIn(OverwatcherProtocol):
             if ``allow_repeat_notifications`` is ``False``. This only affects Slack
             and email notifications. The notification is always recorded to the
             database and log if those options are passed.
+        raise_on_error
+            Whether to raise an exception if the notification fails to send. Otherwise
+            the error is logged but the function does not raise.
 
         """
 
@@ -156,30 +160,37 @@ class NotifierMixIn(OverwatcherProtocol):
         ):
             slack = False
 
-        async with httpx.AsyncClient(
-            base_url=f"http://{api_host}:{api_port}",
-            follow_redirects=True,
-        ) as client:
-            response = await client.post(
-                "/notifications/create",
-                json={
-                    "message": full_message,
-                    "level": level.upper(),
-                    "payload": payload,
-                    "slack": slack,
-                    "slack_channels": slack_channels,
-                    "email_on_critical": False,
-                    "write_to_database": database,
-                    "slack_extra_params": {
-                        "username": "Overwatcher" if as_overwatcher else None,
-                        "icon_url": GORT_ICON_URL if as_overwatcher else None,
+        try:
+            async with httpx.AsyncClient(
+                base_url=f"http://{api_host}:{api_port}",
+                follow_redirects=True,
+            ) as client:
+                response = await client.post(
+                    "/notifications/create",
+                    json={
+                        "message": full_message,
+                        "level": level.upper(),
+                        "payload": payload,
+                        "slack": slack,
+                        "slack_channels": slack_channels,
+                        "email_on_critical": False,
+                        "write_to_database": database,
+                        "slack_extra_params": {
+                            "username": "Overwatcher" if as_overwatcher else None,
+                            "icon_url": GORT_ICON_URL if as_overwatcher else None,
+                        },
                     },
-                },
-            )
+                )
 
-            code = response.status_code
-            if code != 200:
-                self.log.warning(f"Failed adding night log comment. Code {code}.")
+                code = response.status_code
+                if code != 200:
+                    raise RuntimeError(f"Failed creating notification. Code {code}.")
+
+        except Exception as err:
+            if not raise_on_error:
+                self.log.error("Failed to create notification.", exc_info=err)
+            else:
+                raise
 
         next_notification_time = time() + min_time_between_repeat_notifications
         self.notification_history[notification_hash] = next_notification_time
