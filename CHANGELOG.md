@@ -4,6 +4,7 @@
 
 ### 🔧 Fixed
 
+* Fixed an issue setting the initial calibrations schedule SJD.
 * Prevent a failed notification to raise an error by default.
 
 
