@@ -143,6 +143,7 @@ class ShutdownRecipe(BaseRecipe):
         additional_close: bool = False,
         disable_overwatcher: bool = False,
         show_message: bool = True,
+        reset_lockout: bool = False,
     ):
         """Shutdown the telescope, closes the dome, etc.
 
@@ -163,6 +164,8 @@ class ShutdownRecipe(BaseRecipe):
         show_message
             If :obj:`True`, shows a message with instructions on how to confirm
             the dome is closed.
+        reset_lockout
+            If the dome is in lockout mode, resets the lockout.
 
         """
 
@@ -179,7 +182,12 @@ class ShutdownRecipe(BaseRecipe):
         tasks.append(self.gort.guiders.stop())
 
         self.gort.log.info("Closing the dome.")
-        tasks.append(self.gort.enclosure.close(mode="normal"))
+        tasks.append(
+            self.gort.enclosure.close(
+                mode="normal",
+                reset_lockout=reset_lockout,
+            )
+        )
 
         if disable_overwatcher:
             self.gort.log.info("Disabling the overwatcher.")

@@ -489,6 +489,7 @@ class Gort(GortClient):
                 park_telescopes=True,
                 disable_overwatcher=True,
                 show_message=False,
+                reset_lockout=True,
             )
 
         except Exception:
@@ -500,6 +501,7 @@ class Gort(GortClient):
                 park_telescopes=False,
                 force=True,
                 mode="overcurrent",
+                reset_lockout=True,
             )
 
     async def observe(
