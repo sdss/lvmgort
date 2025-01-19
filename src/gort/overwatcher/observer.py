@@ -262,19 +262,7 @@ class ObserverOverwatcher(OverwatcherModule):
                     await self.overwatcher.troubleshooter.wait_until_ready(300)
 
                     if not self.check_twilight():
-                        await self.notify(
-                            "Morning twilight will be reached before the next "
-                            "exposure ends. Finishing the observing loop and "
-                            "closing now."
-                        )
-
                         self.cancel()
-                        await self.overwatcher.shutdown(
-                            retry=True,
-                            park=True,
-                            disable_overwatcher=True,
-                        )
-
                         break
 
                     # The exposure will complete in 900 seconds + acquisition + readout
@@ -351,15 +339,21 @@ class ObserverOverwatcher(OverwatcherModule):
         await self.notify("The observing loop has ended.")
 
     def check_twilight(self) -> bool:
-        """Checks if we are close to the morning twilight and cancels observations."""
+        """Checks if we are close to the morning twilight to continue observing."""
 
         ephemeris = self.overwatcher.ephemeris
+
+        if not ephemeris.is_night():
+            return False
+
         time_to_twilight = ephemeris.time_to_morning_twilight()
 
         if time_to_twilight is None:
             self.log.warning("Failed to get time to morning twilight.")
             return True
 
+        # Stop observing STOP_SECS_BEFORE_MORNING seconds before morning twilight.
+        # This prevents starting an exposure that will be interrupted.
         if time_to_twilight > self.STOP_SECS_BEFORE_MORNING:
             return True
 

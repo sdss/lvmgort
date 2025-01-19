@@ -1,5 +1,16 @@
 # Changelog
 
+## Next version
+
+### ✨ Improved
+
+* Added try-excepts and timeouts to the different tasks in the Overwatcher shutdown routine to ensure that the dome closure is always attempted.
+
+### 🔧 Fixed
+
+* Fixed a race condition that could prevent the shutdown of the dome when twilight was reached. Instead of commanding a shutdown inside the Overwatcher observing loop (which cancels the same task that is commanding it), the loop will now complete normally and the main Overwatcher task will command the shutdown.
+
+
 ## 1.5.1 - January 15, 2025
 
 ### 🔧 Fixed

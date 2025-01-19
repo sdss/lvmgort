@@ -13,7 +13,7 @@ import dataclasses
 import pathlib
 from time import time
 
-from typing import TYPE_CHECKING, Coroutine, cast
+from typing import TYPE_CHECKING, cast
 
 from sdsstools import Configuration
 from sdsstools.utils import GatheringTaskGroup
@@ -105,7 +105,7 @@ class OverwatcherMainTask(OverwatcherTask):
                 if not is_safe:
                     await self.handle_unsafe()
 
-                if not is_night:
+                if not is_night or not ow.observer.check_twilight():
                     await self.handle_daytime()
 
                 if not ow.state.enabled:
@@ -200,37 +200,25 @@ class OverwatcherMainTask(OverwatcherTask):
         if not self.overwatcher.state.enabled:
             return
 
-        observing = self.overwatcher.observer.is_observing
-        cancelling = self.overwatcher.observer.is_cancelling
+        reason_for_shutdown: str | None = None
 
-        if observing and not cancelling:
-            # Decide whether to complete the current exposure or stop immediately.
-            exposure_finishes_at = self.overwatcher.observer.next_exposure_completes
-            now = time()
-
-            if exposure_finishes_at > 0 and (exposure_finishes_at - now) < 300:
-                immediate = False
-                notification_message = "Finishing this exposure and closing the dome."
-
-            else:
-                immediate = True
-                notification_message = "Cancelling exposure and closing the dome."
-
-            await self.overwatcher.notify("Twilight reached. " + notification_message)
-
-            await self.overwatcher.observer.stop_observing(
-                immediate=immediate,
-                reason="daytime conditions",
+        if self.overwatcher.state.night is False:
+            reason_for_shutdown = "Daytime conditions detected."
+        elif not self.overwatcher.observer.check_twilight():
+            reason_for_shutdown = (
+                "Morning twilight will be reached before the next exposure ends. "
+                "Cancelling observations and closing the dome."
             )
-            self._pending_close_dome = True
 
-        if not observing and not cancelling and self._pending_close_dome:
-            try:
-                closed = await self.overwatcher.dome.is_closing()
-                if not closed:
-                    await self.overwatcher.shutdown()
-            finally:
-                self._pending_close_dome = False
+        await self.overwatcher.shutdown(
+            reason=reason_for_shutdown,
+            level="info",
+            close_dome=True,
+            retry=True,
+            disable_overwatcher=True,
+            park=True,
+            cancel_safe_calibrations=False,
+        )
 
     async def handle_disabled(self):
         """Handles the disabled state."""
@@ -395,8 +383,8 @@ class Overwatcher(NotifierMixIn):
         calibrating = self.state.calibrating
 
         if disable_overwatcher and self.state.enabled:
-            await self.notify("The Overwatcher will be disabled.")
             self.state.enabled = False
+            await self.notify("The Overwatcher has been disabled.")
 
         # Check if we have already safe and shut down, and if so, return.
         if dome_closed and not force and not observing and not calibrating:
@@ -419,45 +407,61 @@ class Overwatcher(NotifierMixIn):
             self.log.warning("Dry run enabled. Not shutting down.")
             return
 
-        stop_observing = self.observer.stop_observing(
-            immediate=True,
-            reason=reason or "shutdown triggered",
-        )
-        stop_calibrations = self.calibrations.cancel()
-
-        tasks: list[asyncio.Task | Coroutine] = [stop_observing, stop_calibrations]
-
-        if close_dome:
-            dome_closure = self.dome.close(
-                retry=retry,
-                park=park,
-            )
-            tasks.append(dome_closure)
-
-        # Make sure the guiders and cal lamps are off.
-        tasks.append(self.gort.nps.calib.all_off())
-        tasks.append(self.gort.guiders.stop())
-
+        # Step 1: cancel observations and calibrations.
         try:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for result in results:
-                if isinstance(result, Exception):
-                    raise result
+            stop_observing = self.observer.stop_observing(
+                immediate=True,
+                reason=reason or "shutdown triggered",
+            )
 
+            self.log.info("Cancelling observing loop and calibrations.")
+            await asyncio.wait_for(
+                asyncio.gather(stop_observing, self.calibrations.cancel()),
+                timeout=30,
+            )
         except Exception as err:
-            # Check if the dome is closed to determine the level of the notification.
-            level = "warning" if await self.dome.is_closed() else "critical"
-
             await self.notify(
-                f"Error during shutdown: {decap(err)}",
-                level=level,
+                f"Error cancelling observations during shutdown: {decap(err)}",
+                level="error",
                 error=err,
             )
 
-        else:
-            # If everything went well, park and disable the telescopes.
-            if park:
-                await self.gort.telescopes.park(disable=True)
+        # Step 2: cancel guiders and turn off lamps.
+        try:
+            self.log.info("Turning off guiders and lamps.")
+            await asyncio.wait_for(
+                asyncio.gather(self.gort.nps.calib.all_off(), self.gort.guiders.stop()),
+                timeout=60,
+            )
+        except Exception as err:
+            await self.notify(
+                f"Error running shutdown tasks: {decap(err)}",
+                level="error",
+                error=err,
+            )
+
+        # Step 3: close the dome.
+        if close_dome:
+            try:
+                await asyncio.wait_for(
+                    self.dome.close(retry=retry, park=park),
+                    timeout=360,
+                )
+            except Exception as err:
+                # Check if the dome is closed to determine
+                # the level of the notification.
+                level = "warning" if await self.dome.is_closed() else "critical"
+
+                await self.notify(
+                    f"Error closing the dome during shutdown: {decap(err)}",
+                    level=level,
+                    error=err,
+                )
+                return
+
+        # Step 4: park and disable the telescopes.
+        if park:
+            await asyncio.wait_for(self.gort.telescopes.park(disable=True), timeout=120)
 
     async def cancel(self):
         """Cancels the overwatcher tasks."""

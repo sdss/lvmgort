@@ -117,7 +117,7 @@ class EphemerisOverwatcher(OverwatcherModule):
         return self.ephemeris
 
     def is_night(self):
-        """Determines whether it is nightime."""
+        """Determines whether it is night-time."""
 
         ephemeris = self.ephemeris
         now_jd = float(Time.now().jd)
