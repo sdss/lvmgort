@@ -289,9 +289,6 @@ class Enclosure(GortDevice):
 
         await self._check_dome()
 
-        self.write_to_log("Closing the dome ...", level="info")
-        await self.gort.notify_event(Event.DOME_CLOSING)
-
         if park_telescopes:
             try:
                 await asyncio.wait_for(self._park_telescopes(), timeout=120)
@@ -309,6 +306,9 @@ class Enclosure(GortDevice):
                     )
                 else:
                     self.write_to_log("Closing dome because force=True", "warning")
+
+        self.write_to_log("Closing the dome ...", level="info")
+        await self.gort.notify_event(Event.DOME_CLOSING)
 
         await self.actor.commands.dome.commands.close(
             force=force,
