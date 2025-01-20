@@ -107,7 +107,7 @@ class OverwatcherMainTask(OverwatcherTask):
                 if not is_safe:
                     await self.handle_unsafe()
 
-                if not is_night or not ow.observer.check_twilight():
+                if not is_night:
                     await self.handle_daytime()
 
                 if not ow.state.enabled:
