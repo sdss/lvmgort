@@ -567,6 +567,11 @@ class CalibrationsOverwatcher(OverwatcherModule):
             if cal.state == CalibrationState.RUNNING:
                 return cal
 
+    def is_calibrating(self):
+        """Returns True if a calibration is currently running."""
+
+        return self.get_running_calibration() is not None
+
     async def run_calibration(self, calibration: Calibration):
         """Runs a calibration."""
 

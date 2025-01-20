@@ -92,14 +92,14 @@ class OverwatcherMainTask(OverwatcherTask):
 
                 ow.state.night = is_night
                 ow.state.safe = is_safe
+
+                ow.state.calibrating = ow.calibrations.is_calibrating()
                 ow.state.observing = ow.observer.is_observing
                 ow.state.focusing = ow.observer.focusing
+
                 ow.state.troubleshooting = (
                     ow.state.troubleshooting or is_troubleshooting
                 )
-
-                running_calibration = ow.calibrations.get_running_calibration()
-                ow.state.calibrating = running_calibration is not None
 
                 # TODO: should these handlers be scheduled as tasks? Right now
                 # they can block for a good while until the dome is open/closed.
@@ -145,7 +145,7 @@ class OverwatcherMainTask(OverwatcherTask):
         closed = await ow.dome.is_closing()
 
         observing = ow.observer.is_observing
-        calibrating = ow.state.calibrating
+        calibrating = ow.calibrations.is_calibrating()
 
         _, alerts_status = ow.alerts.is_safe()
 
@@ -378,7 +378,7 @@ class Overwatcher(NotifierMixIn):
 
         dome_closed = await self.dome.is_closing()
         observing = self.observer.is_observing
-        calibrating = self.state.calibrating
+        calibrating = self.calibrations.is_calibrating()
 
         if disable_overwatcher and self.state.enabled:
             self.state.enabled = False
