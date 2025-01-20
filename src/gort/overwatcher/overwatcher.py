@@ -201,22 +201,19 @@ class OverwatcherMainTask(OverwatcherTask):
     async def handle_daytime(self):
         """Handles daytime conditions."""
 
-        # Don't do anything if we are calibrating. If a calibration script opened the
-        # dome it should close it afterwards.
-        if self.overwatcher.state.calibrating:
+        # Don't do anything if we are calibrating.
+        # If a calibration script opened the dome it should close it afterwards.
+        if self.overwatcher.calibrations.is_calibrating():
             return
 
-        # Also don't do anything if the overwatcher is not enabled.
-        # TODO: maybe we should close the dome if it's open?
-        if not self.overwatcher.state.enabled:
-            return
-
+        # Do not disabled the overwatcher. We want to allow users to enable it
+        # during the day prior to observations.
         await self.overwatcher.shutdown(
             reason="Daytime conditions detected.",
             level="info",
             close_dome=True,
             retry=True,
-            disable_overwatcher=True,
+            disable_overwatcher=False,
             park=True,
             cancel_safe_calibrations=False,
         )
