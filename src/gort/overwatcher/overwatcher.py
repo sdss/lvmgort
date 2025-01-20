@@ -152,7 +152,8 @@ class OverwatcherMainTask(OverwatcherTask):
         is_raining = bool(alerts_status & ActiveAlert.RAIN)
         e_stops_in = bool(alerts_status & ActiveAlert.E_STOPS)
 
-        disable_overwatcher = is_raining or e_stops_in
+        close_dome: bool = True
+        disable_overwatcher: bool = is_raining or e_stops_in
 
         # If we are not observing and the e-stops are in, we don't close the dome.
         # Just disable the overwatcher if it is on.
@@ -180,10 +181,11 @@ class OverwatcherMainTask(OverwatcherTask):
                     "E-stop buttons are pressed. Dome won't be closed.",
                     level="warning",
                 )
+                close_dome = False
 
             await ow.shutdown(
                 reason=f"Unsafe conditions detected: {alert_names}",
-                close_dome=not closed and not e_stops_in,
+                close_dome=close_dome,
                 disable_overwatcher=disable_overwatcher,
             )
 
@@ -439,7 +441,7 @@ class Overwatcher(NotifierMixIn):
             )
 
         # Step 3: close the dome.
-        if close_dome:
+        if close_dome and not dome_closed:
             try:
                 await asyncio.wait_for(
                     self.dome.close(retry=retry, park=park),
