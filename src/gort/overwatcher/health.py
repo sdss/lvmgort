@@ -43,17 +43,7 @@ class EmitHeartbeatTask(OverwatcherModuleTask["HealthOverwatcher"]):
 
         while True:
             try:
-                cmd = await self.gort.send_command(
-                    "lvmbeat",
-                    "set overwatcher",
-                    time_limit=5,
-                )
-
-                if cmd.status.did_fail:
-                    if cmd.status & CommandStatus.TIMEDOUT:
-                        raise RuntimeError("Timed out setting overwatcher heartbeat.")
-                    raise RuntimeError("Failed to set overwatcher heartbeat.")
-
+                await self.emit_heartbeat()
             except Exception as err:
                 self.overwatcher.log.error(
                     f"Failed to set overwatcher heartbeat: {decap(err)}",
@@ -61,6 +51,21 @@ class EmitHeartbeatTask(OverwatcherModuleTask["HealthOverwatcher"]):
                 )
 
             await asyncio.sleep(self.INTERVAL)
+
+    @Retrier(max_attempts=3, delay=1)
+    async def emit_heartbeat(self):
+        """Emits the heartbeats, with retries."""
+
+        cmd = await self.gort.send_command(
+            "lvmbeat",
+            "set overwatcher",
+            time_limit=5,
+        )
+
+        if cmd.status.did_fail:
+            if cmd.status & CommandStatus.TIMEDOUT:
+                raise RuntimeError("Timed out setting overwatcher heartbeat.")
+            raise RuntimeError("Failed to set overwatcher heartbeat.")
 
 
 class ActorHealthMonitorTask(OverwatcherModuleTask["HealthOverwatcher"]):
