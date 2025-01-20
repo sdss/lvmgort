@@ -463,6 +463,9 @@ class Overwatcher(NotifierMixIn):
         if park:
             await asyncio.wait_for(self.gort.telescopes.park(disable=True), timeout=120)
 
+        # Acknowledge any pending shutdown.
+        self.state.shutdown_pending = False
+
     async def cancel(self):
         """Cancels the overwatcher tasks."""
 
