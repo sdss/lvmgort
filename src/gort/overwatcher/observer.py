@@ -239,6 +239,7 @@ class ObserverOverwatcher(OverwatcherModule):
         observer = self.gort.observer
 
         n_tile_positions = 0
+        schedule_shudtown: bool = False
 
         while True:
             try:
@@ -262,7 +263,12 @@ class ObserverOverwatcher(OverwatcherModule):
                     await self.overwatcher.troubleshooter.wait_until_ready(300)
 
                     if not self.check_twilight():
+                        await self.notify(
+                            "Twilight will be reached before the next exposure "
+                            "completes. Stopping observations now."
+                        )
                         self.cancel()
+                        schedule_shudtown = True
                         break
 
                     # The exposure will complete in 900 seconds + acquisition + readout
@@ -337,6 +343,11 @@ class ObserverOverwatcher(OverwatcherModule):
 
         await self.gort.cleanup(readout=False)
         await self.notify("The observing loop has ended.")
+
+        if schedule_shudtown:
+            # Do not set shutdown_pending until here to prevent the main overwatcher
+            # task cancelling the last exposure.
+            self.overwatcher.state.shutdown_pending = True
 
     def check_twilight(self) -> bool:
         """Checks if we are close to the morning twilight to continue observing."""

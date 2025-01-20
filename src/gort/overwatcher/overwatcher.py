@@ -48,6 +48,8 @@ class OverwatcherState:
     allow_calibrations: bool = True
     dry_run: bool = False
 
+    shutdown_pending: bool = False
+
 
 class OverwatcherTask(OverwatcherBaseTask):
     """Overwatcher task that is aware of the overwatcher instance."""
@@ -110,6 +112,15 @@ class OverwatcherMainTask(OverwatcherTask):
 
                 if not ow.state.enabled:
                     await self.handle_disabled()
+
+                if ow.state.shutdown_pending:
+                    await ow.shutdown(
+                        close_dome=True,
+                        retry=True,
+                        park=True,
+                        disable_overwatcher=True,
+                        cancel_safe_calibrations=False,
+                    )
 
                 # Run daily tasks.
                 await ow.daily_tasks.run_all()
@@ -188,7 +199,7 @@ class OverwatcherMainTask(OverwatcherTask):
                 )
 
     async def handle_daytime(self):
-        """Handles daytime."""
+        """Handles daytime conditions."""
 
         # Don't do anything if we are calibrating. If a calibration script opened the
         # dome it should close it afterwards.
@@ -200,18 +211,8 @@ class OverwatcherMainTask(OverwatcherTask):
         if not self.overwatcher.state.enabled:
             return
 
-        reason_for_shutdown: str | None = None
-
-        if self.overwatcher.state.night is False:
-            reason_for_shutdown = "Daytime conditions detected."
-        elif not self.overwatcher.observer.check_twilight():
-            reason_for_shutdown = (
-                "Morning twilight will be reached before the next exposure ends. "
-                "Cancelling observations and closing the dome."
-            )
-
         await self.overwatcher.shutdown(
-            reason=reason_for_shutdown,
+            reason="Daytime conditions detected.",
             level="info",
             close_dome=True,
             retry=True,
