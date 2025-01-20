@@ -88,7 +88,6 @@ class OverwatcherMainTask(OverwatcherTask):
             try:
                 is_safe, _ = ow.alerts.is_safe()
                 is_night = ow.ephemeris.is_night()
-                is_troubleshooting = ow.troubleshooter.is_troubleshooting()
 
                 ow.state.night = is_night
                 ow.state.safe = is_safe
@@ -97,9 +96,7 @@ class OverwatcherMainTask(OverwatcherTask):
                 ow.state.observing = ow.observer.is_observing
                 ow.state.focusing = ow.observer.focusing
 
-                ow.state.troubleshooting = (
-                    ow.state.troubleshooting or is_troubleshooting
-                )
+                ow.state.troubleshooting = ow.is_troubleshooting()
 
                 # TODO: should these handlers be scheduled as tasks? Right now
                 # they can block for a good while until the dome is open/closed.
@@ -465,6 +462,17 @@ class Overwatcher(NotifierMixIn):
 
         # Acknowledge any pending shutdown.
         self.state.shutdown_pending = False
+
+    def is_troubleshooting(self) -> bool:
+        """Returns whether the Overwatcher is currently troubleshooting."""
+
+        if self.troubleshooter.troubleshooting:
+            return True
+
+        if self.health.troubleshooting:
+            return True
+
+        return False
 
     async def cancel(self):
         """Cancels the overwatcher tasks."""

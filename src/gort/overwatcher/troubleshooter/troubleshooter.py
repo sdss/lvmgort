@@ -83,7 +83,8 @@ class Troubleshooter:
 
         self._event.set()
 
-    def is_troubleshooting(self) -> bool:
+    @property
+    def troubleshooting(self) -> bool:
         """Returns ``True`` if the troubleshooter is currently handling an error."""
 
         return not self._event.is_set()

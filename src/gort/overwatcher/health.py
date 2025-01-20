@@ -19,6 +19,7 @@ from clu.tools import CommandStatus
 
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 from gort.overwatcher.helpers import get_actor_ping, restart_actors
+from gort.overwatcher.overwatcher import Overwatcher
 from gort.tools import decap
 
 
@@ -127,7 +128,7 @@ class ActorHealthMonitorTask(OverwatcherModuleTask["HealthOverwatcher"]):
                     )
 
             finally:
-                self.overwatcher.state.troubleshooting = False
+                self.module.troubleshooting = False
 
             await asyncio.sleep(self.INTERVAL)
 
@@ -136,12 +137,12 @@ class ActorHealthMonitorTask(OverwatcherModuleTask["HealthOverwatcher"]):
         """Restarts actors that have failed."""
 
         ow = self.overwatcher
-        ow.state.troubleshooting = True
+        self.module.troubleshooting = True
+
+        is_observing = ow.observer.is_observing
+        is_calibrating = ow.calibrations.is_calibrating()
 
         actors_join = ", ".join(failed_actors)
-        is_observing = ow.observer.is_observing
-        is_calibrating = ow.calibrations.get_running_calibration() is not None
-
         await self.notify(f"Found unresponsible actors: {', '.join(failed_actors)}.")
 
         if is_observing:
@@ -178,7 +179,7 @@ class ActorHealthMonitorTask(OverwatcherModuleTask["HealthOverwatcher"]):
 
         await self.notify("Actor restart complete. Resuming normal operations.")
 
-        ow.state.troubleshooting = False
+        self.module.troubleshooting = False
 
 
 class HealthOverwatcher(OverwatcherModule):
@@ -187,3 +188,8 @@ class HealthOverwatcher(OverwatcherModule):
     name = "health"
     tasks = [EmitHeartbeatTask(), ActorHealthMonitorTask()]
     delay = 0
+
+    def __init__(self, overwatcher: Overwatcher):
+        super().__init__(overwatcher)
+
+        self.troubleshooting: bool = False
