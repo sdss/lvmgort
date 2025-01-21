@@ -95,6 +95,7 @@ __all__ = [
     "async_noop",
     "LogNamespace",
     "decap",
+    "ensure_period",
 ]
 
 AnyPath = str | os.PathLike
@@ -1092,3 +1093,12 @@ def decap(string: Any):
         return ""
 
     return string[0].lower() + string[1:]
+
+
+def ensure_period(string: str):
+    """Ensures that a string ends with a period."""
+
+    if not string.strip().endswith("."):
+        string += "."
+
+    return string

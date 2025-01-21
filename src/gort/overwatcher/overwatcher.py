@@ -86,11 +86,8 @@ class OverwatcherMainTask(OverwatcherTask):
 
         while True:
             try:
-                is_safe, _ = ow.alerts.is_safe()
-                is_night = ow.ephemeris.is_night()
-
-                ow.state.night = is_night
-                ow.state.safe = is_safe
+                ow.state.night = ow.ephemeris.is_night()
+                ow.state.safe, _ = ow.alerts.is_safe()
 
                 ow.state.calibrating = ow.calibrations.is_calibrating()
                 ow.state.observing = ow.observer.is_observing
@@ -101,10 +98,13 @@ class OverwatcherMainTask(OverwatcherTask):
                 # TODO: should these handlers be scheduled as tasks? Right now
                 # they can block for a good while until the dome is open/closed.
 
-                if not is_safe:
+                if not ow.state.safe:
                     await self.handle_unsafe()
 
-                if not is_night:
+                if not ow.ephemeris.is_night(mode="observer"):
+                    # We use the observer mode to allow stopping some minutes
+                    # before the end of the night but will check if an exposure
+                    # is running in handle_daytime().
                     await self.handle_daytime()
 
                 if not ow.state.enabled:
@@ -204,6 +204,25 @@ class OverwatcherMainTask(OverwatcherTask):
         # If a calibration script opened the dome it should close it afterwards.
         if self.overwatcher.calibrations.is_calibrating():
             return
+
+        time_to_morning = self.overwatcher.ephemeris.time_to_morning_twilight() or 0
+
+        # If we are observing, we cancel the tile but wait until it completes.
+        # But include a timeout to avoid waiting forever.
+        if self.overwatcher.observer.is_observing:
+            if time_to_morning and time_to_morning < -600:
+                # If it's been more than 10 minutes since morning twilight, cancel.
+                await self.overwatcher.observer.stop_observing(
+                    immediate=True,
+                    block=True,
+                )
+            else:
+                if not self.overwatcher.observer.is_cancelling:
+                    await self.overwatcher.observer.stop_observing(
+                        immediate=False,
+                        reason="daytime conditions detected",
+                    )
+                return
 
         # Do not disabled the overwatcher. We want to allow users to enable it
         # during the day prior to observations.

@@ -19,7 +19,7 @@ from gort.overwatcher import OverwatcherModule
 from gort.overwatcher.core import OverwatcherModuleTask
 from gort.overwatcher.transparency import TransparencyQuality
 from gort.tile import Tile
-from gort.tools import cancel_task, decap, run_in_executor
+from gort.tools import cancel_task, decap, ensure_period, run_in_executor
 
 
 if TYPE_CHECKING:
@@ -176,12 +176,10 @@ class ObserverOverwatcher(OverwatcherModule):
     async def stop_observing(
         self,
         immediate: bool = False,
-        reason: str = "undefined",
+        reason: str | None = None,
         block: bool = False,
     ):
         """Stops observations."""
-
-        notify = self.overwatcher.notify
 
         if self.overwatcher.state.dry_run:
             return
@@ -189,25 +187,30 @@ class ObserverOverwatcher(OverwatcherModule):
         if not self.is_observing:
             return
 
+        # Prepare the notification message.
+        msg = "Stopping observations "
+        if immediate:
+            msg += "immediately."
+        else:
+            msg += "after the current tile completes."
+
+        if reason is not None:
+            msg += f" Reason: {decap(reason)}"
+
+        await self.overwatcher.notify(ensure_period(msg), level="info")
+
+        # Cancel the observing loop.
         self.cancel()
 
-        if not reason.endswith("."):
-            reason += "."
-
+        # If immediate, cancel the task now and cleanup.
         if immediate:
-            await notify(f"Stopping observations immediately. Reason: {decap(reason)}")
             self.observe_loop = await cancel_task(self.observe_loop)
 
             # The guiders may have been left running or the spectrograph may still
             # be exposing. Clean up to avoid issues.
             await self.gort.cleanup(readout=False)
 
-        else:
-            await notify(
-                "Stopping observations after this tile completes. "
-                f"Reason: {decap(reason)}"
-            )
-
+        # If block, wait for the observing loop to finish.
         if block and self.observe_loop and not self.observe_loop.done():
             await self.observe_loop
             self.observe_loop = None
