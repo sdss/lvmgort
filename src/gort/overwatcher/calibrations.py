@@ -392,7 +392,7 @@ class CalibrationSchedule:
                 return cal
 
         overwatcher = self.cals_overwatcher.overwatcher
-        open_dome_buffer = overwatcher.config["overwatcher.scheduler.open_dome_buffer"]
+        open_dome_buffer = overwatcher.config["overwatcher.schedule.open_dome_buffer"]
 
         # Do not allow calibrations if the Overwatcher is troubleshooting.
         if overwatcher.state.troubleshooting:

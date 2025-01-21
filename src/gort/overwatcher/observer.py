@@ -13,8 +13,6 @@ from time import time
 
 from typing import TYPE_CHECKING
 
-from astropy.time import Time
-
 from gort.exceptions import GortError, OverwatcherError, TroubleshooterTimeoutError
 from gort.exposure import Exposure
 from gort.overwatcher import OverwatcherModule
@@ -48,13 +46,12 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
         # the loop.
 
         state = self.overwatcher.state
+        ephemeris = self.overwatcher.ephemeris
 
-        OPEN_DOME_SECS_BEFORE_TWILIGHT = self.module.OPEN_DOME_SECS_BEFORE_TWILIGHT
-        STOP_SECS_BEFORE_MORNING = self.module.STOP_SECS_BEFORE_MORNING
+        # Number of seconds before evening twilight when to open the dome.
+        open_dome_secs = self.config["overwatcher.schedule.stop_secs_before_morning"]
 
         while True:
-            ephemeris = self.overwatcher.ephemeris.ephemeris
-
             if state.dry_run:
                 pass
 
@@ -64,23 +61,18 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
             elif not state.enabled or state.troubleshooting:
                 pass
 
-            elif not ephemeris:
+            elif not ephemeris.ephemeris:
                 pass
 
             elif state.calibrating:
                 pass
 
-            elif state.safe and state.night:
-                # Not open within STOP_SECS_BEFORE_MORNING minutes of morning twilight.
+            elif not state.safe:
+                pass
 
-                now = time()
-                morning_twilight = Time(ephemeris.twilight_start, format="jd").unix
-                time_to_morning_twilight = morning_twilight - now
-
-                if time_to_morning_twilight < STOP_SECS_BEFORE_MORNING:
-                    await asyncio.sleep(self.interval)
-                    continue
-
+            elif ephemeris.is_night(mode="observer"):
+                # Start observing if it's night (after evening twilight) but not too
+                # close to the morning twilight.
                 try:
                     await self.module.start_observing()
                 except Exception as err:
@@ -91,24 +83,15 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
                     )
                     await asyncio.sleep(15)
 
-            elif state.safe and not state.night and not state.calibrating:
-                # Open the dome OPEN_DOME_SECS_BEFORE_TWILIGHT before evening twilight.
+            else:
+                # If we are within open_dome_secs_before_twilight seconds
+                # of the evening twilight, open the dome to be ready for observing.
 
-                now = time()
-                evening_twilight = Time(ephemeris.twilight_end, format="jd").unix
-                time_to_evening_twilight = evening_twilight - now
-
-                if (
-                    time_to_evening_twilight > 0
-                    and time_to_evening_twilight < OPEN_DOME_SECS_BEFORE_TWILIGHT
-                ):
-                    dome_open = await self.overwatcher.dome.is_opening()
-                    if not dome_open:
-                        await self.notify(
-                            "Running the start-up sequence and "
-                            "opening the dome for observing."
-                        )
-                        await self.overwatcher.dome.startup()
+                time_to_twilight = ephemeris.time_to_evening_twilight() or -1
+                if time_to_twilight > 0 and time_to_twilight < open_dome_secs:
+                    if not await self.overwatcher.dome.is_opening():
+                        await self.notify("Opening the dome for observing.")
+                        await self.overwatcher.dome.open()
 
             await asyncio.sleep(self.interval)
 
@@ -118,9 +101,6 @@ class ObserverOverwatcher(OverwatcherModule):
     delay = 5
 
     tasks = [ObserverMonitorTask()]
-
-    OPEN_DOME_SECS_BEFORE_TWILIGHT: float = 300
-    STOP_SECS_BEFORE_MORNING: float = 600
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -181,7 +161,7 @@ class ObserverOverwatcher(OverwatcherModule):
             try:
                 self._starting_observations = True
                 await self.notify("Running the start-up sequence and opening the dome.")
-                await self.overwatcher.dome.startup()
+                await self.overwatcher.startup()
             except Exception:
                 # If the dome failed to open that will disable the
                 # Overwatcher and prevent the startup to run again.
@@ -262,7 +242,7 @@ class ObserverOverwatcher(OverwatcherModule):
 
                     await self.overwatcher.troubleshooter.wait_until_ready(300)
 
-                    if not self.check_twilight():
+                    if not self.overwatcher.ephemeris.is_night(mode="observer"):
                         await self.notify(
                             "Twilight will be reached before the next exposure "
                             "completes. Stopping observations now."
@@ -348,27 +328,6 @@ class ObserverOverwatcher(OverwatcherModule):
             # Do not set shutdown_pending until here to prevent the main overwatcher
             # task cancelling the last exposure.
             self.overwatcher.state.shutdown_pending = True
-
-    def check_twilight(self) -> bool:
-        """Checks if we are close to the morning twilight to continue observing."""
-
-        ephemeris = self.overwatcher.ephemeris
-
-        if not ephemeris.is_night():
-            return False
-
-        time_to_twilight = ephemeris.time_to_morning_twilight()
-
-        if time_to_twilight is None:
-            self.log.warning("Failed to get time to morning twilight.")
-            return True
-
-        # Stop observing STOP_SECS_BEFORE_MORNING seconds before morning twilight.
-        # This prevents starting an exposure that will be interrupted.
-        if time_to_twilight > self.STOP_SECS_BEFORE_MORNING:
-            return True
-
-        return False
 
     async def check_focus(self, force: bool = False):
         """Checks if it's time to focus the telescope."""

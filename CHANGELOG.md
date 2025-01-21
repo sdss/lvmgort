@@ -5,6 +5,7 @@
 ### ✨ Improved
 
 * Added try-excepts and timeouts to the different tasks in the Overwatcher shutdown routine to ensure that the dome closure is always attempted.
+* Move `DomeHelper.startup()` to `Overwatcher.startup()` and clean up observer code.
 * Retry emitting Overwatcher heartbeats.
 
 ### 🔧 Fixed

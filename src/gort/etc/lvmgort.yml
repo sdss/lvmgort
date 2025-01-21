@@ -284,8 +284,10 @@ services:
 overwatcher:
   lock_timeout_on_unsafe: 1800
 
-  scheduler:
-    open_dome_buffer: 300
+  schedule:
+    open_dome_buffer: 200
+    open_dome_secs_before_twilight: 300
+    stop_secs_before_morning: 600
 
   disabled_actors: null
 

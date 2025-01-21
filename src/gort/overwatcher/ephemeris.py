@@ -12,6 +12,8 @@ import asyncio
 import pathlib
 from time import time
 
+from typing import Literal
+
 from astropy.time import Time
 from pydantic import BaseModel
 
@@ -100,6 +102,8 @@ class EphemerisOverwatcher(OverwatcherModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.config = self.overwatcher.config
+
         self.sjd = get_sjd("LCO")
         self.ephemeris: EphemerisModel | None = None
         self.last_updated: float = 0.0
@@ -116,19 +120,48 @@ class EphemerisOverwatcher(OverwatcherModule):
 
         return self.ephemeris
 
-    def is_night(self):
-        """Determines whether it is night-time."""
+    def is_night(self, mode: Literal["normal", "observer"] = "normal"):
+        """Determines whether it is night-time.
+
+        Parameters
+        ----------
+        mode
+            The mode to use. If ``'normal'``, the function will return :obj:`True`
+            if the current time is between 15-degree twilights. If ``'observer'``,
+            it will also return :obj:`False` if we are within
+            ``scheduler.stop_secs_before_morning`` seconds of the morning twilight.
+
+        """
 
         ephemeris = self.ephemeris
         now_jd = float(Time.now().jd)
+
+        stop_secs = self.config["overwatcher.schedule.stop_secs_before_morning"]
 
         if not ephemeris:
             self.log.warning("Ephemeris data not available. is_night() returns False.")
             return False
 
-        return float(ephemeris.twilight_end) < now_jd < float(ephemeris.twilight_start)
+        twilight_end = float(ephemeris.twilight_end)
+        twilight_start = float(ephemeris.twilight_start)
+        if mode == "observer":
+            twilight_start -= stop_secs / 86400
 
-    def time_to_morning_twilight(self):
+        return twilight_end < now_jd < twilight_start
+
+    def time_to_evening_twilight(self):
+        """Returns the time to evening twilight in seconds."""
+
+        ephemeris = self.ephemeris
+        if not ephemeris:
+            return None
+
+        now = time()
+        evening_twilight = Time(ephemeris.twilight_end, format="jd").unix
+
+        return round(evening_twilight - now, 2)
+
+    def time_to_morning_twilight(self, mode: Literal["normal", "observer"] = "normal"):
         """Returns the time to morning twilight in seconds."""
 
         ephemeris = self.ephemeris
@@ -136,6 +169,10 @@ class EphemerisOverwatcher(OverwatcherModule):
             return None
 
         now = time()
+
         twilight_time = Time(ephemeris.twilight_start, format="jd").unix
+        if mode == "observer":
+            stop_secs = self.config["overwatcher.schedule.stop_secs_before_morning"]
+            twilight_time -= stop_secs
 
         return round(twilight_time - now, 2)

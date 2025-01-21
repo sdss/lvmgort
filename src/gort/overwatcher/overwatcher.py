@@ -337,6 +337,21 @@ class Overwatcher(NotifierMixIn):
 
         return self
 
+    async def startup(self, open_dome: bool = True, focus: bool = False):
+        """Runs the startup sequence."""
+
+        # We run up the startup recipe but do not open the dome or focus.
+
+        self.log.info("Running the dome startup sequence.")
+        await self.gort.startup(open_enclosure=False, focus=False)
+
+        # Now we manually open.
+        if open_dome:
+            await self.dome.open()
+
+            if focus:
+                await self.gort.guiders.focus()
+
     async def shutdown(
         self,
         reason: str | None = None,

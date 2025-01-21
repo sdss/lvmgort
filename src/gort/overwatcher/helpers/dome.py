@@ -44,7 +44,6 @@ class DomeHelper:
         self.gort = overwatcher.gort
         self.log = overwatcher.log
 
-        self._action_lock = asyncio.Lock()
         self._move_lock = asyncio.Lock()
 
     @Retrier(max_attempts=3, delay=1)
@@ -222,7 +221,7 @@ class DomeHelper:
                 self._move_lock.release()
 
             await self.overwatcher.shutdown(
-                "dome failed to open/close",
+                "dome failed to open/close.",
                 disable_overwatcher=True,
                 close_dome=False,
             )
@@ -304,14 +303,3 @@ class DomeHelper:
 
         if status & DomeStatus.MOVING:
             raise GortError("Dome is still moving after a stop command.")
-
-    async def startup(self):
-        """Runs the startup sequence."""
-
-        async with self._action_lock:
-            self.log.info("Starting the dome startup sequence.")
-            await self.gort.startup(open_enclosure=False, focus=False)
-
-            # Now we manually open. We do not focus here since that's handled
-            # by the observer module.
-            await self.open()
