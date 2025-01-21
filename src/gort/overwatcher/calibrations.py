@@ -503,11 +503,13 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
                         )
 
                 finally:
-                    if next_calibration.is_finished():
-                        dome_closed = await self.module.overwatcher.dome.is_closing()
-                        if next_calibration.model.close_dome_after and not dome_closed:
-                            await notify(f"Closing the dome after calibration {name}.")
-                            await self.overwatcher.dome.close()
+                    dome_closed = await self.module.overwatcher.dome.is_closing()
+                    if next_calibration.model.close_dome_after and not dome_closed:
+                        await notify(f"Closing the dome after calibration {name}.")
+                        await self.overwatcher.dome.close()
+
+                    if not next_calibration.is_finished():
+                        await next_calibration.record_state(CalibrationState.DONE)
 
             await asyncio.sleep(10)
 
@@ -694,11 +696,12 @@ class CalibrationsOverwatcher(OverwatcherModule):
         await self.overwatcher.gort.execute_recipe(recipe)
 
         await notify(f"Calibration {name} is done.")
+        # We do not set the state to DONE here. That is done in the monitor task
+        # after closing the dome. That prevents collisions with the main task that
+        # is monitorning for daytime conditions.
 
         if name in self._failing_cals:
             self._failing_cals.pop(name)
-
-        await calibration.record_state(CalibrationState.DONE)
 
     async def cancel(self):
         """Cancel the running calibration."""
