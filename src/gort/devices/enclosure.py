@@ -155,6 +155,8 @@ class Enclosure(GortDevice):
         self.lights = Lights(self)
         self.e_stops = E_Stops(self)
 
+        self._dome_lock = asyncio.Lock()
+
     async def restart(self):
         """Restarts the ``lvmecp`` deployment."""
 
@@ -174,8 +176,8 @@ class Enclosure(GortDevice):
     async def allowed_to_move(self):
         """Checks if the dome is allowed to move."""
 
-        dome: ActorReply = await self.actor.commands.dome.commands.status(timeout=5)
-        labels = dome.get("dome_status_labels", default="").split(",")
+        status: ActorReply = await self.actor.commands.dome.commands.status(timeout=5)
+        labels = status.get("dome_status_labels", default="").split(",")
 
         if "DRIVE_ERROR" in labels:
             return False
@@ -235,7 +237,7 @@ class Enclosure(GortDevice):
             )
         else:
             raise GortEnclosureError(
-                "Dome found in error state. Cannot move the dome.",
+                "Not allowed to move the dome.",
                 error_code=ErrorCode.ENCLOSURE_ERROR,
             )
 
@@ -250,18 +252,23 @@ class Enclosure(GortDevice):
 
         """
 
-        await self._check_dome()
+        async with self._dome_lock:
+            if await self.is_open():
+                self.write_to_log("Dome is already open.", level="info")
+                return
 
-        if park_telescopes:
-            await self._park_telescopes()
+            await self._check_dome()
 
-        self.write_to_log("Opening the enclosure ...", level="info")
-        await self.gort.notify_event(Event.DOME_OPENING)
+            if park_telescopes:
+                await asyncio.wait_for(self._park_telescopes(), timeout=120)
 
-        await self.actor.commands.dome.commands.open()
+            self.write_to_log("Opening the enclosure ...", level="info")
+            await self.gort.notify_event(Event.DOME_OPENING)
 
-        self.write_to_log("Enclosure is now open.", level="info")
-        await self.gort.notify_event(Event.DOME_OPEN)
+            await self.actor.commands.dome.commands.open()
+
+            self.write_to_log("Enclosure is now open.", level="info")
+            await self.gort.notify_event(Event.DOME_OPEN)
 
     async def close(
         self,
@@ -293,36 +300,41 @@ class Enclosure(GortDevice):
         if reset_lockout:
             await self.actor.commands.dome.commands.reset()
 
-        await self._check_dome()
+        async with self._dome_lock:
+            if not force and await self.is_closed():
+                self.write_to_log("Dome is already closed.", level="info")
+                return
 
-        if park_telescopes:
-            try:
-                await asyncio.wait_for(self._park_telescopes(), timeout=120)
-            except Exception as err:
-                self.write_to_log(
-                    f"Failed parking the telescopes: {err}",
-                    "error",
-                    exc_info=err,
-                )
-                if force is False:
-                    raise GortEnclosureError(
-                        "Not closing without knowing where the telescopes are. "
-                        "If you really need to close call again with "
-                        "park_telescopes=False and force=True.",
+            await self._check_dome()
+
+            if park_telescopes:
+                try:
+                    await asyncio.wait_for(self._park_telescopes(), timeout=120)
+                except Exception as err:
+                    self.write_to_log(
+                        f"Failed parking the telescopes: {err}",
+                        "error",
+                        exc_info=err,
                     )
-                else:
-                    self.write_to_log("Closing dome because force=True", "warning")
+                    if force is False:
+                        raise GortEnclosureError(
+                            "Not closing without knowing where the telescopes are. "
+                            "If you really need to close call again with "
+                            "park_telescopes=False and force=True.",
+                        )
+                    else:
+                        self.write_to_log("Closing dome because force=True", "warning")
 
-        self.write_to_log("Closing the dome ...", level="info")
-        await self.gort.notify_event(Event.DOME_CLOSING)
+            self.write_to_log("Closing the dome ...", level="info")
+            await self.gort.notify_event(Event.DOME_CLOSING)
 
-        await self.actor.commands.dome.commands.close(
-            force=force,
-            overcurrent=(mode == "overcurrent"),
-        )
+            await self.actor.commands.dome.commands.close(
+                force=force,
+                overcurrent=(mode == "overcurrent"),
+            )
 
-        self.write_to_log("Enclosure is now closed.", level="info")
-        await self.gort.notify_event(Event.DOME_CLOSED)
+            self.write_to_log("Enclosure is now closed.", level="info")
+            await self.gort.notify_event(Event.DOME_CLOSED)
 
     async def is_open(self):
         """Returns :obj:`True` if the enclosure is open."""
