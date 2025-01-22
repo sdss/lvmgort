@@ -48,9 +48,6 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
         state = self.overwatcher.state
         ephemeris = self.overwatcher.ephemeris
 
-        # Number of seconds before evening twilight when to open the dome.
-        open_dome_secs = self.config["overwatcher.schedule.stop_secs_before_morning"]
-
         while True:
             if state.dry_run:
                 pass
@@ -82,16 +79,6 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
                         level="error",
                     )
                     await asyncio.sleep(15)
-
-            else:
-                # If we are within open_dome_secs_before_twilight seconds
-                # of the evening twilight, open the dome to be ready for observing.
-
-                time_to_twilight = ephemeris.time_to_evening_twilight() or -1
-                if time_to_twilight > 0 and time_to_twilight < open_dome_secs:
-                    if not await self.overwatcher.dome.is_opening():
-                        await self.notify("Opening the dome for observing.")
-                        await self.overwatcher.dome.open()
 
             await asyncio.sleep(self.interval)
 
@@ -217,6 +204,18 @@ class ObserverOverwatcher(OverwatcherModule):
 
     async def observe_loop_task(self):
         """Runs the observing loop."""
+
+        # Check that we have not started too early (this happens when we open the dome
+        # a bit early to avoid wasting time). If so, wait until we are properly in
+        # the observing window.
+        if not self.overwatcher.ephemeris.is_night():
+            time_to_twilight = self.overwatcher.ephemeris.time_to_evening_twilight()
+            if time_to_twilight and time_to_twilight > 0:
+                await self.notify(
+                    f"Waiting until evening twilight to start observing "
+                    f"({time_to_twilight:.0f} seconds)."
+                )
+                await asyncio.sleep(time_to_twilight)
 
         await self.gort.cleanup(readout=True)
         observer = self.gort.observer
