@@ -299,5 +299,7 @@ overwatcher:
     name: lvm.overwatcher
     host: localhost
     port: 5672
+    models:
+      - lvmecp
     log_dir: /data/logs/lvmgort/overwatcher
     console_verbosity: WARNING

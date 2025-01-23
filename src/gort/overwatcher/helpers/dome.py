@@ -45,13 +45,38 @@ class DomeHelper:
         self.log = overwatcher.log
 
         self._move_lock = asyncio.Lock()
+        self.locked: bool = False  # Prevents the dome from operating.
+
+    def reset(self):
+        """Resets the dome lock."""
+
+        self.locked = False
 
     @Retrier(max_attempts=3, delay=1)
-    async def status(self):
-        """Returns the status of the dome."""
+    async def status(self, force: bool = False):
+        """Returns the status of the dome.
 
-        status = await self.gort.enclosure.status()
-        labels = status["dome_status_labels"].split(",")
+        Parameters
+        ----------
+        force
+            If :obj:`True`, will force the status check by issuing a command to
+            the ``lvmecp`` actor. If :obj:`False` and the ``lvmecp`` actor model
+            is being tracked by the `.Gort` instance, uses the last seen value.
+
+        """
+
+        if force:
+            status = await self.gort.enclosure.status()
+            labels = status["dome_status_labels"]
+        else:
+            try:
+                labels = self.gort.models["lvmecp"]["dome_status_labels"].value
+                if labels is None:
+                    raise ValueError("dome_status_labels is None.")
+            except Exception:
+                return await self.status(force=True)
+
+        labels = labels.split(",")
 
         if "MOTOR_OPENING" in labels:
             return DomeStatus.OPENING | DomeStatus.MOVING
@@ -170,6 +195,9 @@ class DomeHelper:
     ):
         """Moves the dome."""
 
+        if self.locked:
+            raise GortError("Dome is locked. Cannot open/close.")
+
         if open and not self.overwatcher.state.safe:
             raise GortError("Cannot open the dome when conditions are unsafe.")
 
@@ -221,10 +249,13 @@ class DomeHelper:
                 self._move_lock.release()
 
             await self.overwatcher.shutdown(
-                "dome failed to open/close.",
+                "dome failed to open/close. Disabling the overwatcher "
+                "and locking the dome. No further attempts will be made to "
+                "open/close until the dome lock is reset.",
                 disable_overwatcher=True,
                 close_dome=False,
             )
+            self.locked = True
 
             raise
 
