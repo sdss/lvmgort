@@ -139,7 +139,8 @@ class OverwatcherMainTask(OverwatcherTask):
 
         ow = self.overwatcher
 
-        closed = await ow.dome.is_closing()
+        dome_closed = await ow.dome.is_closing()
+        dome_locked = ow.dome.locked
 
         observing = ow.observer.is_observing
         calibrating = ow.calibrations.is_calibrating()
@@ -161,12 +162,12 @@ class OverwatcherMainTask(OverwatcherTask):
             return
 
         # Don't try to do anything fancy here. Just close the dome first.
-        if is_raining and not closed and not e_stops_in:
+        if is_raining and not e_stops_in and not dome_closed and not dome_locked:
             await ow.notify("Rain detected. Closing the dome.", level="critical")
             await ow.dome.close(retry=True)
             await asyncio.sleep(5)
 
-        if not closed or observing or calibrating:
+        if not dome_closed or observing or calibrating:
             alert_names = (
                 alerts_status.name.replace("|", " | ")
                 if alerts_status.name
@@ -186,7 +187,7 @@ class OverwatcherMainTask(OverwatcherTask):
                 disable_overwatcher=disable_overwatcher,
             )
 
-            if not closed:
+            if not dome_closed:
                 # If we have to close because of unsafe conditions, we
                 # don't want to reopen too soon. We lock the dome for some time.
                 timeout = ow.config["overwatcher.lock_timeout_on_unsafe"]
@@ -410,7 +411,8 @@ class Overwatcher(NotifierMixIn):
         """
 
         dome_closed = await self.dome.is_closing()
-        observing = self.observer.is_observing
+        dome_locked = self.dome.locked
+
         calibrating = self.calibrations.is_calibrating()
 
         if disable_overwatcher and self.state.enabled:
@@ -418,7 +420,7 @@ class Overwatcher(NotifierMixIn):
             await self.notify("The Overwatcher has been disabled.")
 
         # Check if we have already safe and shut down, and if so, return.
-        if dome_closed and not force and not observing and not calibrating:
+        if not force and await self.is_shutdown():
             return
 
         if dome_closed and calibrating and not cancel_safe_calibrations:
@@ -472,7 +474,7 @@ class Overwatcher(NotifierMixIn):
             )
 
         # Step 3: close the dome.
-        if close_dome and not dome_closed:
+        if close_dome and not dome_closed and not dome_locked:
             try:
                 await asyncio.wait_for(
                     self.dome.close(retry=retry, park=park),
@@ -496,6 +498,17 @@ class Overwatcher(NotifierMixIn):
 
         # Acknowledge any pending shutdown.
         self.state.shutdown_pending = False
+
+    async def is_shutdown(self):
+        """Determines whether the observatory is safely shut down."""
+
+        dome_closed = await self.dome.is_closed()
+        dome_locked = self.dome.locked
+
+        observing = self.observer.is_observing
+        calibrating = self.calibrations.is_calibrating()
+
+        return (dome_closed or dome_locked) and not observing and not calibrating
 
     def is_troubleshooting(self) -> bool:
         """Returns whether the Overwatcher is currently troubleshooting."""

@@ -81,6 +81,17 @@ async def disable(command: OverwatcherCommand, now: bool = False):
     return command.finish()
 
 
+@overwatcher_cli.command()
+async def reset(command: OverwatcherCommand):
+    """Resets the Overwatcher."""
+
+    overwatcher = command.actor.overwatcher
+
+    overwatcher.dome.reset()
+
+    return command.finish()
+
+
 @overwatcher_cli.group()
 def calibrations(*_):
     """Handles the automated calibrations."""
@@ -152,10 +163,10 @@ async def list_(command: OverwatcherCommand):
     return command.finish(calibrations_sjd=schedule.sjd, calibrations=response)
 
 
-@calibrations.command()
+@calibrations.command(name="reset")
 @click.argument("CALIBRATION", type=str, required=False)
 @click.option("--include-done", is_flag=True, help="Include done calibrations.")
-async def reset(
+async def calibrations_reset(
     command: OverwatcherCommand,
     calibration: str | None = None,
     include_done: bool = False,

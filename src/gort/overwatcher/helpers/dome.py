@@ -45,6 +45,12 @@ class DomeHelper:
         self.log = overwatcher.log
 
         self._move_lock = asyncio.Lock()
+        self.locked: bool = False  # Prevents the dome from operating.
+
+    def reset(self):
+        """Resets the dome lock."""
+
+        self.locked = False
 
     @Retrier(max_attempts=3, delay=1)
     async def status(self, force: bool = False):
@@ -189,6 +195,9 @@ class DomeHelper:
     ):
         """Moves the dome."""
 
+        if self.locked:
+            raise GortError("Dome is locked. Cannot open/close.")
+
         if open and not self.overwatcher.state.safe:
             raise GortError("Cannot open the dome when conditions are unsafe.")
 
@@ -240,10 +249,13 @@ class DomeHelper:
                 self._move_lock.release()
 
             await self.overwatcher.shutdown(
-                "dome failed to open/close.",
+                "dome failed to open/close. Disabling the overwatcher "
+                "and locking the dome. No further attempts will be made to "
+                "open/close until the dome lock is reset.",
                 disable_overwatcher=True,
                 close_dome=False,
             )
+            self.locked = True
 
             raise
 

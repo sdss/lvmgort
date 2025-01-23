@@ -503,10 +503,19 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
                         )
 
                 finally:
+                    close_dome_after = next_calibration.model.close_dome_after
                     dome_closed = await self.module.overwatcher.dome.is_closing()
-                    if next_calibration.model.close_dome_after and not dome_closed:
-                        await notify(f"Closing the dome after calibration {name}.")
-                        await self.overwatcher.dome.close()
+                    dome_locked = self.overwatcher.dome.locked
+
+                    if close_dome_after and not dome_closed:
+                        if not dome_locked:
+                            await notify(f"Closing the dome after calibration {name}.")
+                            await self.overwatcher.dome.close()
+                        else:
+                            await notify(
+                                "Dome is locked. Not closing it after calibration.",
+                                level="warning",
+                            )
 
                     if not next_calibration.is_finished():
                         await next_calibration.record_state(CalibrationState.DONE)
@@ -725,8 +734,14 @@ class CalibrationsOverwatcher(OverwatcherModule):
             # Ensure we close the dome. This is allowed even
             # if the overwatcher is disabled.
             if running_calibration.model.close_dome_after:
-                await notify(f"Closing the dome after calibration {name}.")
-                await self.overwatcher.dome.close()
+                try:
+                    await notify(f"Closing the dome after calibration {name}.")
+                    await self.overwatcher.dome.close()
+                except Exception as ee:
+                    await notify(
+                        f"Error closing the dome after calibration {name}: {decap(ee)}",
+                        level="error",
+                    )
 
     async def _fail_calibration(
         self,
