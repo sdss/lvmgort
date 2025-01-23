@@ -102,8 +102,7 @@ class NotifierMixIn(OverwatcherProtocol):
         min_time_between_repeat_notifications
             The minimum time in seconds between repeated notifications. Ignored
             if ``allow_repeat_notifications`` is ``False``. This only affects Slack
-            and email notifications. The notification is always recorded to the
-            database and log if those options are passed.
+            and email notifications. The notification is always recorded to the log.
         raise_on_error
             Whether to raise an exception if the notification fails to send. Otherwise
             the error is logged but the function does not raise.
