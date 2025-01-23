@@ -15,6 +15,7 @@ import pathlib
 import subprocess
 import sys
 import uuid
+import warnings
 from copy import deepcopy
 from functools import partial
 from types import TracebackType
@@ -34,6 +35,7 @@ from rich.logging import RichHandler
 from typing_extensions import Self
 
 from clu.client import AMQPClient
+from clu.exceptions import CluWarning
 from sdsstools.logger import SDSSLogger, get_logger
 from sdsstools.time import get_sjd
 
@@ -449,7 +451,9 @@ class Gort(GortClient):
         await asyncio.gather(*[ractor.init() for ractor in self.actors.values()])
 
         # Monitor the models for all the actors.
-        await asyncio.gather(*[self.models.add_actor(ractor) for ractor in self.actors])
+        with warnings.catch_warnings(category=CluWarning):
+            warnings.simplefilter("ignore")
+            await asyncio.gather(*[self.models.add_actor(act) for act in self.actors])
 
         # Initialise device sets.
         await asyncio.gather(*[dev.init() for dev in self.__device_sets])
