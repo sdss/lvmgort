@@ -4,6 +4,7 @@
 
 ### ✨ Improved
 
+* [#47](https://github.com/sdss/lvmgort/pull/47) Add `DomeHelper` lock when the dome fails to move.
 * Added try-excepts and timeouts to the different tasks in the Overwatcher shutdown routine to ensure that the dome closure is always attempted.
 * Move `DomeHelper.startup()` to `Overwatcher.startup()` and clean up observer code.
 * Retry emitting Overwatcher heartbeats.
