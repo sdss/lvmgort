@@ -445,7 +445,11 @@ class Gort(GortClient):
                         error_code=ErrorCode.OVERATCHER_RUNNING,
                     )
 
+        # Initialise remote actors.
         await asyncio.gather(*[ractor.init() for ractor in self.actors.values()])
+
+        # Monitor the models for all the actors.
+        await asyncio.gather(*[self.models.add_actor(ractor) for ractor in self.actors])
 
         # Initialise device sets.
         await asyncio.gather(*[dev.init() for dev in self.__device_sets])

@@ -47,11 +47,30 @@ class DomeHelper:
         self._move_lock = asyncio.Lock()
 
     @Retrier(max_attempts=3, delay=1)
-    async def status(self):
-        """Returns the status of the dome."""
+    async def status(self, force: bool = False):
+        """Returns the status of the dome.
 
-        status = await self.gort.enclosure.status()
-        labels = status["dome_status_labels"].split(",")
+        Parameters
+        ----------
+        force
+            If :obj:`True`, will force the status check by issuing a command to
+            the ``lvmecp`` actor. If :obj:`False` and the ``lvmecp`` actor model
+            is being tracked by the `.Gort` instance, uses the last seen value.
+
+        """
+
+        if not force:
+            status = await self.gort.enclosure.status()
+            labels = status["dome_status_labels"]
+        else:
+            try:
+                labels = self.gort.models["lvmecp"]["dome_status_labels"].value
+                if labels is None:
+                    raise ValueError("dome_status_labels is None.")
+            except Exception:
+                return await self.status(force=False)
+
+        labels = labels.split(",")
 
         if "MOTOR_OPENING" in labels:
             return DomeStatus.OPENING | DomeStatus.MOVING
