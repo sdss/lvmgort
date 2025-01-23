@@ -65,7 +65,7 @@ class DomeHelper:
 
         """
 
-        if not force:
+        if force:
             status = await self.gort.enclosure.status()
             labels = status["dome_status_labels"]
         else:
@@ -74,7 +74,7 @@ class DomeHelper:
                 if labels is None:
                     raise ValueError("dome_status_labels is None.")
             except Exception:
-                return await self.status(force=False)
+                return await self.status(force=True)
 
         labels = labels.split(",")
 
