@@ -11,6 +11,7 @@
         "calibrating": { "type": "boolean" },
         "night": { "type": "boolean" },
         "safe": { "type": "boolean" },
+        "alerts": { "type": "array", "items": { "type": "string" } },
         "allow_calibrations": { "type": "boolean" },
         "dry_run": { "type": "boolean" }
       }

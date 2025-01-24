@@ -45,6 +45,7 @@ class OverwatcherState:
     focusing: bool = False
     night: bool = False
     safe: bool = False
+    alerts: list[str] = dataclasses.field(default_factory=list)
     allow_calibrations: bool = True
     dry_run: bool = False
 
@@ -87,7 +88,13 @@ class OverwatcherMainTask(OverwatcherTask):
         while True:
             try:
                 ow.state.night = ow.ephemeris.is_night()
-                ow.state.safe, _ = ow.alerts.is_safe()
+
+                ow.state.safe, alerts_bits = ow.alerts.is_safe()
+                ow.state.alerts = [
+                    alert.name
+                    for alert in ActiveAlert
+                    if (alerts_bits & alert) and alert.name
+                ]
 
                 ow.state.calibrating = ow.calibrations.is_calibrating()
                 ow.state.observing = ow.observer.is_observing

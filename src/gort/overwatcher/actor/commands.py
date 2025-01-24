@@ -40,6 +40,7 @@ async def status(command: OverwatcherCommand):
                 "observing": overwatcher.state.observing,
                 "calibrating": overwatcher.state.calibrating,
                 "safe": overwatcher.state.safe,
+                "alerts": overwatcher.state.alerts,
                 "night": overwatcher.state.night,
                 "allow_calibrations": overwatcher.state.allow_calibrations,
                 "dry_run": overwatcher.state.dry_run,
