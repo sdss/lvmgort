@@ -154,6 +154,25 @@ class OverwatcherMainTask(OverwatcherTask):
 
         _, alerts_status = ow.alerts.is_safe()
 
+        # If the only alert is that the dome is locked there is not much we
+        # can do, so we just continue ...
+        if alerts_status & ActiveAlert.DOME_LOCKED and not dome_closed:
+            if alerts_status == ActiveAlert.DOME_LOCKED:
+                msg = (
+                    "Dome is locked and cannot be closed. This should be checked "
+                    "but continuing observations for now since conditions are safe."
+                )
+                level = "warning"
+            else:
+                msg = (
+                    "Dome is locked and cannot be closed. Other alerts are present. "
+                    "Please check this situation ASAP."
+                )
+                level = "critical"
+
+            await ow.notify(msg, level=level, min_time_between_repeat_notifications=600)
+            return
+
         is_raining = bool(alerts_status & ActiveAlert.RAIN)
         e_stops_in = bool(alerts_status & ActiveAlert.E_STOPS)
 

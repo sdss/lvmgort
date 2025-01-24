@@ -68,6 +68,7 @@ class ActiveAlert(enum.Flag):
     LOCKED = enum.auto()
     ALERTS_UNAVAILABLE = enum.auto()
     DISCONNECTED = enum.auto()
+    DOME_LOCKED = enum.auto()
     UNKNOWN = enum.auto()
 
 
@@ -188,6 +189,11 @@ class AlertsOverwatcher(OverwatcherModule):
         if self.connectivity.lco.is_set():
             self.log.warning("Internal LCO connectivity lost.")
             active_alerts |= ActiveAlert.DISCONNECTED
+            is_safe = False
+
+        if self.overwatcher.dome.locked:
+            self.log.warning("Dome is locked.")
+            active_alerts |= ActiveAlert.DOME_LOCKED
             is_safe = False
 
         # These alerts are not critical but we log them.
