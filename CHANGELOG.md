@@ -9,6 +9,8 @@
 * Move `DomeHelper.startup()` to `Overwatcher.startup()` and clean up observer code.
 * Retry emitting Overwatcher heartbeats.
 * Add additional checks to prevent concurrent attempts to open/close the dome.
+* Improve handling of errors during the focusing sequence in the Overwatcher.
+* Clarify the behaviour of `min_time_between_repeat_notifications` in the `NotifierMixIn` class.
 
 ### 🔧 Fixed
 

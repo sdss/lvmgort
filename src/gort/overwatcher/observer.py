@@ -13,6 +13,8 @@ from time import time
 
 from typing import TYPE_CHECKING
 
+from lvmopstools.retrier import Retrier
+
 from gort.exceptions import GortError, OverwatcherError, TroubleshooterTimeoutError
 from gort.exposure import Exposure
 from gort.overwatcher import OverwatcherModule
@@ -336,6 +338,9 @@ class ObserverOverwatcher(OverwatcherModule):
 
         should_focus: bool = False
 
+        # Retry focusing up to 2 times with a 10 second delay and a 150 second timeout.
+        focus_retrier = Retrier(max_attempts=2, delay=10, timeout=150)
+
         if not force:
             # Check if we should refocus.
             focus_info = await self.gort.guiders.sci.get_focus_info()
@@ -353,16 +358,21 @@ class ObserverOverwatcher(OverwatcherModule):
             try:
                 self.focusing = True
                 await self.notify("Focusing telescopes.")
-                await self.gort.guiders.focus()
+                await focus_retrier(self.gort.guiders.focus)()
             except Exception as err:
                 await self.notify(
-                    f"Failed while focusing the telescopes: {decap(err)}",
+                    f"Failed while focusing the telescopes twice: {decap(err)}",
                     level="error",
                 )
-                raise
+                await self.notify(
+                    "I will continue observations and try to "
+                    "focus again after the next tile."
+                )
+                self.force_focus = True
             else:
-                self.focusing = False
                 self.force_focus = False
+            finally:
+                self.focusing = False
 
     async def pre_observe_checks(self):
         """Runs pre-observe checks."""
