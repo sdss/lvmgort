@@ -2,6 +2,10 @@
 
 ## Next version
 
+### ✨ Improved
+
+* Try-except the final closure of the dome after a calibration.
+
 ### 🏷️ Changed/removed
 
 * Removed the `reset_lockout` argument for the shutdown recipe since it's not required to allow the dome to move.
