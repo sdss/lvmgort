@@ -251,6 +251,12 @@ class OverwatcherMainTask(OverwatcherTask):
                     )
                 return
 
+        # If the overwatcher is disabled, we don't do anything. There is a lower-level
+        # check in the lvmecp that will close the dome during daytime and it can be
+        # disabled for engineering. We don't want to interfere with that.
+        if not self.overwatcher.state.enabled:
+            return
+
         # Do not disabled the overwatcher. We want to allow users to enable it
         # during the day prior to observations.
         await self.overwatcher.shutdown(
