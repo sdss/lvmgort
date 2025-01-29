@@ -275,7 +275,6 @@ class Enclosure(GortDevice):
         park_telescopes: bool = True,
         force: bool = False,
         mode: Literal["normal", "overcurrent"] = "normal",
-        reset_lockout: bool = False,
     ):
         """Close the enclosure dome.
 
@@ -292,13 +291,8 @@ class Enclosure(GortDevice):
             rotary encoder and limit switches. With ``'overcurrent'`` the dome
             is closed until the VFD detects an overcurrent condition.
             ``'overcurrent'`` should only be used when the normal mode has failed.
-        reset_lockout
-            If :obj:`True`, will reset the lockout condition on the dome.
 
         """
-
-        if reset_lockout:
-            await self.actor.commands.dome.commands.reset()
 
         async with self._dome_lock:
             if not force and await self.is_closed():

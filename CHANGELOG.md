@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### 🏷️ Changed/removed
+
+* Removed the `reset_lockout` argument for the shutdown recipe since it's not required to allow the dome to move.
+
+
 ## 1.6.0 - January 26, 2025
 
 ### ✨ Improved
