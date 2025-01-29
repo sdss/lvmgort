@@ -23,7 +23,13 @@ from sdsstools import read_yaml_file
 
 from gort.exceptions import OverwatcherError
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
-from gort.tools import add_night_log_comment, cancel_task, decap, redis_client_sync
+from gort.tools import (
+    add_night_log_comment,
+    cancel_task,
+    decap,
+    redis_client_sync,
+    try_or_pass,
+)
 
 
 if TYPE_CHECKING:
@@ -510,7 +516,7 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
                     if close_dome_after and not dome_closed:
                         if not dome_locked:
                             await notify(f"Closing the dome after calibration {name}.")
-                            await self.overwatcher.dome.close()
+                            await try_or_pass(self.overwatcher.dome.close())
                         else:
                             await notify(
                                 "Dome is locked. Not closing it after calibration.",

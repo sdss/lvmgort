@@ -249,7 +249,7 @@ class DomeHelper:
                 self._move_lock.release()
 
             await self.overwatcher.shutdown(
-                "dome failed to open/close. Disabling the overwatcher "
+                "Dome failed to open/close. Disabling the overwatcher "
                 "and locking the dome. No further attempts will be made to "
                 "open/close until the dome lock is reset.",
                 disable_overwatcher=True,

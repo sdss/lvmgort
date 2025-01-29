@@ -26,11 +26,13 @@ from typing import (
     TYPE_CHECKING,
     Any,
     AsyncGenerator,
+    Awaitable,
     Callable,
     Coroutine,
     Generator,
     Literal,
     Sequence,
+    TypeVar,
 )
 
 import httpx
@@ -96,6 +98,7 @@ __all__ = [
     "LogNamespace",
     "decap",
     "ensure_period",
+    "try_or_pass",
 ]
 
 AnyPath = str | os.PathLike
@@ -1102,3 +1105,15 @@ def ensure_period(string: str):
         string += "."
 
     return string
+
+
+T = TypeVar("T", bound=Any)
+
+
+async def try_or_pass(coro: Awaitable[T]) -> T | None:
+    """Decorator that wraps a coroutine in a try/except block."""
+
+    try:
+        return await coro
+    except Exception:
+        pass
