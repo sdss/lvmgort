@@ -11,7 +11,6 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import pathlib
-from time import time
 
 from typing import TYPE_CHECKING, cast
 
@@ -212,17 +211,6 @@ class OverwatcherMainTask(OverwatcherTask):
                 close_dome=close_dome,
                 disable_overwatcher=disable_overwatcher,
             )
-
-            if not dome_closed:
-                # If we have to close because of unsafe conditions, we
-                # don't want to reopen too soon. We lock the dome for some time.
-                timeout = ow.config["overwatcher.lock_timeout_on_unsafe"]
-                ow.alerts.locked_until = time() + timeout
-
-                await ow.notify(
-                    f"The dome will be locked for {int(timeout)} seconds.",
-                    level="warning",
-                )
 
     async def handle_daytime(self):
         """Handles daytime conditions."""

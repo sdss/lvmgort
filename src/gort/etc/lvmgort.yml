@@ -282,8 +282,6 @@ services:
       notifications: gortdb.notification
 
 overwatcher:
-  lock_timeout_on_unsafe: 1800
-
   schedule:
     open_dome_buffer: 200
     open_dome_secs_before_twilight: 300

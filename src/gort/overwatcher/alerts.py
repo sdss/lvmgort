@@ -65,7 +65,6 @@ class ActiveAlert(enum.Flag):
     CAMERA_TEMPERATURE = enum.auto()
     O2 = enum.auto()
     E_STOPS = enum.auto()
-    LOCKED = enum.auto()
     ALERTS_UNAVAILABLE = enum.auto()
     DISCONNECTED = enum.auto()
     DOME_LOCKED = enum.auto()
@@ -131,7 +130,6 @@ class AlertsOverwatcher(OverwatcherModule):
 
         self.last_updated: float = 0.0
         self.unavailable: bool = False
-        self.locked_until: float = 0
 
     def is_safe(self) -> tuple[bool, ActiveAlert]:
         """Determines whether it is safe to open."""
@@ -208,16 +206,6 @@ class AlertsOverwatcher(OverwatcherModule):
         if self.state.o2_alert:
             self.log.warning("O2 alert detected.")
             active_alerts |= ActiveAlert.O2
-
-        # If we have issued a previous unsafe alert, the main task will close the dome
-        # and put a lock for 30 minutes to prevent the dome from opening/closing too
-        # frequently if the weather is unstable.
-        if self.locked_until > 0 and time() < self.locked_until:
-            is_safe = False
-            active_alerts |= ActiveAlert.LOCKED
-
-        if is_safe:
-            self.locked_until = 0
 
         return is_safe, active_alerts
 
