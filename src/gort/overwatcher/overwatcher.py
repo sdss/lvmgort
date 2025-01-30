@@ -175,7 +175,9 @@ class OverwatcherMainTask(OverwatcherTask):
         is_raining = bool(alerts_status & ActiveAlert.RAIN)
         e_stops_in = bool(alerts_status & ActiveAlert.E_STOPS)
 
-        close_dome: bool = True
+        # Close the dome always if the Overwatcher is enabled or if the alert(s) are
+        # one of the list that always forces the dome to close.
+        close_dome = ow.state.enabled or bool(alerts_status & ActiveAlert.ALWAYS_CLOSE)
         disable_overwatcher: bool = is_raining or e_stops_in
 
         # If we are not observing and the e-stops are in, we don't close the dome.

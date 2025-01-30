@@ -8,6 +8,7 @@
 
 ### 🏷️ Changed/removed
 
+* Prevent automatic dome closure by the Overwatcher if it is disabled and the alert is not critical (wind, humidity, etc.).
 * Removed the `reset_lockout` argument for the shutdown recipe since it's not required to allow the dome to move.
 * Do not close the dome during daytime if the Overwatcher is disabled.
 * Remove dome lockout after unsafe conditions. It may be reimplemented differently in the future.

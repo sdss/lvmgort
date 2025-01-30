@@ -70,6 +70,8 @@ class ActiveAlert(enum.Flag):
     DOME_LOCKED = enum.auto()
     UNKNOWN = enum.auto()
 
+    ALWAYS_CLOSE = HUMIDITY | DEW_POINT | WIND | RAIN
+
 
 class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
     """Monitors the alerts state."""
