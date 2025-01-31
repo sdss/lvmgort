@@ -116,6 +116,11 @@ class OverwatcherMainTask(OverwatcherTask):
                 if not ow.state.enabled:
                     await self.handle_disabled()
 
+                if await ow.dome.is_closing():
+                    # If the dome is closed or closing and we have not commanded
+                    # that, ensure that the observations are stopped.
+                    await self.handle_dome_closing()
+
                 if ow.state.shutdown_pending:
                     await ow.shutdown(
                         close_dome=True,
@@ -271,6 +276,20 @@ class OverwatcherMainTask(OverwatcherTask):
                 immediate=False,
                 reason="overwatcher was disabled",
             )
+
+    async def handle_dome_closing(self):
+        """Stop observations and calibrations if the dome is closing."""
+
+        ow = self.overwatcher
+
+        if ow.observer.is_observing and not ow.observer.is_cancelling:
+            await ow.observer.stop_observing(
+                immediate=True,
+                reason="dome is closing",
+            )
+
+        if ow.calibrations.is_calibrating():
+            await ow.calibrations.cancel()
 
 
 class OverwatcherPingTask(OverwatcherTask):

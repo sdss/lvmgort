@@ -5,10 +5,11 @@
 ### ✨ Improved
 
 * Try-except the final closure of the dome after a calibration.
+* Ensure that the observing loop and calibrations are stopped if the dome is closed outside of the Overwatcher.
 
 ### 🏷️ Changed/removed
 
-* Prevent automatic dome closure by the Overwatcher if it is disabled and the alert is not critical (wind, humidity, etc.).
+* Prevent automatic dome closure by the Overwatcher if it is disabled and the alert is not critical (wind, humidity, etc.)
 * Removed the `reset_lockout` argument for the shutdown recipe since it's not required to allow the dome to move.
 * Do not close the dome during daytime if the Overwatcher is disabled.
 * Remove dome lockout after unsafe conditions. It may be reimplemented differently in the future.
