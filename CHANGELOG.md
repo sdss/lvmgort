@@ -13,6 +13,10 @@
 * Do not close the dome during daytime if the Overwatcher is disabled.
 * Remove dome lockout after unsafe conditions. It may be reimplemented differently in the future.
 
+### 🔧 Fixed
+
+* Fixed a regression that would mark a retrying calibration as done.
+
 
 ## 1.6.0 - January 26, 2025
 

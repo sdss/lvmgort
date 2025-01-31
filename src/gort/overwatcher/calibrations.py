@@ -150,8 +150,7 @@ class Calibration:
         self.start_time, self.max_start_time = self.get_start_time()
 
         self.state = CalibrationState.WAITING
-
-        self._task_queue: set[asyncio.Task] = set()
+        self._start_time_actual: float | None = None
 
     def get_start_time(self) -> tuple[float | None, float | None]:
         """Determines the actual time at which the calibration will start.
@@ -248,6 +247,9 @@ class Calibration:
 
         if state is not None:
             self.state = state
+
+        if state == CalibrationState.RUNNING:
+            self._start_time_actual = time.time()
 
         with redis_client_sync() as redis:
             key = f"overwatcher:calibrations:{self.schedule.sjd}"
@@ -412,6 +414,9 @@ class CalibrationSchedule:
                 done_cals.add(cal.name)
                 continue
 
+            if cal.state == CalibrationState.RETRYING:
+                return cal
+
             # If it's too late to start the calibration, skip it.
             if cal.max_start_time is not None and now > cal.max_start_time:
                 await overwatcher.notify(
@@ -471,13 +476,11 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
     async def task(self):
         """Runs the calibration monitor."""
 
-        # Small delay to make sure the ephemeris have been update and we can
-        # then update the schedule.
-        await asyncio.sleep(5)
-
         notify = self.overwatcher.notify
 
         while True:
+            await asyncio.sleep(10)
+
             next_calibration = await self.module.schedule.get_next()
             allow_calibrations = self.module.overwatcher.state.allow_calibrations
 
@@ -513,6 +516,11 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
                     dome_closed = await self.module.overwatcher.dome.is_closing()
                     dome_locked = self.overwatcher.dome.locked
 
+                    if next_calibration.state == CalibrationState.RETRYING:
+                        # If the calibration is retrying, we do not close the dome
+                        # or mark it as done. Move to the next iteration of the loop.
+                        continue
+
                     if close_dome_after and not dome_closed:
                         if not dome_locked:
                             await notify(f"Closing the dome after calibration {name}.")
@@ -525,8 +533,6 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
 
                     if not next_calibration.is_finished():
                         await next_calibration.record_state(CalibrationState.DONE)
-
-            await asyncio.sleep(10)
 
 
 class CalibrationsOverwatcher(OverwatcherModule):
@@ -551,7 +557,6 @@ class CalibrationsOverwatcher(OverwatcherModule):
 
         self._calibration_task: asyncio.Task | None = None
 
-        self._failing_cals: dict[str, float] = {}
         self._ignore_cals: set[str] = set()
 
     async def reset(self, cals_file: str | pathlib.Path | None = None):
@@ -569,7 +574,6 @@ class CalibrationsOverwatcher(OverwatcherModule):
         if cals_file is not None:
             self.cals_file = cals_file
 
-        self._failing_cals = {}
         self._ignore_cals = set()
 
         try:
@@ -602,6 +606,10 @@ class CalibrationsOverwatcher(OverwatcherModule):
         if name in self._ignore_cals:
             return
 
+        if calibration.is_finished():
+            self.log.warning(f"Calibration {name} is already finished. Skipping.")
+            return
+
         if self.overwatcher.state.dry_run:
             self.log.warning(f"Dry-run mode. Not running calibration {name}.")
             self._ignore_cals.add(name)
@@ -631,7 +639,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
             )
             return
 
-        if name not in self._failing_cals:
+        if calibration.state != CalibrationState.RETRYING:
             await notify(f"Running calibration {name}.")
 
         await calibration.record_state(CalibrationState.RUNNING)
@@ -713,10 +721,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
         await notify(f"Calibration {name} is done.")
         # We do not set the state to DONE here. That is done in the monitor task
         # after closing the dome. That prevents collisions with the main task that
-        # is monitorning for daytime conditions.
-
-        if name in self._failing_cals:
-            self._failing_cals.pop(name)
+        # is monitoring for daytime conditions.
 
     async def cancel(self):
         """Cancel the running calibration."""
@@ -762,6 +767,9 @@ class CalibrationsOverwatcher(OverwatcherModule):
         name = calibration.name
         max_try_time = calibration.model.max_try_time
 
+        was_already_retrying = calibration.state == CalibrationState.RETRYING
+        start_time = calibration._start_time_actual
+
         if max_try_time <= 0 or fail_now:
             await self.overwatcher.notify(message, level=level)
             await calibration.record_state(CalibrationState.FAILED, fail_reason=message)
@@ -769,12 +777,11 @@ class CalibrationsOverwatcher(OverwatcherModule):
 
         await calibration.record_state(CalibrationState.RETRYING)
 
-        if name not in self._failing_cals:
+        if not was_already_retrying:
             await self.overwatcher.notify(message, level=level)
-            self._failing_cals[name] = time.time()
             return
 
-        if time.time() - self._failing_cals[name] > max_try_time:
+        if start_time and time.time() - start_time > max_try_time:
             await self.overwatcher.notify(
                 f"Maximum try time reached for calibration {name}. "
                 "Failing the calibration now.",
@@ -785,7 +792,6 @@ class CalibrationsOverwatcher(OverwatcherModule):
                 fail_reason="maximum time reached trying to run the calibration. "
                 f"Original error: {decap(message)}",
             )
-            self._failing_cals.pop(name)
             return
 
         if repeat_notifications:
