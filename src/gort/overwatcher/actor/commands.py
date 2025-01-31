@@ -63,20 +63,32 @@ async def enable(command: OverwatcherCommand):
 
 
 @overwatcher_cli.command()
-@click.option("--now", is_flag=True, help="Stops observing immediately.")
-@click.option("--close", is_flag=True, help="Closes the dome after stopping observing.")
-async def disable(command: OverwatcherCommand, now: bool = False, close: bool = False):
+@click.option(
+    "--now",
+    is_flag=True,
+    help="Stops observing immediately.",
+)
+@click.option(
+    "--close-dome",
+    is_flag=True,
+    help="Closes the dome after stopping observing.",
+)
+async def disable(
+    command: OverwatcherCommand,
+    now: bool = False,
+    close_dome: bool = False,
+):
     """Disables the overwatcher."""
 
     overwatcher = command.actor.overwatcher
 
-    if close and not now:
+    if close_dome and not now:
         return command.fail("--now is required when using --close.")
 
     if now:
         await overwatcher.shutdown(
             "user disabled the Overwatcher.",
-            close_dome=close,
+            close_dome=close_dome,
             disable_overwatcher=True,
         )
         return
