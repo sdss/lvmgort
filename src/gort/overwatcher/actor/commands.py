@@ -64,18 +64,25 @@ async def enable(command: OverwatcherCommand):
 
 @overwatcher_cli.command()
 @click.option("--now", is_flag=True, help="Stops observing immediately.")
-async def disable(command: OverwatcherCommand, now: bool = False):
+@click.option("--close", is_flag=True, help="Closes the dome after stopping observing.")
+async def disable(command: OverwatcherCommand, now: bool = False, close: bool = False):
     """Disables the overwatcher."""
 
     overwatcher = command.actor.overwatcher
 
+    if close and not now:
+        return command.fail("--now is required when using --close.")
+
     if now:
-        await overwatcher.observer.stop_observing(
-            immediate=True,
-            reason="user disabled observing mode",
+        await overwatcher.shutdown(
+            "user disabled the Overwatcher.",
+            close_dome=close,
+            disable_overwatcher=True,
         )
+        return
 
     if overwatcher.state.enabled:
+        # This will cancel the observing loop after the current tile.
         overwatcher.state.enabled = False
         await overwatcher.notify("Overwatcher has been disabled.")
 

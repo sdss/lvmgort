@@ -6,6 +6,7 @@
 
 * Try-except the final closure of the dome after a calibration.
 * Ensure that the observing loop and calibrations are stopped if the dome is closed outside of the Overwatcher.
+* Add flag `--close` to `lvm.overwatcher disable` to close the dome after disabling the Overwatcher. Requires using `--now`.
 
 ### 🏷️ Changed/removed
 
