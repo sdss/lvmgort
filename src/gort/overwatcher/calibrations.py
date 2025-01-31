@@ -557,8 +557,6 @@ class CalibrationsOverwatcher(OverwatcherModule):
 
         self._calibration_task: asyncio.Task | None = None
 
-        self._ignore_cals: set[str] = set()
-
     async def reset(self, cals_file: str | pathlib.Path | None = None):
         """Resets the list of calibrations for a new SJD.
 
@@ -573,8 +571,6 @@ class CalibrationsOverwatcher(OverwatcherModule):
 
         if cals_file is not None:
             self.cals_file = cals_file
-
-        self._ignore_cals = set()
 
         try:
             self.schedule.update_schedule(self.cals_file)
@@ -603,16 +599,13 @@ class CalibrationsOverwatcher(OverwatcherModule):
         dome = calibration.model.dome
         recipe = calibration.model.recipe
 
-        if name in self._ignore_cals:
-            return
-
         if calibration.is_finished():
             self.log.warning(f"Calibration {name} is already finished. Skipping.")
             return
 
         if self.overwatcher.state.dry_run:
-            self.log.warning(f"Dry-run mode. Not running calibration {name}.")
-            self._ignore_cals.add(name)
+            self.log.warning(f"Dry-run mode. Marking calibration {name} done.")
+            await calibration.record_state(CalibrationState.DONE)
             return
 
         running_cal = self.get_running_calibration()
