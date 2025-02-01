@@ -288,9 +288,6 @@ class OverwatcherMainTask(OverwatcherTask):
                 reason="dome is closing",
             )
 
-        if ow.calibrations.is_calibrating():
-            await ow.calibrations.cancel()
-
 
 class OverwatcherPingTask(OverwatcherTask):
     """Emits a ping notification every five minutes."""
