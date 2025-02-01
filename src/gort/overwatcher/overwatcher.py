@@ -282,6 +282,10 @@ class OverwatcherMainTask(OverwatcherTask):
 
         ow = self.overwatcher
 
+        if ow.observer._starting_observations:
+            # Do not interfere with the observer trying to open the dome for observing.
+            return
+
         if ow.observer.is_observing and not ow.observer.is_cancelling:
             await ow.observer.stop_observing(
                 immediate=True,
