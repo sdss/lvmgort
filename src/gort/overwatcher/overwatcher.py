@@ -104,6 +104,15 @@ class OverwatcherMainTask(OverwatcherTask):
                 # TODO: should these handlers be scheduled as tasks? Right now
                 # they can block for a good while until the dome is open/closed.
 
+                if ow.state.shutdown_pending:
+                    await ow.shutdown(
+                        close_dome=True,
+                        retry=True,
+                        park=True,
+                        disable_overwatcher=True,
+                        cancel_safe_calibrations=False,
+                    )
+
                 if not ow.state.safe:
                     await self.handle_unsafe()
 
@@ -120,15 +129,6 @@ class OverwatcherMainTask(OverwatcherTask):
                     # If the dome is closed or closing and we have not commanded
                     # that, ensure that the observations are stopped.
                     await self.handle_dome_closing()
-
-                if ow.state.shutdown_pending:
-                    await ow.shutdown(
-                        close_dome=True,
-                        retry=True,
-                        park=True,
-                        disable_overwatcher=True,
-                        cancel_safe_calibrations=False,
-                    )
 
                 # Run daily tasks.
                 await ow.daily_tasks.run_all()
