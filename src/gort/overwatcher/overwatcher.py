@@ -238,12 +238,17 @@ class OverwatcherMainTask(OverwatcherTask):
                     immediate=True,
                     block=True,
                 )
+            elif not self.overwatcher.observer.is_cancelling:
+                # We have already cancelled the loop and are waiting for the
+                # current exposure to finish. We don't do anything.
+                return
             else:
-                if not self.overwatcher.observer.is_cancelling:
-                    await self.overwatcher.observer.stop_observing(
-                        immediate=False,
-                        reason="daytime conditions detected",
-                    )
+                # It's been fewer than 10 minutes since morning twilight. Cancel
+                # the current exposure but allow it to finish.
+                await self.overwatcher.observer.stop_observing(
+                    immediate=False,
+                    reason="daytime conditions detected",
+                )
                 return
 
         # If the overwatcher is disabled, we don't do anything. There is a lower-level
