@@ -409,9 +409,20 @@ class ObserverOverwatcher(OverwatcherModule):
         transparency = self.overwatcher.transparency
         transparency.write_to_log(["sci"])
 
-        # TODO: disable actions based on transparency quality for now.
+        # TODO: for now if the transparency is bad we close and disable the overwatcher.
+        if transparency.quality["sci"] & TransparencyQuality.BAD:
+            await self.overwatcher.shutdown(
+                reason="Transparency is bad. Stopping observations and closing the "
+                "dome. Resume observations manually when the transparency is deemed "
+                "good.",
+                level="warning",
+                close_dome=True,
+                disable_overwatcher=True,
+            )
+
         return
 
+        # TODO: monitor transparency and resume observing automatically.
         if transparency.quality["sci"] & TransparencyQuality.BAD:
             await self.notify(
                 "Transparency is bad. Stopping observations and starting "
