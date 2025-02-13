@@ -285,9 +285,12 @@ class OverwatcherMainTask(OverwatcherTask):
             return
 
         if ow.observer.is_observing and not ow.observer.is_cancelling:
-            await ow.observer.stop_observing(
-                immediate=True,
-                reason="dome is closing",
+            await ow.shutdown(
+                "dome is closing",
+                level="warning",
+                close_dome=False,
+                park=False,
+                disable_overwatcher=True,
             )
 
 
