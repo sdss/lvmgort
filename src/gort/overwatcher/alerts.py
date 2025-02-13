@@ -196,11 +196,12 @@ class AlertsOverwatcher(OverwatcherModule):
             active_alerts |= ActiveAlert.DOME_LOCKED
             is_safe = False
 
-        # These alerts are not critical but we log them.
-        # TODO: maybe we do want to do something about these alerts.
         if self.state.door_alert:
             active_alerts |= ActiveAlert.DOOR
+            is_safe = False
 
+        # These alerts are not critical but we log them.
+        # TODO: maybe we do want to do something about these alerts.
         if self.state.camera_temperature_alert:
             self.log.warning("Camera temperature alert detected.")
             active_alerts |= ActiveAlert.CAMERA_TEMPERATURE
