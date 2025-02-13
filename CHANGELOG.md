@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### 🏷️ Changed
+
+* Evening twilight flats now start two minutes after sunset.
+
+
 ## 1.7.0 - February 3, 2025
 
 ### ✨ Improved

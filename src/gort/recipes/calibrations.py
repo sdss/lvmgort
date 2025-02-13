@@ -154,9 +154,9 @@ class TwilightFlats(BaseRecipe):
     # Exposure time model
     POPT: ClassVar[numpy.ndarray] = numpy.array([1.09723745, 3.55598039, -1.86597751])
 
-    # Start sunset flats three minute before sunset.
+    # Start sunset flats two minutes after sunset.
     # Positive numbers means "into" the twilight.
-    SUNSET_START: ClassVar[float] = -3
+    SUNSET_START: ClassVar[float] = 2
 
     # Start sunrise flats 15 minutes before sunrise
     SUNRISE_START: ClassVar[float] = 15
