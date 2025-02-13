@@ -71,6 +71,7 @@ class ActiveAlert(enum.Flag):
     UNKNOWN = enum.auto()
 
     ALWAYS_CLOSE = HUMIDITY | DEW_POINT | WIND | RAIN
+    NO_CLOSE = DOOR | E_STOPS
 
 
 class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):

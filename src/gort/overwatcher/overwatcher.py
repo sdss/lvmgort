@@ -180,24 +180,24 @@ class OverwatcherMainTask(OverwatcherTask):
         is_raining = bool(alerts_status & ActiveAlert.RAIN)
         e_stops_in = bool(alerts_status & ActiveAlert.E_STOPS)
 
-        # Close the dome always if the Overwatcher is enabled or if the alert(s) are
-        # one of the list that always forces the dome to close.
-        close_dome = ow.state.enabled or bool(alerts_status & ActiveAlert.ALWAYS_CLOSE)
-        disable_overwatcher: bool = is_raining or e_stops_in
-
-        # If we are not observing and the e-stops are in, we don't close the dome.
-        # Just disable the overwatcher if it is on.
-        if not observing and not calibrating and e_stops_in:
-            if ow.state.enabled:
-                await ow.notify("E-stop buttons are pressed.", level="warning")
-                await ow.shutdown(close_dome=False, disable_overwatcher=True)
-            return
-
-        # Don't try to do anything fancy here. Just close the dome first.
+        # Don't try to do anything fancy here. Just close the dome first. Then we'll
+        # deal with cancelling observing and so on.
         if is_raining and not e_stops_in and not dome_closed and not dome_locked:
             await ow.notify("Rain detected. Closing the dome.", level="critical")
             await ow.dome.close(retry=True)
             await asyncio.sleep(5)
+
+        # Close the dome always if the Overwatcher is enabled or if the alert(s) are
+        # one of the list that always forces the dome to close.
+        close_dome = ow.state.enabled or bool(alerts_status & ActiveAlert.ALWAYS_CLOSE)
+
+        # If we have a no-close alert (e-stops or local mode), we don't close the dome.
+        if bool(alerts_status & ActiveAlert.NO_CLOSE):
+            close_dome = False
+
+        # If it's raining or the e-stops are in, we disable the overwatcher. Otherwise
+        # we keep it enabled and allow it to reopen the dome later.
+        disable_overwatcher: bool = is_raining or e_stops_in
 
         if not dome_closed or observing or calibrating:
             alert_names = (
@@ -205,13 +205,6 @@ class OverwatcherMainTask(OverwatcherTask):
                 if alerts_status.name
                 else "UNKNOWN"
             )
-
-            if e_stops_in:
-                await ow.notify(
-                    "E-stop buttons are pressed. Dome won't be closed.",
-                    level="warning",
-                )
-                close_dome = False
 
             await ow.shutdown(
                 reason=f"Unsafe conditions detected: {alert_names}",
