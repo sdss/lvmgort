@@ -180,7 +180,14 @@ class PreObservingTask(DailyTaskBase):
         if self.overwatcher.ephemeris.ephemeris is None:
             return False
 
-        specs_idle = await self.overwatcher.gort.specs.are_idle()
+        try:
+            specs_idle = await self.overwatcher.gort.specs.are_idle()
+        except Exception:
+            self.overwatcher.log.error(
+                "Task pre_observing: error checking if specs are idle"
+            )
+            specs_idle = False
+
         if not specs_idle:
             return False
 
@@ -234,7 +241,14 @@ class PostObservingTask(DailyTaskBase):
         if self.overwatcher.ephemeris.ephemeris is None:
             return False
 
-        specs_idle = await self.overwatcher.gort.specs.are_idle()
+        try:
+            specs_idle = await self.overwatcher.gort.specs.are_idle()
+        except Exception:
+            self.overwatcher.log.error(
+                "Task post_observing: error checking if specs are idle"
+            )
+            specs_idle = False
+
         if not specs_idle:
             return False
 
