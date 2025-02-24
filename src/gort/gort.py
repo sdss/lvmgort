@@ -217,7 +217,11 @@ class GortClient(AMQPClient):
         if exc_value and isinstance(exc_value, GortError):
             event_payload = exc_value.payload.copy()
             event_payload["error"] = exc_value.args[0] or ""
+            event_payload["error_class"] = exc_type.__name__ if exc_type else "Unknown"
             event_payload["error_code"] = exc_value.error_code.value
+
+            if exc_type and getattr(exc_type, "EMIT_EVENT", True):
+                return
 
             try:
                 loop = asyncio.get_running_loop()

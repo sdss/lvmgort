@@ -74,6 +74,8 @@ class TroubleshooterTimeoutError(OverwatcherError):
 class RemoteCommandError(GortError):
     """An error in a remote command to an actor."""
 
+    EMIT_EVENT = False
+
     def __init__(
         self,
         message: str | None,
@@ -153,7 +155,6 @@ class GortDeviceError(GortError):
         message: str | None = None,
         error_code: int | ErrorCode | None = None,
         payload: dict = {},
-        emit_event: bool | None = None,
     ) -> None:
         from gort.gort import GortDevice
 
