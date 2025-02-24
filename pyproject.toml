@@ -22,7 +22,7 @@ dependencies = [
     "polars>=1.0.0",
     "redis[hiredis]>=5.0.3",
     "pydantic>=2.9.2",
-    "lvmopstools>=0.5.2",
+    "lvmopstools>=0.5.3",
 ]
 
 [project.urls]

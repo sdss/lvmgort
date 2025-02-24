@@ -2,6 +2,10 @@
 
 ## Next version
 
+### ✨ Improved
+
+* Check if AG cameras are connected after an acquisition error.
+
 ### 🏷️ Changed
 
 * Evening twilight flats now start four minutes after sunset.

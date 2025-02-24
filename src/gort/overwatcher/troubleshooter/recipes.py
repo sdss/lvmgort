@@ -13,6 +13,8 @@ import asyncio
 
 from typing import TYPE_CHECKING, ClassVar
 
+from lvmopstools.utils import is_host_up
+
 from gort.enums import ErrorCode
 from gort.exceptions import TroubleshooterCriticalError
 from gort.tools import decap, set_tile_status
@@ -47,11 +49,11 @@ class TroubleshooterRecipe(metaclass=abc.ABCMeta):
 
         raise NotImplementedError
 
-    async def handle(self, error_model: TroubleModel) -> bool:
+    async def handle(self, error_model: TroubleModel | None = None) -> bool:
         """Runs the recipe to handle the error."""
 
         try:
-            return await self._handle_internal(error_model)
+            return await self._handle_internal(error_model=error_model)
         except TroubleshooterCriticalError:
             # Propagate this error, which will be handled by the Troubleshooter class.
             raise
@@ -63,7 +65,7 @@ class TroubleshooterRecipe(metaclass=abc.ABCMeta):
             return False
 
     @abc.abstractmethod
-    async def _handle_internal(self, error_model: TroubleModel) -> bool:
+    async def _handle_internal(self, error_model: TroubleModel | None = None) -> bool:
         """Internal implementation of the recipe."""
 
         raise NotImplementedError
@@ -81,7 +83,7 @@ class CleanupRecipe(TroubleshooterRecipe):
         # Always return False. This is a last resort recipe.
         return False
 
-    async def _handle_internal(self, error_model: TroubleModel) -> bool:
+    async def _handle_internal(self) -> bool:
         """Run the cleanup recipe."""
 
         await self.overwatcher.gort.cleanup(readout=False)
@@ -103,10 +105,34 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
 
         return False
 
+    async def ping_ag_cameras(self):
+        """Pings the AG cameras to see if they are all up."""
+
+        IPs = [  # TODO: remove these hardcoded values.
+            "10.8.38.111",
+            "10.8.38.112",
+            "10.8.38.113",
+            "10.8.38.114",
+            "10.8.38.115",
+            "10.8.38.116",
+            "10.8.38.117",
+        ]
+
+        results = await asyncio.gather(*[is_host_up(IP) for IP in IPs])
+        if all(results):
+            return True
+
+        return False
+
     async def _handle_internal(self, error_model: TroubleModel) -> bool:
         """Handle the error."""
 
         error = error_model.error
+
+        # First check if all the cameras are connected.
+        # If not, for now we don't have an automatic way to recover.
+        if not await self.ping_ag_cameras():
+            raise TroubleshooterCriticalError("Not all AG cameras are connected.")
 
         tile_id: int | None = error.payload.get("tile_id", None)
         if tile_id is None:

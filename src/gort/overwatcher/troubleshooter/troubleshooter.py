@@ -145,6 +145,9 @@ class Troubleshooter:
             self._event.clear()
 
             for recipe in self.recipes.values():
+                if recipe == "cleanup":  # This is a last resort recipe
+                    continue
+
                 # TODO: for now the first recipe that matches is the only one that runs.
                 if recipe.match(error_model):
                     await self.notify(f"Running troubleshooting recipe {recipe.name}.")
@@ -171,9 +174,18 @@ class Troubleshooter:
                 f"troubleshooting: {decap(err)}",
                 level="critical",
             )
-            await self.overwatcher.shutdown(disable_overwatcher=True)
+            await self.overwatcher.shutdown(
+                disable_overwatcher=True,
+                close_dome=False,
+            )
 
         finally:
             self._event.set()
 
         return False
+
+    async def run_cleanup(self):
+        """Runs the cleanup recipe."""
+
+        cleanup = self.recipes["cleanup"]
+        await cleanup.handle()
