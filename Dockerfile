@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.5.12-python3.13-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
 LABEL org.opencontainers.image.authors="Jose Sanchez-Gallego, gallegoj@uw.edu"
 LABEL org.opencontainers.image.source=https://github.com/sdss/lvmgort
