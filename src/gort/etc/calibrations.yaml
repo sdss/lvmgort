@@ -1,8 +1,8 @@
 ---
 - name: twilight_flats_sunset
   recipe: twilight_flats
-  min_start_time: -120
-  max_start_time: 300
+  min_start_time: 120
+  max_start_time: 400
   time_mode: secs_after_sunset
   after: null
   required: true
