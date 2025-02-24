@@ -154,7 +154,6 @@ class Troubleshooter:
                         break
 
             if error_model.handled:
-                await self.notify("Error has been handled.")
                 return True
 
             await self.notify(
