@@ -235,6 +235,13 @@ enclosure:
   bypass_local_mode: false
 
 recipes:
+  twilight_flats:
+    fudge_factor: = 1
+    popt: [1.09723745, 3.55598039, -1.86597751]
+    sunset_start: = 4
+    sunrise_start: = 15
+    max_exp_time: = 300
+    max_exp_time_extra: = 100
 
 observer:
   guide_tolerance:

@@ -11,8 +11,6 @@ from __future__ import annotations
 import asyncio
 import random
 
-from typing import ClassVar
-
 import numpy
 from astropy.time import Time
 
@@ -148,25 +146,6 @@ class TwilightFlats(BaseRecipe):
 
     name = "twilight_flats"
 
-    # Tweak factor for the exposure time.
-    FUDGE_FACTOR: ClassVar[int] = 1
-
-    # Exposure time model
-    POPT: ClassVar[numpy.ndarray] = numpy.array([1.09723745, 3.55598039, -1.86597751])
-
-    # Start sunset flats two minutes after sunset.
-    # Positive numbers means "into" the twilight.
-    SUNSET_START: ClassVar[float] = 2
-
-    # Start sunrise flats 15 minutes before sunrise
-    SUNRISE_START: ClassVar[float] = 15
-
-    # Maximum exposure time for normal flats.
-    MAX_EXP_TIME: ClassVar[float] = 300
-
-    # Maximum exposure time for extra flats.
-    MAX_EXP_TIME_EXTRA: ClassVar[float] = 100
-
     async def recipe(
         self,
         wait: bool = True,
@@ -178,6 +157,27 @@ class TwilightFlats(BaseRecipe):
         Based on K. Kreckel's code.
 
         """
+
+        config = self.gort.config["recipes"][self.name]
+
+        # Tweak factor for the exposure time.
+        fudge_factor: int = config["fudge_factor"]
+
+        # Exposure time model
+        popt: numpy.ndarray = numpy.array(config["popt"])
+
+        # Start sunset flats two minutes after sunset.
+        # Positive numbers means "into" the twilight.
+        sunset_start: float = config["sunset_start"]
+
+        # Start sunrise flats 15 minutes before sunrise
+        sunrise_start: float = config["sunrise_start"]
+
+        # Maximum exposure time for normal flats.
+        max_exp_time: float = config["max_exp_time"]
+
+        # Maximum exposure time for extra flats.
+        max_exp_time_extra: float = config["max_exp_time_extra"]
 
         await self.gort.cleanup()
 
@@ -225,16 +225,16 @@ class TwilightFlats(BaseRecipe):
             if is_sunset:
                 time_diff_sun = -time_diff_sun
 
-            time_diff_sun += self.FUDGE_FACTOR
+            time_diff_sun += fudge_factor
 
             # Calculate exposure time.
-            aa, bb, cc = self.POPT
+            aa, bb, cc = popt
             exp_time = aa * numpy.exp(-time_diff_sun / bb) + cc
 
             if is_sunset:
-                time_to_flat_twilighs = self.SUNSET_START + time_diff_sun
+                time_to_flat_twilighs = sunset_start + time_diff_sun
             else:
-                time_to_flat_twilighs = -(self.SUNRISE_START + time_diff_sun)
+                time_to_flat_twilighs = -(sunrise_start + time_diff_sun)
 
             if time_to_flat_twilighs > 0:
                 if wait:
@@ -247,7 +247,7 @@ class TwilightFlats(BaseRecipe):
                 else:
                     raise RuntimeError("Too early to take twilight flats.")
 
-            if not all_done and exp_time < self.MAX_EXP_TIME:
+            if not all_done and exp_time < max_exp_time:
                 # We allow negative times, which will be rounded to 1 s
                 pass
             elif is_sunrise and exp_time > 400 and wait:
@@ -255,16 +255,16 @@ class TwilightFlats(BaseRecipe):
                 self.gort.log.info("Waiting 10 seconds ...")
                 await asyncio.sleep(10)
                 continue
-            elif is_sunset and not all_done and exp_time > self.MAX_EXP_TIME:
+            elif is_sunset and not all_done and exp_time > max_exp_time:
                 # We have not yet taken all 12 fibres but the
                 # exposure time  is just too long.
                 raise RuntimeError("Exposure time is now too long.")
-            elif is_sunset and all_done and exp_time > self.MAX_EXP_TIME_EXTRA:
+            elif is_sunset and all_done and exp_time > max_exp_time_extra:
                 # We have taken all 12 fibres and some extra ones, but the
                 # exposure time is now too long. Exit.
                 self.gort.log.debug("Exposure time is too long to take more flats.")
                 break
-            elif is_sunset and all_done and exp_time <= self.MAX_EXP_TIME_EXTRA:
+            elif is_sunset and all_done and exp_time <= max_exp_time_extra:
                 # Continue taking exposures for extra flats.
                 pass
             else:
@@ -302,14 +302,14 @@ class TwilightFlats(BaseRecipe):
             if n_observed == 12:
                 all_done = True
 
-                if (all_done and is_sunrise) or exp_time >= self.MAX_EXP_TIME_EXTRA:
+                if (all_done and is_sunrise) or exp_time >= max_exp_time_extra:
                     break
 
                 # During sunset, after taking all 12 fibres we continue taking
                 # flats until the exposure time reaches MAX_EXP_TIME_EXTRA seconds.
                 self.gort.log.info(
                     f"All fibres observed. Taking extra flats until the "
-                    f"exposure time reaches {self.MAX_EXP_TIME_EXTRA} seconds."
+                    f"exposure time reaches {max_exp_time_extra} seconds."
                 )
 
             n_fibre = n_fibre + 1
