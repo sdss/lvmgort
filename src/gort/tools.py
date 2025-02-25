@@ -85,6 +85,7 @@ __all__ = [
     "mark_exposure_bad",
     "handle_signals",
     "get_lvmapi_route",
+    "run_lvmapi_task",
     "GuiderMonitor",
     "overwatcher_is_running",
     "get_by_source_id",
@@ -750,6 +751,57 @@ async def get_lvmapi_route(route: str, params: dict = {}, timeout: float = 5, **
             raise ValueError(f"Route /{route} failed with error {code}.")
 
     return response.json()
+
+
+async def run_lvmapi_task(
+    route: str,
+    params: dict = {},
+    wait: bool = True,
+    check_interval: float = 3,
+    timeout: float | None = None,
+    **kwargs,
+):
+    """Runs an LVM API task route.
+
+    Task routes immediately start the task in the background and return a task ID.
+    The API can then be queried until the task is completed.
+
+    Parameters
+    ----------
+    route
+        The route to the task.
+    params
+        The parameters to pass to the route.
+    wait
+        If :obj:`True`, waits until the task is completed and returns the result.
+    check_interval
+        The interval at which to check the task status. Ignored if ``wait=False``.
+    timeout
+        The timeout for the task execution. Ignored if ``wait=False``.
+
+    Returns
+    -------
+    result
+        The task ID if ``wait=False`` or the result of the task if ``wait=True``.
+
+    """
+
+    task_id = await get_lvmapi_route(route, params=params, **kwargs)
+
+    if not wait:
+        return task_id
+
+    elapsed: float = 0
+    while True:
+        await asyncio.sleep(check_interval)
+        elapsed += check_interval
+
+        ready = await get_lvmapi_route(f"/tasks/{task_id}/ready")
+        if ready is True:
+            return await get_lvmapi_route(f"/tasks/{task_id}/result")
+
+        if timeout and elapsed > timeout:
+            raise asyncio.TimeoutError(f"Task {task_id} did not complete in time.")
 
 
 class GuiderMonitor:
