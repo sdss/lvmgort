@@ -83,7 +83,7 @@ class CleanupRecipe(TroubleshooterRecipe):
         # Always return False. This is a last resort recipe.
         return False
 
-    async def _handle_internal(self) -> bool:
+    async def _handle_internal(self, error_model: TroubleModel | None = None) -> bool:
         """Run the cleanup recipe."""
 
         await self.overwatcher.gort.cleanup(readout=False)
