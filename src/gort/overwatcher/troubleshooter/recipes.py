@@ -108,11 +108,11 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
     def get_camera_ips(self):
         """Returns the IPs of the AG cameras."""
 
-        ags_config = self.gort.config["ags.ips"]
-
-        IPs: list[str] = []
-        for ag_name in ags_config:
-            IPs += ags_config[ag_name].values()
+        IPs: dict[str, str] = {}
+        for ag in self.gort.ags.values():
+            for cam, ip in ag.ips.items():
+                if ip is not None:
+                    IPs[f"{ag.name}-{cam}"] = ip
 
         return IPs
 
@@ -120,9 +120,9 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
         """Pings the AG cameras to see if they are all up."""
 
         IPs = self.get_camera_ips()
-        results = await asyncio.gather(*[is_host_up(IP) for IP in IPs])
+        pings = await asyncio.gather(*[is_host_up(IP) for IP in IPs.values()])
 
-        return results
+        return {cam_name: pings[ii] for ii, cam_name in enumerate(IPs)}
 
     async def _handle_disconnected_cameras(self):
         """Handle disconnected cameras."""
@@ -145,9 +145,9 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
         # Create a list of failed cameras. The format is CAM-<last octet>.
         IPs = self.get_camera_ips()
         failed_cameras: list[str] = []
-        for ii, IP in enumerate(IPs):
-            if not pings[ii]:
-                last8 = IP.split(".")[-1]
+        for camera, ping in pings.items():
+            if not ping:
+                last8 = IPs[camera].split(".")[-1]
                 failed_cameras.append(f"CAM-{last8}")
 
         # Power cycle the switch ports to those cameras.

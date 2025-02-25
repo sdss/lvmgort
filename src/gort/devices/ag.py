@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 
 from gort.devices.core import GortDevice, GortDeviceSet
+from gort.gort import Gort
 
 
 __all__ = ["AG", "AGSet"]
@@ -18,6 +19,19 @@ __all__ = ["AG", "AGSet"]
 
 class AG(GortDevice):
     """Class representing an AG camera."""
+
+    def __init__(self, gort: Gort, name: str, actor: str, **device_data):
+        super().__init__(gort, name, actor)
+
+        self.telescope = name
+        self.ips = {
+            "east": device_data["ips"]["east"]
+            if "ips" in device_data and "east" in device_data["ips"]
+            else None,
+            "west": device_data["ips"]["west"]
+            if "ips" in device_data and "west" in device_data["ips"]
+            else None,
+        }
 
     async def status(self):
         """Returns the status of the AG."""
