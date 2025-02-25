@@ -108,11 +108,11 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
     def get_camera_ips(self):
         """Returns the IPs of the AG cameras."""
 
-        ags_config = self.gort.config["ags.devices"]
+        ags_config = self.gort.config["ags.ips"]
 
         IPs: list[str] = []
         for ag_name in ags_config:
-            IPs += ags_config[ag_name]["ips"]
+            IPs += ags_config[ag_name].values()
 
         return IPs
 
