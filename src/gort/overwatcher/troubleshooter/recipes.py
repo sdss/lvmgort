@@ -142,6 +142,11 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
 
             return False  # False means the error was probably not handled
 
+        raise TroubleshooterCriticalError(
+            "AG cameras are disconnected.",
+            close_dome=False,
+        )
+
         # Create a list of failed cameras. The format is CAM-<last octet>.
         IPs = self.get_camera_ips()
         failed_cameras: list[str] = []
