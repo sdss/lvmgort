@@ -108,6 +108,8 @@ async def reset(command: OverwatcherCommand):
     overwatcher = command.actor.overwatcher
 
     overwatcher.dome.reset()
+    for actor in overwatcher.gort.actors.values():
+        await actor.refresh()
 
     return command.finish()
 
