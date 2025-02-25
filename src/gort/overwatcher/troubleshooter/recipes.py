@@ -17,7 +17,7 @@ from lvmopstools.utils import is_host_up
 
 from gort.enums import ErrorCode
 from gort.exceptions import TroubleshooterCriticalError
-from gort.tools import decap, set_tile_status
+from gort.tools import decap, run_lvmapi_task, set_tile_status
 
 
 if TYPE_CHECKING:
@@ -105,34 +105,86 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
 
         return False
 
+    def get_camera_ips(self):
+        """Returns the IPs of the AG cameras."""
+
+        ags_config = self.gort.config["ags.devices"]
+
+        IPs: list[str] = []
+        for ag_name in ags_config:
+            IPs += ags_config[ag_name]["ips"]
+
+        return IPs
+
     async def ping_ag_cameras(self):
         """Pings the AG cameras to see if they are all up."""
 
-        IPs = [  # TODO: remove these hardcoded values.
-            "10.8.38.111",
-            "10.8.38.112",
-            "10.8.38.113",
-            "10.8.38.114",
-            "10.8.38.115",
-            "10.8.38.116",
-            "10.8.38.117",
-        ]
-
+        IPs = self.get_camera_ips()
         results = await asyncio.gather(*[is_host_up(IP) for IP in IPs])
-        if all(results):
-            return True
 
-        return False
+        return results
+
+    async def _handle_disconnected_cameras(self):
+        """Handle disconnected cameras."""
+
+        # First check if all the cameras are connected.
+        # If not, for now we don't have an automatic way to recover.
+        pings = await self.ping_ag_cameras()
+        if all(pings):
+            await self.notify("All AG cameras ping. Reconnecting cameras.")
+
+            # Reconnect the cameras.
+            await self.gort.ags.reconnect()
+
+            # Refresh the remote actors (should not be necessary).
+            for ag in self.gort.ags.values():
+                await ag.actor.refresh()
+
+            return False  # False means the error was probably not handled
+
+        # Create a list of failed cameras. The format is CAM-<last octet>.
+        IPs = self.get_camera_ips()
+        failed_cameras: list[str] = []
+        for ii, IP in enumerate(IPs):
+            if not pings[ii]:
+                last8 = IP.split(".")[-1]
+                failed_cameras.append(f"CAM-{last8}")
+
+        # Power cycle the switch ports to those cameras.
+        await self.notify(
+            f"Found {len(failed_cameras)} AG cameras that are down: {failed_cameras}. "
+            "Power cycling switch ports. This will take several minutes.",
+            level="warning",
+        )
+
+        await run_lvmapi_task(
+            "/macros/power_cycle_ag_cameras",
+            params={"cameras": failed_cameras},
+        )
+        await asyncio.sleep(30)
+
+        pings = await self.ping_ag_cameras()
+        if not all(pings):
+            raise TroubleshooterCriticalError("Unable to reconnect AG cameras.")
+
+        return True
 
     async def _handle_internal(self, error_model: TroubleModel) -> bool:
         """Handle the error."""
 
         error = error_model.error
 
-        # First check if all the cameras are connected.
-        # If not, for now we don't have an automatic way to recover.
-        if not await self.ping_ag_cameras():
-            raise TroubleshooterCriticalError("Not all AG cameras are connected.")
+        # First check if all the cameras are connected and pinging.
+        if await self._handle_disconnected_cameras():
+            return True
+
+        # If that didn't work, try to disable the tile. However, if this error has
+        # happened several times, there must be some other problem so we shut down.
+        if error_model.tracking_data and error_model.tracking_data["count"] >= 3:
+            raise TroubleshooterCriticalError(
+                "Acquisition failed multiple times. "
+                "Finishing the observe loop and disabling the overwatcher."
+            )
 
         tile_id: int | None = error.payload.get("tile_id", None)
         if tile_id is None:

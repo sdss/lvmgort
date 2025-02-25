@@ -224,12 +224,23 @@ ags:
   devices:
     sci:
       actor: lvm.sci.agcam
+      ips:
+        east: 10.8.38.111
+        west: 10.8.38.112
     spec:
       actor: lvm.spec.agcam
+      ips:
+        east: 10.8.38.117
     skye:
       actor: lvm.skye.agcam
+      ips:
+        east: 10.8.38.113
+        west: 10.8.38.114
     skyw:
       actor: lvm.skyw.agcam
+      ips:
+        east: 10.8.38.115
+        west: 10.8.38.116
 
 enclosure:
   bypass_local_mode: false
