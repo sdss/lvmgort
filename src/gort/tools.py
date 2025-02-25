@@ -740,6 +740,9 @@ async def get_lvmapi_route(route: str, params: dict = {}, timeout: float = 5, **
     if route.startswith("/"):
         route = route[1:]
 
+    if "?" in route:
+        raise ValueError("Query parameters should be passed as a dictionary.")
+
     async with httpx.AsyncClient(
         base_url=f"http://{host}:{port}/{base_route}",
         follow_redirects=True,
