@@ -274,6 +274,10 @@ class ObserverOverwatcher(OverwatcherModule):
 
                     n_tile_positions += 1
 
+                    # Clear counts of errors that are reset
+                    # when a tile is successfully observed.
+                    self.overwatcher.troubleshooter.reset()
+
                     if not result and not self.is_cancelling:
                         raise GortError("The observation ended with error state.")
 

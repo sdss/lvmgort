@@ -36,8 +36,10 @@ class TroubleModel:
 
     error: GortError
     error_code: ErrorCode
+    hash: int
     message: str | None = None
     handled: bool = False
+    tracking_data: ErrorTrackingDict | None = None
 
 
 class RecipeBook(dict[str, TroubleshooterRecipe]):
@@ -57,6 +59,7 @@ class ErrorTrackingDict(TypedDict):
     hash: int
     count: int
     last_seen: float
+    reset_on_success: bool
 
 
 class Troubleshooter:
@@ -78,10 +81,13 @@ class Troubleshooter:
 
         self.error_tracking: dict[int, ErrorTrackingDict] = {}
 
-    def reset(self):
+    def reset(self, clear_all_tracking: bool = False):
         """Resets the troubleshooter to its initial state."""
 
         self._event.set()
+        for error in self.error_tracking.values():
+            if error["reset_on_success"] or clear_all_tracking:
+                del self.error_tracking[error["hash"]]
 
     @property
     def troubleshooting(self) -> bool:
@@ -127,12 +133,19 @@ class Troubleshooter:
             self.error_tracking[hash]["count"] += 1
             self.error_tracking[hash]["last_seen"] = time()
         else:
-            self.error_tracking[hash] = {"hash": hash, "count": 1, "last_seen": time()}
+            self.error_tracking[hash] = {
+                "hash": hash,
+                "count": 1,
+                "last_seen": time(),
+                "reset_on_success": True,
+            }
 
         error_model = TroubleModel(
             error=error,
             error_code=error.error_code,
             message=str(error),
+            hash=hash,
+            tracking_data=self.error_tracking[hash],
         )
 
         await self.notify(
