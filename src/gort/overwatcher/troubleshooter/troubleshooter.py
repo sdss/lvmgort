@@ -189,7 +189,7 @@ class Troubleshooter:
             )
             await self.overwatcher.shutdown(
                 disable_overwatcher=True,
-                close_dome=False,
+                close_dome=err.close_dome,
             )
 
         finally:

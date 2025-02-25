@@ -62,7 +62,9 @@ class OverwatcherError(GortError):
 class TroubleshooterCriticalError(OverwatcherError):
     """A critical error in the troubleshooter that will shut down the system."""
 
-    pass
+    def __init__(self, *args, close_dome: bool = False, **kwargs):
+        self.close_dome = close_dome
+        super().__init__(*args, **kwargs)
 
 
 class TroubleshooterTimeoutError(OverwatcherError):
