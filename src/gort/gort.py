@@ -580,7 +580,11 @@ class Gort(GortClient):
                         )
                         continue
 
-                    await set_tile_status(tile_id, enabled=False)
+                    await set_tile_status(
+                        tile_id,
+                        enabled=False,
+                        note="Acquisition failed",
+                    )
                     self.log.warning(
                         f"tile_id={tile_id} has been disabled. Continuing observations."
                     )

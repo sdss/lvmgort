@@ -199,7 +199,11 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
                 level="error",
             )
         else:
-            await set_tile_status(tile_id, enabled=False)
+            await set_tile_status(
+                tile_id,
+                enabled=False,
+                note=f"Acquisition failed: {decap(error_model.message)}",
+            )
             await self.notify(
                 f"tile_id={tile_id} has been disabled. Continuing observations.",
                 level="warning",

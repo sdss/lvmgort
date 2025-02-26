@@ -1140,7 +1140,7 @@ class LogNamespace:
         return self.header.format(**locals()) + message
 
 
-def decap(string: Any):
+def decap(string: Any, ensure_period: bool = False):
     """Decapitalises the first letter of a string."""
 
     if not isinstance(string, str):
@@ -1149,7 +1149,12 @@ def decap(string: Any):
     if len(string) == 0:
         return ""
 
-    return string[0].lower() + string[1:]
+    decapped = string[0].lower() + string[1:]
+
+    if not ensure_period:
+        return decapped
+
+    return ensure_period(decapped)
 
 
 def ensure_period(string: str):

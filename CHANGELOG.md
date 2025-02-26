@@ -5,6 +5,7 @@
 ### ✨ Improved
 
 * Check if AG cameras are connected after an acquisition error.
+* Add a note to the DB when disabling a tile.
 
 ### 🏷️ Changed
 
