@@ -85,9 +85,12 @@ class Troubleshooter:
         """Resets the troubleshooter to its initial state."""
 
         self._event.set()
-        for error in self.error_tracking.values():
+
+        for hash in self.error_tracking.copy():
+            error = self.error_tracking[hash]
             if error["reset_on_success"] or clear_all_tracking:
-                del self.error_tracking[error["hash"]]
+                error["count"] = 0
+                error["last_seen"] = 0
 
     @property
     def troubleshooting(self) -> bool:
