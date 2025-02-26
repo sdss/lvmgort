@@ -160,9 +160,6 @@ class TwilightFlats(BaseRecipe):
 
         config = self.gort.config["recipes"][self.name]
 
-        # Tweak factor for the exposure time.
-        fudge_factor: int = config["fudge_factor"]
-
         # Exposure time model
         popt: numpy.ndarray = numpy.array(config["popt"])
 
@@ -224,8 +221,6 @@ class TwilightFlats(BaseRecipe):
             time_diff_sun = (now - riseset).sec / 60.0  # Minutes
             if is_sunset:
                 time_diff_sun = -time_diff_sun
-
-            time_diff_sun += fudge_factor
 
             # Calculate exposure time.
             aa, bb, cc = popt

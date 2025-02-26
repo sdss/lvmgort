@@ -248,7 +248,6 @@ enclosure:
 
 recipes:
   twilight_flats:
-    fudge_factor: 1 # minutes
     popt: [1.09723745, 3.55598039, -1.86597751]
     sunset_start: 3 # minutes
     sunrise_start: 15 # minutes
