@@ -9,7 +9,7 @@
 
 ### 🏷️ Changed
 
-* Evening twilight flats now start two minutes after sunset.
+* Evening twilight flats now start three minutes after sunset.
 * Door alert now triggers unsafe conditions.
 
 
