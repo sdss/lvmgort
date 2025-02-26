@@ -248,12 +248,12 @@ enclosure:
 
 recipes:
   twilight_flats:
-    fudge_factor: 1
+    fudge_factor: 1 # minutes
     popt: [1.09723745, 3.55598039, -1.86597751]
-    sunset_start: 3
-    sunrise_start: 15
-    max_exp_time: 300
-    max_exp_time_extra: 100
+    sunset_start: 3 # minutes
+    sunrise_start: 15 # minutes
+    max_exp_time: 300 # seconds
+    max_exp_time_extra: 100 # seconds
 
 observer:
   guide_tolerance:
