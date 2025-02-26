@@ -759,18 +759,10 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
 
         return self.spec_coords
 
-    async def enable(self):
-        """Enables the tile for observation."""
-
-        if self.tile_id is None:
-            raise TileError("Cannot enable tile without a tile_id.")
-
-        await set_tile_status(self.tile_id, enabled=True)
-
     async def disable(self, note: str | None = None):
         """Disables the tile for observation."""
 
         if self.tile_id is None:
             raise TileError("Cannot disable tile without a tile_id.")
 
-        await set_tile_status(self.tile_id, enabled=False, note=note)
+        await set_tile_status(self.tile_id, note=note)

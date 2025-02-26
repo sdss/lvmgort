@@ -201,7 +201,6 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
         else:
             await set_tile_status(
                 tile_id,
-                enabled=False,
                 note=f"Acquisition failed: {decap(error_model.message)}",
             )
             await self.notify(

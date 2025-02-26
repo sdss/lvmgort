@@ -244,7 +244,7 @@ def mark_exposure_bad(tile_id: int, dither_position: int = 0):
     ).execute()
 
 
-async def set_tile_status(tile_id: int, enabled: bool = True, note: str | None = None):
+async def set_tile_status(tile_id: int, note: str | None = None):
     """Enables/disables a tile in the database."""
 
     sch_config = config["services"]["scheduler"]
@@ -254,7 +254,7 @@ async def set_tile_status(tile_id: int, enabled: bool = True, note: str | None =
     async with httpx.AsyncClient() as client:
         resp = await client.put(
             f"http://{host}:{port}/tile_status",
-            params={"tile_id": tile_id, "disable": not enabled, "note": note},
+            params={"tile_id": tile_id, "note": note},
             json={},
             follow_redirects=True,
         )
