@@ -142,11 +142,6 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
 
             return False  # False means the error was probably not handled
 
-        raise TroubleshooterCriticalError(
-            "AG cameras are disconnected.",
-            close_dome=False,
-        )
-
         # Create a list of failed cameras. The format is CAM-<last octet>.
         IPs = self.get_camera_ips()
         failed_cameras: list[str] = []
@@ -171,6 +166,8 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
         pings = await self.ping_ag_cameras()
         if not all(pings):
             raise TroubleshooterCriticalError("Unable to reconnect AG cameras.")
+
+        await self.notify("AG cameras have been power cycled and are now pinging.")
 
         return True
 
