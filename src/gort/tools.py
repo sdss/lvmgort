@@ -747,7 +747,7 @@ async def get_lvmapi_route(route: str, params: dict = {}, timeout: float = 5, **
         follow_redirects=True,
         timeout=timeout,
     ) as client:
-        response = await client.get(route, params=params)
+        response = await client.get(route, params=params, timeout=timeout)
 
         if (code := response.status_code) != 200:
             raise ValueError(f"Route /{route} failed with error {code}.")
@@ -798,9 +798,9 @@ async def run_lvmapi_task(
         await asyncio.sleep(check_interval)
         elapsed += check_interval
 
-        ready = await get_lvmapi_route(f"/tasks/{task_id}/ready")
+        ready = await get_lvmapi_route(f"/tasks/{task_id}/ready", timeout=10)
         if ready is True:
-            return await get_lvmapi_route(f"/tasks/{task_id}/result")
+            return await get_lvmapi_route(f"/tasks/{task_id}/result", timeout=10)
 
         if timeout and elapsed > timeout:
             raise asyncio.TimeoutError(f"Task {task_id} did not complete in time.")
