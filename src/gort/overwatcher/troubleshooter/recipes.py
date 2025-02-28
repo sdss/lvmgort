@@ -177,8 +177,15 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
         error = error_model.error
 
         # First check if all the cameras are connected and pinging.
-        if await self._handle_disconnected_cameras():
-            return True
+        try:
+            if await self._handle_disconnected_cameras():
+                return True
+        except Exception as err:
+            await self.notify(
+                f"Error handling disconnected cameras: {decap(err)}",
+                error=err,
+                level="error",
+            )
 
         # If that didn't work, try to disable the tile. However, if this error has
         # happened several times, there must be some other problem so we shut down.
