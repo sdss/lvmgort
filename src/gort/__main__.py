@@ -9,7 +9,6 @@
 
 import asyncio
 import os
-import warnings
 
 import click
 
@@ -56,29 +55,13 @@ async def overwatcher(
 ):
     """Starts the overwatcher."""
 
-    from sdsstools import read_yaml_file
-
     from gort import config as gort_config
-    from gort.exceptions import GortUserWarning
     from gort.overwatcher.actor import OverwatcherActor
 
-    internal_config = gort_config["overwatcher.actor"]
-    if config is None:
-        actor_config = internal_config
-    else:
-        actor_config = read_yaml_file(config)
-        if "actor" in actor_config:
-            actor_config = actor_config["actor"]
-        elif "overwatcher" in actor_config and "actor" in actor_config["overwatcher"]:
-            actor_config = actor_config["overwatcher"]["actor"]
-        else:
-            warnings.warn(
-                "No actor configuration found in the config file. "
-                "Using internal configuration.",
-                GortUserWarning,
-            )
-            actor_config = internal_config
+    if config is not None:
+        gort_config.load(config)
 
+    actor_config = gort_config["overwatcher.actor"]
     if verbosity:
         actor_config["console_verbosity"] = verbosity
 

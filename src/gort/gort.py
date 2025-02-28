@@ -167,8 +167,9 @@ class GortClient(AMQPClient):
 
             try:
                 log.start_file_logger(str(path), rotating=False, mode="a")
-                log.info("Starting GORT.")
-                log.info(f"Logging to {str(path)}")
+                log.debug("Starting GORT.")
+                log.debug(f"Configuration file: {config._CONFIG_FILE or 'N/A'}")
+                log.debug(f"Logging to {str(path)}")
 
             except Exception as err:
                 tmp_path = get_temporary_file_path(
