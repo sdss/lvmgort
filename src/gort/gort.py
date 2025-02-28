@@ -221,7 +221,7 @@ class GortClient(AMQPClient):
             event_payload["error_class"] = exc_type.__name__ if exc_type else "Unknown"
             event_payload["error_code"] = exc_value.error_code.value
 
-            if exc_type and getattr(exc_type, "EMIT_EVENT", True):
+            if exc_type and not getattr(exc_type, "EMIT_EVENT", True):
                 return
 
             try:
