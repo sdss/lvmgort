@@ -130,7 +130,7 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
         # First check if all the cameras are connected.
         # If not, for now we don't have an automatic way to recover.
         pings = await self.ping_ag_cameras()
-        if all(pings):
+        if all(pings.values()):
             await self.notify("All AG cameras ping. Reconnecting cameras.")
 
             # Reconnect the cameras.
