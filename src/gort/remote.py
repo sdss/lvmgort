@@ -250,7 +250,7 @@ class RemoteCommand:
             )
 
         if not cmd.status.did_succeed:
-            error = actor_reply.get("error")
+            error = actor_reply.get("error", None)
             if error and "does not exist or cannot be parsed" in error:
                 raise InvalidRemoteCommand(
                     f"Command '{actor} {cmd_string}' does not "
