@@ -9,23 +9,25 @@
 from __future__ import annotations
 
 import abc
+import asyncio
 import time
 
 import typing
-from typing import TYPE_CHECKING, Literal, TypedDict, cast
+from typing import TYPE_CHECKING, ClassVar, Literal, TypedDict, cast
 
 from astropy.time import Time
 
 from sdsstools import get_sjd
 
 from gort.overwatcher.calibrations import CalibrationState
-from gort.tools import add_night_log_comment, decap, redis_client_sync
+from gort.tools import add_night_log_comment, decap, redis_client_sync, run_lvmapi_task
 
 
 if TYPE_CHECKING:
     from gort.overwatcher.overwatcher import Overwatcher
 
-VALID_TASKS = Literal["pre_observing", "post_observing"]
+# This is only necessary for correct typing but not for runtime.
+VALID_TASKS = Literal["pre_observing", "post_observing", "ags_power_cycle"]
 
 
 class TaskStatus(TypedDict):
@@ -56,10 +58,15 @@ class DailyTasks(dict[Literal[VALID_TASKS], "DailyTaskBase"]):
 class DailyTaskBase(metaclass=abc.ABCMeta):
     """A class to handle a daily task."""
 
-    name: str
+    name: ClassVar[str]
+    disabled: ClassVar[bool] = False
 
     def __init__(self, overwatcher: Overwatcher):
         self.overwatcher = overwatcher
+        self.notify = overwatcher.notify
+
+        self.gort = overwatcher.gort
+        self.config = overwatcher.config
 
         self._status: TaskStatus = {
             "name": self.name,
@@ -106,7 +113,8 @@ class DailyTaskBase(metaclass=abc.ABCMeta):
         if self.done:
             return
 
-        if not await self._should_run():
+        config_disabled = self.config[f"overwatcher.tasks.{self.name}.disabled"]
+        if self.disabled or config_disabled or not await self._should_run():
             return
 
         await self.overwatcher.notify(f"Running daily task {self.name}.")
@@ -181,7 +189,7 @@ class PreObservingTask(DailyTaskBase):
             return False
 
         try:
-            specs_idle = await self.overwatcher.gort.specs.are_idle()
+            specs_idle = await self.gort.specs.are_idle()
         except Exception:
             self.overwatcher.log.error(
                 "Task pre_observing: error checking if specs are idle"
@@ -206,11 +214,58 @@ class PreObservingTask(DailyTaskBase):
 
         return True
 
+
+class PowerCycleAGsTask(DailyTaskBase):
+    """Power cycles all AG cameras 60 minutes before sunset."""
+
+    name = "ags_power_cycle"
+
+    async def _should_run(self) -> bool:
+        """Returns True if the task should run."""
+
+        if self.overwatcher.ephemeris.ephemeris is None:
+            return False
+
+        # Run this task 30 minutes before sunset.
+        now = time.time()
+        sunset = Time(self.overwatcher.ephemeris.ephemeris.sunset, format="jd").unix
+
+        key = f"overwatcher.tasks.{self.name}"
+        min_time = self.config.get(f"{key}.min_time", 3600)
+        max_time = self.config.get(f"{key}.max_time", 3000)
+
+        if (
+            sunset - now < 0
+            or sunset - now > min_time
+            or sunset - now < max_time
+            or self.overwatcher.state.calibrating
+            or self.overwatcher.state.observing
+        ):
+            return False
+
+        return True
+
     async def _run_internal(self) -> bool:
         """Runs the pre-observing tasks."""
 
+        key = f"overwatcher.tasks.{self.name}"
+        n_expected_cameras = self.config.get(f"{key}.n_expected_cameras", 7)
+
         try:
-            await self.overwatcher.gort.execute_recipe("pre-observing")
+            # This will power cycle the cameras and reconnect them
+            await run_lvmapi_task("/macros/power_cycle_ag_cameras")
+            await asyncio.sleep(10)
+
+            # Do another reconnect just in case. reconnect() returns the alive cameras.
+            cameras = await self.gort.ags.reconnect()
+            if len(cameras) != n_expected_cameras:
+                await self.overwatcher.notify(
+                    "Some AG cameras failed to reconnect and may not be working.",
+                    level="critical",
+                )
+            else:
+                await self.overwatcher.notify("AG cameras have been power cycled.")
+
         except Exception as err:
             await self.overwatcher.notify(
                 f"Error running pre-observing task: {decap(err)}",
@@ -242,7 +297,7 @@ class PostObservingTask(DailyTaskBase):
             return False
 
         try:
-            specs_idle = await self.overwatcher.gort.specs.are_idle()
+            specs_idle = await self.gort.specs.are_idle()
         except Exception:
             self.overwatcher.log.error(
                 "Task post_observing: error checking if specs are idle"
@@ -282,7 +337,7 @@ class PostObservingTask(DailyTaskBase):
             await notify(f"Error closing the dome: {decap(err)}", level="critical")
 
         try:
-            await self.overwatcher.gort.execute_recipe(
+            await self.gort.execute_recipe(
                 "post-observing",
                 send_email=False,
             )
@@ -345,7 +400,7 @@ class PostObservingTask(DailyTaskBase):
         # left them not parked. Make sure they are really parked.
         if calibrations_attempted:
             self.overwatcher.log.info("Parking telescopes after post-observing cals.")
-            await self.overwatcher.gort.telescopes.park()
+            await self.gort.telescopes.park()
 
         # Always mark the task complete, even if it failed.
         return True

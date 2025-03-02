@@ -310,6 +310,11 @@ overwatcher:
   slack:
     notifications_channels:
       - lvm-overwatcher
+  tasks:
+    ags_power_cycle:
+      min_time: 3600
+      max_time: 3000
+      n_expected_cameras: 7
 
   actor:
     name: lvm.overwatcher
