@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.7.2 - March 2, 2025
+
+### ✨ Improved
+
+* Improved and simplified handling of user override configuration file.
+
+### 🏷️ Changed
+
+* Start evening twilight flats two minutes after sunset by default.
+
+### 🔧 Fixed
+
+* Fix checking of AG camera pings in `AcquisitionFailedRecipe`.
+* Try-except errors during camera disconnected handling.
+* Use `None` as default when a `RemoteCommand` does not complete successfully.
+* Explicitly require `lvmopstools>=0.5.9`.
+* Fix logic when handling the `EMIT_EVENT` attrinute of `GortError`.
+
+
 ## 1.7.1 - February 27, 2025
 
 ### ✨ Improved
