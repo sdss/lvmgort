@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from functools import partial, wraps
 from time import time
 
-from typing import TYPE_CHECKING, Any, Callable, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, TypedDict
 
 from astropy.time import Time
 
@@ -699,6 +699,7 @@ class GortObserver:
         keep_guiding: bool = True,
         object: str | None = None,
         dither_position: int | None = None,
+        exposure_starts_callback: Callable[[Any], Coroutine] | None = None,
     ):
         """Starts exposing the spectrographs.
 
@@ -723,6 +724,8 @@ class GortObserver:
         dither_position
             The dither position. If :obj:`None`, uses the first dither position
             in the tile. Only relevant for exposure registration.
+        exposure_starts_callback
+            A callback to be called when the exposure starts.
 
         Returns
         -------
@@ -774,6 +777,9 @@ class GortObserver:
 
             exposure.hooks["pre-readout"].append(self._pre_readout)
             exposure.hooks["post-readout"].append(self._post_readout)
+
+            if exposure_starts_callback:
+                exposure.hooks["exposure-starts"].append(exposure_starts_callback)
 
             with self.register_overhead(f"expose:integration-{nexp}"):
                 await exposure.expose(

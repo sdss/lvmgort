@@ -15,7 +15,7 @@ import re
 import warnings
 from collections import defaultdict
 
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Literal, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Literal, Sequence
 
 from astropy.io import fits
 from astropy.time import Time
@@ -46,8 +46,8 @@ __all__ = ["Exposure", "READOUT_TIME"]
 READOUT_TIME = 55
 
 HOOKS_TYPE = defaultdict[
-    Literal["pre-readout", "post-readout"],
-    list[Callable[[Any], Awaitable]],
+    Literal["exposure-starts", "pre-readout", "post-readout"],
+    list[Callable[[Any], Coroutine]],
 ]
 
 
@@ -118,7 +118,11 @@ class Exposure(asyncio.Future["Exposure"]):
 
         self.hooks: HOOKS_TYPE = defaultdict(
             list,
-            {"pre-readout": [], "post-readout": []},
+            {
+                "exposure-starts": [],
+                "pre-readout": [],
+                "post-readout": [],
+            },
         )
 
         if self.flavour not in ["arc", "object", "flat", "bias", "dark"]:
@@ -238,6 +242,8 @@ class Exposure(asyncio.Future["Exposure"]):
                 await self.start_timer(self._exposure_time)
 
             self.start_time = Time.now()
+
+            await self._call_hook("exposure-starts")
 
             await self.specs.send_command_all(
                 "expose",
@@ -519,7 +525,7 @@ class Exposure(asyncio.Future["Exposure"]):
         if hook_name not in self.hooks:
             raise ValueError(f"Invalid hook {hook_name!r}.")
 
-        self.specs.write_to_log(f"Calling hook {hook_name!r}.")
+        self.specs.write_to_log(f"Calling hook {hook_name!r} functions.")
 
         coros = self.hooks[hook_name]
         if not isinstance(coros, list) and asyncio.iscoroutinefunction(coros):
