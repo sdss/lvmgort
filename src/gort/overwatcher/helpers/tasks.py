@@ -214,6 +214,20 @@ class PreObservingTask(DailyTaskBase):
 
         return True
 
+    async def _run_internal(self) -> bool:
+        """Runs the pre-observing tasks."""
+
+        try:
+            await self.overwatcher.gort.execute_recipe("pre-observing")
+        except Exception as err:
+            await self.overwatcher.notify(
+                f"Error running pre-observing task: {decap(err)}",
+                level="critical",
+            )
+
+        # Always mark the task complete, even if it failed.
+        return True
+
 
 class PowerCycleAGsTask(DailyTaskBase):
     """Power cycles all AG cameras 60 minutes before sunset."""
