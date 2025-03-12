@@ -542,6 +542,8 @@ class Overwatcher(NotifierMixIn):
         # Acknowledge any pending shutdown.
         self.state.shutdown_pending = False
 
+        await self.notify("Shutdown complete.", level="info")
+
     async def is_shutdown(self):
         """Determines whether the observatory is safely shut down."""
 
