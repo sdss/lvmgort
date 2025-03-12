@@ -199,6 +199,17 @@ class ObserverOverwatcher(OverwatcherModule):
 
         # If immediate, cancel the task now and cleanup.
         if immediate:
+            if self._starting_observations:
+                # Just let the startup finish. observe_loop_task() will immediately
+                # return because we have set _is_cancelling=True.
+                await self.notify("Waiting for the start-up sequence to finish.")
+                if block:
+                    while True:
+                        if not self._starting_observations:
+                            break
+                        await asyncio.sleep(1)
+                return
+
             self.observe_loop = await cancel_task(self.observe_loop)
 
             # The guiders may have been left running or the spectrograph may still
@@ -212,6 +223,11 @@ class ObserverOverwatcher(OverwatcherModule):
 
     async def observe_loop_task(self):
         """Runs the observing loop."""
+
+        # Immediately return if we are cancelling. This can happen if we disable
+        # the overwatcher during startup.
+        if self.is_cancelling:
+            return
 
         # Check that we have not started too early (this happens when we open the dome
         # a bit early to avoid wasting time). If so, wait until we are properly in
@@ -244,6 +260,9 @@ class ObserverOverwatcher(OverwatcherModule):
                     f"Received tile {tile.tile_id} from scheduler: "
                     f"observing dither positions {tile.dither_positions}."
                 )
+
+                if self.is_cancelling:
+                    break
 
                 await self.check_focus(force=n_tile_positions == 0 or self.force_focus)
 
