@@ -15,11 +15,17 @@ from typing import TYPE_CHECKING
 
 from lvmopstools.retrier import Retrier
 
-from gort.exceptions import GortError, OverwatcherError, TroubleshooterTimeoutError
+from gort.exceptions import (
+    GortError,
+    OverwatcherError,
+    TroubleshooterCriticalError,
+    TroubleshooterTimeoutError,
+)
 from gort.exposure import Exposure
 from gort.overwatcher import OverwatcherModule
 from gort.overwatcher.core import OverwatcherModuleTask
 from gort.overwatcher.transparency import TransparencyQuality
+from gort.overwatcher.troubleshooter.recipes import AcquisitionFailedRecipe
 from gort.tile import Tile
 from gort.tools import cancel_task, decap, ensure_period, run_in_executor
 
@@ -397,6 +403,23 @@ class ObserverOverwatcher(OverwatcherModule):
                     )
 
             await self.gort.specs.reset()
+
+        # Use the code in the troubleshooter to check if all AG cameras are connected.
+        acq_failed_recipe = AcquisitionFailedRecipe(self.overwatcher.troubleshooter)
+
+        self.log.debug("Checking AG cameras.")
+        ag_pings = await acq_failed_recipe.ping_ag_cameras()
+
+        if not all(ag_pings.values()):
+            self.log.error("Not all AG cameras ping. Running troubleshooting recipe.")
+            try:
+                await acq_failed_recipe._handle_disconnected_cameras()
+            except TroubleshooterCriticalError as err:
+                await self.notify(
+                    f"Critical error while checking AG cameras: {decap(err)}",
+                    level="error",
+                )
+                return False
 
         return True
 

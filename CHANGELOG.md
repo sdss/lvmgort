@@ -5,6 +5,7 @@
 ### ✨ Improved
 
 * Add Overwatcher daily task to power cycle AG cameras before observations.
+* Check AG cameras before each tile.
 
 
 ## 1.7.2 - March 2, 2025
