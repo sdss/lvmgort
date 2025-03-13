@@ -19,6 +19,7 @@ from astropy.coordinates import EarthLocation, get_body
 from astropy.time import Time
 
 from sdsstools.daemonizer import cli_coro
+from sdsstools.utils import GatheringTaskGroup
 
 from gort import Gort, Tile
 from gort.tools import cancel_task
@@ -78,6 +79,7 @@ async def lunar_eclipse(
     only_sci: bool = False,
     dark: bool = False,
     continuous: bool = False,
+    close_hartmann: bool = False,
 ):
     """Observes a lunar eclipse."""
 
@@ -103,6 +105,14 @@ async def lunar_eclipse(
 
     sci_monitor_task: asyncio.Task | None = None
     track_moon_task: asyncio.Task | None = None
+
+    if close_hartmann:
+        async with GatheringTaskGroup() as group:
+            group.create_task(gort.specs["sp1"].ieb.close("hartmann_left"))
+            group.create_task(gort.specs["sp2"].ieb.close("hartmann_left"))
+            group.create_task(gort.specs["sp3"].ieb.close("hartmann_left"))
+    else:
+        await gort.specs.reset(full=True)
 
     is_acquired: bool = False
 
@@ -210,6 +220,10 @@ async def lunar_eclipse_cli(
         bool,
         typer.Option("--dark", help="Take dark frames"),
     ] = False,
+    close_hartmann: Annotated[
+        bool,
+        typer.Option("--close-hartmann", help="Close the left Hartmann door"),
+    ] = False,
 ):
     """Lunar eclipse 2025 observing."""
 
@@ -226,6 +240,7 @@ async def lunar_eclipse_cli(
         only_sci=only_sci,
         dark=dark,
         continuous=continuous,
+        close_hartmann=close_hartmann,
     )
 
 
