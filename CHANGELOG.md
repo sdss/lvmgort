@@ -2,6 +2,10 @@
 
 ## Next version
 
+### 🚀 New
+
+* [#48](https://github.com/sdss/lvmgort/pull/48) Added script to observe the lunar eclipse for March 2025.
+
 ### ✨ Improved
 
 * Add Overwatcher daily task to power cycle AG cameras before observations.
