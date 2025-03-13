@@ -9,10 +9,11 @@
 from __future__ import annotations
 
 import asyncio
-from functools import partial
+import pathlib
 
 from typing import Annotated
 
+import numpy
 import typer
 from astropy.coordinates import EarthLocation, get_body
 from astropy.time import Time
@@ -23,7 +24,10 @@ from gort import Gort, Tile
 from gort.tools import cancel_task
 
 
-async def guide_with_sci(gort: Gort):
+STOP_FILE_PATH = pathlib.Path("/tmp/stop_lunar_eclipse")
+
+
+async def monitor_sci(gort: Gort):
     """Guides with the sci telescope but does not apply corrections."""
 
     gort.log.debug("Starting to guide with the science telescope (no corrections).")
@@ -31,27 +35,49 @@ async def guide_with_sci(gort: Gort):
     gort.log.debug("Guiding with the science telescope finished.")
 
 
-async def park_sci(gort: Gort, science_exptime: float):
-    """Parks the science telescope after the science exposure time."""
+async def track_moon_with_sci(gort: Gort):
+    """Tracks the Moon with the science telescope."""
 
-    await asyncio.sleep(science_exptime)
+    gort.log.debug("Starting to track the Moon with the science telescope.")
 
-    gort.log.warning("Parking the science telescope.")
+    lco = EarthLocation.of_site("Las Campanas Observatory")
+    now = Time.now()
 
-    await asyncio.gather(
-        gort.telescopes.sci.park(kmirror=False, disable=False),
-        gort.guiders.sci.stop(),
-    )
+    moon = get_body("moon", now, location=lco)  # In GCRS coordinates
 
-    gort.log.warning("Science telescope parked.")
+    moon_ra = moon.icrs.ra.deg.item()
+    moon_dec = moon.icrs.dec.deg.item()
+    gort.log.info(f"Moon coordinates: RA={moon_ra:.6f}, Dec={moon_dec:.6f}")
+
+    while True:
+        await asyncio.sleep(5)
+
+        now = Time.now()
+        moon = get_body("moon", now, location=lco)
+
+        new_moon_ra = moon.icrs.ra.deg.item()
+        new_moon_dec = moon.icrs.dec.deg.item()
+        gort.log.info(f"Moon coordinates: RA={new_moon_ra:.6f}, Dec={new_moon_dec:.6f}")
+
+        off_dec = new_moon_dec - moon_dec
+        off_ra = (new_moon_ra - moon_ra) * numpy.cos(numpy.radians(new_moon_dec))
+
+        gort.log.info(f"Offset: RA={off_ra * 3600:.1f}, Dec={off_dec * 3600:.1f}")
+
+        await gort.telescopes.sci.offset(off_ra * 3600, off_dec * 3600)
+
+        moon_ra = new_moon_ra
+        moon_dec = new_moon_dec
 
 
 async def lunar_eclipse(
     gort: Gort,
-    science_exptime: float,
-    exptime: float | None = None,
+    exposure_time: float,
+    slew_sci: bool = True,
+    track_sci: bool = False,
     only_sci: bool = False,
     dark: bool = False,
+    continuous: bool = False,
 ):
     """Observes a lunar eclipse."""
 
@@ -72,51 +98,75 @@ async def lunar_eclipse(
     if only_sci:
         tile.set_spec_coords()
         tile.set_sky_coords()
-        exptime = science_exptime
-
-    # Default to using the same exposure time for all
-    # telescopes if exptime not provided.
-    exptime = exptime or science_exptime
-    move_sci = exptime > science_exptime
 
     observer = gort.observer
-    observer.reset(tile=tile)
 
-    # Slew all telescopes to their initial positions
-    await observer.slew()
+    sci_monitor_task: asyncio.Task | None = None
+    track_moon_task: asyncio.Task | None = None
 
-    # Guide with all telescopes except sci, but do take guide frames
-    # without corrections with the sci telescope.
-    sci_guiding_task = asyncio.create_task(guide_with_sci(gort))
+    is_acquired: bool = False
 
-    if not only_sci:
-        await observer.acquire(telescopes=["spec", "skye", "skyw"])
+    while True:
+        observer.reset(tile, reset_stages=not is_acquired)
 
-    exposure_starts_callback = partial(park_sci, gort, science_exptime)
-    await observer.expose(
-        exposure_time=exptime,
-        object="lunar_eclipse_2025",
-        show_progress=True,
-        keep_guiding=True,
-        async_readout=False,
-        exposure_starts_callback=exposure_starts_callback if move_sci else None,  # type: ignore
-    )
+        if not is_acquired:
+            if exposure_time < 300:
+                gort.log.warning("Exposure time is too short. Using only sci.")
+                only_sci = True
 
-    await observer.finish_observation()
-    await cancel_task(sci_guiding_task)
+            if only_sci:
+                if slew_sci:
+                    await observer.slew(telescopes=["sci"])
+                    sci_monitor_task = asyncio.create_task(monitor_sci(gort))
 
-    if dark:
-        await gort.guiders.stop()
-        if move_sci:
-            await gort.telescopes.sci.goto_coordinates(
-                ra=tile.sci_coords.ra,
-                dec=tile.sci_coords.dec,
-            )
-        await gort.specs.expose(
-            science_exptime,
-            flavour="dark",
+                if track_sci:
+                    track_moon_task = asyncio.create_task(track_moon_with_sci(gort))
+
+            else:
+                if slew_sci:
+                    await observer.slew()
+                else:
+                    await observer.slew(telescopes=["spec", "skye", "skyw"])
+
+                sci_monitor_task = asyncio.create_task(monitor_sci(gort))
+                await observer.acquire(telescopes=["spec", "skye", "skyw"])
+
+                if track_sci:
+                    track_moon_task = asyncio.create_task(track_moon_with_sci(gort))
+
+        else:
+            if not only_sci and observer.standards:
+                await observer.standards.reacquire_first()
+
+            observer.guider_monitor.reset()
+
+        is_acquired = True
+        await observer.expose(
+            exposure_time=exposure_time,
             object="lunar_eclipse_2025",
+            show_progress=True,
+            keep_guiding=True,
+            async_readout=False,
         )
+        await observer.finish_observation(keep_guiding=continuous)
+
+        stop_file_exists = STOP_FILE_PATH.exists()
+        STOP_FILE_PATH.unlink(missing_ok=True)
+
+        if continuous and not stop_file_exists:
+            continue
+
+        await cancel_task(sci_monitor_task)
+        await cancel_task(track_moon_task)
+
+        await gort.guiders.stop()
+
+        if dark:
+            await gort.specs.expose(
+                exposure_time,
+                flavour="dark",
+                object="lunar_eclipse_2025",
+            )
 
 
 cli = typer.Typer(
@@ -131,10 +181,10 @@ cli = typer.Typer(
 @cli.command()
 @cli_coro()
 async def lunar_eclipse_cli(
-    science_exposure_time: Annotated[
+    exposure_time: Annotated[
         float,
         typer.Argument(
-            metavar="SCI_EXP_TIME",
+            metavar="EXP_TIME",
             min=0.0,
             max=900,
             help="Science exposure time",
@@ -144,40 +194,39 @@ async def lunar_eclipse_cli(
         bool,
         typer.Option("-c", "--continuous", help="Continuous mode"),
     ] = False,
-    exposure_time: Annotated[
-        float | None,
-        typer.Option("-e", "--exposure-time", help="Exposure time"),
-    ] = None,
     only_sci: Annotated[
         bool,
-        typer.Option("--only-sci", help="Only guide with the science telescope"),
+        typer.Option("--only-sci", help="Only use the science telescope"),
     ] = False,
-    with_dark: Annotated[
+    slew_sci: Annotated[
+        bool | None,
+        typer.Option("--slew-sci/--no-slew-sci", help="Slew sci to the Moon"),
+    ] = None,
+    track_sci: Annotated[
+        bool,
+        typer.Option("--track-sci/--no-track-sci", help="Track the Moon"),
+    ] = False,
+    dark: Annotated[
         bool,
         typer.Option("--dark", help="Take dark frames"),
     ] = False,
 ):
     """Lunar eclipse 2025 observing."""
 
-    if not only_sci and science_exposure_time < 60:
-        raise typer.Abort(
-            "Science exposure time must be at least "
-            "60 seconds when using all telescopes."
-        )
+    if slew_sci is None:
+        slew_sci = track_sci
 
     gort = await Gort(override_overwatcher=True, verbosity="debug").init()
 
-    while True:
-        await lunar_eclipse(
-            gort=gort,
-            science_exptime=science_exposure_time,
-            exptime=exposure_time,
-            only_sci=only_sci,
-            dark=with_dark,
-        )
-
-        if not continuous:
-            break
+    await lunar_eclipse(
+        gort=gort,
+        exposure_time=exposure_time,
+        slew_sci=slew_sci,
+        track_sci=track_sci,
+        only_sci=only_sci,
+        dark=dark,
+        continuous=continuous,
+    )
 
 
 if __name__ == "__main__":

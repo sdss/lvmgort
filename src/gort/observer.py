@@ -478,10 +478,14 @@ class GortObserver:
 
     @handle_signals(interrupt_signals, interrupt_helper.run_callback)
     @register_stage_status
-    async def slew(self):
+    async def slew(self, telescopes: list[str] = ["sci", "skye", "skyw", "spec"]):
         """Slew to the telescope fields."""
 
         cotasks = []
+
+        sci: tuple[float, float, float] | None = None
+        spec: tuple[float, float] | None = None
+        sky: dict[str, tuple[float, float]] = {}
 
         with self.register_overhead("slew:stop-guiders"):
             # Stops guiders.
@@ -490,34 +494,36 @@ class GortObserver:
         # Slew telescopes.
         self.write_to_log(f"Slewing to tile_id={self.tile.tile_id}.", level="info")
 
-        sci = (
-            self.tile.sci_coords.ra,
-            self.tile.sci_coords.dec,
-            self.tile.sci_coords.pa,
-        )
-        self.write_to_log(f"Science: {str(self.tile.sci_coords)}")
-
-        spec = None
-        if self.tile.spec_coords and len(self.tile.spec_coords) > 0:
-            first_spec = self.tile.spec_coords[0]
-
-            # For spec we slew to the fibre with which we'll observe first.
-            # This should save a bit of time converging.
-            spec = fibre_slew_coordinates(
-                first_spec.ra,
-                first_spec.dec,
-                self.mask_positions[0],
-                derotated=False,
+        if "sci" in telescopes:
+            sci = (
+                self.tile.sci_coords.ra,
+                self.tile.sci_coords.dec,
+                self.tile.sci_coords.pa,
             )
+            self.write_to_log(f"Science: {str(self.tile.sci_coords)}")
 
-            self.write_to_log(f"Spec: {first_spec} on {self.mask_positions[0]}")
+        if "spec" in telescopes:
+            if self.tile.spec_coords and len(self.tile.spec_coords) > 0:
+                first_spec = self.tile.spec_coords[0]
+
+                # For spec we slew to the fibre with which we'll observe first.
+                # This should save a bit of time converging.
+                spec = fibre_slew_coordinates(
+                    first_spec.ra,
+                    first_spec.dec,
+                    self.mask_positions[0],
+                    derotated=False,
+                )
+
+                self.write_to_log(f"Spec: {first_spec} on {self.mask_positions[0]}")
 
         sky = {}
         for skytel in ["SkyE", "SkyW"]:
-            if skytel.lower() in self.tile.sky_coords:
-                sky_coords_tel = self.tile.sky_coords[skytel.lower()]
+            skytel_l = skytel.lower()
+            if skytel_l in self.tile.sky_coords and skytel_l in telescopes:
+                sky_coords_tel = self.tile.sky_coords[skytel_l]
                 if sky_coords_tel is not None:
-                    sky[skytel.lower()] = (sky_coords_tel.ra, sky_coords_tel.dec)
+                    sky[skytel_l] = (sky_coords_tel.ra, sky_coords_tel.dec)
                     self.write_to_log(f"{skytel}: {sky_coords_tel}")
 
         # For sci we want to slew the k-mirror so that we can apply small positive
