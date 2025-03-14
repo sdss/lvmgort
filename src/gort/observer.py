@@ -895,7 +895,7 @@ class GortObserver:
         self.write_to_log("Registering observation.", "info")
         registration_payload = {
             "dither": dither_position,
-            "jd": exposure.start_time.jd,
+            "jd": float(exposure.start_time.jd),
             "seeing": -999.0,
             "standards": standards,
             "skies": skies,
