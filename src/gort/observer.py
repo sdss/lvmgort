@@ -1297,7 +1297,7 @@ class Standards:
         """Iterate task."""
 
         # Time to acquire a standard.
-        ACQ_PER_STD = 30
+        ACQ_PER_STD = 60
 
         spec_coords = self.tile.spec_coords
 
