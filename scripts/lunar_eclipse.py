@@ -120,14 +120,13 @@ async def lunar_eclipse(
         observer.reset(tile, reset_stages=not is_acquired)
 
         if not is_acquired:
-            if exposure_time < 300:
+            if exposure_time <= 90 and not only_sci:
                 gort.log.warning("Exposure time is too short. Using only sci.")
                 only_sci = True
 
             if only_sci:
                 if slew_sci:
                     await observer.slew(telescopes=["sci"])
-                    sci_monitor_task = asyncio.create_task(monitor_sci(gort))
 
                 if track_sci:
                     track_moon_task = asyncio.create_task(track_moon_with_sci(gort))
@@ -138,11 +137,12 @@ async def lunar_eclipse(
                 else:
                     await observer.slew(telescopes=["spec", "skye", "skyw"])
 
-                sci_monitor_task = asyncio.create_task(monitor_sci(gort))
                 await observer.acquire(telescopes=["spec", "skye", "skyw"])
 
                 if track_sci:
                     track_moon_task = asyncio.create_task(track_moon_with_sci(gort))
+
+            sci_monitor_task = asyncio.create_task(monitor_sci(gort))
 
         else:
             if not only_sci and observer.standards:
@@ -177,6 +177,9 @@ async def lunar_eclipse(
                 flavour="dark",
                 object="lunar_eclipse_2025",
             )
+
+        if not continuous:
+            break
 
 
 cli = typer.Typer(
