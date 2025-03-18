@@ -1,6 +1,6 @@
 # Changelog
 
-## Next version
+## 1.8.0 - March 18, 2025
 
 ### 🚀 New
 
