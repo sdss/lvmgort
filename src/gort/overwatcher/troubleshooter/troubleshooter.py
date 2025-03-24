@@ -196,7 +196,7 @@ class Troubleshooter:
             )
 
         finally:
-            self._event.set()
+            self.reset()
 
         return False
 

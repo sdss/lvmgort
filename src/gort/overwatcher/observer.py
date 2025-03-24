@@ -210,7 +210,12 @@ class ObserverOverwatcher(OverwatcherModule):
                         await asyncio.sleep(1)
                 return
 
-            self.observe_loop = await cancel_task(self.observe_loop)
+            try:
+                await cancel_task(self.observe_loop)
+            except Exception as err:
+                self.log.error(f"Error while cancelling observing loop: {decap(err)}")
+            finally:
+                self.observe_loop = None
 
             # The guiders may have been left running or the spectrograph may still
             # be exposing. Clean up to avoid issues.
@@ -220,6 +225,10 @@ class ObserverOverwatcher(OverwatcherModule):
         if block and self.observe_loop and not self.observe_loop.done():
             await self.observe_loop
             self.observe_loop = None
+
+        # We are not troubleshooting any more if we have stopped the loop, but if we
+        # cancelled the task the troubleshooter event may still be cleared.
+        self.overwatcher.troubleshooter.reset()
 
     async def observe_loop_task(self):
         """Runs the observing loop."""
