@@ -6,6 +6,10 @@
 
 * Added a fudge factor to the twilight flats exposure time to prevent saturation in the IR band.
 
+### 🔧 Fixed
+
+* Ensure the Overwatcher is disabled in the morning even when it was not observing.
+
 
 ## 1.8.0 - March 18, 2025
 
