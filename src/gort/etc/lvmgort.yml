@@ -251,6 +251,7 @@ recipes:
     popt: [1.09723745, 3.55598039, -1.86597751]
     sunset_start: 2 # minutes
     sunrise_start: 15 # minutes
+    fudge_factor: 1 # minutes
     max_exp_time: 300 # seconds
     max_exp_time_extra: 100 # seconds
 

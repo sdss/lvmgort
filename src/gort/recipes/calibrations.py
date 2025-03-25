@@ -170,6 +170,9 @@ class TwilightFlats(BaseRecipe):
         # Start sunrise flats 15 minutes before sunrise
         sunrise_start: float = config["sunrise_start"]
 
+        # Fudge factor for the exposure time, in minutes.
+        fudge_factor: float = config["fudge_factor"]
+
         # Maximum exposure time for normal flats.
         max_exp_time: float = config["max_exp_time"]
 
@@ -224,7 +227,7 @@ class TwilightFlats(BaseRecipe):
 
             # Calculate exposure time.
             aa, bb, cc = popt
-            exp_time = aa * numpy.exp(-time_diff_sun / bb) + cc
+            exp_time = aa * numpy.exp(-(time_diff_sun + fudge_factor) / bb) + cc
 
             if is_sunset:
                 time_to_flat_twilighs = sunset_start + time_diff_sun

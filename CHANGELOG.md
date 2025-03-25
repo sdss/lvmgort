@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### 🏷️ Changed
+
+* Added a fudge factor to the twilight flats exposure time to prevent saturation in the IR band.
+
+
 ## 1.8.0 - March 18, 2025
 
 ### 🚀 New
