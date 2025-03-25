@@ -165,19 +165,19 @@ class TwilightFlats(BaseRecipe):
 
         # Start sunset flats two minutes after sunset.
         # Positive numbers means "into" the twilight.
-        sunset_start: float = config["sunset_start"]
+        sunset_start: float = config.get("sunset_start", 2)
 
         # Start sunrise flats 15 minutes before sunrise
-        sunrise_start: float = config["sunrise_start"]
+        sunrise_start: float = config.get("sunrise_start", 15)
 
         # Fudge factor for the exposure time, in minutes.
-        fudge_factor: float = config["fudge_factor"]
+        fudge_factor: float = config.get("fudge_factor", 0)
 
         # Maximum exposure time for normal flats.
-        max_exp_time: float = config["max_exp_time"]
+        max_exp_time: float = config.get("max_exp_time", 300)
 
         # Maximum exposure time for extra flats.
-        max_exp_time_extra: float = config["max_exp_time_extra"]
+        max_exp_time_extra: float = config.get("max_exp_time_extra", 100)
 
         await self.gort.cleanup()
 
