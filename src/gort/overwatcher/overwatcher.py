@@ -253,13 +253,13 @@ class OverwatcherMainTask(OverwatcherTask):
         # If the overwatcher is enabled but it's daytime, we close the dome. We
         # only disable the overwatcher if its morning, otherwise an observer could not
         # enable it in the evening.
-        disable_overwatcher = time_to_morning > -3600 * 3
+        # disable_overwatcher = time_to_morning > -3600 * 3
         await self.overwatcher.shutdown(
             reason="Daytime conditions detected.",
             level="info",
             close_dome=True,
             retry=True,
-            disable_overwatcher=disable_overwatcher,
+            disable_overwatcher=False,
             park=True,
             cancel_safe_calibrations=False,
         )
