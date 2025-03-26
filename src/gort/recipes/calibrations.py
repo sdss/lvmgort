@@ -11,6 +11,8 @@ from __future__ import annotations
 import asyncio
 import random
 
+from typing import Sequence
+
 import numpy
 from astropy.time import Time
 
@@ -20,7 +22,7 @@ from gort.tools import decap, get_ephemeris_summary
 from .base import BaseRecipe
 
 
-__all__ = ["QuickCals", "BiasSequence", "TwilightFlats"]
+__all__ = ["QuickCals", "BiasSequence", "TwilightFlats", "LongTermCalibrations"]
 
 
 class QuickCals(BaseRecipe):
@@ -323,3 +325,108 @@ class TwilightFlats(BaseRecipe):
         await self.gort.telescopes.spec.fibsel.move_to_position(fibre_str)
 
         return fibre_str
+
+
+class LongTermCalibrations(BaseRecipe):
+    """Runs the long-term calibration sequence."""
+
+    name = "long_term_calibrations"
+
+    async def recipe(self, biases: bool = False):
+        """Runs the calibration sequence.
+
+        Parameters
+        ----------
+        biases
+            If :obj:`True`, takes a sequence of bias frames.
+
+        """
+
+        config = self.gort.config["recipes"][self.name]
+
+        n_biases: int = config.get("n_biases", 7)
+        quartz_exp_time: float = config.get("quartz_exp_time", 20)
+        ldls_exp_time: float = config.get("ldls_exp_time", 150)
+
+        arc_exp_times: Sequence[float] = config.get("arc_exp_times", [10, 50])
+        if not isinstance(arc_exp_times, Sequence):
+            arc_exp_times = [arc_exp_times]
+
+        if biases:
+            self.gort.log.info(f"Taking {n_biases} bias frames.")
+            await self.gort.execute_recipe("bias_sequence", count=n_biases)
+
+        self.gort.log.info("Moving telescopes to point to the calibration screen.")
+        await self.gort.telescopes.goto_named_position("calibration")
+
+        # Quart flats
+
+        self.gort.log.info("Turning on the Quartz lamp.")
+        await self.gort.nps.calib.on("Quartz")
+
+        self.gort.log.info("Waiting 120 seconds for the lamp to warm up.")
+        await asyncio.sleep(120)
+
+        for fibre in range(12):
+            fibre_str = f"P1-{fibre + 1}"
+            self.gort.log.info(f"Taking fibre {fibre_str} exposure.")
+
+            await self.gort.telescopes.spec.fibsel.move_to_position(fibre_str)
+            await self.gort.specs.expose(
+                quartz_exp_time,
+                flavour="flat",
+                header={"CALIBFIB": fibre_str},
+            )
+
+        self.gort.log.debug("Turning off the Quartz lamp.")
+        await self.gort.nps.calib.all_off()
+
+        # LDLS flats
+
+        self.gort.log.info("Turning on the LDLS lamp.")
+        await self.gort.nps.calib.on("LDLS")
+
+        self.gort.log.info("Waiting 300 seconds for the lamp to warm up.")
+        await asyncio.sleep(300)
+
+        for fibre in range(12):
+            fibre_str = f"P1-{fibre + 1}"
+            self.gort.log.info(f"Taking fibre {fibre_str} exposure.")
+
+            await self.gort.telescopes.spec.fibsel.move_to_position(fibre_str)
+            await self.gort.specs.expose(
+                ldls_exp_time,
+                flavour="flat",
+                header={"CALIBFIB": fibre_str},
+            )
+
+        self.gort.log.debug("Turning off the LDLS lamp.")
+        await self.gort.nps.calib.all_off()
+
+        # Arcs
+        self.gort.log.info("Turning on arc lamps.")
+
+        await self.gort.nps.calib.on("HgNe")
+        await self.gort.nps.calib.on("Neon")
+        await self.gort.nps.calib.on("Argon")
+        await self.gort.nps.calib.on("Xenon")
+
+        self.gort.log.info("Waiting 180 seconds for the lamps to warm up.")
+        await asyncio.sleep(180)
+
+        for fibre in range(12):
+            fibre_str = f"P1-{fibre + 1}"
+            self.gort.log.info(f"Taking fibre {fibre_str} exposures.")
+
+            await self.gort.telescopes.spec.fibsel.move_to_position(fibre_str)
+            for arc_exp_time in arc_exp_times:
+                await self.gort.specs.expose(
+                    arc_exp_time,
+                    flavour="arc",
+                    header={"CALIBFIB": fibre_str},
+                )
+
+        self.gort.log.debug("Turning off all lamps.")
+        await self.gort.nps.calib.all_off()
+
+        await self.gort.telescopes.park(disable=False)

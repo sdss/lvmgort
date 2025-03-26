@@ -254,6 +254,11 @@ recipes:
     fudge_factor: 1 # minutes
     max_exp_time: 300 # seconds
     max_exp_time_extra: 100 # seconds
+  long_term_calibrations:
+    n_biases: 7
+    quartz_exp_time: 20
+    ldls_exp_time: 150
+    arc_exp_times: [10, 50]
 
 observer:
   guide_tolerance:
