@@ -90,6 +90,14 @@ class EphemerisMonitorTask(OverwatcherModuleTask["EphemerisOverwatcher"]):
                 await self.overwatcher.calibrations.reset()
                 self.overwatcher.troubleshooter.reset(clear_all_tracking=True)
 
+                # Ensure that the Overwatcher is disabled.
+                await self.overwatcher.shutdown(
+                    "Disabling overwatcher on SJD change.",
+                    close_dome=False,
+                    disable_overwatcher=True,
+                    park=False,
+                )
+
             await asyncio.sleep(60)
 
 
