@@ -2,6 +2,10 @@
 
 ## Next version
 
+### ✨ Improved
+
+* [#49](https://github.com/sdss/lvmgort/pull/49) Add a calibration recipe for long-term calibration and support scheduling them in the Overwatcher.
+
 ### 🏷️ Changed
 
 * Added a fudge factor to the twilight flats exposure time to prevent saturation in the IR band.

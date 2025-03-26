@@ -37,7 +37,8 @@
           },
           "close_dome_after": {
             "oneOf": [{ "type": "boolean" }, { "type": "null" }]
-          }
+          },
+          "disabled": { "type": "boolean" }
         }
       }
     },

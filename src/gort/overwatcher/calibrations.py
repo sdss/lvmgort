@@ -107,6 +107,10 @@ class CalibrationModel(BaseModel):
         title="Whether the calibration can be run after observing has finished "
         "if it initially failed.",
     )
+    disabled: bool = Field(
+        default=False,
+        title="Whether the calibration is disabled.",
+    )
 
     @model_validator(mode="after")
     def validate_start_time(self) -> Self:
@@ -409,13 +413,20 @@ class CalibrationSchedule:
         now: float = time.time()
         done_cals: set[str] = set()
 
-        for cal in self.calibrations:
+        for cal in sorted(
+            self.calibrations,
+            key=lambda x: x.model.priority,
+            reverse=True,
+        ):
             if cal.name in done_cals or cal.is_finished():
                 done_cals.add(cal.name)
                 continue
 
             if cal.state == CalibrationState.RETRYING:
                 return cal
+
+            if cal.model.disabled:
+                continue
 
             # If it's too late to start the calibration, skip it.
             if cal.max_start_time is not None and now > cal.max_start_time:

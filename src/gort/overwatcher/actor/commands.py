@@ -179,6 +179,7 @@ async def list_(command: OverwatcherCommand):
                 "status": cal.state.name.lower(),
                 "requires_dome": cal.model.dome,
                 "close_dome_after": cal.model.close_dome_after,
+                "disabled": cal.model.disabled,
             }
         )
 
@@ -210,6 +211,50 @@ async def calibrations_reset(
     overwatcher.calibrations.schedule.update_schedule(reset=True)
 
     return command.finish()
+
+
+@calibrations.command()
+@click.option(
+    "--now",
+    is_flag=True,
+    help="Starts the next calibration immediately.",
+)
+@click.option(
+    "--remove",
+    is_flag=True,
+    help="Removes the scheduled long-term calibrations.",
+)
+async def schedule_long_term_calibrations(
+    command: OverwatcherCommand,
+    now: bool = False,
+    remove: bool = False,
+):
+    """Schedules long-term calibrations."""
+
+    overwatcher = command.actor.overwatcher
+    calibrations = overwatcher.calibrations
+
+    long_term_cals = calibrations.schedule.get_calibration("long_term_calibrations")
+    if long_term_cals is None:
+        return command.fail(error="Long-term calibrations are not defined.")
+
+    if remove:
+        long_term_cals.model.disabled = True
+        return command.finish(text="Long-term calibrations have been unscheduled.")
+
+    # The long term calibrations are disabled by default. Enable them and make sure
+    # that they are taken even if they have failed before or been done already.
+    long_term_cals.model.disabled = False
+    await long_term_cals.record_state(CalibrationState.WAITING)
+
+    if now:
+        command.info("Stopping the current observing loop to allow calibrations.")
+        await overwatcher.observer.stop_observing(
+            immediate=True,
+            reason="Scheduling long-term calibrations",
+        )
+
+    return command.finish(text="Long-term calibrations have been scheduled.")
 
 
 @overwatcher_cli.group()
