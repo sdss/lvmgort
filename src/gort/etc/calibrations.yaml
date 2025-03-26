@@ -48,3 +48,16 @@
 #   close_dome_after: true
 #   abort_observing: true
 #   priority: 10
+
+- name: long_term_calibrations
+  recipe: long_term_calibrations
+  min_start_time: 1800
+  max_start_time: null
+  time_mode: secs_after_sunset
+  after: null
+  required: false
+  dome: closed
+  abort_observing: false
+  priority: 10
+  allow_post_observing_recovery: false
+  disabled: true
