@@ -16,8 +16,10 @@ from typing import Sequence
 import numpy
 from astropy.time import Time
 
+from sdsstools import get_sjd
+
 from gort.enums import ErrorCode, Event
-from gort.tools import decap, get_ephemeris_summary
+from gort.tools import decap, get_ephemeris_summary, redis_client_sync
 
 from .base import BaseRecipe
 
@@ -332,13 +334,14 @@ class LongTermCalibrations(BaseRecipe):
 
     name = "long_term_calibrations"
 
-    async def recipe(self, biases: bool = False):
+    async def recipe(self, biases: bool | None = False):
         """Runs the calibration sequence.
 
         Parameters
         ----------
         biases
-            If :obj:`True`, takes a sequence of bias frames.
+            If :obj:`True`, takes a sequence of bias frames. If :obj:`None`, checks
+            if the Overwatcher has taken the biases today and won't retake them if so.
 
         """
 
@@ -351,6 +354,9 @@ class LongTermCalibrations(BaseRecipe):
         arc_exp_times: Sequence[float] = config.get("arc_exp_times", [10, 50])
         if not isinstance(arc_exp_times, Sequence):
             arc_exp_times = [arc_exp_times]
+
+        if biases is None:
+            biases = self.check_biases()
 
         if biases:
             self.gort.log.info(f"Taking {n_biases} bias frames.")
@@ -430,3 +436,20 @@ class LongTermCalibrations(BaseRecipe):
         await self.gort.nps.calib.all_off()
 
         await self.gort.telescopes.park(disable=False)
+
+    def check_biases(self) -> bool:
+        """Checks whether the biases have been taken tonight."""
+
+        sjd = get_sjd("LCO")
+
+        with redis_client_sync() as redis:
+            try:
+                key = f"overwatcher:calibrations:{sjd}"
+                bias_data = redis.json().get(key, ".bias_sequence")
+            except Exception:
+                return True
+
+            if bias_data is None or "state" not in bias_data:
+                return True
+
+            return bias_data["state"] == "done"  # type: ignore
