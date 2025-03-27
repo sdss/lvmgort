@@ -152,8 +152,9 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
                 failed_cameras.append(camera)
 
         # Power cycle the switch ports to those cameras.
+        failed_str = ", ".join(failed_cameras)
         await self.notify(
-            f"Found {len(failed_cameras)} AG cameras that are down: {failed_cameras}. "
+            f"Found {len(failed_cameras)} AG cameras that are down: {failed_str}. "
             "Power cycling switch ports. This will take several minutes.",
             level="warning",
         )
