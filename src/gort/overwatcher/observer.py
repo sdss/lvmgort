@@ -17,7 +17,6 @@ from lvmopstools.retrier import Retrier
 
 from gort.exceptions import (
     GortError,
-    OverwatcherError,
     TroubleshooterCriticalError,
     TroubleshooterTimeoutError,
 )
@@ -35,6 +34,12 @@ if TYPE_CHECKING:
 
 
 __all__ = ["ObserverOverwatcher"]
+
+
+class CancelObserveLoopError(GortError):
+    """Exception that cancel the observing loop."""
+
+    pass
 
 
 class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
@@ -293,7 +298,7 @@ class ObserverOverwatcher(OverwatcherModule):
                     self.next_exposure_completes = time() + 90 + 900 + 60
 
                     if not (await self.pre_observe_checks()):
-                        raise OverwatcherError("Pre-observe checks failed.")
+                        raise CancelObserveLoopError("Pre-observe checks failed.")
 
                     result, exps = await observer.observe_tile(
                         tile=tile,
@@ -337,6 +342,13 @@ class ObserverOverwatcher(OverwatcherModule):
                     "The troubleshooter timed out after 300 seconds. "
                     "Cancelling observations.",
                     level="critical",
+                )
+                break
+
+            except CancelObserveLoopError as err:
+                await self.notify(
+                    f"Cancelling observations: {decap(err)}",
+                    level="error",
                 )
                 break
 
