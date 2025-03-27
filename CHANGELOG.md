@@ -13,6 +13,7 @@
 ### 🔧 Fixed
 
 * Ensure the Overwatcher is disabled in the morning even when it was not observing.
+* Fix a regression in the acquisition failed troubleshooting recipe.
 
 
 ## 1.8.0 - March 18, 2025

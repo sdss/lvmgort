@@ -140,15 +140,16 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
             for ag in self.gort.ags.values():
                 await ag.actor.refresh()
 
+            if len(await self.gort.ags.list_alive_cameras()) == 7:
+                return True
+
             return False  # False means the error was probably not handled
 
-        # Create a list of failed cameras. The format is CAM-<last octet>.
-        IPs = self.get_camera_ips()
+        # Create a list of failed cameras.
         failed_cameras: list[str] = []
         for camera, ping in pings.items():
             if not ping:
-                last8 = IPs[camera].split(".")[-1]
-                failed_cameras.append(f"CAM-{last8}")
+                failed_cameras.append(camera)
 
         # Power cycle the switch ports to those cameras.
         await self.notify(
@@ -157,6 +158,7 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
             level="warning",
         )
 
+        # Use the API since it already includes all the logic.
         await run_lvmapi_task(
             "/macros/power_cycle_ag_cameras",
             params={"cameras": failed_cameras},
@@ -164,7 +166,7 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
         await asyncio.sleep(30)
 
         pings = await self.ping_ag_cameras()
-        if not all(pings):
+        if not all(pings.values()):
             raise TroubleshooterCriticalError("Unable to reconnect AG cameras.")
 
         await self.notify("AG cameras have been power cycled and are now pinging.")
