@@ -252,6 +252,7 @@ recipes:
     sunset_start: 2 # minutes
     sunrise_start: 15 # minutes
     fudge_factor: 1 # minutes
+    min_exp_time: 2 # seconds
     max_exp_time: 300 # seconds
     max_exp_time_extra: 100 # seconds
   long_term_calibrations:
