@@ -127,9 +127,7 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
     async def all_cameras_alive(self):
         """Returns True if all cameras are alive."""
 
-        n_cameras = len(self.get_camera_ips())
-
-        return len(await self.gort.ags.list_alive_cameras()) == n_cameras
+        return len(await self.gort.ags.list_alive_cameras()) == self.gort.ags.n_cameras
 
     async def _handle_disconnected_cameras(self):
         """Handle disconnected cameras."""

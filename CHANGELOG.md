@@ -5,6 +5,8 @@
 ### ✨ Improved
 
 * [#49](https://github.com/sdss/lvmgort/pull/49) Add a calibration recipe for long-term calibration and support scheduling them in the Overwatcher.
+* Improved the AG camera disconnection troubleshooting recipe.
+* Added a recipe to manually power-cycle and reconnect AG cameras.
 
 ### 🏷️ Changed
 

@@ -449,8 +449,9 @@ class ObserverOverwatcher(OverwatcherModule):
 
         self.log.debug("Checking AG cameras.")
         ag_pings = await acq_failed_recipe.ping_ag_cameras()
+        cameras_alive = await acq_failed_recipe.all_cameras_alive()
 
-        if not all(ag_pings.values()):
+        if not all(ag_pings.values()) or not cameras_alive:
             self.log.error("Not all AG cameras ping. Running troubleshooting recipe.")
             try:
                 await acq_failed_recipe._handle_disconnected_cameras()

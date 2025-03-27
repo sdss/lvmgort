@@ -12,6 +12,7 @@ import asyncio
 
 from gort.devices.core import GortDevice, GortDeviceSet
 from gort.gort import Gort
+from gort.tools import run_lvmapi_task
 
 
 __all__ = ["AG", "AGSet"]
@@ -33,10 +34,26 @@ class AG(GortDevice):
             else None,
         }
 
+    @property
+    def n_cameras(self):
+        """The number of AG cameras for this telescope."""
+
+        return len([1 for ip in self.ips.values() if ip is not None])
+
     async def status(self):
         """Returns the status of the AG."""
 
         return await self.actor.commands.status()
+
+    async def is_idle(self):
+        """Returns :obj:`True` if all the cameras are idle."""
+
+        status = await self.status()
+        for reply in status.replies:
+            if reply["status"]["camera_state"] != "idle":
+                return False
+
+        return True
 
     async def reconnect(self):
         """Reconnect the AG cameras."""
@@ -86,6 +103,12 @@ class AGSet(GortDeviceSet[AG]):
     __DEVICE_CLASS__ = AG
     __DEPLOYMENTS__ = ["lvmagcam"]
 
+    @property
+    def n_cameras(self):
+        """The number of AG cameras in the set."""
+
+        return sum([ag.n_cameras for ag in self.values()])
+
     async def reconnect(self):
         """Reconnects all the AG cameras.
 
@@ -100,6 +123,11 @@ class AGSet(GortDeviceSet[AG]):
 
         return await self.list_alive_cameras()
 
+    async def are_idle(self):
+        """Returns :obj:`True` if all the cameras are idle."""
+
+        return all(await asyncio.gather(*[ag.is_idle() for ag in self.values()]))
+
     async def list_alive_cameras(self):
         """Returns a list of cameras found alive and well.
 
@@ -110,15 +138,21 @@ class AGSet(GortDeviceSet[AG]):
 
         all_status = await asyncio.gather(*[ag.status() for ag in self.values()])
 
+        replies = []
+        for status in all_status:
+            for reply in status.replies:
+                try:
+                    replies.append({"actor": status.actor.name, **reply["status"]})
+                except Exception:
+                    pass
+
         cameras = []
-        for reply in all_status:
-            actor = reply.actor.name
+        for reply in replies:
+            actor = reply["actor"]
             telescope = actor.split(".")[1]
-            messages = reply.flatten()
-            if "east" in messages and "temperature" in messages["east"]:
-                cameras.append(f"{telescope}-e")
-            if "west" in messages and "temperature" in messages["west"]:
-                cameras.append(f"{telescope}-w")
+            camera = reply.get("camera", None)
+            if camera:
+                cameras.append(f"{telescope}-{camera}")
 
         return cameras
 
@@ -152,3 +186,28 @@ class AGSet(GortDeviceSet[AG]):
                 for ag in self.values()
             ]
         )
+
+    async def power_cycle(self):
+        """Power cycles all the cameras."""
+
+        await run_lvmapi_task("/macros/power_cycle_ag_cameras")
+        await asyncio.sleep(30)
+
+        for retry in range(2):
+            try:
+                alive_cameras = await self.list_alive_cameras()
+            except Exception:
+                alive_cameras = []
+
+            if len(alive_cameras) != self.n_cameras:
+                if retry == 1:
+                    raise RuntimeError("Not all cameras are responding.")
+
+                self.write_to_log(
+                    "Not all cameras are responding. Waiting 30 seconds and retrying.",
+                    "warning",
+                )
+                await asyncio.sleep(30)
+                await self.reconnect()
+
+        return True

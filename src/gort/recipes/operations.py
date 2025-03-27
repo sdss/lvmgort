@@ -398,3 +398,34 @@ class PostObservingRecipe(BaseRecipe):
                 self.gort.log.error("Failed to disable the overwatcher.")
             else:
                 self.gort.log.info("Overwatcher has been disabled.")
+
+
+class RebootAGsRecipe(BaseRecipe):
+    """Reboots the AG cameras."""
+
+    name = "reboot-ags"
+
+    async def recipe(self):
+        """Power-cycles and reboots the AG cameras."""
+
+        self.gort.log.info("Rebooting AG cameras.")
+
+        self.gort.log.debug("Stopping guiders and waiting for all cameras to be idle.")
+        await self.gort.guiders.stop()
+        await asyncio.sleep(10)
+
+        if not await self.gort.ags.are_idle():
+            self.gort.log.error(
+                "Some cameras are not idle. Manually stop the guiders and "
+                "ensure that the AG cameras are idle, then run this recipe again."
+            )
+            return
+
+        self.gort.log.warning("Power-cycling all AG cameras.")
+        try:
+            await self.gort.ags.power_cycle()
+        except Exception as ee:
+            self.gort.log.error("Error power-cycling AG cameras", exc_info=ee)
+            return
+
+        self.gort.log.info("AG cameras have been power-cycled and are connected.")
