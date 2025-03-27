@@ -124,6 +124,13 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
 
         return {cam_name: pings[ii] for ii, cam_name in enumerate(IPs)}
 
+    async def all_cameras_alive(self):
+        """Returns True if all cameras are alive."""
+
+        n_cameras = len(self.get_camera_ips())
+
+        return len(await self.gort.ags.list_alive_cameras()) == n_cameras
+
     async def _handle_disconnected_cameras(self):
         """Handle disconnected cameras."""
 
@@ -131,19 +138,34 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
         # If not, for now we don't have an automatic way to recover.
         pings = await self.ping_ag_cameras()
         if all(pings.values()):
-            await self.notify("All AG cameras ping. Reconnecting cameras.")
+            if await self.all_cameras_alive():
+                await self.notify("All AG cameras are up and pinging.")
+                return True
+
+            await self.notify(
+                "All AG cameras ping but some are not responding status. "
+                "Reconnecting cameras."
+            )
 
             # Reconnect the cameras.
+            await self.gort.guiders.stop()  # Stop the guiders to avoid conflicts.
             await self.gort.ags.reconnect()
 
             # Refresh the remote actors (should not be necessary).
             for ag in self.gort.ags.values():
                 await ag.actor.refresh()
 
-            if len(await self.gort.ags.list_alive_cameras()) == 7:
+            if await self.all_cameras_alive():
                 return True
 
+            await self.notify("Unable to reconnect AG cameras.")
             return False  # False means the error was probably not handled
+
+        # At this point we know that some cameras are failing. Stop any other guiders.
+        # There is an issue reconnecting cameras while they are exposing, they go into
+        # an "access-denied" state that can only be fixed by power cycling
+        # the switch port or restarting the actor.
+        await self.gort.guiders.stop()
 
         # Create a list of failed cameras.
         failed_cameras: list[str] = []
@@ -166,13 +188,37 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
         )
         await asyncio.sleep(30)
 
+        # Check pings again. If they are not yet pinging, we have a problem.
         pings = await self.ping_ag_cameras()
         if not all(pings.values()):
             raise TroubleshooterCriticalError("Unable to reconnect AG cameras.")
 
-        await self.notify("AG cameras have been power cycled and are now pinging.")
+        # All cameras are pinging. Check that they respond.
+        if await self.all_cameras_alive():
+            await self.notify("AG cameras have been power cycled and are now pinging.")
+            return True
 
-        return True
+        # If they don't all respond some cameras may be in an "access-denied" state.
+        # We restart the actor as a last resort.
+        await self.notify(
+            "AG cameras have been power cycled but some are not responding. "
+            "Restarting actors as a last resort."
+        )
+
+        await self.gort.ags.restart()
+        await asyncio.sleep(30)
+
+        # Refresh the command models for all the actors.
+        await asyncio.gather(*[actor.refresh() for actor in self.gort.actors.values()])
+
+        if await self.all_cameras_alive():
+            await self.notify("All AG cameras are alive and responding.")
+            return True
+
+        raise TroubleshooterCriticalError(
+            "Unable to reconnect AG cameras. The AG cameras where power cycled "
+            "and are now pinging but they cannot be reconnected."
+        )
 
     async def _handle_internal(self, error_model: TroubleModel) -> bool:
         """Handle the error."""
