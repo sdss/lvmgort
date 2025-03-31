@@ -218,7 +218,10 @@ class PreObservingTask(DailyTaskBase):
         """Runs the pre-observing tasks."""
 
         try:
-            await self.overwatcher.gort.execute_recipe("pre-observing")
+            await self.overwatcher.gort.execute_recipe(
+                "pre-observing",
+                reboot_ags=True,
+            )
         except Exception as err:
             await self.overwatcher.notify(
                 f"Error running pre-observing task: {decap(err)}",
