@@ -294,7 +294,7 @@ class PreObservingRecipe(BaseRecipe):
 
     name = "pre-observing"
 
-    async def recipe(self, check_actors: bool = True, restart_ags: bool = False):
+    async def recipe(self, check_actors: bool = True, reboot_ags: bool = False):
         """Runs the pre-observing sequence."""
 
         if check_actors:
@@ -331,10 +331,10 @@ class PreObservingRecipe(BaseRecipe):
         for task in tasks:
             await task
 
-        if restart_ags:
-            self.gort.log.info("Restarting AG cameras.")
+        if reboot_ags:
+            self.gort.log.info("Rebooting AG cameras.")
             await self.gort.ags.power_cycle()
-            self.gort.log.info("AG cameras restarted.")
+            self.gort.log.info("AG cameras rebooted.")
 
         # Take a dark for the AG cameras here. This is not the ideal time to do it
         # because there's still light, but we want to be sure we have a dark in case
