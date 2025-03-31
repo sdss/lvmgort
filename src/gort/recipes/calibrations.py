@@ -277,13 +277,14 @@ class TwilightFlats(BaseRecipe):
 
             # Round to the nearest second.
             exp_time = numpy.ceil(exp_time)
-            if exp_time < 1:
-                exp_time = 1.0
 
             # Require a minimum exposure time.
             if exp_time < min_exp_time:
                 await asyncio.sleep(10)
                 continue
+
+            if exp_time < 1:
+                exp_time = 1.0
 
             fibre_str = await self.goto_fibre_position(n_fibre, secondary=secondary)
             self.gort.log.info(f"Exposing {fibre_str} with exp_time={exp_time:.2f}.")
