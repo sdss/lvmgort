@@ -345,6 +345,11 @@ class PreObservingRecipe(BaseRecipe):
         # Create the night log if it doesn't exist.
         await get_lvmapi_route("/logs/night-logs/create")
 
+        # Dump the current configuration to the log so that we know what we
+        # were using at the start of the night.
+        self.gort.log.info("Dumping current configuration to the log.")
+        self.gort.log.info(dict(self.gort.config))
+
 
 class PostObservingRecipe(BaseRecipe):
     """Runs the post-observing tasks.
