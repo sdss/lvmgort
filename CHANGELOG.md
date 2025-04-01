@@ -1,6 +1,6 @@
 # Changelog
 
-## Next release
+## 1.9.1 - April 1, 2025
 
 ### 🔧 Fixed
 
