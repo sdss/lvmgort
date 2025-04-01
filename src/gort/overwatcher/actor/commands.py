@@ -396,3 +396,23 @@ async def stop_monitoring(command: OverwatcherCommand):
         await overwatcher.transparency.stop_monitoring()
 
     return command.finish()
+
+
+@overwatcher_cli.command()
+@click.option(
+    "-s",
+    "--show",
+    is_flag=True,
+    help="Shows the configuration after reloading it.",
+)
+async def reload_config(command: OverwatcherCommand, show: bool = False):
+    """Reloads the Overwatcher configuration."""
+
+    overwatcher = command.actor.overwatcher
+
+    overwatcher.config.reload()
+
+    if not show:
+        return command.finish(text="Configuration reloaded.")
+
+    return command.finish(configuration=dict(overwatcher.config))

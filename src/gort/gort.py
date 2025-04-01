@@ -16,7 +16,6 @@ import subprocess
 import sys
 import uuid
 import warnings
-from copy import deepcopy
 from functools import partial
 from types import TracebackType
 
@@ -410,7 +409,7 @@ class Gort(GortClient):
 
         self.actors: dict[str, RemoteActor] = {}
 
-        self.config = deepcopy(config)
+        self.config = config.copy()
 
         self.__device_sets = []
 

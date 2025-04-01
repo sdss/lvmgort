@@ -71,6 +71,9 @@
           "enum": ["IMPROVING", "WORSENING", "FLAT", "UNKNOWN"]
         }
       }
+    },
+    "configuration": {
+      "type": "object"
     }
   },
   "additionalProperties": false
