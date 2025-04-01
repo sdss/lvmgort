@@ -343,7 +343,7 @@ class LongTermCalibrations(BaseRecipe):
 
     name = "long_term_calibrations"
 
-    async def recipe(self, biases: bool | None = False):
+    async def recipe(self, biases: bool | None = None):
         """Runs the calibration sequence.
 
         Parameters

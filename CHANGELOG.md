@@ -1,5 +1,12 @@
 # Changelog
 
+## Next release
+
+### 🔧 Fixed
+
+* Change the default `bias` argument for the long-term calibrations to `None`.
+
+
 ## 1.9.0 - April 1, 2025
 
 ### ✨ Improved
