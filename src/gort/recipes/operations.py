@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 from typing import TYPE_CHECKING, ClassVar, Coroutine
 
@@ -348,7 +349,7 @@ class PreObservingRecipe(BaseRecipe):
         # Dump the current configuration to the log so that we know what we
         # were using at the start of the night.
         self.gort.log.info("Dumping current configuration to the log.")
-        self.gort.log.info(dict(self.gort.config))
+        self.gort.log.info(json.dumps(dict(self.gort.config), indent=2))
 
 
 class PostObservingRecipe(BaseRecipe):
