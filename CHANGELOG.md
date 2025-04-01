@@ -8,6 +8,7 @@
 * Improved the AG camera disconnection troubleshooting recipe.
 * Added a recipe to manually power-cycle and reconnect AG cameras.
 * Reboot all AG cameras in the pre-observing task.
+* Added `reload-config` command to the Overwatcher actor.
 
 ### 🏷️ Changed
 
