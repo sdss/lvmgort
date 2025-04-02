@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version
+
+### 🔧 Fixed
+
+* Fix logging the configuration in the pre-observing recipe.
+
+
 ## 1.9.1 - April 1, 2025
 
 ### 🔧 Fixed
