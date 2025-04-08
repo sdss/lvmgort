@@ -1009,11 +1009,14 @@ class GortObserver:
         tile_id = self.tile.tile_id
         dither_pos = self.tile.sci_coords.dither_position
 
+        # Pointing coordinates taking into account the dither position.
+        position_coords = self.tile.sci_coords.get_dither_radec()
+
         tile_header = {
             "TILE_ID": (tile_id or -999, "The tile_id of this observation"),
             "DPOS": (dither_pos, "Dither position"),
-            "POSCIRA": round(self.tile.sci_coords.ra, 6),
-            "POSCIDE": round(self.tile.sci_coords.dec, 6),
+            "POSCIRA": round(position_coords[0], 6),
+            "POSCIDE": round(position_coords[1], 6),
             "POSCIPA": round(self.tile.sci_coords.pa, 4),
         }
 

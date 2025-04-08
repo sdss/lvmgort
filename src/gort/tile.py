@@ -12,6 +12,7 @@ import warnings
 
 from typing import Sequence, cast
 
+import numpy
 import polars
 from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.time import Time
@@ -258,6 +259,30 @@ class ScienceCoordinates(Coordinates):
     """
 
     dither_position: int = 0
+
+    def get_dither_radec(self):
+        """Returns the dithered RA/Dec coordinates."""
+
+        if self.dither_position is None:
+            return self.ra, self.dec
+
+        # Get dither position offsets
+        dither = self.dither_position
+        raoff, decoff = config["guiders"]["devices"]["sci"]["dither_offsets"][dither]
+
+        # Rotate by the PA.
+        rot_m = numpy.array(
+            [
+                [numpy.cos(-self.pa), -numpy.sin(-self.pa)],
+                [numpy.sin(-self.pa), numpy.cos(-self.pa)],
+            ]
+        )
+        raoff, decoff = numpy.dot(rot_m, [raoff, decoff])
+
+        ra = self.ra - raoff / 3600 / numpy.cos(numpy.radians(self.dec))
+        dec = self.dec - decoff / 3600
+
+        return ra, dec
 
 
 class SkyCoordinates(QuerableCoordinates):

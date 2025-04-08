@@ -4,6 +4,7 @@
 
 ### 🔧 Fixed
 
+* Take into account the dither position when calculating `POSCIRA` and `POSCIDE` .
 * Fix logging the configuration in the pre-observing recipe.
 
 
