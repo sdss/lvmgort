@@ -411,7 +411,7 @@ class ObserverOverwatcher(OverwatcherModule):
                 await focus_retrier(self.gort.guiders.focus)()
             except Exception as err:
                 await self.notify(
-                    f"Failed while focusing the telescopes twice: {decap(err)}",
+                    f"Failed twice while focusing the telescopes: {decap(err)}",
                     level="error",
                 )
                 await self.notify(
