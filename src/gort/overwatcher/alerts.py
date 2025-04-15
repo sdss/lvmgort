@@ -224,7 +224,7 @@ class AlertsOverwatcher(OverwatcherModule):
             # If it's safe to observe but we have been idle for a while, we
             # raise an alert but do not change the is_safe status.
             timeout = self.overwatcher.config["overwatcher.alerts.idle_timeout"] or 600
-            if self.idle_since > timeout:
+            if self.idle_since > 0 and (time() - self.idle_since) > timeout:
                 self.log.warning(f"Overwatcher has been idle for over {timeout} s.")
                 active_alerts |= ActiveAlert.IDLE
 
