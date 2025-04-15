@@ -220,7 +220,7 @@ class AlertsOverwatcher(OverwatcherModule):
             self.log.warning("O2 alert detected.")
             active_alerts |= ActiveAlert.O2
 
-        if is_safe:
+        if is_safe and self.overwatcher.state.enabled and self.overwatcher.state.night:
             # If it's safe to observe but we have been idle for a while, we
             # raise an alert but do not change the is_safe status.
             timeout = self.overwatcher.config["overwatcher.alerts.idle_timeout"] or 600

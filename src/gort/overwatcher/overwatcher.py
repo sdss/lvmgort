@@ -102,17 +102,13 @@ class OverwatcherMainTask(OverwatcherTask):
 
                 ow.state.troubleshooting = ow.is_troubleshooting()
 
-                ow.state.idle = (
-                    ow.state.enabled
-                    and ow.state.night
-                    and not (
-                        ow.state.observing
-                        or ow.state.calibrating
-                        or ow.state.focusing
-                        or ow.state.troubleshooting
-                        or ow.observer._starting_observations
-                        or await ow.dome.is_moving()
-                    )
+                ow.state.idle = not (
+                    ow.state.observing
+                    or ow.state.calibrating
+                    or ow.state.focusing
+                    or ow.state.troubleshooting
+                    or ow.observer._starting_observations
+                    or await ow.dome.is_moving()
                 )
 
                 # TODO: should these handlers be scheduled as tasks? Right now
