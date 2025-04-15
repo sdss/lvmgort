@@ -6,6 +6,7 @@
 
 * [#50](https://github.com/sdss/lvmgort/pull/50) Take into account the dither position when calculating `POSCIRA` and `POSCIDE` .
 * Fix logging the configuration in the pre-observing recipe.
+* Disable the current tile when the acquisition fails and the troubleshooter cannot find an issue with the cameras.
 
 
 ## 1.9.1 - April 1, 2025

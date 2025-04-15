@@ -137,8 +137,9 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
         pings = await self.ping_ag_cameras()
         if all(pings.values()):
             if await self.all_cameras_alive():
-                await self.notify("All AG cameras are up and pinging.")
-                return True
+                # Return false because we don't know why the acquisition failed.
+                # This will cause the tile to be disabled.
+                return False
 
             await self.notify(
                 "All AG cameras ping but some are not responding status. "
