@@ -37,6 +37,7 @@ async def status(command: OverwatcherCommand):
                 "sjd": overwatcher.ephemeris.sjd,
                 "running": True,
                 "enabled": overwatcher.state.enabled,
+                "idle": overwatcher.state.idle,
                 "observing": overwatcher.state.observing,
                 "calibrating": overwatcher.state.calibrating,
                 "safe": overwatcher.state.safe,

@@ -9,6 +9,7 @@
         "enabled": { "type": "boolean" },
         "observing": { "type": "boolean" },
         "calibrating": { "type": "boolean" },
+        "idle": { "type": "boolean" },
         "night": { "type": "boolean" },
         "safe": { "type": "boolean" },
         "alerts": { "type": "array", "items": { "type": "string" } },

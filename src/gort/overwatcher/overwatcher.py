@@ -38,6 +38,7 @@ class OverwatcherState:
 
     running: bool = False
     enabled: bool = False
+    idle: bool = True
     observing: bool = False
     calibrating: bool = False
     troubleshooting: bool = False
@@ -100,6 +101,15 @@ class OverwatcherMainTask(OverwatcherTask):
                 ow.state.focusing = ow.observer.focusing
 
                 ow.state.troubleshooting = ow.is_troubleshooting()
+
+                ow.state.idle = not (
+                    ow.state.observing
+                    or ow.state.calibrating
+                    or ow.state.focusing
+                    or ow.state.troubleshooting
+                    or ow.observer._starting_observations
+                    or await ow.dome.is_moving()
+                )
 
                 # TODO: should these handlers be scheduled as tasks? Right now
                 # they can block for a good while until the dome is open/closed.
