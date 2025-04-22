@@ -2,6 +2,10 @@
 
 ## Next version
 
+### ✨ Improved
+
+* Assume that conditions are safe if the enclosure engineering mode is enabled.
+
 ### 🔧 Fixed
 
 * [#50](https://github.com/sdss/lvmgort/pull/50) Take into account the dither position when calculating `POSCIRA` and `POSCIDE` .

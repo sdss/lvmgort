@@ -44,6 +44,7 @@ class AlertsSummary(BaseModel):
     o2_room_alerts: dict[str, bool] | None = None
     heater_alert: bool | None = None
     heater_camera_alerts: dict[str, bool] | None = None
+    engineering_override: bool = False
 
 
 class ConnectivityStatus:
@@ -68,10 +69,11 @@ class ActiveAlert(enum.Flag):
     ALERTS_UNAVAILABLE = enum.auto()
     DISCONNECTED = enum.auto()
     DOME_LOCKED = enum.auto()
+    ENGINEERING_OVERRIDE = enum.auto()
     UNKNOWN = enum.auto()
 
     ALWAYS_CLOSE = HUMIDITY | DEW_POINT | WIND | RAIN
-    NO_CLOSE = DOOR | E_STOPS
+    NO_CLOSE = DOOR | E_STOPS | ENGINEERING_OVERRIDE
 
 
 class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
@@ -100,6 +102,10 @@ class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
                 n_failures = 0
             finally:
                 if self.module.unavailable is False and n_failures >= 5:
+                    await self.module.notify(
+                        "Alerts data is unavailable.",
+                        level="critical",
+                    )
                     self.module.unavailable = True
 
             await asyncio.sleep(self.INTERVAL)
@@ -210,6 +216,12 @@ class AlertsOverwatcher(OverwatcherModule):
         if self.state.o2_alert:
             self.log.warning("O2 alert detected.")
             active_alerts |= ActiveAlert.O2
+
+        # If the engineering mode is enabled, we assume it's safe.
+        if self.state.engineering_override:
+            self.log.warning("Engineering mode is enabled.")
+            active_alerts |= ActiveAlert.ENGINEERING_OVERRIDE
+            is_safe = True
 
         return is_safe, active_alerts
 
