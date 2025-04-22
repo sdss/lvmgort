@@ -111,6 +111,7 @@ class ObserverOverwatcher(OverwatcherModule):
         self.focusing: bool = False
         self._starting_observations: bool = False
         self._cancelling: bool = False
+        self._schedule_shudtown: bool = False
 
         self.force_focus: bool = False  # Force focus before the next tile
 
@@ -259,7 +260,7 @@ class ObserverOverwatcher(OverwatcherModule):
         observer = self.gort.observer
 
         n_tile_positions = 0
-        schedule_shudtown: bool = False
+        self._schedule_shudtown = False
 
         while True:
             try:
@@ -291,7 +292,7 @@ class ObserverOverwatcher(OverwatcherModule):
                             "completes. Stopping observations now."
                         )
                         self.cancel()
-                        schedule_shudtown = True
+                        self._schedule_shudtown = True
                         break
 
                     # The exposure will complete in 900 seconds + acquisition + readout
@@ -324,14 +325,15 @@ class ObserverOverwatcher(OverwatcherModule):
                         exp = exps[0]
 
                     try:
-                        await self.post_exposure(exp)
+                        post_exposure_status = await self.post_exposure(exp)
                     except Exception as err:
                         await self.notify(
                             f"Failed to run post-exposure routine: {decap(err)}",
                             level="error",
                         )
+                        post_exposure_status = False
 
-                    if self.is_cancelling:
+                    if self.is_cancelling or not post_exposure_status:
                         break
 
             except asyncio.CancelledError:
@@ -378,9 +380,10 @@ class ObserverOverwatcher(OverwatcherModule):
         await self.gort.cleanup(readout=False)
         await self.notify("The observing loop has ended.")
 
-        if schedule_shudtown:
-            # Do not set shutdown_pending until here to prevent the main overwatcher
-            # task cancelling the last exposure.
+        if self._schedule_shudtown:
+            # Do not set shutdown_pending until here to prevent the
+            # main overwatcher task cancelling the last exposure and
+            # various recursion problems.
             self.overwatcher.state.shutdown_pending = True
 
     async def check_focus(self, force: bool = False):
@@ -468,7 +471,7 @@ class ObserverOverwatcher(OverwatcherModule):
         """Runs post-exposure checks."""
 
         if self._cancelling:
-            return
+            return False
 
         if exp is False:
             raise GortError("No exposure was returned.")
@@ -478,17 +481,21 @@ class ObserverOverwatcher(OverwatcherModule):
         transparency.write_to_log(["sci"])
 
         # TODO: for now if the transparency is bad we close and disable the overwatcher.
+        # Since we are inside the observer loop we cannot just call shutdown() or
+        # we'll get a recursion error, so we cancel the loop and schedule the shutdown.
         if transparency.quality["sci"] & TransparencyQuality.BAD:
-            await self.overwatcher.shutdown(
-                reason="Transparency is bad. Stopping observations and closing the "
+            self.cancel()
+            await self.notify(
+                "Transparency is bad. Stopping observations and closing the "
                 "dome. Resume observations manually when the transparency is deemed "
                 "good.",
                 level="warning",
-                close_dome=True,
-                disable_overwatcher=True,
             )
+            self._schedule_shudtown = True
 
-        return
+            return False
+
+        return True
 
         # TODO: monitor transparency and resume observing automatically.
         if transparency.quality["sci"] & TransparencyQuality.BAD:
