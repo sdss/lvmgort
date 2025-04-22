@@ -123,7 +123,7 @@ class SafetyMonitorTask(OverwatcherModuleTask["SafetyOverwatcher"]):
     async def get_data(self):
         """Returns the safety status and whether the dome is open."""
 
-        is_safe, status = self.overwatcher.alerts.is_safe()
+        is_safe, status = await self.overwatcher.alerts.is_safe()
         dome_open = await self.overwatcher.gort.enclosure.is_open()
 
         # If is_safe=False but the e-stops are in, we do not want to close the dome.

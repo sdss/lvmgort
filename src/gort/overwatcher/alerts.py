@@ -142,7 +142,7 @@ class AlertsOverwatcher(OverwatcherModule):
         self.idle_since: float = 0.0
         self.unavailable: bool = False
 
-    def is_safe(self) -> tuple[bool, ActiveAlert]:
+    async def is_safe(self) -> tuple[bool, ActiveAlert]:
         """Determines whether it is safe to open."""
 
         if self.state is None:
@@ -231,7 +231,10 @@ class AlertsOverwatcher(OverwatcherModule):
             # raise an alert but do not change the is_safe status.
             timeout = self.overwatcher.config["overwatcher.alerts.idle_timeout"] or 600
             if self.idle_since > 0 and (time() - self.idle_since) > timeout:
-                self.log.warning(f"Overwatcher has been idle for over {timeout} s.")
+                await self.notify(
+                    f"Overwatcher has been idle for over {timeout:.0f} s.",
+                    min_time_between_repeat_notifications=300,
+                )
                 active_alerts |= ActiveAlert.IDLE
 
         # If the engineering mode is enabled, we assume it's safe.

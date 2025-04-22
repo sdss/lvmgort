@@ -89,7 +89,7 @@ class OverwatcherMainTask(OverwatcherTask):
             try:
                 ow.state.night = ow.ephemeris.is_night()
 
-                ow.state.safe, alerts_bits = ow.alerts.is_safe()
+                ow.state.safe, alerts_bits = await ow.alerts.is_safe()
                 ow.state.alerts = [
                     alert.name
                     for alert in ActiveAlert
@@ -166,7 +166,7 @@ class OverwatcherMainTask(OverwatcherTask):
         observing = ow.observer.is_observing
         calibrating = ow.calibrations.is_calibrating()
 
-        _, alerts_status = ow.alerts.is_safe()
+        _, alerts_status = await ow.alerts.is_safe()
 
         # If the only alert is that the dome is locked there is not much we
         # can do, so we just continue ...
