@@ -69,6 +69,7 @@ class ActiveAlert(enum.Flag):
     ALERTS_UNAVAILABLE = enum.auto()
     DISCONNECTED = enum.auto()
     DOME_LOCKED = enum.auto()
+    IDLE = enum.auto()
     ENGINEERING_OVERRIDE = enum.auto()
     UNKNOWN = enum.auto()
 
@@ -138,9 +139,10 @@ class AlertsOverwatcher(OverwatcherModule):
         self.connectivity = ConnectivityStatus()
 
         self.last_updated: float = 0.0
+        self.idle_since: float = 0.0
         self.unavailable: bool = False
 
-    def is_safe(self) -> tuple[bool, ActiveAlert]:
+    async def is_safe(self) -> tuple[bool, ActiveAlert]:
         """Determines whether it is safe to open."""
 
         if self.state is None:
@@ -149,6 +151,13 @@ class AlertsOverwatcher(OverwatcherModule):
 
         is_safe: bool = True
         active_alerts = ActiveAlert(0)
+
+        # Keep track of how long the overwatcher has been idle.
+        if self.overwatcher.state.idle:
+            if self.idle_since == 0:
+                self.idle_since = time()
+        else:
+            self.idle_since = 0
 
         if self.unavailable:
             self.log.warning("Alerts data is unavailable.")
@@ -216,6 +225,17 @@ class AlertsOverwatcher(OverwatcherModule):
         if self.state.o2_alert:
             self.log.warning("O2 alert detected.")
             active_alerts |= ActiveAlert.O2
+
+        if is_safe and self.overwatcher.state.enabled and self.overwatcher.state.night:
+            # If it's safe to observe but we have been idle for a while, we
+            # raise an alert but do not change the is_safe status.
+            timeout = self.overwatcher.config["overwatcher.alerts.idle_timeout"] or 600
+            if self.idle_since > 0 and (time() - self.idle_since) > timeout:
+                await self.notify(
+                    f"Overwatcher has been idle for over {timeout:.0f} s.",
+                    min_time_between_repeat_notifications=300,
+                )
+                active_alerts |= ActiveAlert.IDLE
 
         # If the engineering mode is enabled, we assume it's safe.
         if self.state.engineering_override:

@@ -38,6 +38,7 @@ class OverwatcherState:
 
     running: bool = False
     enabled: bool = False
+    idle: bool = True
     observing: bool = False
     calibrating: bool = False
     troubleshooting: bool = False
@@ -88,7 +89,7 @@ class OverwatcherMainTask(OverwatcherTask):
             try:
                 ow.state.night = ow.ephemeris.is_night()
 
-                ow.state.safe, alerts_bits = ow.alerts.is_safe()
+                ow.state.safe, alerts_bits = await ow.alerts.is_safe()
                 ow.state.alerts = [
                     alert.name
                     for alert in ActiveAlert
@@ -100,6 +101,15 @@ class OverwatcherMainTask(OverwatcherTask):
                 ow.state.focusing = ow.observer.focusing
 
                 ow.state.troubleshooting = ow.is_troubleshooting()
+
+                ow.state.idle = not (
+                    ow.state.observing
+                    or ow.state.calibrating
+                    or ow.state.focusing
+                    or ow.state.troubleshooting
+                    or ow.observer._starting_observations
+                    or await ow.dome.is_moving()
+                )
 
                 # TODO: should these handlers be scheduled as tasks? Right now
                 # they can block for a good while until the dome is open/closed.
@@ -156,7 +166,7 @@ class OverwatcherMainTask(OverwatcherTask):
         observing = ow.observer.is_observing
         calibrating = ow.calibrations.is_calibrating()
 
-        _, alerts_status = ow.alerts.is_safe()
+        _, alerts_status = await ow.alerts.is_safe()
 
         # If the only alert is that the dome is locked there is not much we
         # can do, so we just continue ...

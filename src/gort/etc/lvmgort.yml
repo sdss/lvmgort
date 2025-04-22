@@ -312,6 +312,9 @@ overwatcher:
     open_dome_secs_before_twilight: 300
     stop_secs_before_morning: 600
 
+  alerts:
+    idle_timeout: 600
+
   disabled_actors: null
 
   slack:
