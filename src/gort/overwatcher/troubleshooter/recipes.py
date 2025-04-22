@@ -181,10 +181,15 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
         )
 
         # Use the API since it already includes all the logic.
-        await run_lvmapi_task(
-            "/macros/power_cycle_ag_cameras",
-            params={"cameras": failed_cameras},
-        )
+        try:
+            await run_lvmapi_task(
+                "/macros/power_cycle_ag_cameras",
+                params={"cameras": failed_cameras},
+                timeout=300,
+            )
+        except asyncio.TimeoutError:
+            raise TroubleshooterCriticalError("Power cycling AG cameras timed out.")
+
         await asyncio.sleep(30)
 
         # Check pings again. If they are not yet pinging, we have a problem.
