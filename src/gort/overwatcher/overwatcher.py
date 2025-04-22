@@ -206,11 +206,18 @@ class OverwatcherMainTask(OverwatcherTask):
                 else "UNKNOWN"
             )
 
-            await ow.shutdown(
-                reason=f"Unsafe conditions detected: {alert_names}",
-                close_dome=close_dome,
-                disable_overwatcher=disable_overwatcher,
-            )
+            try:
+                await ow.shutdown(
+                    reason=f"Unsafe conditions detected: {alert_names}",
+                    close_dome=close_dome,
+                    disable_overwatcher=disable_overwatcher,
+                )
+            except Exception as err:
+                await ow.notify(
+                    f"Error executing the shutdown procedure: {decap(err)}",
+                    level="critical",
+                    error=err,
+                )
 
     async def handle_daytime(self):
         """Handles daytime conditions."""
@@ -457,6 +464,7 @@ class Overwatcher(NotifierMixIn):
 
         dome_closed = await self.dome.is_closing()
         dome_locked = self.dome.locked
+        local_mode = await self.gort.enclosure.is_local()
 
         calibrating = self.calibrations.is_calibrating()
 
@@ -489,7 +497,7 @@ class Overwatcher(NotifierMixIn):
         try:
             stop_observing = self.observer.stop_observing(
                 immediate=True,
-                reason=reason or "shutdown triggered",
+                reason="shutdown triggered",
             )
 
             self.log.info("Cancelling observing loop and calibrations.")
@@ -520,26 +528,44 @@ class Overwatcher(NotifierMixIn):
 
         # Step 3: close the dome.
         if close_dome and not dome_closed and not dome_locked:
-            try:
-                await asyncio.wait_for(
-                    self.dome.close(retry=retry, park=park),
-                    timeout=360,
-                )
-            except Exception as err:
-                # Check if the dome is closed to determine
-                # the level of the notification.
-                level = "warning" if await self.dome.is_closed() else "critical"
-
+            if local_mode:
                 await self.notify(
-                    f"Error closing the dome during shutdown: {decap(err)}",
-                    level=level,
-                    error=err,
+                    "Enclosure is in local mode. Dome will not be closed.",
+                    min_time_between_repeat_notifications=600,
+                    level="warning",
                 )
                 return
+            else:
+                try:
+                    await asyncio.wait_for(
+                        self.dome.close(retry=retry, park=park),
+                        timeout=360,
+                    )
+                except Exception as err:
+                    # Check if the dome is closed to determine
+                    # the level of the notification.
+                    level = "warning" if await self.dome.is_closed() else "critical"
+
+                    await self.notify(
+                        f"Error closing the dome during shutdown: {decap(err)}",
+                        level=level,
+                        error=err,
+                    )
+                    return
 
         # Step 4: park and disable the telescopes.
-        if park:
-            await asyncio.wait_for(self.gort.telescopes.park(disable=True), timeout=120)
+        if park and not local_mode:
+            try:
+                await asyncio.wait_for(
+                    self.gort.telescopes.park(disable=True),
+                    timeout=120,
+                )
+            except Exception as err:
+                await self.notify(
+                    f"Error parking the telescopes during shutdown: {decap(err)}",
+                    level="error",
+                    error=err,
+                )
 
         # Acknowledge any pending shutdown.
         self.state.shutdown_pending = False
