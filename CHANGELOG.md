@@ -2,11 +2,17 @@
 
 ## Next version
 
+### ✨ Improved
+
+* Assume that conditions are safe if the enclosure engineering mode is enabled.
+* Prevent attempts to close the dome or park the telescopes in local mode.
+
 ### 🔧 Fixed
 
 * [#50](https://github.com/sdss/lvmgort/pull/50) Take into account the dither position when calculating `POSCIRA` and `POSCIDE` .
 * Fix logging the configuration in the pre-observing recipe.
 * Disable the current tile when the acquisition fails and the troubleshooter cannot find an issue with the cameras.
+* Prevent recursion error when shutting down due to bad transparency.
 
 
 ## 1.9.1 - April 1, 2025
