@@ -153,9 +153,8 @@ class AlertsOverwatcher(OverwatcherModule):
         active_alerts = ActiveAlert(0)
 
         # Keep track of how long the overwatcher has been idle.
-        if self.overwatcher.state.idle:
-            if self.idle_since == 0:
-                self.idle_since = time()
+        if self.overwatcher.state.idle and self.idle_since == 0:
+            self.idle_since = time()
         else:
             self.idle_since = 0
 
