@@ -5,6 +5,7 @@
 ### ✨ Improved
 
 * Assume that conditions are safe if the enclosure engineering mode is enabled.
+* Prevent attempts to close the dome or park the telescopes in local mode.
 
 ### 🔧 Fixed
 
