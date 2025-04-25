@@ -271,10 +271,11 @@ class ScienceCoordinates(Coordinates):
         raoff, decoff = config["guiders"]["devices"]["sci"]["dither_offsets"][dither]
 
         # Rotate by the PA.
+        pa_rad = numpy.radians(self.pa)
         rot_m = numpy.array(
             [
-                [numpy.cos(-self.pa), -numpy.sin(-self.pa)],
-                [numpy.sin(-self.pa), numpy.cos(-self.pa)],
+                [numpy.cos(-pa_rad), -numpy.sin(-pa_rad)],
+                [numpy.sin(-pa_rad), numpy.cos(-pa_rad)],
             ]
         )
         raoff, decoff = numpy.dot(rot_m, [raoff, decoff])
