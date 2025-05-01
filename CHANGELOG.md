@@ -6,6 +6,7 @@
 
 * Assume that conditions are safe if the enclosure engineering mode is enabled.
 * Prevent attempts to close the dome or park the telescopes in local mode.
+* Allow twilight flats with exposure times rounded up to a tenth of a second.
 
 ### 🔧 Fixed
 

@@ -276,7 +276,7 @@ class TwilightFlats(BaseRecipe):
                 raise RuntimeError("Too early/late to take twilight flats.")
 
             # Round to the nearest second.
-            exp_time = numpy.ceil(exp_time)
+            exp_time = numpy.round(exp_time, 1)
 
             # Require a minimum exposure time.
             if exp_time < min_exp_time:
