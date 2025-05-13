@@ -354,10 +354,7 @@ class PostObservingTask(DailyTaskBase):
             await notify(f"Error closing the dome: {decap(err)}", level="critical")
 
         try:
-            await self.gort.execute_recipe(
-                "post-observing",
-                send_email=False,
-            )
+            await self.gort.execute_recipe("post-observing", send_email=True)
         except Exception as err:
             await self.overwatcher.notify(
                 f"Error running post-observing task: {decap(err)}",
