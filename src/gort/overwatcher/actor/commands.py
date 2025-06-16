@@ -92,14 +92,14 @@ async def disable(
             close_dome=close_dome,
             disable_overwatcher=True,
         )
-        return
+        return command.finish(text="Overwatcher has been disabled.")
 
     if overwatcher.state.enabled:
         # This will cancel the observing loop after the current tile.
         overwatcher.state.enabled = False
         await overwatcher.notify("Overwatcher has been disabled.")
 
-    return command.finish()
+    return command.finish(text="Overwatcher has been disabled.")
 
 
 @overwatcher_cli.command()
