@@ -12,6 +12,7 @@
 
 * [#50](https://github.com/sdss/lvmgort/pull/50) Take into account the dither position when calculating `POSCIRA` and `POSCIDE`.
 * [#51](https://github.com/sdss/lvmgort/pull/51) Add an alert when conditions are safe but the Overwatcher has been idle for over 10 minutes.
+* [#52](https://github.com/sdss/lvmgort/pull/52) Fix a bug that prevented an emergency shutdown from completing.
 * Fix logging the configuration in the pre-observing recipe.
 * Disable the current tile when the acquisition fails and the troubleshooter cannot find an issue with the cameras.
 * Prevent recursion error when shutting down due to bad transparency.
