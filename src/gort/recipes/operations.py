@@ -186,9 +186,11 @@ class ShutdownRecipe(BaseRecipe):
             self.gort.log.info("Disabling the overwatcher.")
             tasks.append(self.gort.send_command("lvm.overwatcher", "disable --now"))
 
-        for result in await asyncio.gather(*tasks, return_exceptions=True):
-            if isinstance(result, Exception):
-                self.gort.log.error(f"Error during shutdown: {decap(result)}")
+        for task in tasks:
+            try:
+                await task
+            except Exception as err:
+                self.gort.log.error(f"Error during shutdown: {decap(err)}")
                 errored = True
 
         if park_telescopes:
