@@ -280,6 +280,8 @@ class CleanupRecipe(BaseRecipe):
             self.gort.enclosure.lights.telescope_bright.off(),
         )
 
+        self.gort.log.info("Cleanup recipe has completed.")
+
     async def _wait_until_spec_is_idle(self, spec: Spectrograph):
         """Waits until an spectrograph is idle."""
 
