@@ -19,12 +19,19 @@ from astropy.time import Time
 from sdsstools import get_sjd
 
 from gort.enums import ErrorCode, Event
+from gort.exceptions import GortError
 from gort.tools import decap, get_ephemeris_summary, redis_client_sync
 
 from .base import BaseRecipe
 
 
 __all__ = ["QuickCals", "BiasSequence", "TwilightFlats", "LongTermCalibrations"]
+
+
+class ExposureTimeTooLong(GortError):
+    """Raised when the exposure time is too long to continue twilight flats."""
+
+    pass
 
 
 class QuickCals(BaseRecipe):
@@ -222,6 +229,7 @@ class TwilightFlats(BaseRecipe):
         await self.goto_fibre_position(n_fibre, secondary=secondary)
 
         n_observed: int = 0
+        total_fibres: int = 12
         all_done: bool = False
 
         while True:
@@ -263,7 +271,10 @@ class TwilightFlats(BaseRecipe):
             elif is_sunset and not all_done and exp_time > max_exp_time:
                 # We have not yet taken all 12 fibres but the
                 # exposure time  is just too long.
-                raise RuntimeError("Exposure time is now too long.")
+                raise ExposureTimeTooLong(
+                    f"Exposure time is now too long to continue taking flats. "
+                    f"Took flats for {n_observed}/{total_fibres} fibres."
+                )
             elif is_sunset and all_done and exp_time > max_exp_time_extra:
                 # We have taken all 12 fibres and some extra ones, but the
                 # exposure time is now too long. Exit.
@@ -310,7 +321,7 @@ class TwilightFlats(BaseRecipe):
                 )
 
             n_observed += 1
-            if n_observed == 12:
+            if n_observed == total_fibres:
                 all_done = True
 
                 if (all_done and is_sunrise) or exp_time >= max_exp_time_extra:
