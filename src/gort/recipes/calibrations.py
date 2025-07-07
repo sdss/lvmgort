@@ -280,7 +280,7 @@ class TwilightFlats(BaseRecipe):
 
             # Require a minimum exposure time.
             if exp_time < min_exp_time:
-                await asyncio.sleep(10)
+                await asyncio.sleep(2)
                 continue
 
             if exp_time < 1:
