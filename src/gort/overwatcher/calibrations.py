@@ -23,6 +23,7 @@ from sdsstools import read_yaml_file
 
 from gort.exceptions import OverwatcherError
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
+from gort.recipes.calibrations import ExposureTimeTooLong
 from gort.tools import (
     add_night_log_comment,
     cancel_task,
@@ -510,6 +511,16 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
                             level="warning",
                         )
                         await next_calibration.record_state(CalibrationState.CANCELLED)
+
+                except ExposureTimeTooLong as ee:
+                    # This is a particular case when the exposure time for a twilight
+                    # flat is too long. This is not exactly an error, since we now it
+                    # often happens and that point we should have exposed most fibres,
+                    # so we just mark the calibration as done and issue a notification,
+                    # but not an error.
+                    if not next_calibration.is_finished():
+                        await notify(str(ee), level="warning")
+                        await notify(f"Calibration {name} is done.")
 
                 except Exception as ee:
                     if not next_calibration.is_finished():
