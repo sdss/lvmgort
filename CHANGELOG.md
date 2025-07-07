@@ -4,10 +4,16 @@
 
 ### ✨ Improved
 
+* Do not fail the twilight flats in the Overwatcher if the exposure time is too long for the last fibre. Instead, just log a warning and mark the calibration as done.
+
+
+## 1.10.0 - June 17, 2025
+
+### ✨ Improved
+
 * Assume that conditions are safe if the enclosure engineering mode is enabled.
 * Prevent attempts to close the dome or park the telescopes in local mode.
 * Allow twilight flats with exposure times rounded up to a tenth of a second.
-* Do not fail the twilight flats in the Overwatcher if the exposure time is too long for the last fibre. Instead, just log a warning and mark the calibration as done.
 
 ### 🔧 Fixed
 
