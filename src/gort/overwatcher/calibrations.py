@@ -519,7 +519,7 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
                     # so we just mark the calibration as done and issue a notification,
                     # but not an error.
                     if not next_calibration.is_finished():
-                        await notify(str(ee), level="warning")
+                        await notify(str(ee.raw_message), level="warning")
                         await notify(f"Calibration {name} is done.")
 
                 except Exception as ee:

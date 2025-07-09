@@ -44,6 +44,7 @@ class GortError(Exception):
             error_code = self.error_code.value
 
         self.payload = payload
+        self.raw_message = message
 
         prefix = f"Error {self.error_code.value} ({self.error_code.name})"
         if message is not None and message != "":
