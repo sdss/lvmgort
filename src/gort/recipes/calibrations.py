@@ -193,6 +193,9 @@ class TwilightFlats(BaseRecipe):
         # Maximum exposure time for extra flats.
         max_exp_time_extra: float = config.get("max_exp_time_extra", 100)
 
+        # Whether to clip the exposure time to the maximum.
+        clip_to_max_exposure_time: bool = config.get("clip_to_max_exposure_time", True)
+
         await self.gort.cleanup()
 
         if not (await self.gort.enclosure.is_open()):
@@ -269,12 +272,19 @@ class TwilightFlats(BaseRecipe):
                 await asyncio.sleep(10)
                 continue
             elif is_sunset and not all_done and exp_time > max_exp_time:
-                # We have not yet taken all 12 fibres but the
-                # exposure time  is just too long.
-                raise ExposureTimeTooLong(
-                    f"Exposure time is now too long to continue taking flats. "
-                    f"Took flats for {n_observed}/{total_fibres} fibres."
-                )
+                if clip_to_max_exposure_time:
+                    self.gort.log.info(
+                        f"Exposure time is too long ({exp_time:.1f} s). "
+                        f"Clipping to {max_exp_time} seconds."
+                    )
+                    exp_time = max_exp_time
+                else:
+                    # We have not yet taken all 12 fibres but the
+                    # exposure time  is just too long.
+                    raise ExposureTimeTooLong(
+                        f"Exposure time is now too long to continue taking flats. "
+                        f"Took flats for {n_observed}/{total_fibres} fibres."
+                    )
             elif is_sunset and all_done and exp_time > max_exp_time_extra:
                 # We have taken all 12 fibres and some extra ones, but the
                 # exposure time is now too long. Exit.

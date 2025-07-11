@@ -5,6 +5,7 @@
 ### ✨ Improved
 
 * Do not fail the twilight flats in the Overwatcher if the exposure time is too long for the last fibre. Instead, just log a warning and mark the calibration as done.
+* Add option `clip_to_max_exposure_time` to the twilight flats recipe to clip the exposure time to the maximum defined in the configuration file. This is `True` by default.
 
 
 ## 1.10.0 - June 17, 2025
