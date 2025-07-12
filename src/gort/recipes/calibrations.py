@@ -312,7 +312,7 @@ class TwilightFlats(BaseRecipe):
 
             try:
                 await self.gort.specs.expose(
-                    exp_time,
+                    float(exp_time),
                     flavour="flat",
                     header={"CALIBFIB": fibre_str},
                 )
