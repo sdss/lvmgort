@@ -402,6 +402,7 @@ class PostObservingRecipe(BaseRecipe):
             result = await get_lvmapi_route(
                 self.email_route,
                 params={"only_if_not_sent": True},
+                timeout=30,
             )
             if not result:
                 self.gort.log.warning("Night log had already been sent.")

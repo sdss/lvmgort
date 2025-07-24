@@ -1,5 +1,12 @@
 # Changelog
 
+## Next release
+
+### 🔧 Fixed
+
+* Increase the timeout for the API request to email the night log.
+
+
 ## 1.10.1 - July 14, 2025
 
 ### ✨ Improved
