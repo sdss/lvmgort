@@ -5,6 +5,7 @@
 ### ✨ Improved
 
 * When scheduled, run long term calibrations at least 1 hour after sunset and at lower priority then the daily calibrations.
+* Always take biases in the long-term calibrations.
 
 ### 🔧 Fixed
 
