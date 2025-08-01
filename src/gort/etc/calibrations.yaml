@@ -51,13 +51,13 @@
 
 - name: long_term_calibrations
   recipe: long_term_calibrations
-  min_start_time: 1800
+  min_start_time: 3600
   max_start_time: null
   time_mode: secs_after_sunset
   after: null
   required: false
   dome: closed
   abort_observing: false
-  priority: 10
+  priority: 3
   allow_post_observing_recovery: false
   disabled: true

@@ -2,6 +2,10 @@
 
 ## Next release
 
+### ✨ Improved
+
+* When scheduled, run long term calibrations at least 1 hour after sunset and at lower priority then the daily calibrations.
+
 ### 🔧 Fixed
 
 * Increase the timeout for the API request to email the night log.
