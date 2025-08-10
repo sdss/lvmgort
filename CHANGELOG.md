@@ -6,6 +6,7 @@
 
 * When scheduled, run long term calibrations at least 1 hour after sunset and at lower priority then the daily calibrations.
 * Always take biases in the long-term calibrations.
+* Updated `sdss-clu` to version 2.5.3 and `lvmopstools` to version 0.5.19.
 
 ### 🔧 Fixed
 
