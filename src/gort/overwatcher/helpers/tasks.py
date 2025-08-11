@@ -100,7 +100,8 @@ class DailyTaskBase(metaclass=abc.ABCMeta):
         self._status["mjd"] = current_mjd
 
         with redis_client_sync() as redis:
-            redis.json().set(key, "$", dict(self._status))
+            status_payload: dict = dict(self._status)
+            redis.json().set(key, "$", status_payload)
 
     async def run(self):
         """Runs the task."""
