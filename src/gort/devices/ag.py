@@ -34,11 +34,15 @@ class AG(GortDevice):
             else None,
         }
 
+        offline_cameras = self.gort.config.get("ags", {}).get("offline_cameras", [])
+        self.offline_cameras = [cam for cam in offline_cameras if cam.startswith(name)]
+
     @property
     def n_cameras(self):
         """The number of AG cameras for this telescope."""
 
-        return len([1 for ip in self.ips.values() if ip is not None])
+        all_cams = len([1 for ip in self.ips.values() if ip is not None])
+        return all_cams - len(self.offline_cameras)
 
     async def status(self):
         """Returns the status of the AG."""

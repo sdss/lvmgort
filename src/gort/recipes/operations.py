@@ -330,11 +330,16 @@ class PreObservingRecipe(BaseRecipe):
             )
         )
         tasks.append(self.gort.telescopes.park(disable=False, kmirror=False))
-        tasks.append(self.gort.ags.reconnect())
         tasks.append(self.gort.specs.expose(flavour="bias"))
 
         for task in tasks:
             await task
+
+        cams_online = await self.gort.ags.reconnect()
+        if len(cams_online) != self.gort.ags.n_cameras:
+            self.gort.log.error("Not all AG cameras were successfully reconnected.")
+            if not reboot_ags:
+                self.gort.log.warning("Consider power cycling the AG cameras.")
 
         if reboot_ags:
             self.gort.log.info("Rebooting AG cameras.")

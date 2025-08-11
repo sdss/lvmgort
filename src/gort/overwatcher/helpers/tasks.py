@@ -265,8 +265,7 @@ class PowerCycleAGsTask(DailyTaskBase):
     async def _run_internal(self) -> bool:
         """Runs the pre-observing tasks."""
 
-        key = f"overwatcher.tasks.{self.name}"
-        n_expected_cameras = self.config.get(f"{key}.n_expected_cameras", 7)
+        n_expected_cameras = self.gort.ags.n_cameras
 
         try:
             # This will power cycle the cameras and reconnect them

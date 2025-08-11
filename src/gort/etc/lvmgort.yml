@@ -221,6 +221,7 @@ specs:
       warning: []
 
 ags:
+  offline_cameras: []
   devices:
     sci:
       actor: lvm.sci.agcam
@@ -324,7 +325,6 @@ overwatcher:
     ags_power_cycle:
       min_time: 3600
       max_time: 3000
-      n_expected_cameras: 7
 
   actor:
     name: lvm.overwatcher

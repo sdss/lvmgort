@@ -1,5 +1,12 @@
 # Changelog
 
+## Next release
+
+### ✨ Improved
+
+* Check that all cameras have been reconnected during pre-observing task.
+
+
 ## 1.10.2 - August 10, 2025
 
 ### ✨ Improved
