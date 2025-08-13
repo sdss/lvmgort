@@ -5,6 +5,7 @@
 ### ✨ Improved
 
 * Check that all cameras have been reconnected during pre-observing task.
+* Implement a less verbose way to handle times when the scheduler cannot find a valid tile to observe.
 
 
 ## 1.10.2 - August 10, 2025

@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 from lvmopstools.retrier import Retrier
 
+from gort.enums import ErrorCode
 from gort.exceptions import (
     GortError,
     TroubleshooterCriticalError,
@@ -39,7 +40,9 @@ __all__ = ["ObserverOverwatcher"]
 class CancelObserveLoopError(GortError):
     """Exception that cancel the observing loop."""
 
-    pass
+    def __init__(self, message: str, shutdown: bool = False):
+        self.shutdown = shutdown
+        super().__init__(message)
 
 
 class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
@@ -236,6 +239,55 @@ class ObserverOverwatcher(OverwatcherModule):
         # cancelled the task the troubleshooter event may still be cleared.
         self.overwatcher.troubleshooter.reset()
 
+    async def get_next_tile(
+        self, wait: bool = True, max_wait: float | None = None
+    ) -> Tile:
+        """Gets the next tile from the scheduler."""
+
+        t0 = time()
+        last_notification: float | None = None
+        notification_interval: float = 600
+
+        while True:
+            try:
+                tile = await run_in_executor(Tile.from_scheduler)
+
+            except GortError as err:
+                # If the error is not related to not being able to find a valid
+                # tile, just raise the error and let the observe loop handle it.
+                if err.error_code != ErrorCode.SCHEDULER_CANNOT_FIND_TILE or not wait:
+                    raise
+
+                self.log.warning("The scheduler cannot find a valid tile to observe.")
+
+                t1 = time()
+                if max_wait is not None and (t1 - t0) > max_wait:
+                    raise CancelObserveLoopError(
+                        "The scheduler cannot find a valid tile and the wait "
+                        "time has been exhausted. Cancelling the observe loop "
+                        "and closing the dome.",
+                        shutdown=True,
+                    )
+
+                if last_notification is None:
+                    await self.notify(
+                        "The scheduler was unable to find a valid tile to observe. "
+                        "Will continue trying to get a new tile."
+                    )
+                    last_notification = t1
+                elif t1 - last_notification > notification_interval:
+                    await self.notify(
+                        "Still unable to find a valid tile to observe. "
+                        "Will continue trying to get a new tile."
+                    )
+                    last_notification = t1
+
+                self.log.info("Waiting 60 seconds before trying to find a new tile.")
+                await asyncio.sleep(60)
+
+            else:
+                return tile
+
     async def observe_loop_task(self):
         """Runs the observing loop."""
 
@@ -269,7 +321,7 @@ class ObserverOverwatcher(OverwatcherModule):
 
                 # We want to avoid re-acquiring the tile between dithers. We call
                 # the scheduler here and control the dither position loop ourselves.
-                tile: Tile = await run_in_executor(Tile.from_scheduler)
+                tile: Tile = await self.get_next_tile()
 
                 self.log.info(
                     f"Received tile {tile.tile_id} from scheduler: "
@@ -352,6 +404,10 @@ class ObserverOverwatcher(OverwatcherModule):
                     f"Cancelling observations: {decap(err)}",
                     level="error",
                 )
+
+                if err.shutdown:
+                    self._schedule_shudtown = True
+
                 break
 
             except Exception as err:
