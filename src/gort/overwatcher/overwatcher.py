@@ -481,6 +481,9 @@ class Overwatcher(NotifierMixIn):
             self.state.enabled = False
             await self.notify("The Overwatcher has been disabled.")
 
+        # Acknowledge any pending shutdown.
+        self.state.shutdown_pending = False
+
         # Check if we have already safe and shut down, and if so, return.
         if not force and await self.is_shutdown():
             return
@@ -562,6 +565,9 @@ class Overwatcher(NotifierMixIn):
                     )
                     return
 
+                else:
+                    await self.notify("The dome has been closed.", level="info")
+
         # Step 4: park and disable the telescopes.
         if park and not local_mode:
             try:
@@ -575,9 +581,6 @@ class Overwatcher(NotifierMixIn):
                     level="error",
                     error=err,
                 )
-
-        # Acknowledge any pending shutdown.
-        self.state.shutdown_pending = False
 
         await self.notify("Shutdown complete.", level="info")
 

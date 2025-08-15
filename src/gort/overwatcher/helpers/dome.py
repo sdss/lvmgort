@@ -230,6 +230,9 @@ class DomeHelper:
             elif not open and not (status & DomeStatus.CLOSED):
                 raise GortError("Dome is not closed after a move command.")
 
+        else:
+            self.log.info(f"Dome is now {('open' if open else 'closed')}.")
+
     async def _run_or_disable(self, coro: Coroutine):
         """Runs a coroutine or disables the overwatcher if it fails."""
 

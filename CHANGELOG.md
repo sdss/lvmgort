@@ -6,6 +6,7 @@
 
 * Check that all cameras have been reconnected during pre-observing task.
 * Implement a less verbose way to handle times when the scheduler cannot find a valid tile to observe.
+* Better logging of when the dome has been actually closed during a shutdown.
 
 
 ## 1.10.2 - August 10, 2025
