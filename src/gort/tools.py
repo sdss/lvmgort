@@ -32,7 +32,9 @@ from typing import (
     Generator,
     Literal,
     Sequence,
+    TypedDict,
     TypeVar,
+    cast,
 )
 
 import httpx
@@ -100,6 +102,8 @@ __all__ = [
     "decap",
     "ensure_period",
     "try_or_pass",
+    "record_overheads",
+    "OverheadDict",
 ]
 
 AnyPath = str | os.PathLike
@@ -550,8 +554,8 @@ def get_temporary_file_path(*args, create_parents: bool = False, **kwargs):
 
 def insert_to_database(
     table_name: str,
-    payload: list[dict[str, Any]],
-    columns: list[str] | None = None,
+    payload: Sequence[dict[str, Any]],
+    columns: Sequence[str] | None = None,
 ):
     """Inserts data into the database.
 
@@ -1176,3 +1180,27 @@ async def try_or_pass(coro: Awaitable[T]) -> T | None:
         return await coro
     except Exception:
         pass
+
+
+class OverheadDict(TypedDict):
+    """TypedDict for recording overhead information."""
+
+    observer_id: int | None
+    tile_id: int | None
+    dither_position: int | None
+    stage: str | None
+    start_time: float
+    end_time: float
+    duration: float
+
+
+def record_overheads(payload: Sequence[OverheadDict] | OverheadDict):
+    """Decorator that records the overhead of a function."""
+
+    if not isinstance(payload, Sequence):
+        payload = [payload]
+
+    payload_dict = cast(Sequence[dict[str, Any]], payload)
+
+    table_name = config["services.database.tables.overheads"]
+    insert_to_database(table_name, payload_dict)

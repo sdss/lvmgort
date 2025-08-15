@@ -27,7 +27,13 @@ from gort.overwatcher.core import OverwatcherModuleTask
 from gort.overwatcher.transparency import TransparencyQuality
 from gort.overwatcher.troubleshooter.recipes import AcquisitionFailedRecipe
 from gort.tile import Tile
-from gort.tools import cancel_task, decap, ensure_period, run_in_executor
+from gort.tools import (
+    cancel_task,
+    decap,
+    ensure_period,
+    record_overheads,
+    run_in_executor,
+)
 
 
 if TYPE_CHECKING:
@@ -282,8 +288,27 @@ class ObserverOverwatcher(OverwatcherModule):
                     )
                     last_notification = t1
 
-                self.log.info("Waiting 60 seconds before trying to find a new tile.")
+                self.log.info("Waiting 60s before trying to find a new tile.")
                 await asyncio.sleep(60)
+
+                # Record an overhead for the time we spent waiting.
+                try:
+                    now = time()
+                    record_overheads(
+                        [
+                            {
+                                "observer_id": None,
+                                "tile_id": None,
+                                "dither_position": None,
+                                "stage": None,
+                                "start_time": now - 60,
+                                "end_time": now,
+                                "duration": 60,
+                            }
+                        ]
+                    )
+                except Exception as err:
+                    self.log.error(f"Failed to record overheads: {err}")
 
             else:
                 return tile

@@ -34,10 +34,11 @@ from gort.exposure import Exposure
 from gort.tile import Coordinates, Tile
 from gort.tools import (
     GuiderMonitor,
+    OverheadDict,
     cancel_task,
     decap,
     handle_signals,
-    insert_to_database,
+    record_overheads,
     register_observation,
     run_in_executor,
 )
@@ -846,11 +847,11 @@ class GortObserver:
             tile_id = None
 
         # Write overheads to database.
-        payload = [
+        payload: list[OverheadDict] = [
             {
                 "observer_id": id(self),
                 "tile_id": tile_id,
-                "dither_position": value["dither_position"],
+                "dither_position": int(value["dither_position"]),
                 "stage": name,
                 "start_time": value["t0"],
                 "end_time": value["t0"] + value["elapsed"],
@@ -860,8 +861,7 @@ class GortObserver:
         ]
 
         try:
-            table_name = self.gort.config["services.database.tables.overheads"]
-            insert_to_database(table_name, payload)
+            record_overheads(payload)
         except Exception as err:
             self.write_to_log(
                 f"Failed saving overheads to database: {decap(err)}",
