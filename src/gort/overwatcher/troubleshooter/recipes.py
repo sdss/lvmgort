@@ -190,7 +190,11 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
         except asyncio.TimeoutError:
             raise TroubleshooterCriticalError("Power cycling AG cameras timed out.")
 
-        await asyncio.sleep(30)
+        await asyncio.sleep(5)
+
+        # Reconnect cameras
+        await self.gort.ags.reconnect()
+        await asyncio.sleep(5)
 
         # Check pings again. If they are not yet pinging, we have a problem.
         pings = await self.ping_ag_cameras()

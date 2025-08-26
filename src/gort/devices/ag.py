@@ -155,7 +155,8 @@ class AGSet(GortDeviceSet[AG]):
             actor = reply["actor"]
             telescope = actor.split(".")[1]
             camera = reply.get("camera", None)
-            if camera:
+            state = reply.get("camera_state", None)
+            if camera and state:
                 cameras.append(f"{telescope}-{camera}")
 
         return cameras
