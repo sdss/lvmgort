@@ -1,5 +1,12 @@
 # Changelog
 
+## Next release
+
+### 🔧 Fixed
+
+* Reconnect cameras after they have been power cycled.
+
+
 ## 1.10.3 - August 15, 2025
 
 ### ✨ Improved
