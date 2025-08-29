@@ -1,5 +1,12 @@
 # Changelog
 
+## Next release
+
+### 🔧 Fixed
+
+* Remove call to `clear_live()` when clearing the progress bar.
+
+
 ## 1.10.3 - August 15, 2025
 
 ### ✨ Improved
