@@ -372,7 +372,6 @@ class Exposure(asyncio.Future["Exposure"]):
             for task in self._progress.task_ids:
                 self._progress.remove_task(task)
             self._progress.stop()
-            self._progress.console.clear_live()
         self._progress = None
 
     async def verify_files(self):

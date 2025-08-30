@@ -5,6 +5,7 @@
 ### 🔧 Fixed
 
 * Reconnect cameras after they have been power cycled.
+* Remove call to `clear_live()` when clearing the progress bar.
 
 
 ## 1.10.3 - August 15, 2025
