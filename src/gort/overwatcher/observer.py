@@ -120,7 +120,7 @@ class ObserverOverwatcher(OverwatcherModule):
         self.focusing: bool = False
         self._starting_observations: bool = False
         self._cancelling: bool = False
-        self._schedule_shudtown: bool = False
+        self._schedule_shutdown: bool = False
 
         self.force_focus: bool = False  # Force focus before the next tile
 
@@ -337,7 +337,7 @@ class ObserverOverwatcher(OverwatcherModule):
         observer = self.gort.observer
 
         n_tile_positions = 0
-        self._schedule_shudtown = False
+        self._schedule_shutdown = False
 
         while True:
             try:
@@ -369,7 +369,7 @@ class ObserverOverwatcher(OverwatcherModule):
                             "completes. Stopping observations now."
                         )
                         self.cancel()
-                        self._schedule_shudtown = True
+                        self._schedule_shutdown = True
                         break
 
                     # The exposure will complete in 900 seconds + acquisition + readout
@@ -431,7 +431,7 @@ class ObserverOverwatcher(OverwatcherModule):
                 )
 
                 if err.shutdown:
-                    self._schedule_shudtown = True
+                    self._schedule_shutdown = True
 
                 break
 
@@ -461,7 +461,7 @@ class ObserverOverwatcher(OverwatcherModule):
         await self.gort.cleanup(readout=False)
         await self.notify("The observing loop has ended.")
 
-        if self._schedule_shudtown:
+        if self._schedule_shutdown:
             # Do not set shutdown_pending until here to prevent the
             # main overwatcher task cancelling the last exposure and
             # various recursion problems.
@@ -572,7 +572,7 @@ class ObserverOverwatcher(OverwatcherModule):
                 "good.",
                 level="warning",
             )
-            self._schedule_shudtown = True
+            self._schedule_shutdown = True
 
             return False
 
