@@ -243,7 +243,7 @@ class ObserverOverwatcher(OverwatcherModule):
 
         # We are not troubleshooting any more if we have stopped the loop, but if we
         # cancelled the task the troubleshooter event may still be cleared.
-        self.overwatcher.troubleshooter.reset()
+        await self.overwatcher.troubleshooter.reset()
 
     async def get_next_tile(
         self, wait: bool = True, max_wait: float | None = None
@@ -393,7 +393,7 @@ class ObserverOverwatcher(OverwatcherModule):
 
                     # Clear counts of errors that are reset
                     # when a tile is successfully observed.
-                    self.overwatcher.troubleshooter.reset()
+                    await self.overwatcher.troubleshooter.reset()
 
                     if not result and not self.is_cancelling:
                         raise GortError("The observation ended with error state.")
