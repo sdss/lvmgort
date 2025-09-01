@@ -1,5 +1,12 @@
 # Changelog
 
+## Next release
+
+### ✨ Improved
+
+* Reconnect AG cameras in the clean-up recipe.
+
+
 ## 1.10.4 - August 29, 2025
 
 ### 🔧 Fixed
