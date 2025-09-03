@@ -85,18 +85,20 @@ class EphemerisMonitorTask(OverwatcherModuleTask["EphemerisOverwatcher"]):
 
                     failing = False
 
-            # Check the calibrations SJD and reset if necessary.
-            if self.overwatcher.calibrations.schedule.sjd != sjd:
-                await self.overwatcher.calibrations.reset()
-                self.overwatcher.troubleshooter.reset(clear_all_tracking=True)
+                    # Check the calibrations SJD and reset if necessary.
+                    if self.overwatcher.calibrations.schedule.sjd != sjd:
+                        await self.overwatcher.calibrations.reset()
+                        await self.overwatcher.observer.reset()
 
-                # Ensure that the Overwatcher is disabled.
-                await self.overwatcher.shutdown(
-                    "Disabling overwatcher on SJD change.",
-                    close_dome=False,
-                    disable_overwatcher=True,
-                    park=False,
-                )
+                    await self.overwatcher.troubleshooter.reset(clear_all_tracking=True)
+
+                    # Ensure that the Overwatcher is disabled.
+                    await self.overwatcher.shutdown(
+                        "Disabling overwatcher on SJD change.",
+                        close_dome=False,
+                        disable_overwatcher=True,
+                        park=False,
+                    )
 
             await asyncio.sleep(60)
 

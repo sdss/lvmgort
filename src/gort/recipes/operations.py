@@ -282,6 +282,9 @@ class CleanupRecipe(BaseRecipe):
             self.gort.enclosure.lights.telescope_bright.off(),
         )
 
+        # Reconnect AGs.
+        await self.gort.ags.reconnect()
+
         self.gort.log.info("Cleanup recipe has completed.")
 
     async def _wait_until_spec_is_idle(self, spec: Spectrograph):

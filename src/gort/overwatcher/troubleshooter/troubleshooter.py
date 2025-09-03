@@ -81,7 +81,7 @@ class Troubleshooter:
 
         self.error_tracking: dict[int, ErrorTrackingDict] = {}
 
-    def reset(self, clear_all_tracking: bool = False):
+    async def reset(self, clear_all_tracking: bool = False):
         """Resets the troubleshooter to its initial state."""
 
         self._event.set()
@@ -196,7 +196,7 @@ class Troubleshooter:
             )
 
         finally:
-            self.reset()
+            await self.reset()
 
         return False
 

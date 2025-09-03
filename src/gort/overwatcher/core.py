@@ -177,6 +177,11 @@ class OverwatcherModule:
         for task in self.tasks:
             task._log = self.log
 
+    async def reset(self, *args, **kwargs):
+        """Resets the overwatcher module."""
+
+        pass
+
     async def run(self):
         """Runs the overwatcher module."""
 
