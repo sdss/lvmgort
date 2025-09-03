@@ -388,7 +388,7 @@ class ObserverOverwatcher(OverwatcherModule):
                 if self.is_cancelling:
                     break
 
-                if self.should_focus(force=self.force_focus):
+                if await self.should_focus(force=self.force_focus):
                     await self.focus_sweep()
 
                 for dpos in tile.dither_positions:
