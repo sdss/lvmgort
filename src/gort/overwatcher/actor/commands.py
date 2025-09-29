@@ -399,14 +399,21 @@ async def stop_monitoring(command: OverwatcherCommand):
     return command.finish()
 
 
-@overwatcher_cli.command()
+@overwatcher_cli.group()
+def config(*_):
+    """Handles the Overwatcher configuration."""
+
+    pass
+
+
+@config.command(name="reload")
 @click.option(
     "-s",
     "--show",
     is_flag=True,
     help="Shows the configuration after reloading it.",
 )
-async def reload_config(command: OverwatcherCommand, show: bool = False):
+async def config_reload(command: OverwatcherCommand, show: bool = False):
     """Reloads the Overwatcher configuration."""
 
     overwatcher = command.actor.overwatcher
@@ -415,5 +422,14 @@ async def reload_config(command: OverwatcherCommand, show: bool = False):
 
     if not show:
         return command.finish(text="Configuration reloaded.")
+
+    return command.finish(configuration=dict(overwatcher.config))
+
+
+@config.command(name="show")
+async def config_show(command: OverwatcherCommand):
+    """Shows the current Overwatcher configuration."""
+
+    overwatcher = command.actor.overwatcher
 
     return command.finish(configuration=dict(overwatcher.config))

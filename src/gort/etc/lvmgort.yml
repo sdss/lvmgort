@@ -308,6 +308,12 @@ services:
       notifications: gortdb.notification
 
 overwatcher:
+  observer:
+    focus:
+      every: 7200 # Seconds. 0 disables regular focus sweeps
+      require_mjd_sweep: false # Perform a focus sweep at least once per MJD, even if every=0
+      on_error: false # Perform a focus sweep if an error occurs while observing
+
   schedule:
     open_dome_buffer: 200
     open_dome_secs_before_twilight: 300

@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 from time import time
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict, cast
 
 from lvmopstools.retrier import Retrier
 
@@ -32,6 +32,7 @@ from gort.tools import (
     decap,
     ensure_period,
     record_overheads,
+    redis_client_sync,
     run_in_executor,
 )
 
@@ -41,6 +42,12 @@ if TYPE_CHECKING:
 
 
 __all__ = ["ObserverOverwatcher"]
+
+
+class ObserverRedisDict(TypedDict):
+    """Datamodel for the observer data stored in Redis."""
+
+    focused: bool
 
 
 class CancelObserveLoopError(GortError):
@@ -118,11 +125,36 @@ class ObserverOverwatcher(OverwatcherModule):
         self.next_exposure_completes: float = 0
 
         self.focusing: bool = False
+        self.mjd_focus: bool = False  # Have we focus at least once this MJD
+
         self._starting_observations: bool = False
         self._cancelling: bool = False
-        self._schedule_shudtown: bool = False
+        self._schedule_shutdown: bool = False
 
         self.force_focus: bool = False  # Force focus before the next tile
+
+    async def reset(self):
+        """Resets the observer module."""
+
+        # Check if we have already focused this MJD.
+        if (sjd := self.overwatcher.ephemeris.sjd) is not None:
+            with redis_client_sync() as redis:
+                observer_data = redis.json().get(f"overwatcher:observer:{sjd}")
+                observer_data = cast(ObserverRedisDict | None, observer_data)
+
+                if observer_data is None:
+                    self.mjd_focus = False
+                    redis.json().set(
+                        f"overwatcher:observer:{sjd}",
+                        "$",
+                        {"focused": False},
+                    )
+                else:
+                    self.mjd_focus = observer_data.get("focused", False)
+
+        else:
+            self.log.warning("Cannot get SJD from ephemeris. Assuming focus not done.")
+            self.mjd_focus = False
 
     @property
     def is_observing(self) -> bool:
@@ -243,7 +275,7 @@ class ObserverOverwatcher(OverwatcherModule):
 
         # We are not troubleshooting any more if we have stopped the loop, but if we
         # cancelled the task the troubleshooter event may still be cleared.
-        self.overwatcher.troubleshooter.reset()
+        await self.overwatcher.troubleshooter.reset()
 
     async def get_next_tile(
         self, wait: bool = True, max_wait: float | None = None
@@ -337,7 +369,7 @@ class ObserverOverwatcher(OverwatcherModule):
         observer = self.gort.observer
 
         n_tile_positions = 0
-        self._schedule_shudtown = False
+        self._schedule_shutdown = False
 
         while True:
             try:
@@ -356,7 +388,8 @@ class ObserverOverwatcher(OverwatcherModule):
                 if self.is_cancelling:
                     break
 
-                await self.check_focus(force=n_tile_positions == 0 or self.force_focus)
+                if await self.should_focus(force=self.force_focus):
+                    await self.focus_sweep()
 
                 for dpos in tile.dither_positions:
                     exp: Exposure | bool = False
@@ -369,7 +402,7 @@ class ObserverOverwatcher(OverwatcherModule):
                             "completes. Stopping observations now."
                         )
                         self.cancel()
-                        self._schedule_shudtown = True
+                        self._schedule_shutdown = True
                         break
 
                     # The exposure will complete in 900 seconds + acquisition + readout
@@ -393,7 +426,7 @@ class ObserverOverwatcher(OverwatcherModule):
 
                     # Clear counts of errors that are reset
                     # when a tile is successfully observed.
-                    self.overwatcher.troubleshooter.reset()
+                    await self.overwatcher.troubleshooter.reset()
 
                     if not result and not self.is_cancelling:
                         raise GortError("The observation ended with error state.")
@@ -431,7 +464,7 @@ class ObserverOverwatcher(OverwatcherModule):
                 )
 
                 if err.shutdown:
-                    self._schedule_shudtown = True
+                    self._schedule_shutdown = True
 
                 break
 
@@ -461,52 +494,79 @@ class ObserverOverwatcher(OverwatcherModule):
         await self.gort.cleanup(readout=False)
         await self.notify("The observing loop has ended.")
 
-        if self._schedule_shudtown:
+        if self._schedule_shutdown:
             # Do not set shutdown_pending until here to prevent the
             # main overwatcher task cancelling the last exposure and
             # various recursion problems.
             self.overwatcher.state.shutdown_pending = True
 
-    async def check_focus(self, force: bool = False):
-        """Checks if it's time to focus the telescope."""
+    async def should_focus(self, force: bool = False, is_error: bool = False) -> bool:
+        """Determines whether we should perform a focus sweep."""
 
-        should_focus: bool = False
+        if force:
+            return True
+
+        focus_config = self.overwatcher.config["overwatcher.observer.focus"]
+
+        focus_every = focus_config["every"]
+        require_mjd_sweep = focus_config["require_mjd_sweep"]
+        on_error = focus_config["on_error"]
+
+        if is_error and on_error:
+            return True
+
+        if focus_every <= 0:
+            # Do not run a focus sweep ever, except maybe once per MJD.
+            if require_mjd_sweep:
+                # Check if we have already done an initial focus.
+                return not self.mjd_focus
+            else:
+                return False
+
+        # Check if it's been long enough to run another focus sweep.
+        focus_info = await self.gort.guiders.sci.get_focus_info()
+        focus_age = focus_info["reference_focus"]["age"]
+
+        if focus_age is None or focus_age > focus_every:
+            return True
+
+        return False
+
+    async def focus_sweep(self):
+        """Performs a focus sweep."""
 
         # Retry focusing up to 2 times with a 10 second delay and a 150 second timeout.
         focus_retrier = Retrier(max_attempts=2, delay=10, timeout=150)
 
-        if not force:
-            # Check if we should refocus.
-            focus_info = await self.gort.guiders.sci.get_focus_info()
-            focus_age = focus_info["reference_focus"]["age"]
+        try:
+            self.focusing = True
+            await self.notify("Focusing telescopes.")
+            await focus_retrier(self.gort.guiders.focus)()
+        except Exception as err:
+            await self.notify(
+                f"Failed twice while focusing the telescopes: {decap(err)}",
+                level="error",
+            )
+            return False
+        finally:
+            self.force_focus = False
+            self.focusing = False
 
-            if focus_age is None or focus_age > 2 * 3600:  # Focus sweeps every 2 hours
-                should_focus = True
-
-        else:
-            should_focus = True
-
-        # Focus when the loop starts or every 1 hour or at the beginning
-        # of the loop.
-        if should_focus:
+        # Indicate that we have performed a focus sweep this MJD.
+        if not self.mjd_focus:
             try:
-                self.focusing = True
-                await self.notify("Focusing telescopes.")
-                await focus_retrier(self.gort.guiders.focus)()
+                self.mjd_focus = True
+                with redis_client_sync() as redis:
+                    if (sjd := self.overwatcher.ephemeris.sjd) is not None:
+                        redis.json().set(
+                            f"overwatcher:observer:{sjd}",
+                            "$.focused",
+                            True,
+                        )
             except Exception as err:
-                await self.notify(
-                    f"Failed twice while focusing the telescopes: {decap(err)}",
-                    level="error",
-                )
-                await self.notify(
-                    "I will continue observations and try to "
-                    "focus again after the next tile."
-                )
-                self.force_focus = True
-            else:
-                self.force_focus = False
-            finally:
-                self.focusing = False
+                self.log.error(f"Failed to update Redis with MJD focus: {decap(err)}")
+
+        return True
 
     async def pre_observe_checks(self):
         """Runs pre-observe checks."""
@@ -572,7 +632,7 @@ class ObserverOverwatcher(OverwatcherModule):
                 "good.",
                 level="warning",
             )
-            self._schedule_shudtown = True
+            self._schedule_shutdown = True
 
             return False
 
