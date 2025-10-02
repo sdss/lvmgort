@@ -6,6 +6,8 @@
 
 * [#53](https://github.com/sdss/lvmgort/pull/53) Add more options for focusing in the Overwatcher. The options are specified in the configuration file under `overwatcher.observer.focus`. The `every` keyword controls the frequency of focus sweeps, which can be completely disabled by setting it to zero. It's possible to require a focus sweep at least once per MJD by setting `require_mjd_sweep` to true. The option `on_error` is not currently implemented but could be used in the future to force a focus sweep if certain errors occur.
 * Reconnect AG cameras in the clean-up recipe.
+* Force stopping the MoTAN devices when homing.
+* Force telescope homing if the cleanup recipe is run more than once during troubleshooting.
 
 ### 🔧 Fixed
 

@@ -214,7 +214,12 @@ class CleanupRecipe(BaseRecipe):
 
     name = "cleanup"
 
-    async def recipe(self, readout: bool = True, turn_lamps_off: bool = True):
+    async def recipe(
+        self,
+        readout: bool = True,
+        turn_lamps_off: bool = True,
+        home_telescopes: bool = False,
+    ):
         """Runs the cleanup recipe.
 
         Parameters
@@ -224,6 +229,8 @@ class CleanupRecipe(BaseRecipe):
             reads the spectrographs.
         turn_lamps_off
             If :obj:`True`, turns off the dome lights and calibration lamps.
+        home_telescopes
+            If :obj:`True`, homes the telescopes after stopping the guiders.
 
         """
 
@@ -275,6 +282,14 @@ class CleanupRecipe(BaseRecipe):
             self.gort.log.info("Turning off all calibration lamps and dome lights.")
             await self.gort.nps.calib.all_off()
             await self.gort.enclosure.lights.dome_all_off()
+
+        if home_telescopes:
+            self.gort.log.info("Homing telescopes.")
+            await self.gort.telescopes.home(
+                home_telescopes=True,
+                home_kms=True,
+                home_fibsel=True,
+            )
 
         # Turn off lights in the dome.
         await asyncio.gather(

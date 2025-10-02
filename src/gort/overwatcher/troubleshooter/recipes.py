@@ -86,7 +86,20 @@ class CleanupRecipe(TroubleshooterRecipe):
     async def _handle_internal(self, error_model: TroubleModel | None = None) -> bool:
         """Run the cleanup recipe."""
 
-        await self.overwatcher.gort.cleanup(readout=False)
+        if (
+            error_model
+            and error_model.tracking_data
+            and error_model.tracking_data["count"] > 1
+        ):
+            home_telescopes = True
+        else:
+            home_telescopes = False
+
+        await self.overwatcher.gort.cleanup(
+            readout=False,
+            turn_lamps_off=True,
+            home_telescopes=home_telescopes,
+        )
 
         return True
 

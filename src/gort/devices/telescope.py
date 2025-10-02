@@ -97,15 +97,17 @@ class MoTanDevice(GortDevice):
         else:
             await asyncio.sleep(self.SLEW_DELAY[self.telescope])
 
-    async def stop(self):
+    async def stop(self, force: bool = False):
         """Stop the K-mirror movement."""
 
-        if await self.is_moving():
+        if await self.is_moving() or force:
             self.write_to_log("Stopping slew.")
 
             if self.device_type == "kmirror":
                 await self.run_command("slewStop", timeout=self.timeouts["slewStop"])
             await self.run_command("stop", timeout=self.timeouts["slewStop"])
+
+            await asyncio.sleep(3)
 
             if await self.is_moving():
                 raise GortTelescopeError(
@@ -145,7 +147,7 @@ class KMirror(MoTanDevice):
         await self.check_reachable()
 
         await self.slew_delay()
-        await self.stop()
+        await self.stop(force=True)
 
         self.write_to_log("Homing k-mirror.", level="info")
         await self.run_command("moveToHome", timeout=self.timeouts["moveToHome"])
@@ -259,7 +261,7 @@ class Focuser(MoTanDevice):
         await self.check_reachable()
 
         await self.slew_delay()
-        await self.stop()
+        await self.stop(force=True)
 
         # Store current position to restore it later.
         status = await self.status()
@@ -313,7 +315,7 @@ class FibSel(MoTanDevice):
         await self.check_reachable()
 
         await self.slew_delay()
-        await self.stop()
+        await self.stop(force=True)
 
         self.write_to_log("Homing fibsel.", level="info")
         await self.run_command("moveToHome", timeout=self.timeouts["moveToHome"])

@@ -664,13 +664,19 @@ class Gort(GortClient):
 
         return await self.execute_recipe("shutdown", **kwargs)
 
-    async def cleanup(self, readout: bool = True, turn_lamps_off: bool = True):
+    async def cleanup(
+        self,
+        readout: bool = True,
+        turn_lamps_off: bool = True,
+        home_telescopes: bool = False,
+    ):
         """Executes the :obj:`shutdown <.CleanupRecipe>` sequence."""
 
         return await self.execute_recipe(
             "cleanup",
             readout=readout,
             turn_lamps_off=turn_lamps_off,
+            home_telescopes=home_telescopes,
         )
 
     async def restart_kubernetes_deployments(self, deployment: str):
