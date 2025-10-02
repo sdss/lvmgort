@@ -71,7 +71,7 @@ class EphemerisMonitorTask(OverwatcherModuleTask["EphemerisOverwatcher"]):
                             log.start_file_logger(
                                 str(path.parent / f"{sjd}.log"),
                                 rotating=False,
-                                mode='a',
+                                mode="a",
                             )
 
                     await self.module.update_ephemeris(sjd)
