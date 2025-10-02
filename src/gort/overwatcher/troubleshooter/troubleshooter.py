@@ -86,9 +86,12 @@ class Troubleshooter:
 
         self._event.set()
 
+        if clear_all_tracking:
+            self.error_tracking.clear()
+
         for hash in self.error_tracking.copy():
             error = self.error_tracking[hash]
-            if error["reset_on_success"] or clear_all_tracking:
+            if error["reset_on_success"]:
                 error["count"] = 0
                 error["last_seen"] = 0
 

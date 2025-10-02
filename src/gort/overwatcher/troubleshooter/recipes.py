@@ -86,19 +86,23 @@ class CleanupRecipe(TroubleshooterRecipe):
     async def _handle_internal(self, error_model: TroubleModel | None = None) -> bool:
         """Run the cleanup recipe."""
 
-        if (
-            error_model
-            and error_model.tracking_data
-            and error_model.tracking_data["count"] > 1
-        ):
-            home_telescopes = True
-        else:
-            home_telescopes = False
+        n_errors = 1
+        if error_model and error_model.tracking_data:
+            n_errors = error_model.tracking_data["count"]
+
+        if n_errors > 3:
+            await self.notify(
+                "Multiple errors have occurred that the "
+                "troubleshooter has been unable to address. "
+                "Shutting down the overwatcher (leaving the dome open).",
+                level="error",
+            )
+            await self.overwatcher.shutdown("Unhandled errors", close_dome=False)
 
         await self.overwatcher.gort.cleanup(
             readout=False,
             turn_lamps_off=True,
-            home_telescopes=home_telescopes,
+            home_telescopes=True if n_errors > 1 else False,
         )
 
         return True

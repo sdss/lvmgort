@@ -199,6 +199,8 @@ class ObserverOverwatcher(OverwatcherModule):
 
         await self.notify("Starting observations.")
 
+        await self.overwatcher.troubleshooter.reset(clear_all_tracking=True)
+
         if not (await self.overwatcher.dome.is_opening()):
             try:
                 self._starting_observations = True
