@@ -57,6 +57,12 @@ class OverwatcherBaseTask:
 
         self._log.debug(f"Task {self.name!r} was cancelled.")
 
+    async def restart(self):
+        """Restarts the task."""
+
+        await self.cancel()
+        await self.run()
+
     async def task(self):
         """The task to run."""
 

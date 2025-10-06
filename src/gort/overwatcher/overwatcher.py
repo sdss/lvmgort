@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import pathlib
+import time
 
 from typing import TYPE_CHECKING, cast
 
@@ -69,7 +70,7 @@ class OverwatcherTask(OverwatcherBaseTask):
 class OverwatcherMainTask(OverwatcherTask):
     """The main overwatcher task."""
 
-    name = "overwatcher_task"
+    name = "overwatcher_main"
     keep_alive = True
     restart_on_error = True
 
@@ -77,6 +78,7 @@ class OverwatcherMainTask(OverwatcherTask):
         super().__init__(overwatcher)
 
         self._pending_close_dome: bool = False
+        self.last_loop_time: float = 0
 
     async def task(self):
         """Main overwatcher task."""
@@ -141,6 +143,9 @@ class OverwatcherMainTask(OverwatcherTask):
 
                 # Run daily tasks.
                 await ow.daily_tasks.run_all()
+
+                # Update when we completed the loop.
+                self.last_loop_time = time.time()
 
             except Exception as err:
                 await ow.notify(
@@ -319,7 +324,7 @@ class OverwatcherPingTask(OverwatcherTask):
     keep_alive = True
     restart_on_error = True
 
-    delay: float = 900
+    delay: float = 600
 
     async def task(self):
         """Ping task."""
@@ -327,6 +332,54 @@ class OverwatcherPingTask(OverwatcherTask):
         while True:
             await asyncio.sleep(self.delay)
             self.log.debug("I am alive!")
+
+            await self.check_main_task()
+
+    async def check_main_task(self) -> bool:
+        """Checks that the main task is running."""
+
+        main_task = self.get_main_task()
+        if main_task is None:
+            self.log.error("Cannot find the main overwatcher task.")
+            return False
+
+        ow_config = self.overwatcher.config["overwatcher"]
+        main_task_stalled = ow_config["alerts.main_task_stalled"]
+
+        lag = time.time() - main_task.last_loop_time
+        if lag <= main_task_stalled:
+            return True
+
+        await self.overwatcher.notify(
+            f"The main overwatcher task appears to be stalled (last loop "
+            f"completed {lag:.1f} seconds ago). Restarting the task.",
+            level="warning",
+        )
+        await main_task.restart()
+
+        # Wait 30 seconds and check again. This should be enough for the
+        # main task to complete a loop.
+        await asyncio.sleep(30)
+
+        lag = time.time() - main_task.last_loop_time
+        if lag > main_task_stalled:
+            await self.overwatcher.notify(
+                "The main overwatcher task is still stalled after a restart. "
+                "Please check the logs. Shutting down LVM now.",
+                level="critical",
+            )
+            await self.overwatcher.shutdown(reason="Overwatcher is stalled.")
+            return False
+
+        return True
+
+    def get_main_task(self) -> OverwatcherMainTask | None:
+        """Returns the main overwatcher task."""
+
+        for task in self.overwatcher.tasks:
+            if isinstance(task, OverwatcherMainTask):
+                return task
+        return None
 
 
 class Overwatcher(NotifierMixIn):

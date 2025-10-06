@@ -321,6 +321,7 @@ overwatcher:
 
   alerts:
     idle_timeout: 600
+    main_task_stalled: 600
 
   disabled_actors: null
 
