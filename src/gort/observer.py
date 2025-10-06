@@ -1015,6 +1015,8 @@ class GortObserver:
         tile_header = {
             "TILE_ID": (tile_id or -999, "The tile_id of this observation"),
             "DPOS": (dither_pos, "Dither position"),
+            "REOBS": (self.tile.reobserved, "Tile is being reobserved"),
+            "ANCILLRY": (self.tile.ancillary, "Ancillary tile"),
             "POSCIRA": round(position_coords[0], 6),
             "POSCIDE": round(position_coords[1], 6),
             "POSCIPA": round(self.tile.sci_coords.pa, 4),
@@ -1041,7 +1043,6 @@ class GortObserver:
             )
 
         header.update(tile_header)
-
         header.update(self.guider_monitor.to_header())
 
         # At this point the shutter is closed so let's stop observing standards.

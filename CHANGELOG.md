@@ -11,6 +11,7 @@
 * Stop observing if the clean-up recipe is run more than three times without success.
 * The ping task now check if the Overwatcher main task has stalled and restarts it if necessary.
 * Raise timeout errors in several places in the Overwatcher to prevent it from stalling indefinitely.
+* Include reobserved and ancillary flags in the exposure headers and database.
 
 ### 🔧 Fixed
 

@@ -498,6 +498,8 @@ class Exposure(asyncio.Future["Exposure"]):
             mjd = header.get("SMJD", None)
             start_time = header.get("INTSTART", None)
             tile_id = header.get("TILE_ID", None)
+            reobserved = header.get("REOBS", False)
+            ancillary = header.get("ANCILLRY", False)
 
             if start_time is not None:
                 start_time = Time(start_time, format="isot").datetime
@@ -513,6 +515,8 @@ class Exposure(asyncio.Future["Exposure"]):
                     "start_time": start_time,
                     "tile_id": tile_id,
                     "header": json.dumps(header),
+                    "reobserved": reobserved,
+                    "ancillary": ancillary,
                 }
             )
 

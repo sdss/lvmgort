@@ -386,6 +386,9 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
 
         self.object = object or (f"Tile {self.tile_id}" if self.tile_id else None)
 
+        self.reobserved: bool = False
+        self.ancillary: bool = False
+
         dict.__init__(self, {})
 
         self.set_sci_coords(sci_coords)
@@ -634,6 +637,9 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
             **kwargs,
         )
         new_obj.tile_id = tile_id
+
+        new_obj.reobserved = tile_id_data.get("reobserved", False)
+        new_obj.ancillary = tile_id_data.get("ancillary", False)
 
         return new_obj
 
