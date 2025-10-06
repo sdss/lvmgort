@@ -15,8 +15,9 @@ from time import time
 from typing import TYPE_CHECKING
 
 from httpx import ReadTimeout
-from lvmopstools.utils import Trigger
 from pydantic import BaseModel
+
+from lvmopstools.utils import Trigger
 
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 from gort.tools import decap, get_lvmapi_route

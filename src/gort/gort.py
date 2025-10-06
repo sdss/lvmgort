@@ -27,14 +27,14 @@ from typing import (
     TypeVar,
 )
 
-from lvmopstools.pubsub import send_event
-from lvmopstools.retrier import Retrier
 from rich import pretty, traceback
 from rich.logging import RichHandler
 from typing_extensions import Self
 
 from clu.client import AMQPClient
 from clu.exceptions import CluWarning
+from lvmopstools.pubsub import send_event
+from lvmopstools.retrier import Retrier
 from sdsstools.logger import SDSSLogger, get_logger
 from sdsstools.time import get_sjd
 

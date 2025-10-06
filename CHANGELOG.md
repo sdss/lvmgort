@@ -10,6 +10,7 @@
 * Force telescope homing if the clean-up recipe is run more than once during troubleshooting.
 * Stop observing if the clean-up recipe is run more than three times without success.
 * The ping task now check if the Overwatcher main task has stalled and restarts it if necessary.
+* Raise timeout errors in several places in the Overwatcher to prevent it from stalling indefinitely.
 
 ### 🔧 Fixed
 

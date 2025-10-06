@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol, Sequence, cast
 
 import httpx
 
+from lvmopstools.utils import timeout
 from sdsstools import Configuration
 
 from gort import config
@@ -45,6 +46,7 @@ class NotifierMixIn(OverwatcherProtocol):
     # when the notification can be sent again.
     notification_history: dict[str, float] = {}
 
+    @timeout(30)
     async def notify(
         self,
         message: str | None = None,

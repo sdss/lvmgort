@@ -16,10 +16,10 @@ from typing import TYPE_CHECKING, Any, Callable, Literal
 
 import unclick
 from aiormq import AMQPConnectionError, ChannelInvalidStateError
-from lvmopstools.retrier import Retrier
 from typing_extensions import Self
 
 from clu.tools import CommandStatus
+from lvmopstools.retrier import Retrier
 
 from gort.exceptions import (
     GortTimeoutError,

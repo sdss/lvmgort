@@ -15,6 +15,7 @@ import time
 
 from typing import TYPE_CHECKING, cast
 
+from lvmopstools.utils import timeout, with_timeout
 from sdsstools import Configuration
 from sdsstools.utils import GatheringTaskGroup
 
@@ -142,10 +143,16 @@ class OverwatcherMainTask(OverwatcherTask):
                     await self.handle_dome_closing()
 
                 # Run daily tasks.
-                await ow.daily_tasks.run_all()
+                await with_timeout(ow.daily_tasks.run_all(), timeout=600)
 
                 # Update when we completed the loop.
                 self.last_loop_time = time.time()
+
+            except asyncio.TimeoutError as timeout_err:
+                await ow.notify(
+                    f"The main overwatcher task has timed out: {decap(timeout_err)}.",
+                    level="warning",
+                )
 
             except Exception as err:
                 await ow.notify(
@@ -159,6 +166,7 @@ class OverwatcherMainTask(OverwatcherTask):
 
             await asyncio.sleep(5)
 
+    @timeout(300)
     async def handle_unsafe(self):
         """Closes the dome if the conditions are unsafe."""
 
@@ -233,6 +241,7 @@ class OverwatcherMainTask(OverwatcherTask):
                     error=err,
                 )
 
+    @timeout(300)
     async def handle_daytime(self):
         """Handles daytime conditions."""
 
@@ -285,6 +294,7 @@ class OverwatcherMainTask(OverwatcherTask):
             cancel_safe_calibrations=False,
         )
 
+    @timeout(60)
     async def handle_disabled(self):
         """Handles the disabled state."""
 
@@ -298,6 +308,7 @@ class OverwatcherMainTask(OverwatcherTask):
                 reason="overwatcher was disabled",
             )
 
+    @timeout(60)
     async def handle_dome_closing(self):
         """Stop observations and calibrations if the dome is closing."""
 
@@ -467,10 +478,11 @@ class Overwatcher(NotifierMixIn):
         )
 
         if self.state.dry_run:
-            self.log.warning("Overatcher is running in dry-mode.")
+            self.log.warning("Overwatcher is running in dry-mode.")
 
         return self
 
+    @timeout(600)
     async def startup(self, open_dome: bool = True, focus: bool = False):
         """Runs the startup sequence."""
 
@@ -486,6 +498,7 @@ class Overwatcher(NotifierMixIn):
             if focus:
                 await self.gort.guiders.focus()
 
+    @timeout(300)
     async def shutdown(
         self,
         reason: str | None = None,
@@ -637,6 +650,7 @@ class Overwatcher(NotifierMixIn):
 
         await self.notify("Shutdown complete.", level="info")
 
+    @timeout(60)
     async def is_shutdown(self):
         """Determines whether the observatory is safely shut down."""
 

@@ -12,10 +12,9 @@ import asyncio
 
 from typing import ClassVar
 
+from clu.tools import CommandStatus
 from lvmopstools.retrier import Retrier
 from lvmopstools.utils import Trigger, with_timeout
-
-from clu.tools import CommandStatus
 
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 from gort.overwatcher.helpers import get_actor_ping, restart_actors
