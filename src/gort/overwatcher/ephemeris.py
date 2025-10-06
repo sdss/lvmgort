@@ -84,7 +84,6 @@ class EphemerisMonitorTask(OverwatcherModuleTask["EphemerisOverwatcher"]):
                     failing = True
 
                 else:
-                    self.log.info(f"New SJD: updating ephemeris for {sjd}.")
                     self.module.sjd = sjd
 
                     failing = False
@@ -127,6 +126,7 @@ class EphemerisOverwatcher(OverwatcherModule):
         """Updates the ephemeris data."""
 
         sjd = sjd or get_sjd("LCO")
+        self.log.info(f"Updating ephemeris for SJD {sjd}.")
 
         ephemeris_response = await get_ephemeris_summary(sjd)
         self.last_updated = time()
