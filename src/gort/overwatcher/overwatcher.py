@@ -19,6 +19,7 @@ from lvmopstools.utils import timeout, with_timeout
 from sdsstools import Configuration
 from sdsstools.utils import GatheringTaskGroup
 
+from gort import __version__
 from gort.exceptions import GortError
 from gort.overwatcher.alerts import ActiveAlert
 from gort.overwatcher.core import OverwatcherBaseTask, OverwatcherModule
@@ -473,7 +474,7 @@ class Overwatcher(NotifierMixIn):
 
         self.state.running = True
         await self.notify(
-            "Overwatcher is now running.",
+            f"Overwatcher is now running with version {__version__}.",
             payload={"dry-run": self.state.dry_run},
         )
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## Next release
+
+### ✨ Improved
+
+* Report Overwatcher version in the Slack message when it starts.
+
+
 ## 1.11.0 - October 7, 2025
 
 ### ✨ Improved
