@@ -12,6 +12,7 @@
 * The ping task now check if the Overwatcher main task has stalled and restarts it if necessary.
 * Raise timeout errors in several places in the Overwatcher to prevent it from stalling indefinitely.
 * Include reobserved and ancillary flags in the exposure headers and database.
+* Say whether a tile is being reobserved or ancillary in the Slack message.
 
 ### 🔧 Fixed
 

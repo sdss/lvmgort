@@ -398,9 +398,15 @@ class GortObserver:
             tile.sci_coords.pa = new_pa
 
         if tile.tile_id is not None:
+            extra_info = ""
+            if tile.reobserved:
+                extra_info += " (reobserving)"
+            elif tile.ancillary:
+                extra_info += " (ancillary tile)"
+
             write_log(
                 f"Observing tile_id={tile.tile_id} on "
-                f"dither position #{self.dither_position}.",
+                f"dither position #{self.dither_position}{extra_info}.",
                 "info",
             )
 
