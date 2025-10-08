@@ -265,8 +265,8 @@ class GortObserver:
         async_readout: bool = False,
         keep_guiding: bool = False,
         skip_slew_when_acquired: bool = True,
-        guide_tolerance: float = 1.0,
-        acquisition_timeout: float = 180.0,
+        guide_tolerance: float | None = None,
+        acquisition_timeout: float | None = None,
         show_progress: bool | None = None,
         run_cleanup: bool = True,
         adjust_focus: bool = True,
@@ -312,11 +312,13 @@ class GortObserver:
         guide_tolerance
             The guide tolerance in arcsec. A telescope will not be considered
             to be guiding if its separation to the commanded field is larger
-            than this value.
+            than this value. If :obj:`None`, default values from the configuration
+            file are used.
         acquisition_timeout
             The maximum time allowed for acquisition. In case of timeout
             the acquired fields are evaluated and an exception is
-            raised if the acquisition failed.
+            raised if the acquisition failed. If :obj:`None`, uses the default
+            value from the configuration file.
         show_progress
             Displays a progress bar with the elapsed exposure time.
         run_cleanup
@@ -561,7 +563,7 @@ class GortObserver:
     async def acquire(
         self,
         guide_tolerance: float | None = None,
-        timeout: float = 180,
+        timeout: float | None = None,
         telescopes: list[str] = ["sci", "skye", "skyw", "spec"],
     ):
         """Acquires the field in all the telescopes. Blocks until then.
@@ -576,7 +578,8 @@ class GortObserver:
         timeout
             The maximum time allowed for acquisition. In case of timeout
             the acquired fields are evaluated and an exception is
-            raised if the acquisition failed.
+            raised if the acquisition failed. If :obj:`None`, uses the default
+            value from the configuration file.
         telescopes
             The list of telescopes to acquire. By default all telescopes are
             acquired.
@@ -588,6 +591,8 @@ class GortObserver:
             not guiding.
 
         """
+
+        timeout = timeout or self.gort.config["observer.acquisition_timeout"]
 
         with self.register_overhead("acquisition:stop-guiders"):
             # Make sure we are not guiding or that the previous is on.
@@ -620,6 +625,11 @@ class GortObserver:
 
             guide_tolerance_tel = self.gort.config["observer"]["guide_tolerance"][tel]
             guide_tolerance_tel = guide_tolerance or guide_tolerance_tel
+
+            self.write_to_log(
+                f"Starting guider on {tel} with guide tolerance "
+                f"{guide_tolerance_tel:.1f} arcsec."
+            )
 
             guide_coros.append(
                 self.gort.guiders[tel].guide(

@@ -268,6 +268,7 @@ observer:
     spec: 3
     skye: 3
     skyw: 3
+  acquisition_timeout: 180
 
 site:
   lon: -70.70166667

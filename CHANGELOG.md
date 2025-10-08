@@ -6,6 +6,10 @@
 
 * Report Overwatcher version in the Slack message when it starts.
 
+### 🔧 Fixed
+
+* Use the guide tolerances defined in the configuration file when starting the guiders during acquisition.
+
 
 ## 1.11.0 - October 7, 2025
 
