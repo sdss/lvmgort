@@ -9,6 +9,7 @@
 ### 🔧 Fixed
 
 * Use the guide tolerances defined in the configuration file when starting the guiders during acquisition.
+* Improve handling of locked out AG cameras in the cleanup recipe.
 
 
 ## 1.11.0 - October 7, 2025

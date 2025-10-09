@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 
 from gort.devices.core import GortDevice, GortDeviceSet
+from gort.exceptions import GortDeviceError
 from gort.gort import Gort
 from gort.tools import run_lvmapi_task
 
@@ -64,7 +65,20 @@ class AG(GortDevice):
 
         self.write_to_log("Reconnecting AG cameras.")
 
-        return await self.actor.commands.reconnect()
+        actor_reply = await self.actor.commands.reconnect()
+        for reply in actor_reply.replies:
+            if "error" in reply:
+                error = reply["error"]
+                if "arv-device-error-quark" in error:
+                    raise GortDeviceError(
+                        f"One or more {self.name} cameras failed to reconnect. "
+                        "The cameras may be in locked mode."
+                    )
+                else:
+                    self.write_to_log(
+                        f"Error reconnecting {self.name} cameras: {error}",
+                        level="error",
+                    )
 
     async def expose(
         self,
@@ -123,7 +137,14 @@ class AGSet(GortDeviceSet[AG]):
 
         """
 
-        await asyncio.gather(*[ag.reconnect() for ag in self.values()])
+        replies = await asyncio.gather(
+            *[ag.reconnect() for ag in self.values()],
+            return_exceptions=True,
+        )
+
+        for reply in replies:
+            if isinstance(reply, BaseException):
+                raise
 
         return await self.list_alive_cameras()
 
@@ -140,10 +161,16 @@ class AGSet(GortDeviceSet[AG]):
 
         """
 
-        all_status = await asyncio.gather(*[ag.status() for ag in self.values()])
+        all_status = await asyncio.gather(
+            *[ag.status() for ag in self.values()],
+            return_exceptions=True,
+        )
 
         replies = []
         for status in all_status:
+            if isinstance(status, BaseException):
+                continue
+
             for reply in status.replies:
                 try:
                     replies.append({"actor": status.actor.name, **reply["status"]})

@@ -298,7 +298,22 @@ class CleanupRecipe(BaseRecipe):
         )
 
         # Reconnect AGs.
-        await self.gort.ags.reconnect()
+        try:
+            await self.gort.ags.reconnect()
+        except Exception as ee:
+            # In some cases, if the cameras are reconnected while exposing, they
+            # can go into locked mode. If that happens, we restart the actors.
+            error = str(ee)
+            if "arv-device-error-quark" in error or "locked mode" in error:
+                self.gort.log.error(
+                    "Some cameras may be in locked mode. Restarting actors.",
+                    exc_info=ee,
+                )
+                await self.gort.ags.restart()
+                await asyncio.sleep(10)
+                await self.gort.ags.reconnect()
+            else:
+                raise
 
         self.gort.log.info("Cleanup recipe has completed.")
 
