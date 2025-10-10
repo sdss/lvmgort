@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import abc
-import asyncio
 import time
 
 import typing
@@ -20,7 +19,7 @@ from astropy.time import Time
 from sdsstools import get_sjd
 
 from gort.overwatcher.calibrations import CalibrationState
-from gort.tools import add_night_log_comment, decap, redis_client_sync, run_lvmapi_task
+from gort.tools import add_night_log_comment, decap, redis_client_sync
 
 
 if TYPE_CHECKING:
@@ -266,16 +265,12 @@ class PowerCycleAGsTask(DailyTaskBase):
     async def _run_internal(self) -> bool:
         """Runs the pre-observing tasks."""
 
-        n_expected_cameras = self.gort.ags.n_cameras
-
         try:
-            # This will power cycle the cameras and reconnect them
-            await run_lvmapi_task("/macros/power_cycle_ag_cameras")
-            await asyncio.sleep(10)
+            # This will power cycle the cameras, restart the actors, and reconnect.
+            await self.gort.ags.power_cycle()
 
-            # Do another reconnect just in case. reconnect() returns the alive cameras.
-            cameras = await self.gort.ags.reconnect()
-            if len(cameras) != n_expected_cameras:
+            cameras = await self.gort.ags.list_alive_cameras()
+            if len(cameras) != self.gort.ags.n_cameras:
                 await self.overwatcher.notify(
                     "Some AG cameras failed to reconnect and may not be working.",
                     level="critical",

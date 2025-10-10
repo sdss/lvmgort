@@ -177,7 +177,7 @@ class AGSet(GortDeviceSet[AG]):
                 except Exception:
                     pass
 
-        cameras = []
+        cameras: list[str] = []
         for reply in replies:
             actor = reply["actor"]
             telescope = actor.split(".")[1]
@@ -224,6 +224,10 @@ class AGSet(GortDeviceSet[AG]):
 
         await run_lvmapi_task("/macros/power_cycle_ag_cameras")
         await asyncio.sleep(30)
+
+        # Restart the actors
+        await self.restart()
+        await asyncio.sleep(15)
 
         for retry in range(2):
             try:
