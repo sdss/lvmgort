@@ -570,7 +570,7 @@ class ObserverOverwatcher(OverwatcherModule):
 
         return True
 
-    async def pre_observe_checks(self):
+    async def pre_observe_checks(self) -> float:
         """Runs pre-observe checks."""
 
         if await self.gort.specs.are_errored():
