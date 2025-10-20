@@ -171,7 +171,7 @@ class KMirror(MoTanDevice):
         await self.check_reachable()
 
         await self.slew_delay()
-        await self.stop()
+        # await self.stop()
 
         self.write_to_log(f"Moving k-mirror to {degs:.3f} degrees.", level="info")
         await self.run_command(
@@ -229,7 +229,7 @@ class KMirror(MoTanDevice):
         if abs(stop_degs_before) > 0:
             self.write_to_log(f"Using stop_degs_before={stop_degs_before}.")
 
-        await self.stop()
+        # await self.stop()
         await self.run_command(
             "slewStart",
             ra / 15.0,
