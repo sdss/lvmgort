@@ -284,7 +284,8 @@ class Guider(GortDevice):
 
         # The PA argument in lvmguider was added in 0.4.0a0.
         if self.version == Version("0.99.0") or self.version < Version("0.4.0a0"):
-            guide_kwargs.pop("pa")
+            if "pa" in guide_kwargs:
+                guide_kwargs.pop("pa")
 
         self.separation = None
 
