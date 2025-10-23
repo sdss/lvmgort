@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 import enum
-import os
 import pathlib
 import time
 
@@ -44,7 +43,7 @@ __all__ = ["CalibrationsOverwatcher"]
 
 ETC_DIR = pathlib.Path(__file__).parent / "../etc/"
 
-PathType = os.PathLike | str | pathlib.Path
+PathType = str | pathlib.Path
 TimeModeType = Literal["secs_after_sunset", "secs_before_sunrise", "jd", "utc"]
 CalsDataType = PathType | list["CalibrationModel"] | list[dict[str, Any]]
 
@@ -385,7 +384,7 @@ class CalibrationSchedule:
     def read_file(self, filename: PathType) -> list[CalibrationModel]:
         """Loads calibrations from a file."""
 
-        cal_data: list = read_yaml_file(filename, return_class=list)  # type: ignore
+        cal_data: list = read_yaml_file(filename)
         if not isinstance(cal_data, (list, tuple)):
             raise ValueError("Calibrations file is badly formatted.")
 
@@ -597,7 +596,10 @@ class CalibrationsOverwatcher(OverwatcherModule):
         try:
             self.schedule.update_schedule(self.cals_file)
         except Exception as ee:
-            self.log.error(f"Error updating calibrations schedule: {decap(ee)}")
+            self.log.error(
+                f"Error updating calibrations schedule: {decap(ee)}",
+                exc_info=ee,
+            )
 
     def get_running_calibration(self):
         """Returns the calibration currently running."""
