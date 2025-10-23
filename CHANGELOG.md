@@ -6,6 +6,10 @@
 
 * Register the observation 5 seconds before the exposure ends to reduce overheads.
 
+### 🔧 Fixed
+
+* Fix issue with `read_yaml_file` by updating sdsstools.
+
 
 ## 1.11.1 - October 22, 2025
 
