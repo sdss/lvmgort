@@ -280,7 +280,9 @@ class ObserverOverwatcher(OverwatcherModule):
         await self.overwatcher.troubleshooter.reset()
 
     async def get_next_tile(
-        self, wait: bool = True, max_wait: float | None = None
+        self,
+        wait: bool = True,
+        max_wait: float | None = None,
     ) -> Tile:
         """Gets the next tile from the scheduler."""
 
