@@ -804,23 +804,33 @@ class GortObserver:
             if exposure_starts_callback:
                 exposure.hooks["exposure-starts"].append(exposure_starts_callback)
 
-            with self.register_overhead(f"expose:integration-{nexp}"):
-                await exposure.expose(
-                    exposure_time=exposure_time,
-                    show_progress=show_progress,
-                    async_readout=True,
-                )
-
             # TODO: this is a bit dangerous because we are registering the
             # exposure before  it's actually written to disk. Maybe we should
             # wait until _post_readout() to register, but then the scheduler
-            # needs to be changed to not return the same tile twice.
-            with self.register_overhead(f"exposure:register-exposure-{nexp}"):
-                await self.register_exposure(
+            # needs to be changed to not return the same tile twice. We are also
+            # scheduling the registration before the exposure ends because the AS
+            # endpoint that register the observation can take up to 5 seconds and I
+            # want to avoid waiting.
+            registration_task = asyncio.create_task(
+                self.register_exposure(
                     exposure,
+                    nexp=nexp,
                     tile_id=tile_id,
                     dither_position=dither_position,
+                    delay=exposure_time - 5.0,
                 )
+            )
+
+            with self.register_overhead(f"expose:integration-{nexp}"):
+                try:
+                    await exposure.expose(
+                        exposure_time=exposure_time,
+                        show_progress=show_progress,
+                        async_readout=True,
+                    )
+                except Exception:
+                    await cancel_task(registration_task)
+                    raise
 
             if nexp == count and not keep_guiding:
                 with self.register_overhead(f"expose:stop-guiders-{nexp}"):
@@ -887,16 +897,33 @@ class GortObserver:
     async def register_exposure(
         self,
         exposure: Exposure,
+        nexp: int = 1,
         tile_id: int | None = None,
         dither_position: int = 0,
+        delay: float = 0.0,
     ):
         """Registers the exposure in the database."""
+
+        # Because of the delay argument we cannot use the register_overhead
+        # context manager here, so we do it manually.
+        self.overheads[f"exposure:register-exposure-{nexp}"] = {
+            "dither_position": self.tile.sci_coords.dither_position,
+            "t0": time(),
+            "elapsed": 0.0,
+        }
 
         if exposure._exposure_time is None:
             raise GortObserverError("Exposure time cannot be 'None'.")
 
         if exposure.flavour != "object":
             return
+
+        # Delay registering the observation. This is useful to be able to call this
+        # coroutine immediately after the exposure starts, but have it register the
+        # exposure only after a delay.
+        await asyncio.sleep(delay)
+
+        t0 = time()
 
         standards: list[int] = []
         if self.standards:
@@ -930,6 +957,8 @@ class GortObserver:
             self.write_to_log(f"Failed registering exposure: {decap(err)}", "error")
         else:
             self.write_to_log("Registration complete.")
+
+        self.overheads[f"exposure:register-exposure-{nexp}"]["elapsed"] = time() - t0
 
     async def set_dither_position(self, dither: int):
         """Reacquire science telescope for a new dither position."""

@@ -1,5 +1,12 @@
 # Changelog
 
+## Next release
+
+### ✨ Improved
+
+* Register the observation 5 seconds before the exposure ends to reduce overheads.
+
+
 ## 1.11.1 - October 22, 2025
 
 ### ✨ Improved
