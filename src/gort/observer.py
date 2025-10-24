@@ -912,18 +912,18 @@ class GortObserver:
             "elapsed": 0.0,
         }
 
-        if exposure._exposure_time is None:
-            raise GortObserverError("Exposure time cannot be 'None'.")
-
-        if exposure.flavour != "object":
-            return
-
         # Delay registering the observation. This is useful to be able to call this
         # coroutine immediately after the exposure starts, but have it register the
         # exposure only after a delay.
         await asyncio.sleep(delay)
 
         t0 = time()
+
+        if exposure._exposure_time is None:
+            raise GortObserverError("Exposure time cannot be 'None'.")
+
+        if exposure.flavour != "object":
+            return
 
         standards: list[int] = []
         if self.standards:
