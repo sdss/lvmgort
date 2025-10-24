@@ -937,13 +937,13 @@ class GortObserver:
 
         self.write_to_log("Registering observation.", "info")
         registration_payload = {
+            "exposure_no": exposure.exp_no,
             "dither": dither_position,
+            "exposure_time": exposure._exposure_time,
             "jd": float(exposure.start_time.jd),
             "seeing": -999.0,
             "standards": standards,
             "skies": skies,
-            "exposure_no": exposure.exp_no,
-            "exposure_time": exposure._exposure_time,
         }
 
         if tile_id is not None:
