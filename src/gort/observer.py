@@ -831,6 +831,8 @@ class GortObserver:
                 except Exception:
                     await cancel_task(registration_task)
                     raise
+                else:
+                    await registration_task
 
             if nexp == count and not keep_guiding:
                 with self.register_overhead(f"expose:stop-guiders-{nexp}"):
