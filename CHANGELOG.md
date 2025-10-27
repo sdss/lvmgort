@@ -1,5 +1,12 @@
 # Changelog
 
+## Next release
+
+### 🔧 Fixed
+
+* Include reobserved and ancillary information in Overwatcher notifications.
+
+
 ## 1.11.2 - October 25, 2025
 
 ### ✨ Improved

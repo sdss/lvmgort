@@ -417,7 +417,12 @@ class GortObserver:
 
         await self.gort.notify_event(
             Event.OBSERVER_NEW_TILE,
-            payload={"tile_id": tile.tile_id, "dither_position": self.dither_position},
+            payload={
+                "tile_id": tile.tile_id,
+                "dither_position": self.dither_position,
+                "reobserved": tile.reobserved,
+                "ancillary": tile.ancillary,
+            },
         )
 
         exposures: list[Exposure] = []

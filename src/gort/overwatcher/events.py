@@ -64,10 +64,15 @@ class MonitorEvents(OverwatcherModuleTask["EventsOverwatcher"]):
         if event == Event.OBSERVER_NEW_TILE:
             tile_id = payload.get("tile_id", None)
             dither_position = payload.get("dither_position", 0)
+            reobs = payload.get("reobserved", False)
+            ancillary = payload.get("ancillary", False)
             if tile_id is not None:
-                await self.overwatcher.notify(
-                    f"Observing tile {tile_id} on dither position #{dither_position}."
-                )
+                msg = f"Observing tile {tile_id} on dither position #{dither_position}"
+                if reobs:
+                    msg += " (reobserved)"
+                elif ancillary:
+                    msg += " (ancillary)"
+                await self.overwatcher.notify(f"{msg}.")
 
         elif event == Event.DOME_OPENING:
             await self.overwatcher.notify("The dome is opening ...")
