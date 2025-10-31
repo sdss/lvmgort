@@ -69,7 +69,7 @@ class MonitorEvents(OverwatcherModuleTask["EventsOverwatcher"]):
             if tile_id is not None:
                 msg = f"Observing tile {tile_id} on dither position #{dither_position}"
                 if reobs:
-                    msg += " (reobserved)"
+                    msg += " (reobserving)"
                 elif ancillary:
                     msg += " (ancillary)"
                 await self.overwatcher.notify(f"{msg}.")
