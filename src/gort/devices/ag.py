@@ -222,8 +222,10 @@ class AGSet(GortDeviceSet[AG]):
     async def power_cycle(self):
         """Power cycles all the cameras."""
 
-        await run_lvmapi_task("/macros/power_cycle_ag_cameras")
-        await asyncio.sleep(30)
+        await run_lvmapi_task(
+            "/macros/power_cycle_ag_cameras",
+            params={"reconnect": False},
+        )
 
         # Restart the actors
         await self.restart()
