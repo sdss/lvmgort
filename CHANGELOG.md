@@ -2,6 +2,10 @@
 
 ## Next release
 
+### ✨ Improved
+
+* Speed up AG camera power cycling.
+
 ### 🔧 Fixed
 
 * Include reobserved and ancillary information in Overwatcher notifications.
