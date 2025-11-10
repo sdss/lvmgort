@@ -581,7 +581,6 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
                     error_code=ErrorCode.SCHEDULER_CANNOT_FIND_TILE,
                 )
 
-
             tile_id = tile_id_data["tile_id"]
             sci_pos = tile_id_data["tile_pos"]
             dither_pos = tile_id_data["dither_pos"]
