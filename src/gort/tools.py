@@ -17,6 +17,7 @@ import logging
 import os
 import pathlib
 import re
+import subprocess
 import tempfile
 import warnings
 from contextlib import asynccontextmanager, contextmanager, suppress
@@ -104,6 +105,7 @@ __all__ = [
     "try_or_pass",
     "record_overheads",
     "OverheadDict",
+    "ping_host",
 ]
 
 AnyPath = str | os.PathLike
@@ -1204,3 +1206,16 @@ def record_overheads(payload: Sequence[OverheadDict] | OverheadDict):
 
     table_name = config["services.database.tables.overheads"]
     insert_to_database(table_name, payload_dict)
+
+
+async def ping_host(host: str):
+    """Pings a host."""
+
+    cmd = await asyncio.create_subprocess_exec(
+        *["ping", "-c", "1", "-W", "5", host],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    return_code = await cmd.wait()
+    return return_code == 0

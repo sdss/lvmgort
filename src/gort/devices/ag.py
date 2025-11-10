@@ -10,12 +10,10 @@ from __future__ import annotations
 
 import asyncio
 
-from lvmopstools.utils import is_host_up
-
 from gort.devices.core import GortDevice, GortDeviceSet
 from gort.exceptions import GortDeviceError
 from gort.gort import Gort
-from gort.tools import run_lvmapi_task
+from gort.tools import ping_host, run_lvmapi_task
 
 
 __all__ = ["AG", "AGSet"]
@@ -135,11 +133,16 @@ class AG(GortDevice):
 
         if ping:
             for side, ip in self.ips.items():
+                name = f"{self.name}-{side}"
+
                 if ip is None:
                     continue
 
-                if not await is_host_up(ip):
-                    failed.add(side)
+                if not await ping_host(ip):
+                    self.write_to_log(f"AG {name} did not ping.", "warning")
+                    failed.add(name)
+                else:
+                    self.write_to_log(f"AG {name} pinged back.", "debug")
 
         if status:
             try:
@@ -151,8 +154,7 @@ class AG(GortDevice):
             return True
 
         raise GortDeviceError(
-            f"The following {self.name} AG cameras are not responding: "
-            f"{', '.join(failed)}."
+            f"The following AG cameras are not responding: {', '.join(failed)}."
         )
 
 
