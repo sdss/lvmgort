@@ -384,8 +384,8 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
             self.dither_positions = dither_positions
         elif isinstance(dither_positions, int):
             self.dither_positions = [dither_positions]
-        else:
-            raise TileError("Invalid dither_positions input.")
+        # else:
+        #     raise TileError("Invalid dither_positions input.")
 
         self.object = object or (f"Tile {self.tile_id}" if self.tile_id else None)
 
