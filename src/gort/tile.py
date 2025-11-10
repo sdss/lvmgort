@@ -395,7 +395,10 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
         if isinstance(dither_positions, int):
             self.set_dither_position(dither_positions)
         else:
-            self.set_dither_position(dither_positions[0])
+            if len(dither_positions) > 0:
+                self.set_dither_position(dither_positions[0])
+            else:
+                self.set_dither_position(0)
 
         self.set_sky_coords(sky_coords, allow_replacement=allow_replacement)
         self.set_spec_coords(spec_coords, reject_invisible=allow_replacement)
@@ -577,6 +580,7 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
                     "Cannot retrieve tile_id from scheduler.",
                     error_code=ErrorCode.SCHEDULER_CANNOT_FIND_TILE,
                 )
+
 
             tile_id = tile_id_data["tile_id"]
             sci_pos = tile_id_data["tile_pos"]
