@@ -1,5 +1,12 @@
 # Changelog
 
+## Next release
+
+### ✨ Improved
+
+* Check AG cameras and power cycle them if necessary in the cleanup recipe.
+
+
 ## 1.11.3 - November 6, 2025
 
 ### ✨ Improved

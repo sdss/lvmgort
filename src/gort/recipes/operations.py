@@ -297,23 +297,29 @@ class CleanupRecipe(BaseRecipe):
             self.gort.enclosure.lights.telescope_bright.off(),
         )
 
-        # Reconnect AGs.
+        # Check AGs and power cycle if needed.
         try:
-            await self.gort.ags.reconnect()
-        except Exception as ee:
-            # In some cases, if the cameras are reconnected while exposing, they
-            # can go into locked mode. If that happens, we restart the actors.
-            error = str(ee)
-            if "arv-device-error-quark" in error or "locked mode" in error:
-                self.gort.log.error(
-                    "Some cameras may be in locked mode. Restarting actors.",
-                    exc_info=ee,
-                )
-                await self.gort.ags.restart()
-                await asyncio.sleep(10)
+            await self.gort.ags.check_cameras(allow_power_cycle=True)
+        except Exception as e:
+            self.gort.log.error(f"Error checking AG cameras: {decap(e)}")
+        else:
+            # Reconnect AGs.
+            try:
                 await self.gort.ags.reconnect()
-            else:
-                raise
+            except Exception as ee:
+                # In some cases, if the cameras are reconnected while exposing, they
+                # can go into locked mode. If that happens, we restart the actors.
+                error = str(ee)
+                if "arv-device-error-quark" in error or "locked mode" in error:
+                    self.gort.log.error(
+                        "Some cameras may be in locked mode. Restarting actors.",
+                        exc_info=ee,
+                    )
+                    await self.gort.ags.restart()
+                    await asyncio.sleep(10)
+                    await self.gort.ags.reconnect()
+                else:
+                    raise
 
         self.gort.log.info("Cleanup recipe has completed.")
 

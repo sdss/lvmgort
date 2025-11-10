@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import asyncio
 
+from lvmopstools.utils import is_host_up
+
 from gort.devices.core import GortDevice, GortDeviceSet
 from gort.exceptions import GortDeviceError
 from gort.gort import Gort
@@ -72,7 +74,7 @@ class AG(GortDevice):
                 if "arv-device-error-quark" in error:
                     raise GortDeviceError(
                         f"One or more {self.name} cameras failed to reconnect. "
-                        "The cameras may be in locked mode."
+                        f"The cameras may be in locked mode. Error: {error}"
                     )
                 else:
                     self.write_to_log(
@@ -114,6 +116,45 @@ class AG(GortDevice):
             **kwargs,
         )
 
+    async def check_camera(self, ping: bool = True, status: bool = True):
+        """Checks that the AG cameras are responding.
+
+        Parameters
+        ----------
+        ping
+            Whether to ping the cameras.
+        status
+            Whether to check the camera status.
+
+        """
+
+        if not ping and not status:
+            raise ValueError("At least one of ping or status must be True.")
+
+        failed: set[str] = set()
+
+        if ping:
+            for side, ip in self.ips.items():
+                if ip is None:
+                    continue
+
+                if not await is_host_up(ip):
+                    failed.add(side)
+
+        if status:
+            try:
+                await self.status()
+            except Exception:
+                failed.update(self.ips.keys())
+
+        if len(failed) == 0:
+            return True
+
+        raise GortDeviceError(
+            f"The following {self.name} AG cameras are not responding: "
+            f"{', '.join(failed)}."
+        )
+
 
 class AGSet(GortDeviceSet[AG]):
     """A set of auto-guiders."""
@@ -152,6 +193,32 @@ class AGSet(GortDeviceSet[AG]):
         """Returns :obj:`True` if all the cameras are idle."""
 
         return all(await asyncio.gather(*[ag.is_idle() for ag in self.values()]))
+
+    async def check_cameras(self, allow_power_cycle: bool = True):
+        """Checks that all cameras are responding.
+
+        Parameters
+        ----------
+        allow_power_cycle
+            Whether to allow power cycling the cameras if they are not responding.
+
+        """
+
+        try:
+            await asyncio.gather(*[ag.check_camera() for ag in self.values()])
+        except GortDeviceError:
+            if not allow_power_cycle:
+                raise GortDeviceError("One or more AG cameras are not responding.")
+
+            self.write_to_log(
+                "One or more AG cameras are not responding. Power cycling...",
+                "warning",
+            )
+            await self.power_cycle()
+
+            await self.check_cameras(allow_power_cycle=False)
+
+        return True
 
     async def list_alive_cameras(self):
         """Returns a list of cameras found alive and well.
