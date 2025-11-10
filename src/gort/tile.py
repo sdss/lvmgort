@@ -378,11 +378,14 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
         self.allow_replacement = allow_replacement
 
         self.tile_id: int | None = None
-        self.dither_positions = (
-            dither_positions
-            if isinstance(dither_positions, Sequence)
-            else [dither_positions]
-        )
+
+        self.dither_positions: Sequence[int] = [0]
+        if isinstance(dither_positions, Sequence) and len(dither_positions) > 0:
+            self.dither_positions = dither_positions
+        elif isinstance(dither_positions, int):
+            self.dither_positions = [dither_positions]
+        else:
+            raise TileError("Invalid dither_positions input.")
 
         self.object = object or (f"Tile {self.tile_id}" if self.tile_id else None)
 
@@ -395,10 +398,7 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
         if isinstance(dither_positions, int):
             self.set_dither_position(dither_positions)
         else:
-            if len(dither_positions) > 0:
-                self.set_dither_position(dither_positions[0])
-            else:
-                self.set_dither_position(0)
+            self.set_dither_position(dither_positions[0])
 
         self.set_sky_coords(sky_coords, allow_replacement=allow_replacement)
         self.set_spec_coords(spec_coords, reject_invisible=allow_replacement)
