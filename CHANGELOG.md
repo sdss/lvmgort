@@ -7,6 +7,10 @@
 * Check AG cameras and power cycle them if necessary in the cleanup recipe.
 * Allow to disable points upon addition to the pointing model.
 
+### 🔧 Fixed
+
+* Perform focus sweep if a periodic focus sweep is required and none has been done yet that night, even if `focus_age` is less than the periodic value.
+
 
 ## 1.11.3 - November 6, 2025
 

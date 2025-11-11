@@ -531,7 +531,7 @@ class ObserverOverwatcher(OverwatcherModule):
         focus_info = await self.gort.guiders.sci.get_focus_info()
         focus_age = focus_info["reference_focus"]["age"]
 
-        if focus_age is None or focus_age > focus_every:
+        if self.mjd_focus is False or focus_age is None or focus_age > focus_every:
             return True
 
         return False
