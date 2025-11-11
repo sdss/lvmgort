@@ -233,6 +233,13 @@ async def observe():
     help="Add points to the PWI model.",
 )
 @click.option(
+    "-D/-d",
+    "--disable-on-addition/--no-disable-on-addition",
+    is_flag=True,
+    default=True,
+    help="Disable points after adding them.",
+)
+@click.option(
     "--only-slew",
     is_flag=True,
     help="Only slews the telescopes but does not take pointing data.",
@@ -246,6 +253,7 @@ async def pointing_model(
     n_points: int = 50,
     home: bool = False,
     add_points: bool = True,
+    disable_on_addition: bool = True,
     only_slew: bool = False,
 ):
     """Acquires a pointing model."""
@@ -263,6 +271,7 @@ async def pointing_model(
         telescopes=telescopes,
         home=home,
         add_points=add_points,
+        disable_on_addition=disable_on_addition,
         calculate_offset=not only_slew,
     )
 

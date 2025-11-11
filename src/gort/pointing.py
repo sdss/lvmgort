@@ -90,6 +90,7 @@ async def get_offset(
     dec: float,
     exposure_time: float = 5,
     add_point: bool = True,
+    disable_on_addition: bool = False,
 ):
     """Determines the offset between a pointing an the measured coordinates.
 
@@ -105,6 +106,9 @@ async def get_offset(
         The exposure time.
     add_point
         Whether to add the point to the PWI model.
+    disable_on_addition
+        Disables the newly added point. This is generally recommended to avoid the
+        model solution from being skewed by offliers.
 
     Returns
     -------
@@ -141,10 +145,19 @@ async def get_offset(
     return_dict["separation"] = measured_pointing["separation"]
 
     if add_point:
-        await gort.telescopes[telescope].actor.commands.modelAddPoint(
+        tel_actor = gort.telescopes[telescope].actor
+
+        reply = await tel_actor.commands.modelAddPoint(
             measured_pointing["ra"] / 15,
             measured_pointing["dec"],
         )
+        reply = reply.flatten()
+
+        if "model" in reply:
+            n_points = reply["model"]["num_points_total"]
+            if disable_on_addition:
+                gort.log.info(f"({telescope}: disabling new point.")
+                await tel_actor.commands.modelDisablePoint(n_points - 1)
 
     return return_dict
 
@@ -158,6 +171,7 @@ async def pointing_model(
     calculate_offset: bool = True,
     home: bool = True,
     add_points: bool = True,
+    disable_on_addition: bool = False,
 ) -> polars.DataFrame | None:
     """Iterates over a series of points on the sky measuring offsets.
 
@@ -180,6 +194,9 @@ async def pointing_model(
         Whether to home the telescope before starting.
     add_points
         Add points to the PWI model. Ignored if ``calculate_offset=False``.
+    disable_on_addition
+        Disables the newly added point. This is generally recommended to avoid the
+        model solution from being skewed by offliers.
 
     """
 
@@ -198,12 +215,12 @@ async def pointing_model(
             output_file = outputs_dir / output_file
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        data = polars.read_parquet(str(output_file))
+        if output_file.exists():
+            data = polars.read_parquet(str(output_file))
 
     assert data is None or isinstance(data, polars.DataFrame)
 
     if home:
-        await gort.telescopes.goto_named_position("zenith")
         await gort.telescopes.home()
 
     for npoint, (alt, az) in enumerate(points):
@@ -235,7 +252,14 @@ async def pointing_model(
 
         results = await asyncio.gather(
             *[
-                get_offset(gort, tel, ra, dec, add_point=add_points)
+                get_offset(
+                    gort,
+                    tel,
+                    ra,
+                    dec,
+                    add_point=add_points,
+                    disable_on_addition=disable_on_addition,
+                )
                 for tel in telescopes
             ],
             return_exceptions=True,

@@ -5,6 +5,7 @@
 ### ✨ Improved
 
 * Check AG cameras and power cycle them if necessary in the cleanup recipe.
+* Allow to disable points upon addition to the pointing model.
 
 
 ## 1.11.3 - November 6, 2025
