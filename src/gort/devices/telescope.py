@@ -215,6 +215,8 @@ class KMirror(MoTanDevice):
 
         await self.slew_delay()
 
+        await self.stop()
+
         offset_angle %= 360
         if offset_angle > 180:
             offset_angle -= 360
@@ -233,7 +235,6 @@ class KMirror(MoTanDevice):
         if abs(stop_degs_before) > 0:
             self.write_to_log(f"Using stop_degs_before={stop_degs_before}.")
 
-        await self.stop()
         await self.run_command(
             "slewStart",
             ra / 15.0,
