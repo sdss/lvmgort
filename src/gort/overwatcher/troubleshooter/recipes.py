@@ -193,7 +193,7 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
         failed_str = ", ".join(failed_cameras)
         await self.notify(
             f"Found {len(failed_cameras)} AG cameras that are down: {failed_str}. "
-            "Power cycling switch ports. This will take several minutes.",
+            "Power cycling cameras. This will take several minutes.",
             level="warning",
         )
 
