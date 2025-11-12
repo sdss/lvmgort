@@ -187,7 +187,7 @@ class AGSet(GortDeviceSet[AG]):
 
         for reply in replies:
             if isinstance(reply, BaseException):
-                raise
+                raise reply
 
         return await self.list_alive_cameras()
 

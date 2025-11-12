@@ -1,5 +1,12 @@
 # Changelog
 
+## Next release
+
+### 🔧 Fixed
+
+* Explicitly raise exceptions in `AGSet.reconnect()`.
+
+
 ## 1.11.4 - November 11, 2025
 
 ### ✨ Improved
