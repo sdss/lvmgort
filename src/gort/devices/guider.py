@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import partial
 
 from typing import TYPE_CHECKING
@@ -376,7 +376,7 @@ class Guider(GortDevice):
                 # Remove NaN rows.
                 df = df.drop_nulls()
 
-                now = datetime.now(UTC)
+                now = datetime.now(timezone.utc)
                 time_range = now - timedelta(seconds=timeout)
                 time_data = df.filter(polars.col.time > time_range).sort("time")
 
