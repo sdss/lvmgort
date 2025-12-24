@@ -271,7 +271,7 @@ class OverwatcherMainTask(OverwatcherTask):
                 # the current exposure but allow it to finish.
                 await self.overwatcher.observer.stop_observing(
                     immediate=False,
-                    reason="daytime conditions detected",
+                    reason="morning twilight reached",
                 )
                 return
 
@@ -286,7 +286,7 @@ class OverwatcherMainTask(OverwatcherTask):
         # to do it (we still want to allow observers to enable it in the evening).
         # The overwatcher is disabled when the SJD changes.
         await self.overwatcher.shutdown(
-            reason="Daytime conditions detected.",
+            reason="Daytime conditions detected",
             level="info",
             close_dome=True,
             retry=True,
