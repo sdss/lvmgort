@@ -1155,7 +1155,12 @@ def decap(string: Any, add_period: bool = False):
     if len(string) == 0:
         return ""
 
-    decapped = str(string[0].lower() + string[1:])
+    first_word = string.split(" ")[0]
+    if len(first_word) > 1 and first_word.isupper():
+        # Do not decap acronyms.
+        decapped = string
+    else:
+        decapped = str(string[0].lower() + string[1:])
 
     if not add_period:
         return decapped
