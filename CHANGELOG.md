@@ -2,6 +2,10 @@
 
 ## Next release
 
+### ✨ Improved
+
+* [#55](https://github.com/sdss/lvmgort/pull/55) Better messaging for alerts unavailability. A resolution alert message is now sent when the alerts become available again.
+
 ### 🔧 Fixed
 
 * Explicitly raise exceptions in `AGSet.reconnect()`.

@@ -67,7 +67,7 @@ class ActiveAlert(enum.Flag):
     CAMERA_TEMPERATURE = enum.auto()
     O2 = enum.auto()
     E_STOPS = enum.auto()
-    ALERTS_UNAVAILABLE = enum.auto()
+    ALERTS_DATA_UNAVAILABLE = enum.auto()
     DISCONNECTED = enum.auto()
     DOME_LOCKED = enum.auto()
     IDLE = enum.auto()
@@ -78,6 +78,24 @@ class ActiveAlert(enum.Flag):
     NO_CLOSE = DOOR | E_STOPS | ENGINEERING_OVERRIDE
 
 
+ACTIVE_ALARM_DESCRIPTIONS: dict[ActiveAlert, str] = {
+    ActiveAlert.HUMIDITY: "Humidity is above the threshold",
+    ActiveAlert.DEW_POINT: "Ambient temperature is below dew point temperature",
+    ActiveAlert.WIND: "Wind speed is above the threshold",
+    ActiveAlert.RAIN: "Rain detected",
+    ActiveAlert.DOOR: "Enclosure door is open",
+    ActiveAlert.CAMERA_TEMPERATURE: "Spec camera temperature is above the threshold",
+    ActiveAlert.O2: "O2 levels are below the safe range",
+    ActiveAlert.E_STOPS: "Emergency stops have been triggered",
+    ActiveAlert.ALERTS_DATA_UNAVAILABLE: "Alerts data is unavailable",
+    ActiveAlert.DISCONNECTED: "Connectivity lost",
+    ActiveAlert.DOME_LOCKED: "Dome is locked",
+    ActiveAlert.IDLE: "Overwatcher has been idle for too long",
+    ActiveAlert.ENGINEERING_OVERRIDE: "Engineering mode is enabled",
+    ActiveAlert.UNKNOWN: "Unknown alert",
+}
+
+
 class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
     """Monitors the alerts state."""
 
@@ -85,30 +103,50 @@ class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
     keep_alive = True
     restart_on_error = True
 
-    INTERVAL: float = 20
+    INTERVAL: float = 30
+    N_FAILURES: int = 5
 
     async def task(self):
         """Updates the alerts data."""
 
         n_failures: int = 0
+        last_error: str = "Undefined error"
 
         while True:
             try:
                 await self.update_alerts()
+
             except Exception as err:
-                self.log.error(f"Failed to get alerts data: {decap(err)}")
+                self.log.error(f"Failed retriving alerts data: {decap(err)}")
                 n_failures += 1
+                last_error = str(err)
+
             else:
                 self.module.last_updated = time()
-                self.module.unavailable = False
-                n_failures = 0
-            finally:
-                if self.module.unavailable is False and n_failures >= 5:
+
+                # Send a resolution message if needed.
+                if self.module.alerts_data_unavailable:
                     await self.module.notify(
-                        "Alerts data is unavailable.",
+                        "[RESOLVED]: Alerts data is now available.",
                         level="critical",
                     )
-                    self.module.unavailable = True
+
+                self.module.alerts_data_unavailable = False
+
+                n_failures = 0
+                last_error = "Undefined error"
+
+            finally:
+                if (
+                    self.module.alerts_data_unavailable is False
+                    and n_failures >= self.N_FAILURES
+                ):
+                    await self.module.notify(
+                        "Failed to retrieve alerts data multiple times: "
+                        f"{decap(last_error, add_period=True)}",
+                        level="critical",
+                    )
+                    self.module.alerts_data_unavailable = True
 
             await asyncio.sleep(self.INTERVAL)
 
@@ -118,12 +156,12 @@ class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
         data = await self.module.update_status()
 
         if data is None:
-            raise ValueError("No alerts data available.")
+            raise ValueError("API /alerts response failed or returned no data.")
 
         # For some very critical alerts, we require them to be not null (null here
         # means no data was available or the API failed getting the alert data).
         if data.rain is None or data.humidity_alert is None or data.wind_alert is None:
-            raise ValueError("Incomplete alerts data.")
+            raise ValueError("Incomplete weather data in API /alerts response.")
 
 
 class AlertsOverwatcher(OverwatcherModule):
@@ -141,7 +179,8 @@ class AlertsOverwatcher(OverwatcherModule):
 
         self.last_updated: float = 0.0
         self.idle_since: float = 0.0
-        self.unavailable: bool = False
+
+        self.alerts_data_unavailable: bool = False
 
     async def is_safe(self) -> tuple[bool, ActiveAlert]:
         """Determines whether it is safe to open."""
@@ -159,17 +198,17 @@ class AlertsOverwatcher(OverwatcherModule):
         else:
             self.idle_since = 0
 
-        if self.unavailable:
+        if self.alerts_data_unavailable:
             self.log.warning("Alerts data is unavailable.")
-            active_alerts |= ActiveAlert.ALERTS_UNAVAILABLE
+            active_alerts |= ActiveAlert.ALERTS_DATA_UNAVAILABLE
             return False, active_alerts
 
-        if self.unavailable is False and time() - self.last_updated > 300:
+        if self.alerts_data_unavailable is False and time() - self.last_updated > 300:
             # If the data is not unavailable but it has not been updated
             # in the last 5 minutes, something is wrong. We mark it as unavailable.
             self.log.warning("Alerts data has not been updated in the last 5 minutes.")
-            self.unavailable = True
-            active_alerts |= ActiveAlert.ALERTS_UNAVAILABLE
+            self.alerts_data_unavailable = True
+            active_alerts |= ActiveAlert.ALERTS_DATA_UNAVAILABLE
             return False, active_alerts
 
         if self.state.rain:

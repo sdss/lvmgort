@@ -127,7 +127,17 @@ class OverwatcherMainTask(OverwatcherTask):
                     )
 
                 if not ow.state.safe:
-                    await self.handle_unsafe()
+                    try:
+                        await self.handle_unsafe()
+                    except Exception as err:
+                        error_message = decap(err, add_period=True)
+                        await ow.notify(
+                            f"Error handling unsafe conditions: {error_message} "
+                            "Closing the dome as a last resort.",
+                            level="error",
+                            error=err,
+                        )
+                        await ow.dome.close(retry=True)
 
                 if not ow.ephemeris.is_night(mode="observer"):
                     # We use the observer mode to allow stopping some minutes
@@ -231,7 +241,7 @@ class OverwatcherMainTask(OverwatcherTask):
 
             try:
                 await ow.shutdown(
-                    reason=f"Unsafe conditions detected: {alert_names}",
+                    reason=f"Unsafe conditions detected - {alert_names}",
                     close_dome=close_dome,
                     disable_overwatcher=disable_overwatcher,
                 )
@@ -262,7 +272,7 @@ class OverwatcherMainTask(OverwatcherTask):
                     immediate=True,
                     block=True,
                 )
-            elif not self.overwatcher.observer.is_cancelling:
+            elif self.overwatcher.observer.is_cancelling:
                 # We have already cancelled the loop and are waiting for the
                 # current exposure to finish. We don't do anything.
                 return
@@ -271,7 +281,7 @@ class OverwatcherMainTask(OverwatcherTask):
                 # the current exposure but allow it to finish.
                 await self.overwatcher.observer.stop_observing(
                     immediate=False,
-                    reason="daytime conditions detected",
+                    reason="morning twilight reached",
                 )
                 return
 
@@ -286,7 +296,7 @@ class OverwatcherMainTask(OverwatcherTask):
         # to do it (we still want to allow observers to enable it in the evening).
         # The overwatcher is disabled when the SJD changes.
         await self.overwatcher.shutdown(
-            reason="Daytime conditions detected.",
+            reason="Daytime conditions detected",
             level="info",
             close_dome=True,
             retry=True,
@@ -562,9 +572,7 @@ class Overwatcher(NotifierMixIn):
         if not reason:
             message = "Triggering shutdown."
         else:
-            if not reason.endswith("."):
-                reason += "."
-            message = f"Triggering shutdown. Reason: {decap(reason)}"
+            message = f"Triggering shutdown. Reason: {decap(reason, add_period=True)}"
 
         await self.notify(message, level=level)
 
