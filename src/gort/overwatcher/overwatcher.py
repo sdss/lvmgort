@@ -127,7 +127,17 @@ class OverwatcherMainTask(OverwatcherTask):
                     )
 
                 if not ow.state.safe:
-                    await self.handle_unsafe()
+                    try:
+                        await self.handle_unsafe()
+                    except Exception as err:
+                        error_message = decap(err, add_period=True)
+                        await ow.notify(
+                            f"Error handling unsafe conditions: {error_message} "
+                            "Closing the dome as a last resort.",
+                            level="error",
+                            error=err,
+                        )
+                        await ow.dome.close(retry=True)
 
                 if not ow.ephemeris.is_night(mode="observer"):
                     # We use the observer mode to allow stopping some minutes
