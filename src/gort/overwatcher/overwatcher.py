@@ -241,7 +241,7 @@ class OverwatcherMainTask(OverwatcherTask):
 
             try:
                 await ow.shutdown(
-                    reason=f"Unsafe conditions detected: {alert_names}",
+                    reason=f"Unsafe conditions detected - {alert_names}",
                     close_dome=close_dome,
                     disable_overwatcher=disable_overwatcher,
                 )
@@ -572,9 +572,7 @@ class Overwatcher(NotifierMixIn):
         if not reason:
             message = "Triggering shutdown."
         else:
-            if not reason.endswith("."):
-                reason += "."
-            message = f"Triggering shutdown. Reason: {decap(reason)}"
+            message = f"Triggering shutdown. Reason: {decap(reason, add_period=True)}"
 
         await self.notify(message, level=level)
 
