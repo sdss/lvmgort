@@ -1146,7 +1146,7 @@ class LogNamespace:
         return self.header.format(**locals()) + message
 
 
-def decap(string: Any, add_period: bool = False):
+def decap(string: Any, add_period: bool = False) -> str:
     """Decapitalises the first letter of a string."""
 
     if not isinstance(string, str):
