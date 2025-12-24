@@ -262,7 +262,7 @@ class OverwatcherMainTask(OverwatcherTask):
                     immediate=True,
                     block=True,
                 )
-            elif not self.overwatcher.observer.is_cancelling:
+            elif self.overwatcher.observer.is_cancelling:
                 # We have already cancelled the loop and are waiting for the
                 # current exposure to finish. We don't do anything.
                 return
