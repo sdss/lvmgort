@@ -190,7 +190,7 @@ class AlertsOverwatcher(OverwatcherModule):
         """Determines whether it is safe to open."""
 
         if self.state is None:
-            self.log.warning("Alerts data not available. is_safe() returns False.")
+            self.log.warning("Alerts data not available.")
             return False, ActiveAlert.UNKNOWN
 
         is_safe: bool = True
