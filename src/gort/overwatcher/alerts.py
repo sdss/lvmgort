@@ -14,8 +14,8 @@ from time import time
 
 from typing import TYPE_CHECKING
 
-from httpx import ReadTimeout
-from pydantic import BaseModel
+from httpx import TimeoutException
+from pydantic import BaseModel, Field
 
 from lvmopstools.utils import Trigger
 
@@ -33,6 +33,7 @@ __all__ = ["AlertsOverwatcher", "ActiveAlert"]
 class AlertsSummary(BaseModel):
     """Summary of alerts."""
 
+    time: float = Field(default_factory=time)
     humidity_alert: bool | None = None
     dew_point_alert: bool | None = None
     wind_alert: bool | None = None
@@ -290,13 +291,14 @@ class AlertsOverwatcher(OverwatcherModule):
     async def update_status(self) -> AlertsSummary:
         """Returns the alerts report."""
 
-        alerts_data = await get_lvmapi_route("/alerts/summary")
-        summary = AlertsSummary(**alerts_data)
-
         try:
-            summary.e_stops = await self.gort.enclosure.e_stops.status()
-        except Exception:
-            self.log.warning("Failed to retrieve e-stop status.")
+            alerts_data = await get_lvmapi_route("/alerts/summary", timeout=10)
+        except TimeoutException:
+            self.log.warning("Timeout retrieving /alerts/summary from LVM API")
+            self.state = None
+        else:
+            summary = AlertsSummary(**alerts_data)
+            self.state = summary
 
         # For connectivity we want to avoid one single failure to trigger an alert
         # which closes the dome. The connectivity status is a set of triggers that
@@ -306,7 +308,8 @@ class AlertsOverwatcher(OverwatcherModule):
                 "/alerts/connectivity",
                 timeout=10,
             )
-        except ReadTimeout:
+        except TimeoutException:
+            self.log.warning("Timeout retrieving /alerts/connectivity from LVM API")
             connectivity_data = {"lco": False, "internet": False}
 
         if not connectivity_data["lco"]:
@@ -318,7 +321,5 @@ class AlertsOverwatcher(OverwatcherModule):
             self.connectivity.internet.set()
         else:
             self.connectivity.internet.reset()
-
-        self.state = summary
 
         return summary
