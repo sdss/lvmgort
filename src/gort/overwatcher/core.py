@@ -38,7 +38,7 @@ class OverwatcherBaseTask:
 
         self._log: Mock | LogNamespace = log or Mock()
 
-    async def run(self):
+    async def run(self, *args, **kwargs):
         """Runs the task."""
 
         self._task_runner = asyncio.create_task(self.task())

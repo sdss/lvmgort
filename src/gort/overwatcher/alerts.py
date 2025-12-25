@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from lvmopstools.utils import Trigger
 
 from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
-from gort.tools import decap, get_lvmapi_route
+from gort.tools import decap, ensure_period, get_lvmapi_route
 
 
 if TYPE_CHECKING:
@@ -105,15 +105,12 @@ class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
     restart_on_error = True
 
     INTERVAL: float = 30
-    N_FAILURES: int = 5
 
     async def task(self):
         """Updates the alerts data."""
 
-        n_failures: int = 0
-        last_error: str = "Undefined error"
-
-        slack_channels = self.config["overwatcher.slack.notifications_channels"]
+        SLACK_CHANNELS = self.config["overwatcher.slack.notifications_channels"]
+        MAX_TIME = self.config["overwatcher.alerts.max_time_without_alerts_data"]
 
         while True:
             try:
@@ -121,36 +118,24 @@ class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
 
             except Exception as err:
                 self.log.error(f"Failed retriving alerts data: {decap(err)}")
-                n_failures += 1
-                last_error = str(err)
+
+                if (
+                    self.module.alerts_data_unavailable is False
+                    and time() - self.module.last_updated > MAX_TIME
+                ):
+                    await self.module.notify_unavailable(err)
 
             else:
-                self.module.last_updated = time()
-
                 # Send a resolution message if needed.
                 if self.module.alerts_data_unavailable:
                     await self.module.notify(
                         "@here [RESOLVED]: Alerts data is now available.",
                         level="info",
-                        slack_channels=[*slack_channels, "lvm-alerts"],
+                        slack_channels=[*SLACK_CHANNELS, "lvm-alerts"],
                     )
 
                 self.module.alerts_data_unavailable = False
-
-                n_failures = 0
-                last_error = "Undefined error"
-
-            finally:
-                if (
-                    self.module.alerts_data_unavailable is False
-                    and n_failures >= self.N_FAILURES
-                ):
-                    await self.module.notify(
-                        "Failed to retrieve alerts data multiple times: "
-                        f"{decap(last_error, add_period=True)}",
-                        level="critical",
-                    )
-                    self.module.alerts_data_unavailable = True
+                self.module.last_updated = time()
 
             await asyncio.sleep(self.INTERVAL)
 
@@ -181,9 +166,14 @@ class AlertsOverwatcher(OverwatcherModule):
         self.state: AlertsSummary | None = None
         self.connectivity = ConnectivityStatus()
 
-        self.last_updated: float = 0.0
-        self.idle_since: float = 0.0
+        # Overwatcher idle since timestamp.
+        self.overwatcher_idle_since: float = 0.0
 
+        # Last valid updated. Must include a valid response
+        # from the API and weather alerts data.
+        self.last_updated: float = 0.0
+
+        # Alerts data has been unavailable for a while.
         self.alerts_data_unavailable: bool = False
 
     async def is_safe(self) -> tuple[bool, ActiveAlert]:
@@ -197,21 +187,23 @@ class AlertsOverwatcher(OverwatcherModule):
         active_alerts = ActiveAlert(0)
 
         # Keep track of how long the overwatcher has been idle.
-        if self.overwatcher.state.idle and self.idle_since == 0:
-            self.idle_since = time()
-        else:
-            self.idle_since = 0
+        if self.overwatcher.state.idle and self.overwaidle_since == 0:
+            self.overwaidle_since = time()
+        elif not self.overwatcher.state.idle:
+            self.overwaidle_since = 0
 
         if self.alerts_data_unavailable:
             self.log.warning("Alerts data is unavailable.")
             active_alerts |= ActiveAlert.ALERTS_DATA_UNAVAILABLE
             return False, active_alerts
 
-        if self.alerts_data_unavailable is False and time() - self.last_updated > 300:
+        if self.alerts_data_unavailable is False and time() - self.last_updated > 600:
             # If the data is not unavailable but it has not been updated
-            # in the last 5 minutes, something is wrong. We mark it as unavailable.
-            self.log.warning("Alerts data has not been updated in the last 5 minutes.")
-            self.alerts_data_unavailable = True
+            # in the last 10 minutes, something is wrong. We mark it as unavailable.
+            # This is a redundancy since the AlertsMonitorTask should have already
+            # marked it as unavailable before that.
+            self.log.warning("Alerts data has not been updated in the last 10 minutes.")
+            await self.notify_unavailable()
             active_alerts |= ActiveAlert.ALERTS_DATA_UNAVAILABLE
             return False, active_alerts
 
@@ -273,7 +265,7 @@ class AlertsOverwatcher(OverwatcherModule):
             # If it's safe to observe but we have been idle for a while, we
             # raise an alert but do not change the is_safe status.
             timeout = self.overwatcher.config["overwatcher.alerts.idle_timeout"] or 600
-            if self.idle_since > 0 and (time() - self.idle_since) > timeout:
+            if self.overwaidle_since > 0 and (time() - self.overwaidle_since) > timeout:
                 await self.notify(
                     f"Overwatcher has been idle for over {timeout:.0f} s.",
                     min_time_between_repeat_notifications=300,
@@ -288,7 +280,18 @@ class AlertsOverwatcher(OverwatcherModule):
 
         return is_safe, active_alerts
 
-    async def update_status(self) -> AlertsSummary:
+    async def notify_unavailable(self, err: Exception | str | None = None):
+        """Sends a notification that alerts data is unavailable."""
+
+        msg = "Failed to retrieve alerts data multiple times"
+        if err is not None and str(err) != "":
+            msg += f": {decap(str(err))}"
+
+        await self.notify(ensure_period(msg), level="critical")
+
+        self.alerts_data_unavailable = True
+
+    async def update_status(self) -> AlertsSummary | None:
         """Returns the alerts report."""
 
         try:
@@ -322,4 +325,4 @@ class AlertsOverwatcher(OverwatcherModule):
         else:
             self.connectivity.internet.reset()
 
-        return summary
+        return self.state
