@@ -112,6 +112,8 @@ class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
         n_failures: int = 0
         last_error: str = "Undefined error"
 
+        slack_channels = self.config["overwatcher.slack.notifications_channels"]
+
         while True:
             try:
                 await self.update_alerts()
@@ -128,7 +130,8 @@ class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
                 if self.module.alerts_data_unavailable:
                     await self.module.notify(
                         "[RESOLVED]: Alerts data is now available.",
-                        level="critical",
+                        level="info",
+                        slack_channels=[*slack_channels, "lvm-critical"],
                     )
 
                 self.module.alerts_data_unavailable = False
