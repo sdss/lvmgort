@@ -132,7 +132,7 @@ class AlertsMonitorTask(OverwatcherModuleTask["AlertsOverwatcher"]):
                     await self.module.notify(
                         "[RESOLVED]: Alerts data is now available.",
                         level="info",
-                        slack_channels=[*slack_channels, "lvm-critical"],
+                        slack_channels=[*slack_channels, "lvm-alerts"],
                     )
 
                 self.module.alerts_data_unavailable = False
