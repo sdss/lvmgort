@@ -295,10 +295,10 @@ class AlertsOverwatcher(OverwatcherModule):
             alerts_data = await get_lvmapi_route("/alerts/summary", timeout=10)
         except TimeoutException:
             self.log.warning("Timeout retrieving /alerts/summary from LVM API")
-            self.state = None
-        else:
-            summary = AlertsSummary(**alerts_data)
-            self.state = summary
+            alerts_data = {}
+
+        summary = AlertsSummary(**alerts_data)
+        self.state = summary
 
         # For connectivity we want to avoid one single failure to trigger an alert
         # which closes the dome. The connectivity status is a set of triggers that
