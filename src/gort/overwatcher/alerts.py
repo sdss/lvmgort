@@ -187,10 +187,10 @@ class AlertsOverwatcher(OverwatcherModule):
         active_alerts = ActiveAlert(0)
 
         # Keep track of how long the overwatcher has been idle.
-        if self.overwatcher.state.idle and self.overwaidle_since == 0:
-            self.overwaidle_since = time()
+        if self.overwatcher.state.idle and self.overwatcher_idle_since == 0:
+            self.overwatcher_idle_since = time()
         elif not self.overwatcher.state.idle:
-            self.overwaidle_since = 0
+            self.overwatcher_idle_since = 0
 
         if self.alerts_data_unavailable:
             self.log.warning("Alerts data is unavailable.")
@@ -265,7 +265,10 @@ class AlertsOverwatcher(OverwatcherModule):
             # If it's safe to observe but we have been idle for a while, we
             # raise an alert but do not change the is_safe status.
             timeout = self.overwatcher.config["overwatcher.alerts.idle_timeout"] or 600
-            if self.overwaidle_since > 0 and (time() - self.overwaidle_since) > timeout:
+            if (
+                self.overwatcher_idle_since > 0
+                and (time() - self.overwatcher_idle_since) > timeout
+            ):
                 await self.notify(
                     f"Overwatcher has been idle for over {timeout:.0f} s.",
                     min_time_between_repeat_notifications=300,
