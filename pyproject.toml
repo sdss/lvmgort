@@ -1,6 +1,6 @@
 [project]
 name = "lvmgort"
-version = "1.11.5"
+version = "1.11.6a1"
 description = "The brains of LVM observing"
 authors = [
     { name = "José Sánchez-Gallego", email = "gallegoj@uw.edu" }
