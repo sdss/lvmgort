@@ -106,7 +106,7 @@ class OverwatcherModuleTask(OverwatcherBaseTask, Generic[OverwatcherModule_T]):
         self._module: OverwatcherModule_T | None = None
 
     @property
-    def module(self):
+    def module(self) -> OverwatcherModule_T:
         """Returns the module instance."""
 
         if not self._module:
