@@ -299,6 +299,10 @@ class TwilightFlats(BaseRecipe):
 
             # Require a minimum exposure time.
             if exp_time < min_exp_time:
+                self.gort.log.debug(
+                    f"Exposure time is too short ({exp_time:.1f} s). "
+                    "Waiting 2 seconds ..."
+                )
                 await asyncio.sleep(2)
                 continue
 
