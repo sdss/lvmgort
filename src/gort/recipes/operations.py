@@ -10,13 +10,22 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import pathlib
 
 from typing import TYPE_CHECKING, ClassVar, Coroutine
 
 from rich.prompt import Confirm
 
+from sdsstools.time import get_sjd
+
 from gort.overwatcher.helpers import get_actor_ping, restart_actors
-from gort.tools import decap, get_lvmapi_route, overwatcher_is_running
+from gort.tools import (
+    decap,
+    get_exposure_list,
+    get_lvmapi_route,
+    overwatcher_is_running,
+)
 
 from .base import BaseRecipe
 
@@ -458,6 +467,29 @@ class PostObservingRecipe(BaseRecipe):
                 self.gort.log.error("Failed to disable the overwatcher.")
             else:
                 self.gort.log.info("Overwatcher has been disabled.")
+
+        # Add the list of exposures to lvmcore
+        lvmcore_dir = os.environ.get("LVMCORE_DIR", None)
+        if not lvmcore_dir:
+            self.gort.log.warning("LVMCORE_DIR environment variable is not set.")
+            return
+
+        lvmcore_dir = pathlib.Path(lvmcore_dir)
+        if not lvmcore_dir.exists():
+            self.gort.log.warning(f"LVMCORE_DIR {lvmcore_dir} does not exist.")
+            return
+
+        exp_list_dir = lvmcore_dir / "exposure_list"
+        exp_list_dir.mkdir(exist_ok=True)
+
+        mjd = get_sjd("LCO")
+        exp_list_file = exp_list_dir / f"exposure_list_{mjd}.parquet"
+
+        try:
+            df = await get_exposure_list(mjd)
+            df.write_parquet(exp_list_file)
+        except Exception as err:
+            self.gort.log.warning(f"Failed to write exposure list: {err}")
 
 
 class RebootAGsRecipe(BaseRecipe):

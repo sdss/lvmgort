@@ -1,5 +1,12 @@
 # Changelog
 
+## Next release
+
+### ✨ Improved
+
+* Add an `exposure_list_<MJD>.parquet` file to `LVMCORE_DIR/exposure_list` at the end of the night with the list of exposures taken.
+
+
 ## 1.11.5 - December 26, 2025
 
 ### ✨ Improved

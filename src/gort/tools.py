@@ -36,6 +36,7 @@ from typing import (
     TypedDict,
     TypeVar,
     cast,
+    overload,
 )
 
 import httpx
@@ -106,6 +107,7 @@ __all__ = [
     "record_overheads",
     "OverheadDict",
     "ping_host",
+    "get_exposure_list",
 ]
 
 AnyPath = str | os.PathLike
@@ -1224,3 +1226,62 @@ async def ping_host(host: str):
 
     return_code = await cmd.wait()
     return return_code == 0
+
+
+@overload
+async def get_exposure_list(
+    mjd: int | None = None,
+    as_dataframe: bool = True,
+) -> polars.DataFrame: ...
+
+
+@overload
+async def get_exposure_list(
+    mjd: int | None = None,
+    as_dataframe: bool = False,
+) -> dict: ...
+
+
+async def get_exposure_list(
+    mjd: int | None = None,
+    as_dataframe: bool = True,
+) -> dict | polars.DataFrame:
+    """Retrieves the list of exposures for a given MJD from the LVM API."""
+
+    mjd = mjd or get_sjd("LCO")
+    data: dict = await get_lvmapi_route(f"/logs/exposures/data/{mjd}", timeout=15)
+
+    if not as_dataframe:
+        return data
+
+    data_df: list[dict[str, Any]] = []
+
+    for exposure in data.values():
+        lamps = exposure.pop("lamps")
+        data_df.append({**exposure, **lamps})
+
+    schema = {
+        "exposure_no": polars.Int32,
+        "mjd": polars.Int32,
+        "obstime": polars.String,
+        "image_type": polars.String,
+        "exposure_time": polars.Float32,
+        "ra": polars.Float64,
+        "dec": polars.Float64,
+        "airmass": polars.Float32,
+        "n_standards": polars.Int16,
+        "n_cameras": polars.Int16,
+        "object": polars.String,
+        "dpos": polars.Int16,
+        "Argon": polars.Boolean,
+        "Neon": polars.Boolean,
+        "LDLS": polars.Boolean,
+        "Quartz": polars.Boolean,
+        "HgNe": polars.Boolean,
+        "Xenon": polars.Boolean,
+    }
+
+    if len(data_df) == 0:
+        return polars.DataFrame(schema=schema)
+
+    return polars.DataFrame(data_df, schema=schema)
