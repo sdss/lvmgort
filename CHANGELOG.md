@@ -6,6 +6,10 @@
 
 * Add an `exposure_list_<MJD>.parquet` file to `LVMCORE_DIR/exposure_list` at the end of the night with the list of exposures taken.
 
+### 🔧 Fixed
+
+* Bump RTD Python version to 3.12 and OS to Ubuntu 24.04 to prevent deprecations.
+
 
 ## 1.11.5 - December 26, 2025
 
