@@ -296,6 +296,8 @@ class TwilightFlats(BaseRecipe):
 
             # Round to the nearest second.
             exp_time = numpy.round(exp_time, 1)
+            if exp_time < 0:
+                exp_time = 0.0
 
             # Require a minimum exposure time.
             if exp_time < min_exp_time:
