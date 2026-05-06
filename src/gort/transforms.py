@@ -546,7 +546,7 @@ class Siderostat:
         self.B[2][2] = self.b[2]
 
         if isinstance(om1_off_ang, Angle) and isinstance(om2_off_ang, Angle):
-            self.pw_ax_off = [om1_off_ang.radian, om2_off_ang.radian]  # type: ignore
+            self.pw_ax_off = [om1_off_ang.radian, om2_off_ang.radian]
         else:
             self.pw_ax_off = [math.radians(om1_off_ang), math.radians(om2_off_ang)]
 

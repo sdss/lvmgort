@@ -15,7 +15,7 @@ import re
 import warnings
 from collections import defaultdict
 
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, Literal, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Sequence
 
 from astropy.io import fits
 from astropy.time import Time
@@ -46,7 +46,7 @@ __all__ = ["Exposure", "READOUT_TIME"]
 READOUT_TIME = 55
 
 HOOKS_TYPE = defaultdict[
-    Literal["exposure-starts", "pre-readout", "post-readout"],
+    str,
     list[Callable[[Any], Coroutine]],
 ]
 
@@ -295,7 +295,7 @@ class Exposure(asyncio.Future["Exposure"]):
                     error_code=ErrorCode.SECTROGRAPH_FAILED_EXPOSING,
                 )
             else:
-                log.warning(f"Exposure failed with error {err}")
+                log(f"Exposure failed with error {err}", "warning")
 
         finally:
             self.stop_timer()

@@ -444,10 +444,10 @@ def angular_separation(lon1: float, lat1: float, lon2: float, lat2: float):
     """
 
     separation = astropy_angular_separation(
-        lon1 * uu.degree,  # type: ignore
-        lat1 * uu.degree,  # type: ignore
-        lon2 * uu.degree,  # type: ignore
-        lat2 * uu.degree,  # type: ignore
+        lon1 * uu.degree,
+        lat1 * uu.degree,
+        lon2 * uu.degree,
+        lat2 * uu.degree,
     )
 
     return separation.to("deg").value

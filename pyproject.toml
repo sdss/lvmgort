@@ -87,6 +87,9 @@ section-order = ["future", "standard-library", "typing", "third-party", "sdss", 
 typing = ["typing"]
 sdss = ["sdsstools", "clu", "lvmopstools"]
 
+[tool.ty.environment]
+python-version = "3.14"
+
 [tool.pytest.ini_options]
 addopts = "--cov gort --cov-report xml --cov-report html --cov-report term -W ignore"
 asyncio_mode = "auto"
