@@ -488,6 +488,7 @@ class PostObservingRecipe(BaseRecipe):
         try:
             df = await get_exposure_list(mjd)
             df.write_parquet(exp_list_file)
+            self.gort.log.info(f"Exposure list written to {exp_list_file!s}.")
         except Exception as err:
             self.gort.log.warning(f"Failed to write exposure list: {err}")
 
