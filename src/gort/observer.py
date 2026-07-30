@@ -385,6 +385,13 @@ class GortObserver:
         ):
             is_acquired = True
 
+            # If we are not going to re-acquire the sky telescopes, we need to ne
+            # sure that the information in the tile is the same as the original tile.
+            # The auto-scheduler randomises which sky position gets associated to which
+            # sky telescope, and as the field changes altitude it can also select a
+            # different pair of fields.
+            tile.sky_coords = self._tile.sky_coords
+
         # Reset the tile
         self.reset(tile, on_interrupt=interrupt_cb, reset_stages=not is_acquired)
 
@@ -444,8 +451,9 @@ class GortObserver:
 
                 async with GatheringTaskGroup() as group:
                     group.create_task(self.set_dither_position(self.dither_position))
-                    if self.standards:
-                        group.create_task(self.standards.reacquire_first())
+                    if not self.standards:
+                        raise RuntimeError("No standards available for reacquisition.")
+                    group.create_task(self.standards.reacquire_first())
 
                 # Need to restart the guider monitor so that the new exposure
                 # gets the range of guider frames that correspond to this dither.

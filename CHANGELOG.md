@@ -1,5 +1,12 @@
 # Changelog
 
+## Next release
+
+### 🔧 Fixed
+
+* Ensure that the sky positions for observations in which we don't re-acquire match the original tile.
+
+
 ## 1.11.6 - May 6, 2026
 
 ### ✨ Improved
