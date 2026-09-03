@@ -452,13 +452,16 @@ class PostObservingRecipe(BaseRecipe):
 
         if send_email:
             self.gort.log.info("Sending night log email.")
-            result = await get_lvmapi_route(
-                self.email_route,
-                params={"only_if_not_sent": True},
-                timeout=30,
-            )
-            if not result:
-                self.gort.log.warning("Night log had already been sent.")
+            try:
+                await get_lvmapi_route(
+                    self.email_route,
+                    params={"only_if_not_sent": True},
+                    timeout=30,
+                )
+            except Exception as ee:
+                self.gort.log.error(f"Error sending night log email: {ee}")
+            else:
+                self.gort.log.info("Night log had already been sent.")
 
         # Disable the overwatcher.
         if await overwatcher_is_running():
