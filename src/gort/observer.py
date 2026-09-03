@@ -783,7 +783,7 @@ class GortObserver:
         last_exposure = self.gort.specs.last_exposure
         if last_exposure is not None and not last_exposure.done():
             self.write_to_log("Waiting for previous exposure to read out.", "warning")
-            await last_exposure
+            await asyncio.wait_for(last_exposure, timeout=120.0)
 
         # Last chance to bail out before the exposure.
         if self.cancelling:
