@@ -15,6 +15,7 @@ import time
 
 from typing import TYPE_CHECKING, cast
 
+from lvmopstools.retrier import Retrier
 from lvmopstools.utils import timeout, with_timeout
 from sdsstools import Configuration
 from sdsstools.utils import GatheringTaskGroup
@@ -554,6 +555,8 @@ class Overwatcher(NotifierMixIn):
 
         calibrating = self.calibrations.is_calibrating()
 
+        retrier = Retrier(max_attempts=2, delay=5)
+
         if disable_overwatcher and self.state.enabled:
             self.state.enabled = False
             await self.notify("The Overwatcher has been disabled.")
@@ -624,7 +627,7 @@ class Overwatcher(NotifierMixIn):
                 return
             else:
                 try:
-                    await asyncio.wait_for(
+                    await retrier(asyncio.wait_for)(
                         self.dome.close(retry=retry, park=park),
                         timeout=360,
                     )
@@ -646,7 +649,7 @@ class Overwatcher(NotifierMixIn):
         # Step 4: park and disable the telescopes.
         if park and not local_mode:
             try:
-                await asyncio.wait_for(
+                await retrier(asyncio.wait_for)(
                     self.gort.telescopes.park(disable=True),
                     timeout=120,
                 )

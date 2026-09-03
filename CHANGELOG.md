@@ -2,6 +2,10 @@
 
 ## Next release
 
+### ✨ Improved
+
+* Retry some stages of the Overwatcher shutdown.
+
 ### 🔧 Fixed
 
 * Ensure that the sky positions for observations in which we don't re-acquire match the original tile.
