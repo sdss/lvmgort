@@ -5,6 +5,7 @@
 ### 🔧 Fixed
 
 * Ensure that the sky positions for observations in which we don't re-acquire match the original tile.
+* Prevent the post-observing recipe from failing if the night-log email fails to send.
 
 
 ## 1.11.6 - May 6, 2026
