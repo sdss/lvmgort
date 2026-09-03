@@ -308,17 +308,6 @@ class PostObservingTask(DailyTaskBase):
         if self.overwatcher.ephemeris.ephemeris is None:
             return False
 
-        try:
-            specs_idle = await self.gort.specs.are_idle()
-        except Exception:
-            self.overwatcher.log.error(
-                "Task post_observing: error checking if specs are idle"
-            )
-            specs_idle = False
-
-        if not specs_idle:
-            return False
-
         # Time to twilight. This is negative after the twilight has started.
         time_to_twilight = self.overwatcher.ephemeris.time_to_morning_twilight()
 
@@ -331,6 +320,17 @@ class PostObservingTask(DailyTaskBase):
             or self.overwatcher.state.calibrating
             or self.overwatcher.state.observing
         ):
+            return False
+
+        try:
+            specs_idle = await self.gort.specs.are_idle()
+        except Exception:
+            self.overwatcher.log.error(
+                "Task post_observing: error checking if specs are idle"
+            )
+            specs_idle = False
+
+        if not specs_idle:
             return False
 
         return True
