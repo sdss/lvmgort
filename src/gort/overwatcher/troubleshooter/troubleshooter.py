@@ -179,7 +179,8 @@ class Troubleshooter:
                 return True
 
             await self.notify(
-                "Error could not be handled. Running clean-up recipe.",
+                "Error could not be handled or no troubleshooting recipes match. "
+                "Running clean-up recipe.",
                 level="warning",
             )
             cleanup = self.recipes["cleanup"]
