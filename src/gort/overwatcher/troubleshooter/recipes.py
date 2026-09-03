@@ -245,8 +245,11 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
             "and are now pinging but they cannot be reconnected."
         )
 
-    async def _handle_internal(self, error_model: TroubleModel) -> bool:
+    async def _handle_internal(self, error_model: TroubleModel | None = None) -> bool:
         """Handle the error."""
+
+        if error_model is None:
+            raise RuntimeError("error_model must be provided.")
 
         error = error_model.error
 
@@ -303,8 +306,11 @@ class SchedulerFailedRecipe(TroubleshooterRecipe):
 
         return False
 
-    async def _handle_internal(self, error_model: TroubleModel) -> bool:
+    async def _handle_internal(self, error_model: TroubleModel | None = None) -> bool:
         """Handle the error."""
+
+        if error_model is None:
+            raise RuntimeError("error_model must be provided.")
 
         await self.notify(
             "The scheduler was not able to find a valid tile to "
@@ -330,8 +336,11 @@ class SpectrographNotIdleRecipe(TroubleshooterRecipe):
 
         return False
 
-    async def _handle_internal(self, error_model: TroubleModel) -> bool:
+    async def _handle_internal(self, error_model: TroubleModel | None = None) -> bool:
         """Handle the error."""
+
+        if error_model is None:
+            raise RuntimeError("error_model must be provided.")
 
         await self.notify("Resetting spectrographs.", level="warning")
         await self.gort.specs.reset()
