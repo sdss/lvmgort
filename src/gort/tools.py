@@ -230,26 +230,32 @@ async def register_observation(payload: dict):
 def mark_exposure_bad(tile_id: int, dither_position: int = 0):
     """Marks a registered tile/dither as bad."""
 
-    db = get_db_connection()
+    with get_db_connection() as db:
+        completion_status = peewee.Table(
+            "completion_status",
+            schema="lvmopsdb",
+        ).bind(db)
 
-    completion_status = peewee.Table("completion_status", schema="lvmopsdb").bind(db)
-    dither = peewee.Table("dither", schema="lvmopsdb").bind(db)
+        dither = peewee.Table(
+            "dither",
+            schema="lvmopsdb",
+        ).bind(db)
 
-    dither_pk = (
-        dither.select(dither.c.pk)
-        .where(
-            dither.c.tile_id == tile_id,
-            dither.c.position == dither_position,
+        dither_pk = (
+            dither.select(dither.c.pk)
+            .where(
+                dither.c.tile_id == tile_id,
+                dither.c.position == dither_position,
+            )
+            .namedtuples()
         )
-        .namedtuples()
-    )
 
-    if len(dither_pk) == 0:
-        raise ValueError("No matching tile-position.")
+        if len(dither_pk) == 0:
+            raise ValueError("No matching tile-position.")
 
-    completion_status.update(done=False).where(
-        completion_status.c.pk == dither_pk[0].pk
-    ).execute()
+        completion_status.update(done=False).where(
+            completion_status.c.pk == dither_pk[0].pk
+        ).execute()
 
 
 async def set_tile_status(tile_id: int, note: str | None = None):
@@ -453,13 +459,17 @@ def angular_separation(lon1: float, lat1: float, lon2: float, lat2: float):
     return separation.to("deg").value
 
 
-def get_db_connection():
-    """Returns a DB connection from the configuration file parameters."""
+@contextmanager
+def get_db_connection() -> Generator[peewee.PostgresqlDatabase, None, None]:
+    """Returns a DB connection context manager from the configuration parameters."""
 
     conn = peewee.PostgresqlDatabase(**config["services"]["database"]["connection"])
     assert conn.connect(), "Database connection failed."
 
-    return conn
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 @asynccontextmanager
@@ -584,19 +594,18 @@ def insert_to_database(
 
     columns = columns or list(payload[0].keys())
 
-    conn = get_db_connection()
+    with get_db_connection() as conn:
+        schema: str | None
+        if "." in table_name:
+            schema, table_name = table_name.split(".")
+        else:
+            schema = None
+            table_name = table_name
 
-    schema: str | None
-    if "." in table_name:
-        schema, table_name = table_name.split(".")
-    else:
-        schema = None
-        table_name = table_name
+        table = peewee.Table(table_name, schema=schema, columns=columns)
+        table.bind(conn)
 
-    table = peewee.Table(table_name, schema=schema, columns=columns)
-    table.bind(conn)
-
-    table.insert(payload).execute()
+        table.insert(payload).execute()
 
 
 def get_md5sum_file(file: AnyPath):
@@ -683,12 +692,13 @@ def handle_signals(
 def get_by_source_id(source_id: int) -> dict | None:
     """Returns Gaia DR3 information for a source ID."""
 
-    db = get_db_connection()
+    with get_db_connection() as db:
+        gaia_dr3 = peewee.Table("gaia_dr3_source", schema="catalogdb").bind(db)
 
-    gaia_dr3 = peewee.Table("gaia_dr3_source", schema="catalogdb").bind(db)
-
-    query = gaia_dr3.select(gaia_dr3.star).where(gaia_dr3.c.source_id == source_id)
-    data = query.dicts()
+        query = gaia_dr3.select(gaia_dr3.__star__).where(
+            gaia_dr3.c.source_id == source_id
+        )
+        data = query.dicts()
 
     if len(data) == 0:
         return None

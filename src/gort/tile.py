@@ -178,14 +178,13 @@ class QuerableCoordinates(Coordinates):
 
         """
 
-        connection = get_db_connection()
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            targets = polars.read_database(
-                f"SELECT ra,dec from {cls.__db_table__};",
-                connection,
-            )
+        with get_db_connection() as connection:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                targets = polars.read_database(
+                    f"SELECT ra,dec from {cls.__db_table__};",
+                    connection,
+                )
 
         # Cache query.
         if cls.targets is None:

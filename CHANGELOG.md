@@ -1,5 +1,12 @@
 # Changelog
 
+## Next release
+
+### 🔧 Fixed
+
+* Prevent `get_db_connection()` from leaving open connections.
+
+
 ## 1.12.0 - September 3, 2026
 
 ### ✨ Improved
