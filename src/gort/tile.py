@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import warnings
 
-from typing import Sequence, cast
+from typing import cast
 
 import numpy
 import polars
@@ -160,7 +160,7 @@ class QuerableCoordinates(Coordinates):
     def from_science_coordinates(
         cls,
         sci_coords: ScienceCoordinates,
-        exclude_coordinates: Sequence[CoordTuple] = [],
+        exclude_coordinates: list[CoordTuple] = [],
         exclude_invisible: bool = True,
     ):
         """Retrieves a valid and observable position from the database.
@@ -218,7 +218,7 @@ class QuerableCoordinates(Coordinates):
 
         return cls(skycoord_min.ra.deg, skycoord_min.dec.deg)
 
-    def verify_and_replace(self, exclude_coordinates: Sequence[CoordTuple] = []):
+    def verify_and_replace(self, exclude_coordinates: list[CoordTuple] = []):
         """Verifies that the coordinates are visible and if not, replaces them.
 
         Parameters
@@ -337,11 +337,11 @@ class StandardCoordinates(QuerableCoordinates):
         super().__init__(ra, dec, **kwargs)
 
 
-SpecCoordsType = Sequence[StandardCoordinates | CoordTuple | int | dict] | None
+SpecCoordsType = list[StandardCoordinates | CoordTuple | int | dict] | None
 SkyCoordsType = dict[str, SkyCoordinates] | dict[str, CoordTuple] | None
 
 
-class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
+class Tile(dict[str, Coordinates | list[Coordinates] | None]):
     """A representation of a science pointing with associated calibrators.
 
     This class is most usually initialised from a classmethod like
@@ -370,7 +370,7 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
         sci_coords: ScienceCoordinates,
         sky_coords: SkyCoordsType = None,
         spec_coords: SpecCoordsType = None,
-        dither_positions: int | Sequence[int] = 0,
+        dither_positions: int | list[int] = 0,
         object: str | None = None,
         allow_replacement: bool = True,
     ):
@@ -378,8 +378,8 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
 
         self.tile_id: int | None = None
 
-        self.dither_positions: Sequence[int] = [0]
-        if isinstance(dither_positions, Sequence) and len(dither_positions) > 0:
+        self.dither_positions: list[int] = [0]
+        if isinstance(dither_positions, list) and len(dither_positions) > 0:
             self.dither_positions = dither_positions
         elif isinstance(dither_positions, int):
             self.dither_positions = [dither_positions]
@@ -461,13 +461,13 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
     def spec_coords(self):
         """Returns the Spec coordinates."""
 
-        return cast(Sequence[StandardCoordinates], self["spec"])
+        return cast(list[StandardCoordinates], self["spec"])
 
     @spec_coords.setter
-    def spec_coords(self, new_coords: Sequence[StandardCoordinates]):
+    def spec_coords(self, new_coords: list[StandardCoordinates]):
         """Sets the SkyW coordinates."""
 
-        parsed_coords: Sequence[Coordinates] = []
+        parsed_coords: list[Coordinates] = []
         for coords in new_coords:
             if isinstance(coords, (list, tuple)):
                 parsed_coords.append(StandardCoordinates(*coords))
@@ -605,7 +605,7 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
         else:
             calibrator_data = get_calibrators_sync(ra=sci_pos[0], dec=sci_pos[1])
 
-        sky_coords = {
+        sky_coords: SkyCoordsType = {
             "skye": SkyCoordinates(
                 *calibrator_data["sky_pos"][0],
                 name=calibrator_data["sky_names"][0],
@@ -619,7 +619,7 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
         sky_coords["skye"].pk = calibrator_data["sky_pks"][0]
         sky_coords["skyw"].pk = calibrator_data["sky_pks"][1]
 
-        spec_coords = []
+        spec_coords: SpecCoordsType = []
         for ii in range(len(calibrator_data["standard_pos"])):
             std_coords = StandardCoordinates(
                 *calibrator_data["standard_pos"][ii],
@@ -685,7 +685,7 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
             sky_coords = {}
 
         valid_sky_coords: dict[str, SkyCoordinates] = {}
-        assigned_coordinates: Sequence[CoordTuple] = []
+        assigned_coordinates: list[CoordTuple] = []
 
         for telescope in ["skye", "skyw"]:
             tel_coords = sky_coords.get(telescope, None)
@@ -752,7 +752,7 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
         self,
         spec_coords: SpecCoordsType = None,
         reject_invisible: bool = True,
-    ) -> Sequence[StandardCoordinates]:
+    ) -> list[StandardCoordinates]:
         """Sets the spec telescope coordinates.
 
         Parameters
@@ -764,14 +764,16 @@ class Tile(dict[str, Coordinates | Sequence[Coordinates] | None]):
 
         """
 
-        valid_spec_coords = []
+        valid_spec_coords: list[StandardCoordinates] = []
 
         if spec_coords is None:
             pass
         else:
             for coords in spec_coords:
-                if isinstance(coords, Coordinates):
+                if isinstance(coords, StandardCoordinates):
                     pass
+                elif isinstance(coords, Coordinates):
+                    coords = StandardCoordinates(coords.ra, coords.dec)
                 elif isinstance(coords, (list, tuple)):
                     coords = StandardCoordinates(*coords)
                 elif isinstance(coords, int):
