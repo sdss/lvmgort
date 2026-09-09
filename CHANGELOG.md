@@ -9,6 +9,7 @@
 ### 🔧 Fixed
 
 * Prevent `get_db_connection()` from leaving open connections.
+* Fix several deprecations of `break` or `continue` in `finally`.
 
 
 ## 1.12.0 - September 3, 2026

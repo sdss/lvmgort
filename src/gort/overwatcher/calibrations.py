@@ -540,20 +540,21 @@ class CalibrationsMonitor(OverwatcherModuleTask["CalibrationsOverwatcher"]):
                     if next_calibration.state == CalibrationState.RETRYING:
                         # If the calibration is retrying, we do not close the dome
                         # or mark it as done. Move to the next iteration of the loop.
-                        continue
+                        pass
 
-                    if close_dome_after and not dome_closed:
-                        if not dome_locked:
-                            await notify(f"Closing the dome after calibration {name}.")
-                            await try_or_pass(self.overwatcher.dome.close())
-                        else:
-                            await notify(
-                                "Dome is locked. Not closing it after calibration.",
-                                level="warning",
-                            )
+                    else:
+                        if close_dome_after and not dome_closed:
+                            if not dome_locked:
+                                await notify(f"Closing dome after calibration {name}.")
+                                await try_or_pass(self.overwatcher.dome.close())
+                            else:
+                                await notify(
+                                    "Dome is locked. Not closing it after calibration.",
+                                    level="warning",
+                                )
 
-                    if not next_calibration.is_finished():
-                        await next_calibration.record_state(CalibrationState.DONE)
+                        if not next_calibration.is_finished():
+                            await next_calibration.record_state(CalibrationState.DONE)
 
 
 class CalibrationsOverwatcher(OverwatcherModule):

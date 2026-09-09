@@ -380,6 +380,9 @@ class ObserverOverwatcher(OverwatcherModule):
         n_exposures: int = observer_config["exposures.n_exposures"] or 1
 
         while True:
+            if self.is_cancelling:
+                break
+
             try:
                 # Wait in case the troubleshooter is doing something.
                 await self.overwatcher.troubleshooter.wait_until_ready(300)
@@ -498,8 +501,6 @@ class ObserverOverwatcher(OverwatcherModule):
                             await asyncio.wait_for(exp, timeout=80)
                     except Exception:
                         self.log.error("Failed reading last exposure.")
-
-                    break
 
         await self.gort.cleanup(readout=False)
         await self.notify("The observing loop has ended.")
