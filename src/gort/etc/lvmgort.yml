@@ -310,6 +310,9 @@ services:
 
 overwatcher:
   observer:
+    exposures:
+      exposure_time: 900 # Exposure time in seconds
+      n_exposures: 1 # Number of exposure per tile observation
     focus:
       every: 7200 # Seconds. 0 disables regular focus sweeps
       require_mjd_sweep: false # Perform a focus sweep at least once per MJD, even if every=0

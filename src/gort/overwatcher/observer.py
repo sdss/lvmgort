@@ -375,6 +375,10 @@ class ObserverOverwatcher(OverwatcherModule):
         n_tile_positions = 0
         self._schedule_shutdown = False
 
+        observer_config = self.overwatcher.config["overwatcher.observer"]
+        exposure_time: float = observer_config["exposures.exposure_time"] or 900.0
+        n_exposures: int = observer_config["exposures.n_exposures"] or 1
+
         while True:
             try:
                 # Wait in case the troubleshooter is doing something.
@@ -418,6 +422,8 @@ class ObserverOverwatcher(OverwatcherModule):
                     result, exps = await observer.observe_tile(
                         tile=tile,
                         dither_position=dpos,
+                        exposure_time=exposure_time,
+                        n_exposures=n_exposures,
                         async_readout=True,
                         keep_guiding=True,
                         skip_slew_when_acquired=True,

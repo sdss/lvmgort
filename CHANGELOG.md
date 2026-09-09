@@ -2,6 +2,10 @@
 
 ## Next release
 
+### ✨ Improved
+
+* Add exposure time and number of exposure per tile to the Overwatcher configuration.
+
 ### 🔧 Fixed
 
 * Prevent `get_db_connection()` from leaving open connections.
