@@ -231,7 +231,7 @@ class Calibration:
             "state": self.state.name.lower(),
         }
 
-    def is_finished(self):
+    def is_finished(self) -> bool:
         """Returns ``True`` if the calibration is done or has failed."""
 
         if self.state in (
@@ -241,12 +241,14 @@ class Calibration:
         ):
             return True
 
+        return False
+
     async def record_state(
         self,
         state: CalibrationState | None = None,
         fail_reason: str = "unespecified reason",
         add_to_night_log: bool = True,
-    ):
+    ) -> None:
         """Records the state of the calibration in Redis."""
 
         if state is not None:
@@ -372,7 +374,9 @@ class CalibrationSchedule:
                 redis.json().set(key, "$", data)
             else:
                 # Get calibration data from Redis and update the object.
-                redis_cal_keys = redis.json().objkeys(key, "$")[0]
+                redis_cal_keys = redis.json().objkeys(key, "$")
+                if redis_cal_keys is not None:
+                    redis_cal_keys = redis_cal_keys[0]
 
                 for cal in self.calibrations:
                     if not reset and redis_cal_keys and cal.name in redis_cal_keys:
@@ -390,7 +394,7 @@ class CalibrationSchedule:
 
         return [CalibrationModel(**cal) for cal in cal_data]
 
-    async def get_next(self):
+    async def get_next(self) -> Calibration | None:
         """Returns the next calibration or ``None`` if no calibration is due.
 
         Takes into account open dome buffer time.
