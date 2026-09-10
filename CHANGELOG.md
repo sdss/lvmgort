@@ -10,6 +10,7 @@
 
 * Prevent `get_db_connection()` from leaving open connections.
 * Fix several deprecations of `break` or `continue` in `finally`.
+* Prevent timeout when a shutdown happens while a calibration closes the dome.
 
 
 ## 1.12.0 - September 3, 2026

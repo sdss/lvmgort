@@ -593,7 +593,7 @@ class Overwatcher(NotifierMixIn):
             self.log.info("Cancelling observing loop and calibrations.")
             await asyncio.wait_for(
                 asyncio.gather(stop_observing, self.calibrations.cancel()),
-                timeout=30,
+                timeout=30 if not await self.dome.is_closing() else 300,
             )
         except Exception as err:
             await self.notify(
