@@ -5,6 +5,7 @@
 ### ✨ Improved
 
 * Add exposure time and number of exposure per tile to the Overwatcher configuration.
+* Do not try to emit Slack notifications if the internet is down.
 
 ### 🔧 Fixed
 

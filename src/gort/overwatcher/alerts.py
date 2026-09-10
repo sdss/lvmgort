@@ -56,6 +56,12 @@ class ConnectivityStatus:
         self.lco = Trigger(n=3)
         self.internet = Trigger(n=3)
 
+    @property
+    def is_connected(self) -> bool:
+        """Returns True if both LCO and internet are connected."""
+
+        return not self.lco.is_set() and not self.internet.is_set()
+
 
 class ActiveAlert(enum.Flag):
     """Flags for active alerts."""

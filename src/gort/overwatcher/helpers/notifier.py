@@ -26,6 +26,7 @@ from gort.tools import LogNamespace
 
 if TYPE_CHECKING:
     from gort.gort import Gort
+    from gort.overwatcher.alerts import AlertsOverwatcher
 
 
 NotificationLevel = Literal["debug", "info", "warning", "error", "critical"]
@@ -34,6 +35,7 @@ GORT_ICON_URL = "https://github.com/sdss/lvmgort/blob/main/docs/sphinx/_static/g
 
 
 class OverwatcherProtocol(Protocol):
+    alerts: AlertsOverwatcher
     gort: Gort
     log: LogNamespace
     config: Configuration
@@ -159,6 +161,10 @@ class NotifierMixIn(OverwatcherProtocol):
             and next_notification_time
             and next_notification_time > time()
         ):
+            slack = False
+
+        # Check if the internet is down. If so, skip the Slack notification.
+        if not self.alerts.connectivity.is_connected:
             slack = False
 
         try:
