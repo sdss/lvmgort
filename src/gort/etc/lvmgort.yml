@@ -222,6 +222,7 @@ specs:
 
 ags:
   offline_cameras: []
+  default_exposure_time: 5.0
   devices:
     sci:
       actor: lvm.sci.agcam

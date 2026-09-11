@@ -248,7 +248,7 @@ class Guider(GortDevice):
         self,
         ra: float | None = None,
         dec: float | None = None,
-        exposure_time: float = 5.0,
+        exposure_time: float | None = None,
         pixel: tuple[float, float] | str | None = None,
         monitor: bool = True,
         output_monitor_data: bool = True,
@@ -264,7 +264,8 @@ class Guider(GortDevice):
             The coordinates to acquire. If :obj:`None`, the current telescope
             coordinates are used.
         exposure_time
-            The exposure time of the AG integrations.
+            The exposure time of the AG integrations. If :obj:`None`, defaults to the
+            configuration file ``ags.default_exposure_time`` value.
         pixel
             The pixel on the master frame on which to guide. Defaults to
             the central pixel. This can also be the name of a known pixel
@@ -279,6 +280,9 @@ class Guider(GortDevice):
             the ``pa`` argument that if not provided is assumed to be zero.
 
         """
+
+        default_exposure_time: float = self.gort.config["ags"]["default_exposure_time"]
+        exposure_time = exposure_time or default_exposure_time or 5.0
 
         monitor_task: asyncio.Task | None = None
 
@@ -464,7 +468,7 @@ class Guider(GortDevice):
         self,
         ra: float | None = None,
         dec: float | None = None,
-        exposure_time: float = 5.0,
+        exposure_time: float | None = None,
         sleep: float = 60,
         monitor: bool = True,
     ):
@@ -485,7 +489,8 @@ class Guider(GortDevice):
             The coordinates to acquire. If :obj:`None`, the current zenith
             coordinates are used.
         exposure_time
-            The exposure time of the AG integrations.
+            The exposure time of the AG integrations. If `None`, defaults to the
+            configuration file ``ags.default_exposure_time`` value.
         sleep
             The time to sleep between exposures (seconds).
         monitor
@@ -494,6 +499,9 @@ class Guider(GortDevice):
             :obj:`Guider.guider_monitor.get_dataframe() <.GuiderMonitor.get_dataframe>`.
 
         """
+
+        default_exposure_time: float = self.gort.config["ags"]["default_exposure_time"]
+        exposure_time = exposure_time or default_exposure_time or 5.0
 
         if ra is None and dec is None:
             await self.telescope.goto_named_position("zenith", altaz_tracking=True)
@@ -611,7 +619,7 @@ class GuiderSet(GortDeviceSet[Guider]):
         guess: float | dict[str, float] | None = None,
         step_size: float = 0.5,
         steps: int = 7,
-        exposure_time: float = 5.0,
+        exposure_time: float | None = None,
     ):
         """Focus all the telescopes.
 
@@ -631,9 +639,13 @@ class GuiderSet(GortDeviceSet[Guider]):
         steps
             The total number of step points. Must be an odd number.
         exposure_time
-            The exposure time for each step.
+            The exposure time for each step. If :obj:`None`, defaults to the
+            configuration file ``ags.default_exposure_time`` value.
 
         """
+
+        default_exposure_time: float = self.gort.config["ags"]["default_exposure_time"]
+        exposure_time = exposure_time or default_exposure_time or 5.0
 
         self.write_to_log("Running focus sequence.", "info")
 
