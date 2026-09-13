@@ -319,6 +319,10 @@ overwatcher:
       require_mjd_sweep: false # Perform a focus sweep at least once per MJD, even if every=0
       on_error: false # Perform a focus sweep if an error occurs while observing
 
+  transparency:
+    poor: -22.5
+    bad: -22.0
+
   schedule:
     open_dome_buffer: 200
     open_dome_secs_before_twilight: 300

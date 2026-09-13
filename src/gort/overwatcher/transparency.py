@@ -104,6 +104,8 @@ class TransparencyMonitorTask(OverwatcherModuleTask["TransparencyOverwatcher"]):
     async def update_data(self):
         """Retrieves and evaluates transparency data."""
 
+        t_config = self.module.gort.config["overwatcher"]["transparency"]
+
         now: float = time()
         lookback: float = 3600
 
@@ -161,9 +163,9 @@ class TransparencyMonitorTask(OverwatcherModuleTask["TransparencyOverwatcher"]):
                 avg_10 = cast(float, avg_10)
                 self.module.zero_point[tel] = round(float(avg_10), 2)
 
-                if avg_10 < -22.75:
+                if avg_10 < t_config["poor"]:
                     self.module.quality[tel] = TransparencyQuality.GOOD
-                elif avg_10 > -22.75 and avg_10 < -22.25:
+                elif avg_10 > t_config["poor"] and avg_10 < t_config["bad"]:
                     self.module.quality[tel] = TransparencyQuality.POOR
                 else:
                     self.module.quality[tel] = TransparencyQuality.BAD
