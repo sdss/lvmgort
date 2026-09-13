@@ -239,7 +239,9 @@ class TransparencyOverwatcher(OverwatcherModule):
         """Writes the current state to the log."""
 
         if isinstance(telescopes, str):
-            telescopes = [telescopes]
+            telescopes = [telescopes]  # type: ignore
+
+        assert not isinstance(telescopes, str)
 
         for tel in telescopes:
             self.log.info(
