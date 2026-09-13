@@ -320,8 +320,8 @@ overwatcher:
       on_error: false # Perform a focus sweep if an error occurs while observing
 
   transparency:
-    poor: -22.5
-    bad: -22.0
+    poor: -22.75
+    bad: -22.25
 
   schedule:
     open_dome_buffer: 200
