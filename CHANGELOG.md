@@ -8,6 +8,7 @@
 * Do not try to emit Slack notifications if the internet is down.
 * Allow to specify the default exposure time for the AG cameras in the configuration file.
 * Move thresholds for transparency quality to the configuration file.
+* More gracefully handle cases when stopping observations times out during a shutdown.
 
 ### 🔧 Fixed
 

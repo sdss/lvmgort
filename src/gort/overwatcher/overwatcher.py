@@ -585,6 +585,7 @@ class Overwatcher(NotifierMixIn):
 
         # Step 1: cancel observations and calibrations.
         try:
+            stop_observing_failed: bool = False
             stop_observing = self.observer.stop_observing(
                 immediate=True,
                 reason="shutdown triggered",
@@ -595,7 +596,21 @@ class Overwatcher(NotifierMixIn):
                 asyncio.gather(stop_observing, self.calibrations.cancel()),
                 timeout=30 if not await self.dome.is_closing() else 300,
             )
+
+        except asyncio.TimeoutError:
+            # Sometimes cancelling observations during an exposure may cause the
+            # AGs to hang or some other issue, and the stop_observing routine will
+            # try to clean up things, but that will cause a timeout. We don't want
+            # to wait too long so we'll continue for now and clean up things after
+            # the dome is closed.
+            stop_observing_failed = True
+            self.log.warning(
+                "Timed out while cancelling observations during shutdown. "
+                "Will retry after closing the dome."
+            )
+
         except Exception as err:
+            stop_observing_failed = True
             await self.notify(
                 f"Error cancelling observations during shutdown: {decap(err)}",
                 level="error",
@@ -659,6 +674,19 @@ class Overwatcher(NotifierMixIn):
                     level="error",
                     error=err,
                 )
+
+        if stop_observing_failed:
+            self.log.info("Retrying to stop observing after shutdown.")
+            try:
+                await stop_observing
+            except Exception as err:
+                await self.notify(
+                    f"Error cancelling observations after shutdown: {decap(err)}",
+                    level="error",
+                    error=err,
+                )
+            finally:
+                await self.gort.cleanup(readout=False)
 
         await self.notify("Shutdown complete.", level="info")
 
