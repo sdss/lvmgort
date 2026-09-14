@@ -289,6 +289,7 @@ services:
   scheduler:
     host: 10.8.38.26
     port: 5100
+    timeout: 20
 
   lvmapi:
     host: 127.0.0.1
@@ -338,6 +339,7 @@ overwatcher:
   slack:
     notifications_channels:
       - lvm-overwatcher
+
   tasks:
     ags_power_cycle:
       min_time: 3600

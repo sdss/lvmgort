@@ -1,5 +1,13 @@
 # Changelog
 
+## Next release
+
+### 🔧 Fixed
+
+* Change the default timeout for the scheduler API requests to 20 seconds.
+
+
+
 ## 1.13.0 - September 14, 2026
 
 ### ✨ Improved

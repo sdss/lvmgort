@@ -151,9 +151,12 @@ async def get_next_tile_id() -> dict:
     sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
+    timeout = sch_config.get("timeout", 20)
 
-    async with httpx.AsyncClient(base_url=f"http://{host}:{port}/") as client:
-        resp = await client.get("next_tile")
+    base_url = f"http://{host}:{port}/"
+
+    async with httpx.AsyncClient(base_url=base_url, timeout=timeout) as client:
+        resp = await client.get("next_tile", timeout=timeout)
         if resp.status_code != 200:
             raise httpx.RequestError("Failed request to /next_tile")
         tile_id_data = resp.json()
@@ -171,12 +174,15 @@ def get_calibrators_sync(
     sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
+    timeout = sch_config.get("timeout", 20)
 
-    with httpx.Client(base_url=f"http://{host}:{port}/") as client:
+    base_url = f"http://{host}:{port}/"
+
+    with httpx.Client(base_url=base_url, timeout=timeout) as client:
         if tile_id:
-            resp = client.get("cals", params={"tile_id": tile_id})
+            resp = client.get("cals", params={"tile_id": tile_id}, timeout=timeout)
         elif ra is not None and dec is not None:
-            resp = client.get("cals", params={"ra": ra, "dec": dec})
+            resp = client.get("cals", params={"ra": ra, "dec": dec}, timeout=timeout)
         else:
             raise ValueError("ra and dec are required.")
         if resp.status_code != 200:
@@ -195,12 +201,23 @@ async def get_calibrators(
     sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
+    timeout = sch_config.get("timeout", 20)
 
-    async with httpx.AsyncClient(base_url=f"http://{host}:{port}/") as client:
+    base_url = f"http://{host}:{port}/"
+
+    async with httpx.AsyncClient(base_url=base_url, timeout=timeout) as client:
         if tile_id:
-            resp = await client.get("cals", params={"tile_id": tile_id})
+            resp = await client.get(
+                "cals",
+                params={"tile_id": tile_id},
+                timeout=timeout,
+            )
         elif ra is not None and dec is not None:
-            resp = await client.get("cals", params={"ra": ra, "dec": dec})
+            resp = await client.get(
+                "cals",
+                params={"ra": ra, "dec": dec},
+                timeout=timeout,
+            )
         else:
             raise ValueError("ra and dec are required.")
         if resp.status_code != 200:
@@ -215,10 +232,12 @@ async def register_observation(payload: dict):
     sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
+    timeout = sch_config.get("timeout", 20)
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=timeout) as client:
         resp = await client.put(
             f"http://{host}:{port}/register_observation",
+            timeout=timeout,
             json=payload,
             follow_redirects=True,
         )
@@ -264,13 +283,15 @@ async def set_tile_status(tile_id: int, note: str | None = None):
     sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
+    timeout = sch_config.get("timeout", 20)
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=timeout) as client:
         resp = await client.put(
             f"http://{host}:{port}/tile_status",
             params={"tile_id": tile_id, "note": note},
             json={},
             follow_redirects=True,
+            timeout=timeout,
         )
 
         if resp.status_code != 200 or not resp.json()["success"]:
