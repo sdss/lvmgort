@@ -135,9 +135,10 @@ def get_next_tile_id_sync() -> dict:
     sch_config = config["services"]["scheduler"]
     host = sch_config["host"]
     port = sch_config["port"]
+    timeout = sch_config.get("timeout", 20)
 
-    with httpx.Client(base_url=f"http://{host}:{port}/") as client:
-        resp = client.get("next_tile")
+    with httpx.Client(base_url=f"http://{host}:{port}/", timeout=timeout) as client:
+        resp = client.get("next_tile", timeout=timeout)
         if resp.status_code != 200:
             raise httpx.RequestError("Failed request to /next_tile")
         tile_id_data = resp.json()
