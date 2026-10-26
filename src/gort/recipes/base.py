@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Type
+from typing import TYPE_CHECKING, Any
 
 from gort.enums import Event
 
@@ -17,22 +17,22 @@ if TYPE_CHECKING:
     from gort.gort import Gort
 
 
-__all__ = ["recipes", "BaseRecipe"]
+__all__ = ["BaseRecipe", "recipes"]
 
 
-recipes: dict[str, Type[BaseRecipe]] = {}
+recipes: dict[str, type[BaseRecipe]] = {}
 
 
 class RegisterRecipe(type):
     """Metaclass to register recipes."""
 
     def __new__(cls, name, bases, class_dict):
-        cls = type.__new__(cls, name, bases, class_dict)
+        new_cls = type.__new__(cls, name, bases, class_dict)
 
         if name == "BaseRecipe":
-            return cls
+            return new_cls
 
-        assert issubclass(cls, BaseRecipe)
+        assert issubclass(new_cls, BaseRecipe)
 
         if "name" not in class_dict:
             raise ValueError(f"name attribute not defined in {name}.")
@@ -42,12 +42,12 @@ class RegisterRecipe(type):
         if "recipe" not in class_dict:
             raise ValueError(f"recipe method not defined in {name}.")
 
-        recipes[class_dict["name"]] = cls
+        recipes[class_dict["name"]] = new_cls
 
-        return cls
+        return new_cls
 
 
-class BaseRecipe(object, metaclass=RegisterRecipe):
+class BaseRecipe(metaclass=RegisterRecipe):
     """Base class for recipes."""
 
     name: str | None = None

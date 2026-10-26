@@ -35,7 +35,7 @@ class GortError(Exception):
         self,
         message: str | None = None,
         error_code: int | ErrorCode | None = None,
-        payload: dict = {},
+        payload: dict | None = None,
     ):
         try:
             self.error_code = ErrorCode(error_code or self.DEFAULT_ERROR_CODE)
@@ -43,7 +43,7 @@ class GortError(Exception):
             self.error_code = ErrorCode.UNKNOWN_ERROR
             error_code = self.error_code.value
 
-        self.payload = payload
+        self.payload = payload or {}
         self.raw_message = message
 
         prefix = f"Error {self.error_code.value} ({self.error_code.name})"
@@ -57,8 +57,6 @@ class GortError(Exception):
 class OverwatcherError(GortError):
     """An error in the overwatcher."""
 
-    pass
-
 
 class TroubleshooterCriticalError(OverwatcherError):
     """A critical error in the troubleshooter that will shut down the system."""
@@ -70,8 +68,6 @@ class TroubleshooterCriticalError(OverwatcherError):
 
 class TroubleshooterTimeoutError(OverwatcherError):
     """The troubleshooter timed out while running a recipe."""
-
-    pass
 
 
 class RemoteCommandError(GortError):
@@ -134,8 +130,6 @@ class GortTimeoutError(GortError):
 class GortTimeout(GortError):
     """Raised if a timeout occurs."""
 
-    pass
-
 
 class GortNotImplemented(GortError):
     """A custom exception for not yet implemented features."""
@@ -145,7 +139,7 @@ class GortNotImplemented(GortError):
     def __init__(self, message: str | None = None):
         message = "This feature is not implemented yet." if not message else message
 
-        super(GortNotImplemented, self).__init__(message)
+        super().__init__(message)
 
 
 class GortDeviceError(GortError):
@@ -157,7 +151,7 @@ class GortDeviceError(GortError):
         self,
         message: str | None = None,
         error_code: int | ErrorCode | None = None,
-        payload: dict = {},
+        payload: dict | None = None,
     ) -> None:
         from gort.gort import GortDevice
 
@@ -171,7 +165,7 @@ class GortDeviceError(GortError):
                 if issubclass(obj.__class__, GortDevice) and name is not None:
                     message = f"({name}) {message}"
 
-        super().__init__(message, error_code=error_code, payload=payload)
+        super().__init__(message, error_code=error_code, payload=payload or {})
 
 
 class GortEnclosureError(GortDeviceError):
@@ -227,16 +221,10 @@ class GortObserverCancelledError(GortObserverError):
 
     EMIT_EVENT = False  # Only used to trigger a cancellation of the observing loop.
 
-    pass
-
 
 class GortWarning(Warning):
     """Base warning for Gort."""
 
-    pass
-
 
 class GortUserWarning(UserWarning, GortWarning):
     """The primary warning class."""
-
-    pass

@@ -18,24 +18,24 @@ import astropy.units
 import numpy
 import polars
 import yaml
-from astropy.coordinates import Angle
+from astropy.coordinates import Angle, SkyCoord
 
 from gort import config
 
 
 __all__ = [
-    "read_fibermap",
-    "offset_to_master_frame_pixel",
-    "xy_to_radec_offset",
-    "fibre_slew_coordinates",
-    "radec_sexagesimal_to_decimal",
-    "fibre_to_master_frame",
-    "calculate_position_angle",
-    "calculate_field_angle",
-    "Siderostat",
     "HomTrans",
     "Mirror",
+    "Siderostat",
+    "calculate_field_angle",
+    "calculate_position_angle",
+    "fibre_slew_coordinates",
+    "fibre_to_master_frame",
+    "offset_to_master_frame_pixel",
+    "radec_sexagesimal_to_decimal",
+    "read_fibermap",
     "wrap_pa_hex",
+    "xy_to_radec_offset",
 ]
 
 
@@ -75,12 +75,13 @@ def read_fibermap(
     assert isinstance(path, pathlib.Path)
 
     if not path.exists():
-        raise FileNotFoundError(f"Fibermap file {str(path)} does not exist.")
+        raise FileNotFoundError(f"Fibermap file {path!s} does not exist.")
 
     if force_cache is False and _FIBERMAP_CACHE is not None:
         return _FIBERMAP_CACHE
 
-    fibermap_y = yaml.load(open(str(path)), Loader=yaml.CFullLoader)
+    with open(str(path)) as fd:
+        fibermap_y = yaml.load(fd, Loader=yaml.CFullLoader)
 
     schema = fibermap_y["schema"]
     cols = [it["name"] for it in schema]
@@ -500,7 +501,7 @@ class Siderostat:
         # of the beam after leaving M2 in the topocentric horizontal system.
         # b[0] is the coordinate along E, b[1] along N and b[2] up.
         if isinstance(zenang, (int, float)) and isinstance(azang, (int, float)):
-            self.b = numpy.zeros((3))
+            self.b = numpy.zeros(3)
             self.b[0] = math.sin(math.radians(azang)) * math.sin(math.radians(zenang))
             self.b[1] = math.cos(math.radians(azang)) * math.sin(math.radians(zenang))
             self.b[2] = math.cos(math.radians(zenang))
@@ -519,7 +520,7 @@ class Siderostat:
 
         # axes orthogonal to beam. box points essentially to the zenith
         # and boy essentially to the East (at LCO) resp West (at MPIA)
-        self.box = numpy.zeros((3))
+        self.box = numpy.zeros(3)
         self.box[0] = 0.0
         self.box[1] = -self.b[2]
         self.box[2] = self.b[1]
@@ -595,18 +596,18 @@ class Siderostat:
             obswl=0.5 * astropy.units.um,
         )
 
-        horiz = target.transform_to(altaz)
+        horiz: SkyCoord = target.transform_to(altaz)
 
         assert isinstance(horiz.az, astropy.coordinates.Angle)
         assert isinstance(horiz.alt, astropy.coordinates.Angle)
 
-        star = numpy.zeros((3))
+        star = numpy.zeros(3)
 
         # Same procedure as in the construction of b in the Sider ctor,
         # but with 90-zenang=alt
-        star[0] = math.sin(horiz.az.radian) * math.cos(horiz.alt.radian)
-        star[1] = math.cos(horiz.az.radian) * math.cos(horiz.alt.radian)
-        star[2] = math.sin(horiz.alt.radian)
+        star[0] = numpy.sin(horiz.az.radian) * numpy.cos(horiz.alt.radian)
+        star[1] = numpy.cos(horiz.az.radian) * numpy.cos(horiz.alt.radian)
+        star[2] = numpy.sin(horiz.alt.radian)
 
         # unit vector from M2 to M1
         # we're not normalizing to self.m1m2len but keeping the vector
@@ -640,10 +641,10 @@ class Siderostat:
         # for the field angle need a target that is just a little bit
         # more north (but not too little to avoid loss of precision)
         # 10 arcmin = 0.16 deg further to NCP
-        targNcp = target.spherical_offsets_by(Angle("0deg"), Angle("0.16deg"))
-        horizNcp = targNcp.transform_to(altaz)
+        targNcp: SkyCoord = target.spherical_offsets_by(Angle("0deg"), Angle("0.16deg"))
+        horizNcp: SkyCoord = targNcp.transform_to(altaz)
 
-        starNcp = numpy.zeros((3))
+        starNcp = numpy.zeros(3)
 
         # same procedure as in the construction of b in the Sider ctor,
         # but with 90 minus zenith angle=altitude
@@ -651,9 +652,9 @@ class Siderostat:
         assert isinstance(horizNcp.az, astropy.coordinates.Angle)
         assert isinstance(horizNcp.alt, astropy.coordinates.Angle)
 
-        starNcp[0] = math.sin(horizNcp.az.radian) * math.cos(horizNcp.alt.radian)
-        starNcp[1] = math.cos(horizNcp.az.radian) * math.cos(horizNcp.alt.radian)
-        starNcp[2] = math.sin(horizNcp.alt.radian)
+        starNcp[0] = numpy.sin(horizNcp.az.radian) * numpy.cos(horizNcp.alt.radian)
+        starNcp[1] = numpy.cos(horizNcp.az.radian) * numpy.cos(horizNcp.alt.radian)
+        starNcp[2] = numpy.sin(horizNcp.alt.radian)
 
         # image of targNcp while hitting M1
         m1img = trans.apply(m2tom1)

@@ -12,7 +12,7 @@ import asyncio
 import json
 from datetime import UTC, datetime
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from lvmopstools.pubsub import Message, Subscriber
 
@@ -32,7 +32,10 @@ class MonitorEvents(OverwatcherModuleTask["EventsOverwatcher"]):
     keep_alive = True
     restart_on_error = True
 
-    _running_tasks: list[asyncio.Task] = []
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._running_tasks: list[asyncio.Task] = []
 
     async def task(self):
         """Runs the task."""
@@ -141,7 +144,7 @@ class MonitorEvents(OverwatcherModuleTask["EventsOverwatcher"]):
 class EventsOverwatcher(OverwatcherModule):
     name = "events"
 
-    tasks = [MonitorEvents()]
+    tasks: ClassVar[list[OverwatcherModuleTask]] = [MonitorEvents()]
 
     def __init__(self, overwatcher: Overwatcher):
         super().__init__(overwatcher)

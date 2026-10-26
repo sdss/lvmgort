@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
 
 from lvmopstools import Retrier
 
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from gort import ActorReply
 
 
-__all__ = ["Enclosure", "Lights", "Light"]
+__all__ = ["Enclosure", "Light", "Lights"]
 
 
 class Light:
@@ -80,7 +80,7 @@ class Light:
 class Lights:
     """Controls the enclosure lights."""
 
-    LIGHTS = [
+    LIGHTS: ClassVar[list[str]] = [
         "telescope_bright",
         "telescope_red",
         "spectrograph_room",
@@ -147,7 +147,7 @@ class E_Stops:
 class Enclosure(GortDevice):
     """Class representing the LVM enclosure."""
 
-    __DEPLOYMENTS__ = ["lvmecp"]
+    __DEPLOYMENTS__: ClassVar[list[str]] = ["lvmecp"]
 
     def __init__(self, gort: Gort, name: str, actor: str, **kwargs):
         super().__init__(gort, name, actor)
@@ -188,10 +188,7 @@ class Enclosure(GortDevice):
         if "DRIVE_AVAILABLE" not in labels:
             return False
 
-        if await self.is_local():
-            return False
-
-        return True
+        return not await self.is_local()
 
     async def _park_telescopes(self):
         """Moves telescopes to park position before opening/closing the enclosure."""

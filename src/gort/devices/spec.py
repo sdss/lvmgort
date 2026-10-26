@@ -9,8 +9,9 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Sequence
 
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, ClassVar
 
 from gort.devices.core import GortDevice, GortDeviceSet
 from gort.exceptions import ErrorCode, GortError, GortSpecError
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
     from gort.remote import ActorReply
 
 
-__all__ = ["Spectrograph", "SpectrographSet", "IEB"]
+__all__ = ["IEB", "Spectrograph", "SpectrographSet"]
 
 
 class IEB(GortDevice):
@@ -36,7 +37,7 @@ class IEB(GortDevice):
     async def status(self):
         """Returns the status of the IEB."""
 
-        replies: list[ActorReply] = await asyncio.gather(
+        replies: list[ActorReply | BaseException] = await asyncio.gather(
             self.actor.commands.shutter.commands.status(),
             self.actor.commands.hartmann.commands.status(),
             self.actor.commands.transducer.commands.status(),
@@ -47,7 +48,7 @@ class IEB(GortDevice):
 
         status = {}
         for reply in replies:
-            if isinstance(reply, Exception):
+            if isinstance(reply, BaseException):
                 self.write_to_log(str(reply), "warning")
                 continue
 
@@ -344,7 +345,7 @@ class SpectrographSet(GortDeviceSet[Spectrograph]):
     """A set of LVM spectrographs."""
 
     __DEVICE_CLASS__ = Spectrograph
-    __DEPLOYMENTS__ = ["lvmscp"]
+    __DEPLOYMENTS__: ClassVar[list[str]] = ["lvmscp"]
 
     def __init__(self, gort: Gort, data: dict[str, dict], **kwargs):
         super().__init__(gort, data, **kwargs)

@@ -9,14 +9,14 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 
-from typing import TYPE_CHECKING, Any, Callable, Literal
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 import unclick
 from aiormq import AMQPConnectionError, ChannelInvalidStateError
-from typing_extensions import Self
 
 from clu.tools import CommandStatus
 from lvmopstools.retrier import Retrier
@@ -38,13 +38,13 @@ if TYPE_CHECKING:
     from gort.gort import Gort
 
 
-__all__ = ["RemoteActor", "RemoteCommand", "ActorReply"]
+__all__ = ["ActorReply", "RemoteActor", "RemoteCommand"]
 
 
 class CommandSet(dict[str, "RemoteCommand"]):
     """A command set for a remote actor."""
 
-    def __getattribute__(self, __name: str) -> RemoteCommand:
+    def __getattribute__(self, /, __name: str) -> RemoteCommand:
         if __name in self:
             return self[__name]
         return super().__getattribute__(__name)

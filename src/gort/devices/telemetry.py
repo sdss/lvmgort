@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from gort.devices.core import GortDevice, GortDeviceSet
 
@@ -38,4 +38,4 @@ class TelemetrySet(GortDeviceSet[Telemetry]):
     """A set of telemetry sensors."""
 
     __DEVICE_CLASS__ = Telemetry
-    __DEPLOYMENTS__ = ["lvmtelemetry"]
+    __DEPLOYMENTS__: ClassVar[list[str]] = ["lvmtelemetry"]

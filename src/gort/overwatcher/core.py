@@ -12,7 +12,7 @@ import asyncio
 from unittest.mock import Mock
 from weakref import WeakSet
 
-from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar
+from typing import TYPE_CHECKING, ClassVar, TypeVar
 
 from gort.exceptions import GortError
 from gort.tools import LogNamespace, cancel_task, decap
@@ -97,7 +97,9 @@ class OverwatcherBaseTask:
                     continue
 
 
-class OverwatcherModuleTask(OverwatcherBaseTask, Generic[OverwatcherModule_T]):
+class OverwatcherModuleTask[OverwatcherModule_T: "OverwatcherModule"](
+    OverwatcherBaseTask
+):
     """A task that runs in an overwatcher module."""
 
     def __init__(self):
@@ -155,7 +157,7 @@ class OverwatcherModuleTask(OverwatcherBaseTask, Generic[OverwatcherModule_T]):
 class OverwatcherModule:
     """A generic overwatcher module."""
 
-    instances = WeakSet()
+    instances: ClassVar[WeakSet] = WeakSet()
     name: str = "generic"
     delay: float = 0
 
@@ -185,8 +187,6 @@ class OverwatcherModule:
 
     async def reset(self, *args, **kwargs):
         """Resets the overwatcher module."""
-
-        pass
 
     async def run(self):
         """Runs the overwatcher module."""

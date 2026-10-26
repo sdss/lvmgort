@@ -10,8 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import random
-
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy
 from astropy.time import Time
@@ -23,13 +22,11 @@ from gort.tools import decap, get_ephemeris_summary
 from .base import BaseRecipe
 
 
-__all__ = ["QuickCals", "BiasSequence", "TwilightFlats", "LongTermCalibrations"]
+__all__ = ["BiasSequence", "LongTermCalibrations", "QuickCals", "TwilightFlats"]
 
 
 class ExposureTimeTooLong(GortError):
     """Raised when the exposure time is too long to continue twilight flats."""
-
-    pass
 
 
 class QuickCals(BaseRecipe):
@@ -237,7 +234,7 @@ class TwilightFlats(BaseRecipe):
             # Calculate the number of minutes into the twilight. Positive values
             # mean minutes into daytime (before sunset or after sunrise).
             now = Time.now()
-            time_diff_sun = (now - riseset).sec / 60.0  # Minutes
+            time_diff_sun = (now - riseset).sec / 60.0  # Minutes  # ty: ignore
             if is_sunset:
                 time_diff_sun = -time_diff_sun
 

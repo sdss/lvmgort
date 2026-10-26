@@ -9,10 +9,10 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import partial
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import polars
 from packaging.version import Version
@@ -287,9 +287,10 @@ class Guider(GortDevice):
         monitor_task: asyncio.Task | None = None
 
         # The PA argument in lvmguider was added in 0.4.0a0.
-        if self.version == Version("0.99.0") or self.version < Version("0.4.0a0"):
-            if "pa" in guide_kwargs:
-                guide_kwargs.pop("pa")
+        is_dev_version = Version("0.99.0")
+        is_old_version = self.version < Version("0.4.0a0")
+        if (is_dev_version or is_old_version) and ("pa" in guide_kwargs):
+            guide_kwargs.pop("pa")
 
         self.separation = None
 
@@ -380,7 +381,7 @@ class Guider(GortDevice):
                 # Remove NaN rows.
                 df = df.drop_nulls()
 
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 time_range = now - timedelta(seconds=timeout)
                 time_data = df.filter(polars.col.time > time_range).sort("time")
 
@@ -567,7 +568,7 @@ class GuiderSet(GortDeviceSet[Guider]):
     """A set of telescope guiders."""
 
     __DEVICE_CLASS__ = Guider
-    __DEPLOYMENTS__ = ["lvmguider"]
+    __DEPLOYMENTS__: ClassVar[list[str]] = ["lvmguider"]
 
     async def expose(self, *args, continuous: bool = False, **kwargs):
         """Exposes all the cameras using the guider.

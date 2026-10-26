@@ -12,12 +12,13 @@ import asyncio
 import logging
 import re
 import signal
+from collections.abc import Callable, Coroutine
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import partial, wraps
 from time import time
 
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from astropy.time import Time
 
@@ -500,8 +501,11 @@ class GortObserver:
 
     @handle_signals(interrupt_signals, interrupt_helper.run_callback)
     @register_stage_status
-    async def slew(self, telescopes: list[str] = ["sci", "skye", "skyw", "spec"]):
+    async def slew(self, telescopes: list[str] | None = None):
         """Slew to the telescope fields."""
+
+        if telescopes is None:
+            telescopes = ["sci", "skye", "skyw", "spec"]
 
         cotasks = []
 
@@ -522,22 +526,25 @@ class GortObserver:
                 self.tile.sci_coords.dec,
                 self.tile.sci_coords.pa,
             )
-            self.write_to_log(f"Science: {str(self.tile.sci_coords)}")
+            self.write_to_log(f"Science: {self.tile.sci_coords!s}")
 
-        if "spec" in telescopes:
-            if self.tile.spec_coords and len(self.tile.spec_coords) > 0:
-                first_spec = self.tile.spec_coords[0]
+        if (
+            "spec" in telescopes
+            and self.tile.spec_coords
+            and len(self.tile.spec_coords) > 0
+        ):
+            first_spec = self.tile.spec_coords[0]
 
-                # For spec we slew to the fibre with which we'll observe first.
-                # This should save a bit of time converging.
-                spec = fibre_slew_coordinates(
-                    first_spec.ra,
-                    first_spec.dec,
-                    self.mask_positions[0],
-                    derotated=False,
-                )
+            # For spec we slew to the fibre with which we'll observe first.
+            # This should save a bit of time converging.
+            spec = fibre_slew_coordinates(
+                first_spec.ra,
+                first_spec.dec,
+                self.mask_positions[0],
+                derotated=False,
+            )
 
-                self.write_to_log(f"Spec: {first_spec} on {self.mask_positions[0]}")
+            self.write_to_log(f"Spec: {first_spec} on {self.mask_positions[0]}")
 
         sky = {}
         for skytel in ["SkyE", "SkyW"]:
@@ -577,7 +584,7 @@ class GortObserver:
         self,
         guide_tolerance: float | None = None,
         timeout: float | None = None,
-        telescopes: list[str] = ["sci", "skye", "skyw", "spec"],
+        telescopes: list[str] | None = None,
     ):
         """Acquires the field in all the telescopes. Blocks until then.
 
@@ -604,6 +611,9 @@ class GortObserver:
             not guiding.
 
         """
+
+        if telescopes is None:
+            telescopes = ["sci", "skye", "skyw", "spec"]
 
         timeout = timeout or self.gort.config["observer.acquisition_timeout"]
 
@@ -679,7 +689,7 @@ class GortObserver:
                 ]
             )
 
-        has_timedout = any([gs[3] for gs in guide_status])
+        has_timedout = any(gs[3] for gs in guide_status)
         if has_timedout:
             self.write_to_log("Some acquisitions timed out.", "warning")
             # TODO: we need to stop guiders that timed out.
@@ -790,7 +800,6 @@ class GortObserver:
             raise GortObserverCancelledError()
 
         exposures: list[Exposure] = []
-        _n_exposures = 0
 
         for nexp in range(1, count + 1):
             self.write_to_log(
@@ -800,7 +809,7 @@ class GortObserver:
 
             with self.register_overhead(f"expose:pre-exposure-{nexp}"):
                 # Refresh guider data for this exposure.
-                if _n_exposures > 0:
+                if nexp > 1:
                     self.guider_monitor.reset()
 
                 # Move fibre selector to the first position. Should be there unless
@@ -857,7 +866,6 @@ class GortObserver:
                 await exposure
 
             exposures.append(exposure)
-            _n_exposures += 1
 
         if len(exposures) == 1:
             return exposures[0]
@@ -955,7 +963,7 @@ class GortObserver:
             "exposure_no": exposure.exp_no,
             "dither": dither_position,
             "exposure_time": exposure._exposure_time,
-            "jd": float(exposure.start_time.jd),
+            "jd": float(exposure.start_time.jd),  # ty: ignore[invalid-argument-type]
             "seeing": -999.0,
             "standards": standards,
             "skies": skies,
@@ -1001,7 +1009,7 @@ class GortObserver:
         level: str = "debug",
         header: str | None = None,
         event: Event | None = None,
-        extra_payload: dict[str, Any] = {},
+        extra_payload: dict[str, Any] | None = None,
     ):
         """Writes a message to the log with a custom header.
 
@@ -1036,7 +1044,7 @@ class GortObserver:
                 "level": level,
                 "tile_id": self.tile.tile_id,
             }
-            payload.update(extra_payload)
+            payload.update(extra_payload or {})
 
             asyncio.create_task(self.gort.notify_event(event, payload=payload))
 
@@ -1115,7 +1123,7 @@ class GortObserver:
             # having longer exposure time than open shutter.
             if self.has_standards and self._current_exposure is not None:
                 start_time = self._current_exposure.start_time.unix
-                self.standards.standards[1].t0 = start_time
+                self.standards.standards[1].t0 = start_time  # ty: ignore[invalid-assignment]
 
             header.update(self.standards.to_header())
 
@@ -1352,10 +1360,12 @@ class Standards:
         if len(self.standards) == 0:
             return
 
-        if self.standards[self.current_standard].acquired:
-            if not self.standards[self.current_standard].observed:
-                self.standards[self.current_standard].observed = True
-                self.standards[self.current_standard].t1 = time()
+        if (
+            self.standards[self.current_standard].acquired
+            and not self.standards[self.current_standard].observed
+        ):
+            self.standards[self.current_standard].observed = True
+            self.standards[self.current_standard].t1 = time()
 
     async def _iterate(self, exposure_time: float):
         """Iterate task."""

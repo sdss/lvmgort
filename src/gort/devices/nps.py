@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from gort.devices.core import GortDevice, GortDeviceSet
 
@@ -58,4 +58,4 @@ class NPSSet(GortDeviceSet[NPS]):
     """A set of networked power switches."""
 
     __DEVICE_CLASS__ = NPS
-    __DEPLOYMENTS__ = ["lvmnps"]
+    __DEPLOYMENTS__: ClassVar[list[str]] = ["lvmnps"]

@@ -14,8 +14,9 @@ import pathlib
 import re
 import warnings
 from collections import defaultdict
+from collections.abc import Callable, Coroutine, Sequence
 
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, Sequence
+from typing import TYPE_CHECKING, Any
 
 from astropy.io import fits
 from astropy.time import Time
@@ -40,7 +41,7 @@ if TYPE_CHECKING:
     from gort.gort import Gort
 
 
-__all__ = ["Exposure", "READOUT_TIME"]
+__all__ = ["READOUT_TIME", "Exposure"]
 
 
 READOUT_TIME = 55
@@ -359,8 +360,6 @@ class Exposure(asyncio.Future["Exposure"]):
 
         self._timer_task = asyncio.create_task(update_timer())
 
-        return
-
     def stop_timer(self):
         """Cancels the timer."""
 
@@ -463,7 +462,7 @@ class Exposure(asyncio.Future["Exposure"]):
         try:
             async with asyncio.timeout(10):
                 await self.write_to_db(files, exposure_table)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             log(
                 "Timeout writing to database. Data may not have been recorded.",
                 "warning",

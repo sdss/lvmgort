@@ -1,11 +1,21 @@
 # Changelog
 
+## Next release
+
+### 🔥 Breaking changes
+
+* Require Python 3.12 or higher.
+
+### ⚙️ Engineering
+
+* Update the Ruff and ty configurations and fix all the issues reported by them.
+
+
 ## 1.13.1 - September 15, 2026
 
 ### 🔧 Fixed
 
 * Change the default timeout for the scheduler API requests to 20 seconds.
-
 
 
 ## 1.13.0 - September 14, 2026

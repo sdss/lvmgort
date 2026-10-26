@@ -13,6 +13,7 @@ import concurrent.futures
 import datetime
 import functools
 import hashlib
+import inspect
 import logging
 import os
 import pathlib
@@ -20,19 +21,21 @@ import re
 import subprocess
 import tempfile
 import warnings
+from collections.abc import (
+    AsyncGenerator,
+    Awaitable,
+    Callable,
+    Coroutine,
+    Generator,
+    Sequence,
+)
 from contextlib import asynccontextmanager, contextmanager, suppress
 from functools import partial, wraps
 
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    Coroutine,
-    Generator,
     Literal,
-    Sequence,
     TypedDict,
     TypeVar,
     cast,
@@ -48,7 +51,7 @@ from astropy import units as uu
 from astropy.coordinates import angular_separation as astropy_angular_separation
 from redis import asyncio as aioredis
 
-from clu import AMQPClient
+from clu import AMQPClient, AMQPReply
 from sdsstools import get_sjd
 
 from gort import config
@@ -56,58 +59,56 @@ from gort.exceptions import ErrorCode, GortError
 
 
 if TYPE_CHECKING:
-    from clu import AMQPClient, AMQPReply
-
     from gort.devices.telescope import FibSel
     from gort.gort import Gort
 
 
 __all__ = [
-    "get_valid_variable_name",
-    "get_next_tile_id",
-    "get_calibrators",
-    "get_next_tile_id_sync",
-    "get_calibrators_sync",
-    "register_observation",
-    "get_ccd_frame_path",
-    "move_mask_interval",
-    "angular_separation",
-    "get_db_connection",
-    "redis_client_async",
-    "redis_client_sync",
-    "run_in_executor",
-    "is_interactive",
-    "is_notebook",
-    "cancel_task",
-    "get_ephemeris_summary",
-    "get_ephemeris_summary_sync",
-    "get_temporary_file_path",
-    "insert_to_database",
-    "get_md5sum_file",
-    "get_md5sum_from_spectro",
-    "get_md5sum",
-    "mark_exposure_bad",
-    "handle_signals",
-    "get_lvmapi_route",
-    "run_lvmapi_task",
     "GuiderMonitor",
-    "overwatcher_is_running",
-    "get_by_source_id",
-    "is_actor_running",
-    "check_overwatcher_not_running",
-    "kubernetes_restart_deployment",
-    "kubernetes_list_deployments",
-    "get_gort_client",
-    "add_night_log_comment",
-    "async_noop",
     "LogNamespace",
+    "OverheadDict",
+    "add_night_log_comment",
+    "angular_separation",
+    "async_noop",
+    "cancel_task",
+    "check_overwatcher_not_running",
     "decap",
     "ensure_period",
-    "try_or_pass",
-    "record_overheads",
-    "OverheadDict",
-    "ping_host",
+    "get_by_source_id",
+    "get_calibrators",
+    "get_calibrators_sync",
+    "get_ccd_frame_path",
+    "get_db_connection",
+    "get_ephemeris_summary",
+    "get_ephemeris_summary_sync",
     "get_exposure_list",
+    "get_gort_client",
+    "get_lvmapi_route",
+    "get_md5sum",
+    "get_md5sum_file",
+    "get_md5sum_from_spectro",
+    "get_next_tile_id",
+    "get_next_tile_id_sync",
+    "get_temporary_file_path",
+    "get_valid_variable_name",
+    "handle_signals",
+    "insert_to_database",
+    "is_actor_running",
+    "is_interactive",
+    "is_notebook",
+    "kubernetes_list_deployments",
+    "kubernetes_restart_deployment",
+    "mark_exposure_bad",
+    "move_mask_interval",
+    "overwatcher_is_running",
+    "ping_host",
+    "record_overheads",
+    "redis_client_async",
+    "redis_client_sync",
+    "register_observation",
+    "run_in_executor",
+    "run_lvmapi_task",
+    "try_or_pass",
 ]
 
 AnyPath = str | os.PathLike
@@ -455,7 +456,7 @@ async def move_mask_interval(
 
         # Notify.
         if notifier is not None:
-            if asyncio.iscoroutinefunction(notifier):
+            if inspect.iscoroutinefunction(notifier):
                 asyncio.create_task(notifier(position))
             else:
                 notifier(position)
@@ -576,8 +577,8 @@ def get_temporary_file_path(*args, create_parents: bool = False, **kwargs):
 
     """
 
-    tmp_log_file = tempfile.NamedTemporaryFile(*args, **kwargs)
-    tmp_log_file.close()
+    with tempfile.NamedTemporaryFile(*args, **kwargs) as tmp_log_file:
+        pass
 
     tmp_path = pathlib.Path(tmp_log_file.name)
     if tmp_path.exists():
@@ -622,7 +623,6 @@ def insert_to_database(
             schema, table_name = table_name.split(".")
         else:
             schema = None
-            table_name = table_name
 
         table = peewee.Table(table_name, schema=schema, columns=columns)
         table.bind(conn)
@@ -651,7 +651,8 @@ def get_md5sum_from_spectro(file: AnyPath):
     if not md5sum_file:
         return None
 
-    data = open(md5sum_file).read()
+    with open(md5sum_file) as fd:
+        data = fd.read()
 
     match = re.search(rf"([0-9a-f]+)\s+{basename}", data)
     if not match:
@@ -663,7 +664,8 @@ def get_md5sum_from_spectro(file: AnyPath):
 def get_md5sum(file: AnyPath):
     """Returns the MD5 checksum for a file."""
 
-    data = open(file, "rb").read()
+    with open(file, "rb") as fd:
+        data = fd.read()
 
     return hashlib.md5(data).hexdigest()
 
@@ -762,9 +764,15 @@ def get_ephemeris_summary_sync(sjd: int | None = None) -> dict:
     return resp.json()
 
 
-async def get_lvmapi_route(route: str, params: dict = {}, timeout: float = 5, **kwargs):
+async def get_lvmapi_route(
+    route: str,
+    params: dict | None = None,
+    timeout: float = 5,
+    **kwargs,
+):
     """Gets an ``lvmapi`` route."""
 
+    params = params or {}
     params.update(kwargs)
 
     host, port = config["services"]["lvmapi"].values()
@@ -776,8 +784,7 @@ async def get_lvmapi_route(route: str, params: dict = {}, timeout: float = 5, **
     else:
         base_route = ""
 
-    if route.startswith("/"):
-        route = route[1:]
+    route = route.removeprefix("/")
 
     if "?" in route:
         raise ValueError("Query parameters should be passed as a dictionary.")
@@ -797,7 +804,7 @@ async def get_lvmapi_route(route: str, params: dict = {}, timeout: float = 5, **
 
 async def run_lvmapi_task(
     route: str,
-    params: dict = {},
+    params: dict | None = None,
     wait: bool = True,
     check_interval: float = 3,
     timeout: float | None = None,
@@ -828,7 +835,7 @@ async def run_lvmapi_task(
 
     """
 
-    task_id = await get_lvmapi_route(route, params=params, **kwargs)
+    task_id = await get_lvmapi_route(route, params=(params or {}), **kwargs)
 
     if not wait:
         return task_id
@@ -843,7 +850,7 @@ async def run_lvmapi_task(
             return await get_lvmapi_route(f"/tasks/{task_id}/result", timeout=10)
 
         if timeout and elapsed > timeout:
-            raise asyncio.TimeoutError(f"Task {task_id} did not complete in time.")
+            raise TimeoutError(f"Task {task_id} did not complete in time.")
 
 
 class GuiderMonitor:
@@ -932,7 +939,7 @@ class GuiderMonitor:
                 new_data = {
                     "frameno": frameno,
                     "telescope": telescope,
-                    "time": datetime.datetime.now(datetime.timezone.utc),
+                    "time": datetime.datetime.now(datetime.UTC),
                     "n_sources": frame["n_sources"],
                     "focus_position": frame["focus_position"],
                     "fwhm": frame["fwhm"],
@@ -1037,10 +1044,7 @@ async def is_actor_running(actor: str, client: AMQPClient | None = None):
     if close_client:
         await client.stop()
 
-    if ping.status.did_succeed:
-        return True
-
-    return False
+    return bool(ping.status.did_succeed)
 
 
 async def overwatcher_is_running(client: AMQPClient | None = None):
@@ -1108,7 +1112,7 @@ async def get_gort_client(override_overwatcher: bool | None = None):
 
     override_envvar = os.environ.get("GORT_OVERRIDE_OVERWATCHER", "0")
     if override_overwatcher is None:
-        override_overwatcher = False if override_envvar == "0" else True
+        override_overwatcher = override_envvar != "0"
 
     gort = await Gort(
         override_overwatcher=override_overwatcher,
@@ -1148,7 +1152,7 @@ async def add_night_log_comment(comment: str, category: NightLogCategories = "ot
 async def async_noop(*args, **kwargs):
     """A no-op coroutine."""
 
-    return None
+    return
 
 
 class LogNamespace:
@@ -1214,12 +1218,12 @@ def ensure_period(string: str):
 T = TypeVar("T", bound=Any)
 
 
-async def try_or_pass(coro: Awaitable[T]) -> T | None:
+async def try_or_pass[T: Any](coro: Awaitable[T]) -> T | None:
     """Decorator that wraps a coroutine in a try/except block."""
 
     try:
         return await coro
-    except Exception:
+    except Exception:  # noqa: S110
         pass
 
 

@@ -160,7 +160,7 @@ class QuerableCoordinates(Coordinates):
     def from_science_coordinates(
         cls,
         sci_coords: ScienceCoordinates,
-        exclude_coordinates: list[CoordTuple] = [],
+        exclude_coordinates: list[CoordTuple] | None = None,
         exclude_invisible: bool = True,
     ):
         """Retrieves a valid and observable position from the database.
@@ -178,13 +178,12 @@ class QuerableCoordinates(Coordinates):
 
         """
 
-        with get_db_connection() as connection:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                targets = polars.read_database(
-                    f"SELECT ra,dec from {cls.__db_table__};",
-                    connection,
-                )
+        with get_db_connection() as connection, warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            targets = polars.read_database(
+                f"SELECT ra,dec from {cls.__db_table__};",
+                connection,
+            )
 
         # Cache query.
         if cls.targets is None:
@@ -198,7 +197,7 @@ class QuerableCoordinates(Coordinates):
         skycoords = cls.targets.copy()
 
         # Exclude regions too close to the exlcuded ones.
-        for ex_coords in exclude_coordinates:
+        for ex_coords in exclude_coordinates or []:
             ex_skycoords = SkyCoord(ra=ex_coords[0], dec=ex_coords[1], unit="deg")
             skycoords = skycoords[skycoords.separation(ex_skycoords).deg > 1]
 
@@ -218,7 +217,7 @@ class QuerableCoordinates(Coordinates):
 
         return cls(skycoord_min.ra.deg, skycoord_min.dec.deg)
 
-    def verify_and_replace(self, exclude_coordinates: list[CoordTuple] = []):
+    def verify_and_replace(self, exclude_coordinates: list[CoordTuple] | None = None):
         """Verifies that the coordinates are visible and if not, replaces them.
 
         Parameters
@@ -234,7 +233,7 @@ class QuerableCoordinates(Coordinates):
             sci_coords = ScienceCoordinates(self.ra, self.dec)
             valid_skycoords = self.from_science_coordinates(
                 sci_coords,
-                exclude_coordinates=exclude_coordinates,
+                exclude_coordinates=exclude_coordinates or [],
             )
             super().__init__(valid_skycoords.ra, valid_skycoords.dec)
 
@@ -383,10 +382,10 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             self.dither_positions = dither_positions
         elif isinstance(dither_positions, int):
             self.dither_positions = [dither_positions]
-        # else:
-        #     raise TileError("Invalid dither_positions input.")
+        else:
+            raise TileError("Invalid dither_positions input.")
 
-        self.object = object or (f"Tile {self.tile_id}" if self.tile_id else None)
+        self.object = object
 
         self.reobserved: bool = False
         self.ancillary: bool = False
@@ -590,7 +589,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
         elif tile_id is not None:
             raise GortNotImplemented("Initialising from a tile_id is not supported.")
 
-        elif not tile_id and (ra is not None and dec is not None):
+        elif ra is not None and dec is not None:
             tile_id = None
             sci_pos = (ra, dec, pa)
             dither_pos = 0
@@ -694,7 +693,7 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
             if tel_coords is None:
                 replace = True
             elif isinstance(tel_coords, SkyCoordinates):
-                tel_coords = tel_coords
+                pass
             else:
                 tel_coords = SkyCoordinates(*tel_coords)
 
@@ -708,13 +707,11 @@ class Tile(dict[str, Coordinates | list[Coordinates] | None]):
                 tel_coords is not None
                 and telescope == "skyw"
                 and "skye" in valid_sky_coords
+                and tel_coords.ra == valid_sky_coords["skye"].ra
+                and tel_coords.dec == valid_sky_coords["skye"].dec
             ):
-                if (
-                    tel_coords.ra == valid_sky_coords["skye"].ra
-                    and tel_coords.dec == valid_sky_coords["skye"].dec
-                ):
-                    tel_coords = None
-                    replace = True
+                tel_coords = None
+                replace = True
 
             if replace:
                 try:

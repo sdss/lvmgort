@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import asyncio
 
+from typing import ClassVar
+
 from gort.devices.core import GortDevice, GortDeviceSet
 from gort.exceptions import GortDeviceError
 from gort.gort import Gort
@@ -162,7 +164,7 @@ class AGSet(GortDeviceSet[AG]):
     """A set of auto-guiders."""
 
     __DEVICE_CLASS__ = AG
-    __DEPLOYMENTS__ = ["lvmagcam"]
+    __DEPLOYMENTS__: ClassVar[list[str]] = ["lvmagcam"]
 
     @property
     def n_cameras(self):
@@ -244,7 +246,10 @@ class AGSet(GortDeviceSet[AG]):
                 try:
                     replies.append({"actor": status.actor.name, **reply["status"]})
                 except Exception:
-                    pass
+                    self.write_to_log(
+                        f"Error parsing status reply from {status.actor.name}: {reply}",
+                        "warning",
+                    )
 
         cameras: list[str] = []
         for reply in replies:

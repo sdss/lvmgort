@@ -201,18 +201,17 @@ class PreObservingTask(DailyTaskBase):
 
         # Run this task 30 minutes before sunset.
         now = time.time()
-        sunset = Time(self.overwatcher.ephemeris.ephemeris.sunset, format="jd").unix
 
-        if (
+        sunset = Time(self.overwatcher.ephemeris.ephemeris.sunset, format="jd").unix
+        assert isinstance(sunset, float)
+
+        return not (
             sunset - now < 0
             or sunset - now > 1800
             or sunset - now < 600
             or self.overwatcher.state.calibrating
             or self.overwatcher.state.observing
-        ):
-            return False
-
-        return True
+        )
 
     async def _run_internal(self) -> bool:
         """Runs the pre-observing tasks."""
@@ -245,22 +244,21 @@ class PowerCycleAGsTask(DailyTaskBase):
 
         # Run this task 30 minutes before sunset.
         now = time.time()
+
         sunset = Time(self.overwatcher.ephemeris.ephemeris.sunset, format="jd").unix
+        assert isinstance(sunset, float)
 
         key = f"overwatcher.tasks.{self.name}"
         min_time = self.config.get(f"{key}.min_time", 3600)
         max_time = self.config.get(f"{key}.max_time", 3000)
 
-        if (
+        return not (
             sunset - now < 0
             or sunset - now > min_time
             or sunset - now < max_time
             or self.overwatcher.state.calibrating
             or self.overwatcher.state.observing
-        ):
-            return False
-
-        return True
+        )
 
     async def _run_internal(self) -> bool:
         """Runs the pre-observing tasks."""
@@ -330,10 +328,7 @@ class PostObservingTask(DailyTaskBase):
             )
             specs_idle = False
 
-        if not specs_idle:
-            return False
-
-        return True
+        return specs_idle
 
     async def _run_internal(self) -> bool:
         """Runs the post-observing tasks."""
@@ -386,7 +381,7 @@ class PostObservingTask(DailyTaskBase):
                         calibrations_attempted = True
                         await self.overwatcher.calibrations.run_calibration(calibration)
 
-                        if not calibration.state == CalibrationState.DONE:
+                        if calibration.state != CalibrationState.DONE:
                             await notify(f"Failed to recover calibration {name}.")
                         else:
                             await notify(f"Calibration {name} recovered.")

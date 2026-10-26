@@ -10,9 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import pathlib
+from collections.abc import Sequence
 from functools import partial
-
-from typing import Sequence
 
 import numpy
 import polars
@@ -75,7 +74,7 @@ def get_random_sample(
 
         altaz = SkyCoord(altaz[altaz.alt.deg > 30])
 
-        altaz_array = numpy.array([altaz.alt.deg, altaz.az.deg], dtype=numpy.float64).T
+        altaz_array = numpy.array([altaz.alt.deg, altaz.az.deg], dtype=numpy.float64).T  # ty: ignore[unresolved-attribute]
 
         points = numpy.vstack((points, altaz_array))
 
@@ -235,14 +234,14 @@ async def pointing_model(
             )
         )
         icrs = altaz.transform_to("icrs")
-        ra = icrs.ra.deg
-        dec = icrs.dec.deg
+        ra = icrs.ra.deg  # ty: ignore[unresolved-attribute]
+        dec = icrs.dec.deg  # ty: ignore[unresolved-attribute]
 
         gort.log.info(f"({npoint + 1}/{n_points}): Going to {ra:.6f}, {dec:.6f}.")
 
         if calculate_offset is False:
             tasks = [
-                gort.telescopes[telescope].goto_coordinates(ra=ra, dec=dec)
+                gort.telescopes[telescope].goto_coordinates(ra=ra, dec=dec)  # ty: ignore[invalid-argument-type]
                 for telescope in telescopes
             ]
             await asyncio.gather(*tasks)
@@ -255,8 +254,8 @@ async def pointing_model(
                 get_offset(
                     gort,
                     tel,
-                    ra,
-                    dec,
+                    ra,  # ty: ignore[invalid-argument-type]
+                    dec,  # ty: ignore[invalid-argument-type]
                     add_point=add_points,
                     disable_on_addition=disable_on_addition,
                 )
@@ -274,7 +273,7 @@ async def pointing_model(
                     f"at ({ra:.6f}, {dec:.6f})"
                 )
             elif isinstance(result, BaseException):
-                gort.log.warning(f"Telescope {tel} failed with error: {str(result)}")
+                gort.log.warning(f"Telescope {tel} failed with error: {result!s}")
             else:
                 valid.append(result)
 

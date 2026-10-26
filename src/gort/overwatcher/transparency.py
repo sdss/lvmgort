@@ -12,7 +12,7 @@ import asyncio
 import enum
 from time import time
 
-from typing import TYPE_CHECKING, Literal, Sequence, TypedDict, cast, get_args
+from typing import ClassVar, Literal, TypedDict, cast
 
 import numpy
 import polars
@@ -24,11 +24,7 @@ from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 from gort.tools import cancel_task, decap, get_lvmapi_route
 
 
-if TYPE_CHECKING:
-    pass
-
-
-__all__ = ["TransparencyOverwatcher", "TransparencyQuality", "TransparencyQuality"]
+__all__ = ["TransparencyOverwatcher", "TransparencyQuality"]
 
 
 class TransparencyQuality(enum.Flag):
@@ -189,7 +185,7 @@ class TransparencyOverwatcher(OverwatcherModule):
 
     name = "alerts"
 
-    tasks = [TransparencyMonitorTask()]
+    tasks: ClassVar[list[OverwatcherModuleTask]] = [TransparencyMonitorTask()]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -232,16 +228,11 @@ class TransparencyOverwatcher(OverwatcherModule):
             },
         )
 
-    def write_to_log(
-        self,
-        telescopes: Sequence[Telescopes] | Telescopes = get_args(Telescopes),
-    ):
+    def write_to_log(self, telescopes: list[Telescopes]):
         """Writes the current state to the log."""
 
         if isinstance(telescopes, str):
-            telescopes = [telescopes]  # type: ignore
-
-        assert not isinstance(telescopes, str)
+            telescopes = [telescopes]
 
         for tel in telescopes:
             self.log.info(

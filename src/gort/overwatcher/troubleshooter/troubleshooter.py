@@ -106,13 +106,13 @@ class Troubleshooter:
 
         try:
             await asyncio.wait_for(self._event.wait(), timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise TroubleshooterTimeoutError("Troubleshooter timed out.")
 
     def create_hash(self, error: GortError) -> int:
         """Creates a hash for the error to track it."""
 
-        root = f"{error.error_code.name}_{str(error)}"
+        root = f"{error.error_code.name}_{error!s}"
         return int(hashlib.sha1(root.encode("utf-8")).hexdigest(), 16) % (10**8)
 
     async def handle(self, error: Exception | str):
@@ -127,7 +127,7 @@ class Troubleshooter:
         """
 
         if not isinstance(error, (Exception, str)):
-            raise RuntimeError("error must be an exception or a string.")
+            raise TypeError("error must be an exception or a string.")
 
         if isinstance(error, str):
             error = GortError(error, error_code=ErrorCode.UNCATEGORISED_ERROR)

@@ -12,7 +12,7 @@ import asyncio
 import enum
 from time import time
 
-from typing import TYPE_CHECKING
+from typing import ClassVar
 
 from httpx import TimeoutException
 from pydantic import BaseModel, Field
@@ -23,11 +23,7 @@ from gort.overwatcher.core import OverwatcherModule, OverwatcherModuleTask
 from gort.tools import decap, ensure_period, get_lvmapi_route
 
 
-if TYPE_CHECKING:
-    pass
-
-
-__all__ = ["AlertsOverwatcher", "ActiveAlert"]
+__all__ = ["ActiveAlert", "AlertsOverwatcher"]
 
 
 class AlertsSummary(BaseModel):
@@ -164,7 +160,7 @@ class AlertsOverwatcher(OverwatcherModule):
 
     name = "alerts"
 
-    tasks = [AlertsMonitorTask()]
+    tasks: ClassVar[list[OverwatcherModuleTask]] = [AlertsMonitorTask()]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

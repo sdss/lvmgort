@@ -119,8 +119,6 @@ async def reset(command: OverwatcherCommand):
 def calibrations(*_):
     """Handles the automated calibrations."""
 
-    pass
-
 
 @calibrations.command()
 async def enable_calibrations(command: OverwatcherCommand):
@@ -262,8 +260,6 @@ async def schedule_long_term_calibrations(
 def observer(*_):
     """Commands the overwatcher observer."""
 
-    pass
-
 
 @observer.command(name="status")
 async def observer_status(command: OverwatcherCommand):
@@ -329,8 +325,6 @@ async def shutdown(command: OverwatcherCommand, force: bool = False):
 @overwatcher_cli.group()
 def transparency():
     """Transparency commands."""
-
-    pass
 
 
 @transparency.command(name="status")
@@ -402,8 +396,6 @@ async def stop_monitoring(command: OverwatcherCommand):
 @overwatcher_cli.group()
 def config(*_):
     """Handles the Overwatcher configuration."""
-
-    pass
 
 
 @config.command(name="reload")

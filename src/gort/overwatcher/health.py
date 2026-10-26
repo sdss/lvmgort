@@ -157,7 +157,7 @@ class ActorHealthMonitorTask(OverwatcherModuleTask["HealthOverwatcher"]):
             ):
                 await self.notify("Waiting to read exposures before cancelling.")
                 await with_timeout(
-                    self.gort.specs.last_exposure,  # type: ignore
+                    self.gort.specs.last_exposure,
                     timeout=60,
                     raise_on_timeout=False,
                 )
@@ -190,7 +190,10 @@ class HealthOverwatcher(OverwatcherModule):
     """Monitors health."""
 
     name = "health"
-    tasks = [EmitHeartbeatTask(), ActorHealthMonitorTask()]
+    tasks: ClassVar[list[OverwatcherModuleTask]] = [
+        EmitHeartbeatTask(),
+        ActorHealthMonitorTask(),
+    ]
     delay = 0
 
     def __init__(self, overwatcher: Overwatcher):

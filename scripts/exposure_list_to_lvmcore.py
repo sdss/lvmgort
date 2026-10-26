@@ -58,7 +58,7 @@ async def exposure_list_to_lvmcore(overwrite: bool = False):
             try:
                 df = await get_exposure_list(mjd)
                 df.write_parquet(exp_list_file)
-            except Exception:
+            except Exception:  # noqa: S110
                 pass
 
             progress.update(task, advance=1)

@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import asyncio
 import enum
+from collections.abc import Coroutine
 
-from typing import TYPE_CHECKING, Coroutine
+from typing import TYPE_CHECKING
 
 from lvmopstools.retrier import Retrier
 
@@ -100,20 +101,15 @@ class DomeHelper:
 
         if status & DomeStatus.OPENING:
             return True
-        if status & DomeStatus.OPEN:
-            return True
 
-        return False
+        return bool(status & DomeStatus.OPEN)
 
     async def is_closed(self):
         """Returns True if the dome is closed."""
 
         status = await self.status()
 
-        if status & DomeStatus.CLOSED:
-            return True
-
-        return False
+        return bool(status & DomeStatus.CLOSED)
 
     async def is_closing(self):
         """Returns True if the dome is closed or closing."""
@@ -122,20 +118,15 @@ class DomeHelper:
 
         if status & DomeStatus.CLOSING:
             return True
-        if status & DomeStatus.CLOSED:
-            return True
 
-        return False
+        return bool(status & DomeStatus.CLOSED)
 
     async def is_moving(self):
         """Returns True if the dome is moving."""
 
         status = await self.status()
 
-        if status & DomeStatus.MOVING:
-            return True
-
-        return False
+        return bool(status & DomeStatus.MOVING)
 
     async def wait_until_idle(self, timeout: float | None = None):
         """Waits until the dome is idle."""

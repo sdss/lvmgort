@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from collections.abc import Sequence
 from time import time
 from traceback import format_exception
 
-from typing import TYPE_CHECKING, Any, Literal, Protocol, Sequence, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Protocol, cast
 
 import httpx
 
@@ -46,7 +47,7 @@ class NotifierMixIn(OverwatcherProtocol):
 
     # A dictionary of notification hash and the timestamp
     # when the notification can be sent again.
-    notification_history: dict[str, float] = {}
+    notification_history: ClassVar[dict[str, float]] = {}
 
     @timeout(30)
     async def notify(
@@ -59,7 +60,7 @@ class NotifierMixIn(OverwatcherProtocol):
         slack_channels: str | Sequence[str] | None = None,
         database: bool = True,
         log: bool = True,
-        payload: dict[str, Any] = {},
+        payload: dict[str, Any] | None = None,
         as_overwatcher: bool = True,
         allow_repeat_notifications: bool = False,
         min_time_between_repeat_notifications: int = 60,
@@ -118,7 +119,7 @@ class NotifierMixIn(OverwatcherProtocol):
 
         message = message or ""
         if error is not None and message == "":
-            message = f" {str(error)}"
+            message = f" {error!s}"
 
         trace: str | None = None
         if with_traceback and isinstance(error, Exception):
@@ -151,7 +152,7 @@ class NotifierMixIn(OverwatcherProtocol):
             error=error,
             slack=slack,
             slack_channels=slack_channels,
-            payload=payload,
+            payload=(payload or {}),
         )
 
         # Do not emit Slack notification if this is a repeated notification
@@ -209,7 +210,7 @@ class NotifierMixIn(OverwatcherProtocol):
         error: str | Exception | None = None,
         slack: bool = True,
         slack_channels: str | Sequence[str] | None = None,
-        payload: dict[str, Any] = {},
+        payload: dict[str, Any] | None = None,
     ):
         """Creates a hash for a notification."""
 

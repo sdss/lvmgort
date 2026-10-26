@@ -102,7 +102,7 @@ class CleanupRecipe(TroubleshooterRecipe):
         await self.overwatcher.gort.cleanup(
             readout=False,
             turn_lamps_off=True,
-            home_telescopes=True if n_errors > 1 else False,
+            home_telescopes=n_errors > 1,
         )
 
         return True
@@ -117,10 +117,7 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
     def match(self, error_model: TroubleModel) -> bool:
         """Returns True if the recipe can handle the error."""
 
-        if error_model.error_code == ErrorCode.ACQUISITION_FAILED:
-            return True
-
-        return False
+        return error_model.error_code == ErrorCode.ACQUISITION_FAILED
 
     def get_camera_ips(self):
         """Returns the IPs of the AG cameras."""
@@ -204,7 +201,7 @@ class AcquisitionFailedRecipe(TroubleshooterRecipe):
                 params={"cameras": failed_cameras},
                 timeout=300,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise TroubleshooterCriticalError("Power cycling AG cameras timed out.")
 
         await asyncio.sleep(5)
@@ -301,10 +298,7 @@ class SchedulerFailedRecipe(TroubleshooterRecipe):
     def match(self, error_model: TroubleModel) -> bool:
         """Returns True if the recipe can handle the error."""
 
-        if error_model.error_code.is_scheduler_error():
-            return True
-
-        return False
+        return bool(error_model.error_code.is_scheduler_error())
 
     async def _handle_internal(self, error_model: TroubleModel | None = None) -> bool:
         """Handle the error."""
@@ -331,10 +325,7 @@ class SpectrographNotIdleRecipe(TroubleshooterRecipe):
     def match(self, error_model: TroubleModel) -> bool:
         """Returns True if the recipe can handle the error."""
 
-        if error_model.error_code == ErrorCode.SECTROGRAPH_NOT_IDLE:
-            return True
-
-        return False
+        return error_model.error_code == ErrorCode.SECTROGRAPH_NOT_IDLE
 
     async def _handle_internal(self, error_model: TroubleModel | None = None) -> bool:
         """Handle the error."""

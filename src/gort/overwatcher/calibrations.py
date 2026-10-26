@@ -13,7 +13,7 @@ import enum
 import pathlib
 import time
 
-from typing import TYPE_CHECKING, Any, Literal, Self, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, cast
 
 from astropy import time as ap_time
 from pydantic import BaseModel, Field, model_validator
@@ -202,24 +202,24 @@ class Calibration:
 
             if cal.min_start_time is not None:
                 min_time_d = ap_time.TimeDelta(cal.min_start_time * 3600, format="sec")
-                min_start_time = (base_date + min_time_d).jd
+                min_start_time = (base_date + min_time_d).jd  # ty: ignore
 
             if cal.max_start_time is not None:
                 max_start_time_c = cal.max_start_time
                 if cal.min_start_time and max_start_time_c < cal.min_start_time:
                     max_start_time_c += 24
                 max_time_d = ap_time.TimeDelta(max_start_time_c * 3600, format="sec")
-                max_start_time = (base_date + max_time_d).jd
+                max_start_time = (base_date + max_time_d).jd  # ty: ignore
 
         # Now convert JD to UNIX ap_time.
         min_start_time_unix: float | None = None
         max_start_time_unix: float | None = None
 
         if min_start_time is not None:
-            min_start_time_unix = ap_time.Time(min_start_time, format="jd").unix
+            min_start_time_unix = ap_time.Time(min_start_time, format="jd").unix  # ty: ignore
 
         if max_start_time is not None:
-            max_start_time_unix = ap_time.Time(max_start_time, format="jd").unix
+            max_start_time_unix = ap_time.Time(max_start_time, format="jd").unix  # ty: ignore
 
         return min_start_time_unix, max_start_time_unix
 
@@ -234,14 +234,11 @@ class Calibration:
     def is_finished(self) -> bool:
         """Returns ``True`` if the calibration is done or has failed."""
 
-        if self.state in (
+        return self.state in (
             CalibrationState.DONE,
             CalibrationState.FAILED,
             CalibrationState.CANCELLED,
-        ):
-            return True
-
-        return False
+        )
 
     async def record_state(
         self,
@@ -388,9 +385,9 @@ class CalibrationSchedule:
     def read_file(self, filename: PathType) -> list[CalibrationModel]:
         """Loads calibrations from a file."""
 
-        cal_data: list = read_yaml_file(filename)
+        cal_data = read_yaml_file(filename)
         if not isinstance(cal_data, (list, tuple)):
-            raise ValueError("Calibrations file is badly formatted.")
+            raise TypeError("Calibrations file is badly formatted.")
 
         return [CalibrationModel(**cal) for cal in cal_data]
 
@@ -444,9 +441,8 @@ class CalibrationSchedule:
                 )
                 continue
 
-            if cal.model.after is not None:
-                if cal.model.after not in done_cals:
-                    continue
+            if cal.model.after is not None and cal.model.after not in done_cals:
+                continue
 
             if cal.start_time is None:
                 if cal.model.after is not None:
@@ -470,7 +466,7 @@ class CalibrationSchedule:
             min_start_time_dome: float = cal.start_time
             if (dome_requested := cal.model.dome) is not None:
                 dome_open = await overwatcher.dome.is_opening()
-                dome_requested_bool = True if dome_requested == "open" else False
+                dome_requested_bool = dome_requested == "open"
 
                 if dome_requested_bool is not dome_open:
                     min_start_time_dome = cal.start_time - open_dome_buffer
@@ -567,7 +563,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
     name = "calibration"
     delay = 3
 
-    tasks = [CalibrationsMonitor()]
+    tasks: ClassVar[list[OverwatcherModuleTask]] = [CalibrationsMonitor()]
 
     def __init__(
         self,
@@ -689,7 +685,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
             )
 
         if dome is not None:
-            dome_new = True if dome == "open" else False
+            dome_new = dome == "open"
             dome_current = await self.overwatcher.dome.is_opening()
             needs_dome_change = dome_new != dome_current
 
@@ -701,7 +697,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
                             self.overwatcher.dome.wait_until_idle(),
                             timeout=180,
                         )
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         await self._fail_calibration(
                             calibration,
                             f"Cannot move dome for calibration {name}. "

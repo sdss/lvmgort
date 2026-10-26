@@ -6,6 +6,8 @@
 # @Filename: lunar_eclipse.py
 # @License: BSD 3-clause (http://www.opensource.org/licenses/BSD-3-Clause)
 
+# type: ignore
+
 from __future__ import annotations
 
 import asyncio

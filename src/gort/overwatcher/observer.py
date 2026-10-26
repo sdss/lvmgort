@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 from time import time
 
-from typing import TYPE_CHECKING, TypedDict, cast
+from typing import ClassVar, TypedDict, cast
 
 from lvmopstools.retrier import Retrier
 
@@ -35,10 +35,6 @@ from gort.tools import (
     redis_client_sync,
     run_in_executor,
 )
-
-
-if TYPE_CHECKING:
-    pass
 
 
 __all__ = ["ObserverOverwatcher"]
@@ -78,22 +74,16 @@ class ObserverMonitorTask(OverwatcherModuleTask["ObserverOverwatcher"]):
         ephemeris = self.overwatcher.ephemeris
 
         while True:
-            if state.dry_run:
-                pass
-
-            elif self.module.is_observing or self.module.is_cancelling:
-                pass
-
-            elif not state.enabled or state.troubleshooting:
-                pass
-
-            elif not ephemeris.ephemeris:
-                pass
-
-            elif state.calibrating:
-                pass
-
-            elif not state.safe:
+            if (
+                state.dry_run
+                or self.module.is_observing
+                or self.module.is_cancelling
+                or not state.enabled
+                or state.troubleshooting
+                or not ephemeris.ephemeris
+                or state.calibrating
+                or not state.safe
+            ):
                 pass
 
             elif ephemeris.is_night(mode="observer"):
@@ -116,7 +106,7 @@ class ObserverOverwatcher(OverwatcherModule):
     name = "observer"
     delay = 5
 
-    tasks = [ObserverMonitorTask()]
+    tasks: ClassVar[list[OverwatcherModuleTask]] = [ObserverMonitorTask()]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -538,10 +528,7 @@ class ObserverOverwatcher(OverwatcherModule):
         focus_info = await self.gort.guiders.sci.get_focus_info()
         focus_age = focus_info["reference_focus"]["age"]
 
-        if self.mjd_focus is False or focus_age is None or focus_age > focus_every:
-            return True
-
-        return False
+        return self.mjd_focus is False or focus_age is None or focus_age > focus_every
 
     async def focus_sweep(self):
         """Performs a focus sweep."""
@@ -591,7 +578,7 @@ class ObserverOverwatcher(OverwatcherModule):
                 )
                 try:
                     await asyncio.wait_for(exp, timeout=100)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     self.log.error(
                         "Timed out waiting for exposure to finish. "
                         "Resetting spectrographs."
@@ -666,7 +653,7 @@ class ObserverOverwatcher(OverwatcherModule):
                     timeout=3600,
                 )
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 await self.notify("Transparency monitor timed out.", level="warning")
                 await self.overwatcher.shutdown(
                     reason="Transparency has been bad for over one hour.",

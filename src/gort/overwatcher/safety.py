@@ -137,7 +137,7 @@ class SafetyOverwatcher(OverwatcherModule):
     """Monitors alerts."""
 
     name = "safety"
-    tasks = [SafetyMonitorTask()]
+    tasks: ClassVar[list[OverwatcherModuleTask]] = [SafetyMonitorTask()]
     delay = 10
 
     @Retrier(max_attempts=3, delay=5)

@@ -96,9 +96,7 @@ class OverwatcherMainTask(OverwatcherTask):
 
                 ow.state.safe, alerts_bits = await ow.alerts.is_safe()
                 ow.state.alerts = [
-                    alert.name
-                    for alert in ActiveAlert
-                    if (alerts_bits & alert) and alert.name
+                    alert.name for alert in ActiveAlert if (alerts_bits & alert)
                 ]
 
                 ow.state.calibrating = ow.calibrations.is_calibrating()
@@ -160,7 +158,7 @@ class OverwatcherMainTask(OverwatcherTask):
                 # Update when we completed the loop.
                 self.last_loop_time = time.time()
 
-            except asyncio.TimeoutError as timeout_err:
+            except TimeoutError as timeout_err:
                 await ow.notify(
                     f"The main overwatcher task has timed out: {decap(timeout_err)}.",
                     level="warning",
@@ -234,11 +232,7 @@ class OverwatcherMainTask(OverwatcherTask):
         disable_overwatcher: bool = is_raining or e_stops_in
 
         if not dome_closed or observing or calibrating:
-            alert_names = (
-                alerts_status.name.replace("|", " | ")
-                if alerts_status.name
-                else "UNKNOWN"
-            )
+            alert_names = alerts_status.name.replace("|", " | ")
 
             try:
                 await ow.shutdown(
@@ -412,7 +406,7 @@ class Overwatcher(NotifierMixIn):
 
     def __new__(cls, *args, **kwargs):
         if not cls.instance:
-            cls.instance = super(Overwatcher, cls).__new__(cls)
+            cls.instance = super().__new__(cls)
         return cls.instance
 
     def __init__(
@@ -597,7 +591,7 @@ class Overwatcher(NotifierMixIn):
                 timeout=30 if not await self.dome.is_closing() else 300,
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Sometimes cancelling observations during an exposure may cause the
             # AGs to hang or some other issue, and the stop_observing routine will
             # try to clean up things, but that will cause a timeout. We don't want
@@ -708,10 +702,7 @@ class Overwatcher(NotifierMixIn):
         if self.troubleshooter.troubleshooting:
             return True
 
-        if self.health.troubleshooting:
-            return True
-
-        return False
+        return bool(self.health.troubleshooting)
 
     async def cancel(self):
         """Cancels the overwatcher tasks."""

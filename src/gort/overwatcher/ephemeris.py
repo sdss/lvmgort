@@ -12,7 +12,7 @@ import asyncio
 import pathlib
 from time import time
 
-from typing import Literal
+from typing import ClassVar, Literal
 
 from astropy.time import Time
 from pydantic import BaseModel
@@ -111,7 +111,7 @@ class EphemerisOverwatcher(OverwatcherModule):
 
     name = "ephemeris"
 
-    tasks = [EphemerisMonitorTask()]
+    tasks: ClassVar[list[OverwatcherModuleTask]] = [EphemerisMonitorTask()]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -152,7 +152,7 @@ class EphemerisOverwatcher(OverwatcherModule):
         """
 
         ephemeris = self.ephemeris
-        now_jd = float(Time.now().jd)
+        now_jd = float(Time.now().jd)  # ty: ignore[invalid-argument-type]
 
         schedule_config = self.config["overwatcher.schedule"]
         stop_secs = schedule_config["stop_secs_before_morning"]
@@ -180,7 +180,7 @@ class EphemerisOverwatcher(OverwatcherModule):
         now = time()
         evening_twilight = Time(ephemeris.twilight_end, format="jd").unix
 
-        return round(evening_twilight - now, 2)
+        return round(evening_twilight - now, 2)  # ty: ignore[unsupported-operator]
 
     def time_to_morning_twilight(self, mode: Literal["strict", "observer"] = "strict"):
         """Returns the time to morning twilight in seconds."""
@@ -196,4 +196,4 @@ class EphemerisOverwatcher(OverwatcherModule):
             stop_secs = self.config["overwatcher.schedule.stop_secs_before_morning"]
             twilight_time -= stop_secs
 
-        return round(twilight_time - now, 2)
+        return round(twilight_time - now, 2)  # ty: ignore[unsupported-operator]

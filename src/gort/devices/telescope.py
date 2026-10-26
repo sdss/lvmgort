@@ -12,7 +12,7 @@ import asyncio
 from collections import defaultdict
 from time import time
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy
 
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from gort.remote import ActorReply
 
 
-__all__ = ["Telescope", "TelescopeSet", "KMirror", "FibSel", "Focuser", "MoTanDevice"]
+__all__ = ["FibSel", "Focuser", "KMirror", "MoTanDevice", "Telescope", "TelescopeSet"]
 
 
 class MoTanDevice(GortDevice):
@@ -302,7 +302,7 @@ class FibSel(MoTanDevice):
 
     # We really don't want a delay here because it would slow down the acquisition
     # of new standards, and anyway the fibre selector usually moves by itself.
-    SLEW_DELAY: float = 0
+    SLEW_DELAY = 0
 
     # Rehome after this many seconds.
     HOME_AFTER: float | None = None
@@ -477,10 +477,7 @@ class Telescope(GortDevice):
         alt_diff = numpy.abs(status["altitude_degs"] - park_position["alt"])
         az_diff = numpy.abs(status["azimuth_degs"] - park_position["az"])
 
-        if alt_diff > 5 or az_diff > 5:
-            return False
-
-        return True
+        return not (alt_diff > 5 or az_diff > 5)
 
     async def is_ready(self):
         """Checks if the telescope is ready to be moved."""
@@ -650,7 +647,7 @@ class Telescope(GortDevice):
         alt: float | None = None,
         az: float | None = None,
         kmirror: bool = True,
-        kmirror_kwargs: dict = {},
+        kmirror_kwargs: dict | None = None,
         altaz_tracking: bool = False,
         force: bool = False,
         retry: bool = True,
@@ -698,7 +695,7 @@ class Telescope(GortDevice):
                     ra,
                     dec,
                     offset_angle=pa,
-                    **kmirror_kwargs,
+                    **(kmirror_kwargs or {}),
                 )
             )
 
@@ -891,7 +888,7 @@ class Telescope(GortDevice):
                 "Cannot offset in ra/dec and axis0/axis1 at the same time."
             )
 
-        kwargs = {}
+        kwargs: dict[str, Any] = {}
         if any([ra, dec]):
             if ra is not None:
                 kwargs["ra_add_arcsec"] = ra
@@ -921,7 +918,7 @@ class TelescopeSet(GortDeviceSet[Telescope]):
     """A representation of a set of telescopes."""
 
     __DEVICE_CLASS__ = Telescope
-    __DEPLOYMENTS__ = [
+    __DEPLOYMENTS__: ClassVar[list[str]] = [
         "lvmpwi-sci",
         "lvmpwi-spec",
         "lvmpwi-skye",

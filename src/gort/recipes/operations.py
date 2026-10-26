@@ -12,8 +12,9 @@ import asyncio
 import json
 import os
 import pathlib
+from collections.abc import Coroutine
 
-from typing import TYPE_CHECKING, ClassVar, Coroutine
+from typing import TYPE_CHECKING, ClassVar
 
 from rich.prompt import Confirm
 
@@ -34,7 +35,7 @@ if TYPE_CHECKING:
     from gort.devices.spec import Spectrograph
 
 
-__all__ = ["StartupRecipe", "ShutdownRecipe", "CleanupRecipe"]
+__all__ = ["CleanupRecipe", "ShutdownRecipe", "StartupRecipe"]
 
 
 OPEN_DOME_MESSAGE = """Do not open the dome if you have not checked the following:

@@ -122,7 +122,7 @@ class GuiderStatus(Flag):
     def get_names(self):
         """Returns a list of active bit names."""
 
-        return [bit.name for bit in GuiderStatus if self & bit and bit.name]
+        return [bit.name for bit in GuiderStatus if self & bit]
 
     def __repr__(self):
         return str(" | ".join(self.get_names()))
@@ -132,7 +132,7 @@ class UpperStrEnum(str, ReprEnum):
     """A string enum in which the auto value is the uppercase name."""
 
     @staticmethod
-    def _generate_next_value_(name, *_):
+    def _generate_next_value_(name, *_, **__):
         return name.upper()
 
 

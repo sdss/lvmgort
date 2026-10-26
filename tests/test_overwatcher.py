@@ -16,4 +16,4 @@ if TYPE_CHECKING:
 
 
 async def test_overwatcher_actor(overwatcher_actor: OverwatcherActor):
-    assert overwatcher_actor.is_connected
+    assert overwatcher_actor.is_connected()

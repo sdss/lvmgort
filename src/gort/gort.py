@@ -23,13 +23,12 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Literal,
-    Type,
+    Self,
     TypeVar,
 )
 
 from rich import pretty, traceback
 from rich.logging import RichHandler
-from typing_extensions import Self
 
 from clu.client import AMQPClient
 from clu.exceptions import CluWarning
@@ -70,7 +69,7 @@ except NameError:
     IPYTHON_DEFAULT_HOOKS = []
 
 
-__all__ = ["GortClient", "Gort"]
+__all__ = ["Gort", "GortClient"]
 
 
 DevType = TypeVar("DevType", bound="GortDeviceSet | GortDevice")
@@ -168,7 +167,7 @@ class GortClient(AMQPClient):
                 log.start_file_logger(str(path), rotating=False, mode="a")
                 log.debug("Starting GORT.")
                 log.debug(f"Configuration file: {config._CONFIG_FILE or 'N/A'}")
-                log.debug(f"Logging to {str(path)}")
+                log.debug(f"Logging to {path!s}")
 
             except Exception as err:
                 tmp_path = get_temporary_file_path(
@@ -176,8 +175,8 @@ class GortClient(AMQPClient):
                     suffix=f"-{self.client_uuid}.log",
                 )
                 log.warning(
-                    f"Failed starting file logging to {str(path)}: {err}. "
-                    f"Using temporary path {str(tmp_path)}."
+                    f"Failed starting file logging to {path!s}: {err}. "
+                    f"Using temporary path {tmp_path!s}."
                 )
 
                 log.start_file_logger(str(tmp_path), rotating=False)
@@ -190,11 +189,11 @@ class GortClient(AMQPClient):
 
         return log
 
-    async def notify_event(self, event: Event, payload: dict[str, Any] = {}):
+    async def notify_event(self, event: Event, payload: dict[str, Any] | None = None):
         """Emits an event notification."""
 
         try:
-            await send_event(event, payload=payload)
+            await send_event(event, payload=payload or {})
         except TypeError as err:
             if "is not JSON serializable" in str(err):
                 self.log.error(
@@ -435,7 +434,7 @@ class Gort(GortClient):
         override_envvar = os.environ.get("GORT_OVERRIDE_OVERWATCHER", "0")
 
         if override_overwatcher is None:
-            override_overwatcher = False if override_envvar == "0" else True
+            override_overwatcher = override_envvar != "0"
 
         if override_overwatcher is None:
             pass
@@ -464,7 +463,7 @@ class Gort(GortClient):
 
         return self
 
-    def add_device(self, class_: Type[DevType], *args, **kwargs) -> DevType:
+    def add_device(self, class_: type[DevType], *args, **kwargs) -> DevType:
         """Adds a new device or device set to Gort."""
 
         ds = class_(self, *args, **kwargs)
@@ -633,7 +632,7 @@ class Gort(GortClient):
         self.log.info(f"Running script {script!r}.")
 
         path = pathlib.Path(__file__).parent / "../../scripts" / script
-        subprocess.run(f"python {path!s}", shell=True)
+        subprocess.run(f"python {path!s}", check=False, shell=True)
 
     async def execute_recipe(self, recipe: str, **kwargs):
         """Executes a recipe.

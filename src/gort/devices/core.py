@@ -10,15 +10,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable, Sequence
 
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     ClassVar,
-    Generic,
-    Sequence,
-    Type,
     TypeVar,
 )
 
@@ -37,7 +34,7 @@ if TYPE_CHECKING:
 GortDeviceType = TypeVar("GortDeviceType", bound="GortDevice")
 
 
-class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
+class GortDeviceSet[GortDeviceType: "GortDevice"](dict[str, GortDeviceType]):
     """A set to gort-managed devices.
 
     Devices can be accessed as items of the :obj:`.GortDeviceSet` dictionary
@@ -56,21 +53,21 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
 
     """
 
-    __DEVICE_CLASS__: ClassVar[Type["GortDevice"]]
+    __DEVICE_CLASS__: ClassVar[type[GortDevice]]
     __DEPLOYMENTS__: ClassVar[list[str]] = []
 
     def __init__(self, gort: Gort, data: dict[str, dict], **kwargs):
         self.gort = gort
 
         _dict_data = {}
-        for device_name in data:
-            device_data = data[device_name].copy()
-            actor_name = device_data.pop("actor")
+        for device_name, device_data in data.items():
+            device_data_copy = device_data.copy()
+            actor_name = device_data_copy.pop("actor")
             _dict_data[device_name] = self.__DEVICE_CLASS__(
                 gort,
                 device_name,
                 actor_name,
-                **device_data,
+                **device_data_copy,
                 **kwargs,
             )
 
@@ -89,13 +86,11 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
             if isinstance(result, Exception):
                 self.write_to_log(
                     f"Failed initialising device {list(self)[idev]} "
-                    f"with error {str(result)}",
+                    f"with error {result!s}",
                     "error",
                 )
 
-        return
-
-    def __getattribute__(self, __name: str) -> Any:
+    def __getattribute__(self, /, __name: str) -> Any:
         if __name in self:
             return self.__getitem__(__name)
         return super().__getattribute__(__name)
@@ -118,9 +113,9 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
 
         if hasattr(method, "__self__"):
             # This is a bound method, so let's get the class method.
-            method = method.__func__
+            method = method.__func__  # ty: ignore[unresolved-attribute]
 
-        if not hasattr(self.__DEVICE_CLASS__, method.__name__):
+        if not hasattr(self.__DEVICE_CLASS__, method.__name__):  # ty: ignore[unresolved-attribute]
             raise GortError("Method does not belong to this class devices.")
 
         devices = self.values()
@@ -180,7 +175,7 @@ class GortDeviceSet(dict[str, GortDeviceType], Generic[GortDeviceType]):
 
         message = f"{header}{message}"
 
-        level = logging.getLevelName(level.upper())
+        level = logging.getLevelName(level.upper())  # ty: ignore[deprecated]
         assert isinstance(level, int)
 
         self.gort.log.log(level, message)
@@ -244,7 +239,7 @@ class GortDevice:
         # Placeholder version. The real one is retrieved on init.
         self.version = Version("0.99.0")
 
-    async def init(self):
+    async def init(self, *args, **kwargs):
         """Runs asynchronous tasks that must be executed on init.
 
         If the device is part of a :obj:`.DeviceSet`, this method is called
@@ -258,17 +253,15 @@ class GortDevice:
                 reply = await self.actor.commands.version()
                 if (version := reply.get("version")) is not None:
                     self.version = Version(version)
-            except Exception:
+            except Exception:  # noqa: S110
                 pass
-
-        return
 
     def write_to_log(
         self,
         message: str,
         level: str = "debug",
         header: str | None = None,
-        exc_info: logging._ExcInfoType = None,
+        exc_info: logging._ExcInfoType | None = None,
         **kwargs,
     ):
         """Writes a message to the log with a custom header.
