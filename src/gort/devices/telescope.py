@@ -250,12 +250,14 @@ class KMirror(MoTanDevice):
             offset_angle -= 360
 
         if offset_angle == 0:
-            msg = f"Slewing k-mirror to ra={ra:.6f} dec={dec:.6f} and tracking."
+            msg = f"Slewing k-mirror to ra={ra:.6f} dec={dec:.6f}"
         else:
-            msg = (
-                f"Slewing k-mirror to ra={ra:.6f} dec={dec:.6f} "
-                f"pa={offset_angle:.3f} and tracking."
-            )
+            msg = f"Slewing k-mirror to ra={ra:.6f} dec={dec:.6f} pa={offset_angle:.3f}"
+
+        if track:
+            msg += " (tracking)."
+        else:
+            msg += " (not tracking)."
 
         self.write_to_log(msg, level="info")
 
