@@ -6,6 +6,10 @@
 
 * Require Python 3.12 or higher.
 
+### 🚀 New
+
+* Take quick cals and twilight flats at different, uniformly sampled PA.
+
 ### ⚙️ Engineering
 
 * Update the Ruff and ty configurations and fix all the issues reported by them.

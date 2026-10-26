@@ -111,6 +111,10 @@ class CalibrationModel(BaseModel):
         default=False,
         title="Whether the calibration is disabled.",
     )
+    extra_args: dict[str, Any] = Field(
+        default_factory=dict,
+        title="Extra arguments to pass to the recipe.",
+    )
 
     @model_validator(mode="after")
     def validate_start_time(self) -> Self:
@@ -622,7 +626,9 @@ class CalibrationsOverwatcher(OverwatcherModule):
         name = calibration.name
         max_start_time = calibration.max_start_time
         dome = calibration.model.dome
+
         recipe = calibration.model.recipe
+        extra_args = calibration.model.extra_args
 
         if calibration.is_finished():
             self.log.warning(f"Calibration {name} is already finished. Skipping.")
@@ -734,7 +740,7 @@ class CalibrationsOverwatcher(OverwatcherModule):
                     await self.overwatcher.dome.close()
 
         await notify(f"Running recipe {recipe!r} for calibration {name}.")
-        await self.overwatcher.gort.execute_recipe(recipe)
+        await self.overwatcher.gort.execute_recipe(recipe, **extra_args)
 
         await notify(f"Calibration {name} is done.")
         # We do not set the state to DONE here. That is done in the monitor task

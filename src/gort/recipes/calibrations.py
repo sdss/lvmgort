@@ -10,14 +10,19 @@ from __future__ import annotations
 
 import asyncio
 import random
+import warnings
 from collections.abc import Sequence
+
+from typing import Literal
 
 import numpy
 from astropy.time import Time
 
+from sdsstools.time import get_sjd
+
 from gort.enums import ErrorCode, Event
 from gort.exceptions import GortError
-from gort.tools import decap, get_ephemeris_summary
+from gort.tools import decap, get_ephemeris_summary, redis_client_sync
 
 from .base import BaseRecipe
 
@@ -29,12 +34,79 @@ class ExposureTimeTooLong(GortError):
     """Raised when the exposure time is too long to continue twilight flats."""
 
 
+def get_pa_position(offset: float = 30.0) -> float:
+    """Returns the position angle at which to take the calibrations.
+
+    Rationale: we want to take calibrations at an approximately uniform range of PA
+    to understand the contribution of the sky gradient during twilight to flat fielding.
+    That requires remembering the PA at which the last calibrations were taken, and
+    then taking the next with a certain offset.
+
+    Parameters
+    ----------
+    offset
+        The offset in degrees to add to the last PA. Defaults to 30 degrees.
+
+    """
+
+    # Get the current value of the PA from Redis. The value must be a tuple of
+    # (MJD, PA) indicating the PA at which the last calibrations were successfully
+    # taken.
+
+    try:
+        with redis_client_sync() as redis:
+            key = "gort:calibrations:pa"
+
+            # Check that the key exists. If it does not, default to PA=0.
+            mjd_pa = redis.json().get(key)
+    except Exception as err:
+        warnings.warn(
+            f"Failed retrieving {key!r} from Redis: {err}. Defaulting to PA=0."
+        )
+        return 0.0
+
+    if mjd_pa is None:
+        return 0.0
+
+    assert isinstance(mjd_pa, (tuple, list))
+
+    mjd, pa = mjd_pa
+    assert isinstance(mjd, int)
+    assert isinstance(pa, (int, float))
+
+    current_mjd = get_sjd("LCO")
+
+    if current_mjd > mjd:
+        return pa + offset
+
+    return pa
+
+
+def set_pa_position(pa: float):
+    """Sets the position angle in Redis.
+
+    Parameters
+    ----------
+    pa
+        The position angle in degrees.
+
+    """
+
+    try:
+        with redis_client_sync() as redis:
+            key = "gort:calibrations:pa"
+            current_mjd = get_sjd("LCO")
+            redis.json().set(key, "$", [current_mjd, pa])
+    except Exception as err:
+        warnings.warn(f"Failed setting {key!r} in Redis: {err}.")
+
+
 class QuickCals(BaseRecipe):
     """Runs a quick calibration sequence."""
 
     name = "quick_cals"
 
-    async def recipe(self):
+    async def recipe(self, pa: float | Literal["auto"] | None = None):
         """Runs the calibration sequence."""
 
         specs_idle = await self.gort.specs.are_idle()
@@ -45,6 +117,16 @@ class QuickCals(BaseRecipe):
 
         self.gort.log.info("Pointing telescopes to the calibration screen.")
         await self.gort.telescopes.goto_named_position("calibration")
+
+        # Move the k-mirrors to the specified position angle if provided.
+        if pa is not None:
+            if pa == "auto":
+                pa = get_pa_position(offset=30.0)
+
+            self.gort.log.info(f"Setting k-mirrors to position angle {pa:.1f} deg.")
+            await self.gort.telescopes.sci.km.slew(offset_angle=-pa, track=False)
+            await self.gort.telescopes.skye.km.slew(offset_angle=-pa, track=False)
+            await self.gort.telescopes.skyw.km.slew(offset_angle=-pa, track=False)
 
         ########################
         # Arcs
@@ -117,6 +199,9 @@ class QuickCals(BaseRecipe):
         self.gort.log.info("Turning off the LDLS lamp.")
         await self.gort.nps.calib.all_off()
 
+        if isinstance(pa, float):
+            set_pa_position(pa)
+
 
 class BiasSequence(BaseRecipe):
     """Takes a sequence of bias frames."""
@@ -157,6 +242,7 @@ class TwilightFlats(BaseRecipe):
         wait: bool = True,
         start_fibre: int | None = None,
         secondary: bool = False,
+        pa: float | None = None,
     ):
         """Takes a sequence of twilight flats.
 
@@ -222,6 +308,16 @@ class TwilightFlats(BaseRecipe):
             az=az,
             altaz_tracking=False,
         )
+
+        # Move the k-mirrors to the specified position angle if provided.
+        if pa is not None:
+            if pa == "auto":
+                pa = get_pa_position(offset=30.0)
+
+            self.gort.log.info(f"Setting k-mirrors to position angle {pa:.1f} deg.")
+            await self.gort.telescopes.sci.km.slew(offset_angle=-pa, track=False)
+            await self.gort.telescopes.skye.km.slew(offset_angle=-pa, track=False)
+            await self.gort.telescopes.skyw.km.slew(offset_angle=-pa, track=False)
 
         n_fibre = start_fibre or random.randint(1, 12)
         await self.goto_fibre_position(n_fibre, secondary=secondary)
@@ -348,6 +444,9 @@ class TwilightFlats(BaseRecipe):
             n_fibre = n_fibre + 1
             if n_fibre > 12:
                 n_fibre -= 12
+
+        if isinstance(pa, float):
+            set_pa_position(pa)
 
     async def goto_fibre_position(self, n_fibre: int, secondary: bool = False):
         """Moves the mask to a fibre position."""

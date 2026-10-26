@@ -40,8 +40,33 @@ class MoTanDevice(GortDevice):
 
     device_type: ClassVar[str]
 
-    def __init__(self, gort: Gort, name: str, actor: str):
-        super().__init__(gort, name, actor)
+    def __init__(
+        self,
+        gort: Gort,
+        telescope: Telescope,
+        device_name: str | None = None,
+        actor_name: str | None = None,
+    ):
+
+        self.telescope = telescope
+        self.telescope_name = telescope.name
+
+        if self.device_type == "kmirror":
+            device_name = device_name or f"{self.telescope_name}.km"
+            actor_name = actor_name or f"lvm.{self.telescope_name}.km"
+            self.device = "kmirror"
+        elif self.device_type == "focuser":
+            device_name = device_name or f"{self.telescope_name}.focuser"
+            actor_name = actor_name or f"lvm.{self.telescope_name}.focuser"
+            self.device = "focuser"
+        elif self.device_type == "fibsel":
+            device_name = device_name or f"{self.telescope_name}.fibsel"
+            actor_name = actor_name or f"lvm.{self.telescope_name}.fibsel"
+            self.device = "fibsel"
+        else:
+            raise GortTelescopeError(f"Invalid device type {self.device_type!r}.")
+
+        super().__init__(gort, device_name, actor_name)
 
         class_name = self.__class__.__name__
 
@@ -49,18 +74,6 @@ class MoTanDevice(GortDevice):
 
         self.timeouts: defaultdict[str, float | None]
         self.timeouts = defaultdict(lambda: None, timeouts)
-
-        self.telescope = self.name.split(".")[0]
-
-        self.device: str
-        if "fibsel" in self.name:
-            self.device = "fibsel"
-        elif "foc" in self.name:
-            self.device = "focuser"
-        elif "km" in self.name:
-            self.device = "kmirror"
-        else:
-            raise GortTelescopeError(f"Invalid device type {self.name!r}.")
 
     async def status(self):
         """Returns the status of the device."""
@@ -81,7 +94,7 @@ class MoTanDevice(GortDevice):
             raise GortTelescopeError(
                 f"MoTAN device {self.name!r} is not reachable.",
                 error_code=ErrorCode.MOTAN_DEVICE_NOT_REACHABLE,
-                payload={"telescope": self.telescope, "device": self.device},
+                payload={"telescope": self.telescope_name, "device": self.device},
             )
 
     async def is_moving(self):
@@ -97,7 +110,7 @@ class MoTanDevice(GortDevice):
         if isinstance(self.SLEW_DELAY, (float, int)):
             await asyncio.sleep(self.SLEW_DELAY)
         else:
-            await asyncio.sleep(self.SLEW_DELAY[self.telescope])
+            await asyncio.sleep(self.SLEW_DELAY[self.telescope_name])
 
     @Retrier(max_attempts=3, delay=2)
     async def stop(self, force: bool = False):
@@ -116,7 +129,7 @@ class MoTanDevice(GortDevice):
                 raise GortTelescopeError(
                     f"Failed to stop the {self.name}.",
                     error_code=ErrorCode.MOTAN_DEVICE_CANNOT_STOP,
-                    payload={"telescope": self.telescope, "device": self.device},
+                    payload={"telescope": self.telescope_name, "device": self.device},
                 )
 
     async def run_command(
@@ -187,19 +200,22 @@ class KMirror(MoTanDevice):
 
     async def slew(
         self,
-        ra: float,
-        dec: float,
+        ra: float | None = None,
+        dec: float | None = None,
         offset_angle: float = 0.0,
         stop_degs_before: float = 0.0,
+        track: bool = True,
     ):
         """Moves the mirror to the position for ``ra, dec`` and starts slewing.
 
         Parameters
         ----------
         ra
-            Right ascension of the field to track, in degrees.
+            Right ascension of the field to track, in degrees. If ``None``,
+            determined from the current telescope position.
         dec
-            Declination of the field to track, in degrees.
+            Declination of the field to track, in degrees. If ``None``,
+            determined from the current telescope position.
         offset_angle
             Derotation offset in degrees. This value is converted to the
             -180 to 180 deg range before sending it to the k-mirror.
@@ -208,10 +224,22 @@ class KMirror(MoTanDevice):
             angle. This has the effect of actually slewing to
             ``offset_angle-stop_degs_before``. Useful if we want to be
             sure that positive offsets will be applied without backlash.
+        track
+            Whether to start tracking after slewing.
 
         """
 
         await self.check_reachable()
+
+        if ra is None or dec is None:
+            tel_status = await self.telescope.status()
+            ra_j2000 = tel_status["ra_j2000_hours"] * 15.0
+            dec_j2000 = tel_status["dec_j2000_degs"]
+
+            if ra is None:
+                ra = ra_j2000
+            if dec is None:
+                dec = dec_j2000
 
         await self.slew_delay()
 
@@ -244,6 +272,9 @@ class KMirror(MoTanDevice):
             offset_angle=offset_angle - stop_degs_before,
             timeout=self.timeouts["slewStart"],
         )
+
+        if not track:
+            await self.stop()
 
 
 class Focuser(MoTanDevice):
@@ -309,8 +340,8 @@ class FibSel(MoTanDevice):
 
     device_type = "fibsel"
 
-    def __init__(self, gort: Gort, name: str, actor: str):
-        super().__init__(gort, name, actor)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         self.__last_homing: float = 0
 
@@ -421,8 +452,8 @@ class FibSel(MoTanDevice):
 class Telescope(GortDevice):
     """Class representing an LVM telescope functionality."""
 
-    def __init__(self, gort: Gort, name: str, actor: str, **kwargs):
-        super().__init__(gort, name, actor)
+    def __init__(self, gort: Gort, name: str, actor_name: str, **kwargs):
+        super().__init__(gort, name, actor_name)
 
         self.is_homed: bool = False
 
@@ -432,15 +463,30 @@ class Telescope(GortDevice):
         kmirror_actor = kwargs.get("kmirror", None)
         if kmirror_actor:
             self.has_kmirror = True
-            self.km = KMirror(self.gort, f"{self.name}.km", kmirror_actor)
+            self.km = KMirror(
+                self.gort,
+                self,
+                device_name=f"{self.name}.km",
+                actor_name=kmirror_actor,
+            )
         else:
             self.has_kmirror = False
             self.km = None
 
-        self.focuser = Focuser(self.gort, f"{self.name}.focuser", kwargs["focuser"])
+        self.focuser = Focuser(
+            self.gort,
+            self,
+            device_name=f"{self.name}.focuser",
+            actor_name=kwargs["focuser"],
+        )
 
         self.fibsel = (
-            FibSel(self.gort, f"{self.name}.fibsel", "lvm.spec.fibsel")
+            FibSel(
+                self.gort,
+                self,
+                device_name=f"{self.name}.fibsel",
+                actor_name="lvm.spec.fibsel",
+            )
             if self.name == "spec"
             else None
         )
