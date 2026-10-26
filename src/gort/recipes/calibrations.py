@@ -119,9 +119,11 @@ class QuickCals(BaseRecipe):
         await self.gort.telescopes.goto_named_position("calibration")
 
         # Move the k-mirrors to the specified position angle if provided.
+        save_pa = False
         if pa is not None:
             if pa == "auto":
                 pa = get_pa_position(offset=30.0)
+                save_pa = True
 
             self.gort.log.info(f"Setting k-mirrors to position angle {pa:.1f} deg.")
             await self.gort.telescopes.sci.km.slew(offset_angle=-pa, track=False)
@@ -199,7 +201,7 @@ class QuickCals(BaseRecipe):
         self.gort.log.info("Turning off the LDLS lamp.")
         await self.gort.nps.calib.all_off()
 
-        if isinstance(pa, float):
+        if save_pa and pa is not None:
             set_pa_position(pa)
 
 
@@ -310,9 +312,11 @@ class TwilightFlats(BaseRecipe):
         )
 
         # Move the k-mirrors to the specified position angle if provided.
+        save_pa = False
         if pa is not None:
             if pa == "auto":
                 pa = get_pa_position(offset=30.0)
+                save_pa = True
 
             self.gort.log.info(f"Setting k-mirrors to position angle {pa:.1f} deg.")
             await self.gort.telescopes.sci.km.slew(offset_angle=-pa, track=False)
@@ -445,7 +449,7 @@ class TwilightFlats(BaseRecipe):
             if n_fibre > 12:
                 n_fibre -= 12
 
-        if isinstance(pa, float):
+        if save_pa and pa is not None:
             set_pa_position(pa)
 
     async def goto_fibre_position(self, n_fibre: int, secondary: bool = False):
