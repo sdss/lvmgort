@@ -201,9 +201,6 @@ class QuickCals(BaseRecipe):
         self.gort.log.info("Turning off the LDLS lamp.")
         await self.gort.nps.calib.all_off()
 
-        if save_pa and pa is not None:
-            set_pa_position(pa)
-
 
 class BiasSequence(BaseRecipe):
     """Takes a sequence of bias frames."""
