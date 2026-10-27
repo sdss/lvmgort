@@ -178,7 +178,7 @@ class NotifierMixIn(OverwatcherProtocol):
                     json={
                         "message": full_message,
                         "level": level.upper(),
-                        "payload": payload,
+                        "payload": payload or {},
                         "slack": slack,
                         "slack_channels": slack_channels,
                         "email_on_critical": False,
