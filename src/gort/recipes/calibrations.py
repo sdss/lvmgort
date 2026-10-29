@@ -152,11 +152,28 @@ class QuickCals(BaseRecipe):
         self.gort.log.info(f"Taking {fiber_str} exposure.")
         await self.gort.telescopes.spec.fibsel.move_to_position(fiber_str)
 
+        # Add position headers. Mostly we care about the position angle.
+        tel_headers = {}
+        for telescope in self.gort.telescopes.values():
+            tel_name = telescope.name.upper()
+            tel_status = await telescope.status()
+            ra = tel_status["ra_j2000_hours"] * 15.0
+            dec = tel_status["dec_j2000_degs"]
+            tel_headers.update(
+                {
+                    f"POS{tel_name}RA": round(ra, 6),
+                    f"POS{tel_name}DE": round(dec, 6),
+                    f"POS{tel_name}PA": round(pa, 4)
+                    if pa is not None and tel_name != "SPEC"
+                    else None,
+                }
+            )
+
         for exp_time in [10, 50]:
             await self.gort.specs.expose(
                 exp_time,
                 flavour="arc",
-                header={"CALIBFIB": f"P1-{fiber}"},
+                header={"CALIBFIB": f"P1-{fiber}"} | tel_headers,
             )
 
         self.gort.log.info("Turning off all lamps.")
@@ -176,7 +193,7 @@ class QuickCals(BaseRecipe):
         await self.gort.specs.expose(
             exp_quartz,
             flavour="flat",
-            header={"CALIBFIB": f"P1-{fiber}"},
+            header={"CALIBFIB": f"P1-{fiber}"} | tel_headers,
         )
 
         self.gort.log.info("Turning off the Quartz lamp.")
@@ -193,7 +210,7 @@ class QuickCals(BaseRecipe):
         await self.gort.specs.expose(
             exp_LDLS,
             flavour="flat",
-            header={"CALIBFIB": f"P1-{fiber}"},
+            header={"CALIBFIB": f"P1-{fiber}"} | tel_headers,
         )
 
         self.gort.log.info("Turning off the LDLS lamp.")
@@ -407,10 +424,27 @@ class TwilightFlats(BaseRecipe):
             self.gort.log.info(f"Exposing {fibre_str} with exp_time={exp_time:.2f}.")
 
             try:
+                # Add position headers. Mostly we care about the position angle.
+                tel_headers = {}
+                for telescope in self.gort.telescopes.values():
+                    tel_name = telescope.name.upper()
+                    tel_status = await telescope.status()
+                    ra = tel_status["ra_j2000_hours"] * 15.0
+                    dec = tel_status["dec_j2000_degs"]
+                    tel_headers.update(
+                        {
+                            f"POS{tel_name}RA": round(ra, 6),
+                            f"POS{tel_name}DE": round(dec, 6),
+                            f"POS{tel_name}PA": round(pa, 4)
+                            if pa is not None and tel_name != "SPEC"
+                            else None,
+                        }
+                    )
+
                 await self.gort.specs.expose(
                     float(exp_time),
                     flavour="flat",
-                    header={"CALIBFIB": fibre_str},
+                    header={"CALIBFIB": fibre_str} | tel_headers,
                 )
             except Exception as err:
                 self.gort.log.error(
