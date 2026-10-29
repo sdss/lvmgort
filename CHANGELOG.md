@@ -10,6 +10,10 @@
 
 * Take quick cals and twilight flats at different, uniformly sampled PA.
 
+### 🔧 Fixed
+
+* Fixed a bug that prevented sending the field PA to the guiders during acquisition.
+
 ### ⚙️ Engineering
 
 * Update the Ruff and ty configurations and fix all the issues reported by them.

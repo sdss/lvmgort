@@ -287,7 +287,7 @@ class Guider(GortDevice):
         monitor_task: asyncio.Task | None = None
 
         # The PA argument in lvmguider was added in 0.4.0a0.
-        is_dev_version = Version("0.99.0")
+        is_dev_version = self.version == Version("0.99.0")
         is_old_version = self.version < Version("0.4.0a0")
         if (is_dev_version or is_old_version) and ("pa" in guide_kwargs):
             guide_kwargs.pop("pa")
