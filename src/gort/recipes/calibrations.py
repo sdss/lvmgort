@@ -119,11 +119,9 @@ class QuickCals(BaseRecipe):
         await self.gort.telescopes.goto_named_position("calibration")
 
         # Move the k-mirrors to the specified position angle if provided.
-        save_pa = False
         if pa is not None:
             if pa == "auto":
                 pa = get_pa_position(offset=30.0)
-                save_pa = True
 
             self.gort.log.info(f"Setting k-mirrors to position angle {pa:.1f} deg.")
             await self.gort.telescopes.sci.km.slew(offset_angle=-pa, track=False)
