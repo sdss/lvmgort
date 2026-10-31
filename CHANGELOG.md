@@ -13,6 +13,7 @@
 ### 🔧 Fixed
 
 * Fixed a bug that prevented sending the field PA to the guiders during acquisition.
+* Fixed a bug that would rerun a finished coroutine during shutdown.
 
 ### ⚙️ Engineering
 

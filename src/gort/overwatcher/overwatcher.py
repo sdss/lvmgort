@@ -672,7 +672,10 @@ class Overwatcher(NotifierMixIn):
         if stop_observing_failed:
             self.log.info("Retrying to stop observing after shutdown.")
             try:
-                await stop_observing
+                await self.observer.stop_observing(
+                    immediate=True,
+                    reason="shutdown triggered",
+                )
             except Exception as err:
                 await self.notify(
                     f"Error cancelling observations after shutdown: {decap(err)}",
