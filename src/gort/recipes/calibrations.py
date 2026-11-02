@@ -161,9 +161,9 @@ class QuickCals(BaseRecipe):
             dec = tel_status["dec_j2000_degs"]
             tel_headers.update(
                 {
-                    f"POS{tel_name}RA": round(ra, 6),
-                    f"POS{tel_name}DE": round(dec, 6),
-                    f"POS{tel_name}PA": round(pa, 4)
+                    f"PO{tel_name}RA": round(ra, 6),
+                    f"PO{tel_name}DE": round(dec, 6),
+                    f"PO{tel_name}PA": round(pa, 4)
                     if pa is not None and tel_name != "SPEC"
                     else None,
                 }
@@ -433,9 +433,9 @@ class TwilightFlats(BaseRecipe):
                     dec = tel_status["dec_j2000_degs"]
                     tel_headers.update(
                         {
-                            f"POS{tel_name}RA": round(ra, 6),
-                            f"POS{tel_name}DE": round(dec, 6),
-                            f"POS{tel_name}PA": round(pa, 4)
+                            f"PO{tel_name}RA": round(ra, 6),
+                            f"PO{tel_name}DE": round(dec, 6),
+                            f"PO{tel_name}PA": round(pa, 4)
                             if pa is not None and tel_name != "SPEC"
                             else None,
                         }
